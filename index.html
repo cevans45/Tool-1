@@ -10,8 +10,14 @@
     <div class="container">
         <canvas id="clockCanvas"></canvas>
         <div class="controls">
-            <label for="pixelSizeSlider">Pixel size: <span id="pixelSizeValue">4</span></label>
-            <input type="range" id="pixelSizeSlider" min="2" max="16" value="4" step="1">
+            <div class="control-group">
+                <label for="pixelSizeSlider">Pixel size: <span id="pixelSizeValue">4</span></label>
+                <input type="range" id="pixelSizeSlider" min="2" max="16" value="4" step="1">
+            </div>
+            <div class="control-group">
+                <label for="colorSlider">Color: <span id="colorValue">#000000</span></label>
+                <input type="range" id="colorSlider" min="0" max="360" value="0" step="1">
+            </div>
         </div>
         <div class="time-display" id="timeDisplay"></div>
     </div>

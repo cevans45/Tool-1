@@ -4,6 +4,7 @@ const timeDisplay = document.getElementById('timeDisplay');
 
 // Set canvas size
 const SIZE = 400;
+const BASE_PIXEL_SIZE = 4; // Base size for pattern definition
 let pixelSize = 4;
 let gridSize = SIZE / pixelSize;
 
@@ -13,6 +14,9 @@ canvas.height = SIZE;
 // Create grid to represent pixels
 let grid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(false));
 let animatedPixels = [];
+
+// Color for pixels
+let pixelColor = { r: 0, g: 0, b: 0 };
 
 // Slider for pixel size
 const pixelSizeSlider = document.getElementById('pixelSizeSlider');
@@ -30,95 +34,145 @@ pixelSizeSlider.addEventListener('input', (e) => {
     setPixelSize(parseInt(e.target.value, 10));
 });
 
+// Color slider
+const colorSlider = document.getElementById('colorSlider');
+const colorValue = document.getElementById('colorValue');
+
+function setColor(hue) {
+    pixelColor = hslToRgb(hue / 360, 1, 0.5);
+    const colorHex = rgbToHex(pixelColor.r, pixelColor.g, pixelColor.b);
+    colorValue.textContent = colorHex;
+    colorValue.style.color = colorHex;
+}
+
+function hslToRgb(h, s, l) {
+    let r, g, b;
+    if (s === 0) {
+        r = g = b = l;
+    } else {
+        const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1/6) return p + (q - p) * 6 * t;
+            if (t < 1/2) return q;
+            if (t < 2/3) return p + (q - p) * (2/3 - t) * 6;
+            return p;
+        };
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hue2rgb(p, q, h + 1/3);
+        g = hue2rgb(p, q, h);
+        b = hue2rgb(p, q, h - 1/3);
+    }
+    return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(b * 255)
+    };
+}
+
+function rgbToHex(r, g, b) {
+    return '#' + [r, g, b].map(x => {
+        const hex = x.toString(16);
+        return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+}
+
+colorSlider.addEventListener('input', (e) => {
+    setColor(parseInt(e.target.value, 10));
+});
+
 // Initialize base pattern (symmetrical pixel art)
 function initializePattern() {
-    const center = gridSize / 2;
+    const center = SIZE / 2; // Use canvas pixel coordinates, not grid coordinates
+    const centerGrid = gridSize / 2;
     
     // Clear grid
     grid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(false));
     
     // Create symmetrical pattern
-    function setPixel(x, y) {
-        if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
-            grid[y][x] = true;
+    function setPixel(gridX, gridY) {
+        if (gridX >= 0 && gridX < gridSize && gridY >= 0 && gridY < gridSize) {
+            grid[gridY][gridX] = true;
         }
     }
     
     // Helper to set pixels with 4-fold symmetry (rotational and reflectional)
-    function setSymmetrical(x, y) {
-        const centerX = center;
-        const centerY = center;
-        const dx = x - centerX;
-        const dy = y - centerY;
+    // Takes pixel coordinates (not grid coordinates)
+    function setSymmetrical(pixelX, pixelY) {
+        // Convert pixel coordinates to grid coordinates
+        const gridX = Math.floor(pixelX / pixelSize);
+        const gridY = Math.floor(pixelY / pixelSize);
+        const centerGridX = centerGrid;
+        const centerGridY = centerGrid;
+        const dx = gridX - centerGridX;
+        const dy = gridY - centerGridY;
         
         // Set all 4 rotations (90-degree symmetry)
-        setPixel(centerX + dx, centerY + dy);
-        setPixel(centerX - dy, centerY + dx);
-        setPixel(centerX - dx, centerY - dy);
-        setPixel(centerX + dy, centerY - dx);
+        setPixel(centerGridX + dx, centerGridY + dy);
+        setPixel(centerGridX - dy, centerGridY + dx);
+        setPixel(centerGridX - dx, centerGridY - dy);
+        setPixel(centerGridX + dy, centerGridY - dx);
         
         // Also set reflections for full 8-fold symmetry
-        setPixel(centerX - dx, centerY + dy);
-        setPixel(centerX + dx, centerY - dy);
-        setPixel(centerX + dy, centerY + dx);
-        setPixel(centerX - dy, centerY - dx);
+        setPixel(centerGridX - dx, centerGridY + dy);
+        setPixel(centerGridX + dx, centerGridY - dy);
+        setPixel(centerGridX + dy, centerGridY + dx);
+        setPixel(centerGridX - dy, centerGridY - dy);
     }
     
-    // Center sparse pattern
+    // Center sparse pattern (in pixel coordinates)
     setSymmetrical(center, center);
-    setSymmetrical(center + 1, center);
-    setSymmetrical(center, center + 1);
-    setSymmetrical(center - 1, center);
-    setSymmetrical(center, center - 1);
+    setSymmetrical(center + BASE_PIXEL_SIZE, center);
+    setSymmetrical(center, center + BASE_PIXEL_SIZE);
+    setSymmetrical(center - BASE_PIXEL_SIZE, center);
+    setSymmetrical(center, center - BASE_PIXEL_SIZE);
     
-    // Radial elements - structured pattern
+    // Radial elements - structured pattern (in pixel coordinates relative to center)
     const patterns = [
         // Small dots and lines along axes
-        {x: 0, y: 8}, {x: 0, y: 12}, {x: 0, y: 16},
-        {x: 8, y: 0}, {x: 12, y: 0}, {x: 16, y: 0},
+        {x: 0, y: 8 * BASE_PIXEL_SIZE}, {x: 0, y: 12 * BASE_PIXEL_SIZE}, {x: 0, y: 16 * BASE_PIXEL_SIZE},
+        {x: 8 * BASE_PIXEL_SIZE, y: 0}, {x: 12 * BASE_PIXEL_SIZE, y: 0}, {x: 16 * BASE_PIXEL_SIZE, y: 0},
         // L-shapes
-        {x: 5, y: 5}, {x: 6, y: 5}, {x: 5, y: 6},
-        {x: 8, y: 8}, {x: 9, y: 8}, {x: 8, y: 9},
+        {x: 5 * BASE_PIXEL_SIZE, y: 5 * BASE_PIXEL_SIZE}, {x: 6 * BASE_PIXEL_SIZE, y: 5 * BASE_PIXEL_SIZE}, {x: 5 * BASE_PIXEL_SIZE, y: 6 * BASE_PIXEL_SIZE},
+        {x: 8 * BASE_PIXEL_SIZE, y: 8 * BASE_PIXEL_SIZE}, {x: 9 * BASE_PIXEL_SIZE, y: 8 * BASE_PIXEL_SIZE}, {x: 8 * BASE_PIXEL_SIZE, y: 9 * BASE_PIXEL_SIZE},
         // Diagonal segments
-        {x: 10, y: 3}, {x: 11, y: 4}, {x: 12, y: 5},
-        {x: 3, y: 10}, {x: 4, y: 11}, {x: 5, y: 12},
+        {x: 10 * BASE_PIXEL_SIZE, y: 3 * BASE_PIXEL_SIZE}, {x: 11 * BASE_PIXEL_SIZE, y: 4 * BASE_PIXEL_SIZE}, {x: 12 * BASE_PIXEL_SIZE, y: 5 * BASE_PIXEL_SIZE},
+        {x: 3 * BASE_PIXEL_SIZE, y: 10 * BASE_PIXEL_SIZE}, {x: 4 * BASE_PIXEL_SIZE, y: 11 * BASE_PIXEL_SIZE}, {x: 5 * BASE_PIXEL_SIZE, y: 12 * BASE_PIXEL_SIZE},
         // Corner patterns - curved elements
-        {x: 15, y: 10}, {x: 16, y: 11}, {x: 17, y: 12},
-        {x: 18, y: 13}, {x: 19, y: 14},
-        {x: 10, y: 15}, {x: 11, y: 16}, {x: 12, y: 17},
-        {x: 13, y: 18}, {x: 14, y: 19},
+        {x: 15 * BASE_PIXEL_SIZE, y: 10 * BASE_PIXEL_SIZE}, {x: 16 * BASE_PIXEL_SIZE, y: 11 * BASE_PIXEL_SIZE}, {x: 17 * BASE_PIXEL_SIZE, y: 12 * BASE_PIXEL_SIZE},
+        {x: 18 * BASE_PIXEL_SIZE, y: 13 * BASE_PIXEL_SIZE}, {x: 19 * BASE_PIXEL_SIZE, y: 14 * BASE_PIXEL_SIZE},
+        {x: 10 * BASE_PIXEL_SIZE, y: 15 * BASE_PIXEL_SIZE}, {x: 11 * BASE_PIXEL_SIZE, y: 16 * BASE_PIXEL_SIZE}, {x: 12 * BASE_PIXEL_SIZE, y: 17 * BASE_PIXEL_SIZE},
+        {x: 13 * BASE_PIXEL_SIZE, y: 18 * BASE_PIXEL_SIZE}, {x: 14 * BASE_PIXEL_SIZE, y: 19 * BASE_PIXEL_SIZE},
         // Staircase patterns
-        {x: 20, y: 5}, {x: 21, y: 6}, {x: 22, y: 7},
-        {x: 5, y: 20}, {x: 6, y: 21}, {x: 7, y: 22},
+        {x: 20 * BASE_PIXEL_SIZE, y: 5 * BASE_PIXEL_SIZE}, {x: 21 * BASE_PIXEL_SIZE, y: 6 * BASE_PIXEL_SIZE}, {x: 22 * BASE_PIXEL_SIZE, y: 7 * BASE_PIXEL_SIZE},
+        {x: 5 * BASE_PIXEL_SIZE, y: 20 * BASE_PIXEL_SIZE}, {x: 6 * BASE_PIXEL_SIZE, y: 21 * BASE_PIXEL_SIZE}, {x: 7 * BASE_PIXEL_SIZE, y: 22 * BASE_PIXEL_SIZE},
         // Horizontal and vertical lines
-        {x: 25, y: 8}, {x: 26, y: 8}, {x: 27, y: 8},
-        {x: 8, y: 25}, {x: 8, y: 26}, {x: 8, y: 27},
+        {x: 25 * BASE_PIXEL_SIZE, y: 8 * BASE_PIXEL_SIZE}, {x: 26 * BASE_PIXEL_SIZE, y: 8 * BASE_PIXEL_SIZE}, {x: 27 * BASE_PIXEL_SIZE, y: 8 * BASE_PIXEL_SIZE},
+        {x: 8 * BASE_PIXEL_SIZE, y: 25 * BASE_PIXEL_SIZE}, {x: 8 * BASE_PIXEL_SIZE, y: 26 * BASE_PIXEL_SIZE}, {x: 8 * BASE_PIXEL_SIZE, y: 27 * BASE_PIXEL_SIZE},
         // Dense corner clusters
-        {x: 30, y: 12}, {x: 31, y: 12}, {x: 32, y: 12},
-        {x: 30, y: 13}, {x: 31, y: 13}, {x: 32, y: 13},
-        {x: 12, y: 30}, {x: 12, y: 31}, {x: 12, y: 32},
-        {x: 13, y: 30}, {x: 13, y: 31}, {x: 13, y: 32},
+        {x: 30 * BASE_PIXEL_SIZE, y: 12 * BASE_PIXEL_SIZE}, {x: 31 * BASE_PIXEL_SIZE, y: 12 * BASE_PIXEL_SIZE}, {x: 32 * BASE_PIXEL_SIZE, y: 12 * BASE_PIXEL_SIZE},
+        {x: 30 * BASE_PIXEL_SIZE, y: 13 * BASE_PIXEL_SIZE}, {x: 31 * BASE_PIXEL_SIZE, y: 13 * BASE_PIXEL_SIZE}, {x: 32 * BASE_PIXEL_SIZE, y: 13 * BASE_PIXEL_SIZE},
+        {x: 12 * BASE_PIXEL_SIZE, y: 30 * BASE_PIXEL_SIZE}, {x: 12 * BASE_PIXEL_SIZE, y: 31 * BASE_PIXEL_SIZE}, {x: 12 * BASE_PIXEL_SIZE, y: 32 * BASE_PIXEL_SIZE},
+        {x: 13 * BASE_PIXEL_SIZE, y: 30 * BASE_PIXEL_SIZE}, {x: 13 * BASE_PIXEL_SIZE, y: 31 * BASE_PIXEL_SIZE}, {x: 13 * BASE_PIXEL_SIZE, y: 32 * BASE_PIXEL_SIZE},
         // Outer edge elements
-        {x: 35, y: 8}, {x: 36, y: 9}, {x: 37, y: 10},
-        {x: 8, y: 35}, {x: 9, y: 36}, {x: 10, y: 37},
+        {x: 35 * BASE_PIXEL_SIZE, y: 8 * BASE_PIXEL_SIZE}, {x: 36 * BASE_PIXEL_SIZE, y: 9 * BASE_PIXEL_SIZE}, {x: 37 * BASE_PIXEL_SIZE, y: 10 * BASE_PIXEL_SIZE},
+        {x: 8 * BASE_PIXEL_SIZE, y: 35 * BASE_PIXEL_SIZE}, {x: 9 * BASE_PIXEL_SIZE, y: 36 * BASE_PIXEL_SIZE}, {x: 10 * BASE_PIXEL_SIZE, y: 37 * BASE_PIXEL_SIZE},
         // Additional scattered pixels
-        {x: 18, y: 18}, {x: 20, y: 20}, {x: 22, y: 22},
-        {x: 15, y: 20}, {x: 20, y: 15},
+        {x: 18 * BASE_PIXEL_SIZE, y: 18 * BASE_PIXEL_SIZE}, {x: 20 * BASE_PIXEL_SIZE, y: 20 * BASE_PIXEL_SIZE}, {x: 22 * BASE_PIXEL_SIZE, y: 22 * BASE_PIXEL_SIZE},
+        {x: 15 * BASE_PIXEL_SIZE, y: 20 * BASE_PIXEL_SIZE}, {x: 20 * BASE_PIXEL_SIZE, y: 15 * BASE_PIXEL_SIZE},
     ];
     
-    const scale = gridSize / 100;
     patterns.forEach(pattern => {
-        const px = Math.round(center + pattern.x * scale);
-        const py = Math.round(center + pattern.y * scale);
-        setSymmetrical(px, py);
+        setSymmetrical(center + pattern.x, center + pattern.y);
     });
     
     // Add some random scattered pixels for texture
     for (let i = 0; i < 50; i++) {
         const angle = Math.random() * Math.PI * 2;
-        const radius = 10 + Math.random() * (gridSize / 2 - 20);
-        const x = Math.round(center + radius * Math.cos(angle));
-        const y = Math.round(center + radius * Math.sin(angle));
+        const radius = 10 * BASE_PIXEL_SIZE + Math.random() * (SIZE / 2 - 20 * BASE_PIXEL_SIZE);
+        const x = center + radius * Math.cos(angle);
+        const y = center + radius * Math.sin(angle);
         if (Math.random() > 0.7) {
             setSymmetrical(x, y);
         }
@@ -130,7 +184,8 @@ function drawGrid() {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, SIZE, SIZE);
     
-    ctx.fillStyle = '#000000';
+    const colorStr = `rgb(${pixelColor.r}, ${pixelColor.g}, ${pixelColor.b})`;
+    ctx.fillStyle = colorStr;
     
     // Draw static pattern
     for (let y = 0; y < gridSize; y++) {
@@ -215,7 +270,7 @@ function drawAnimatedPixels() {
         if (pixel.x >= 0 && pixel.x < gridSize && pixel.y >= 0 && pixel.y < gridSize) {
             // Draw with varying intensity
             const alpha = pixel.intensity;
-            ctx.fillStyle = `rgba(0, 0, 0, ${alpha})`;
+            ctx.fillStyle = `rgba(${pixelColor.r}, ${pixelColor.g}, ${pixelColor.b}, ${alpha})`;
             ctx.fillRect(
                 pixel.x * pixelSize, 
                 pixel.y * pixelSize, 
@@ -225,7 +280,7 @@ function drawAnimatedPixels() {
             
             // Add glow effect for moving pixels
             if (pixel.intensity > 0.7) {
-                ctx.fillStyle = `rgba(0, 0, 0, ${alpha * 0.3})`;
+                ctx.fillStyle = `rgba(${pixelColor.r}, ${pixelColor.g}, ${pixelColor.b}, ${alpha * 0.3})`;
                 ctx.fillRect(
                     (pixel.x - 1) * pixelSize, 
                     pixel.y * pixelSize, 
@@ -265,4 +320,5 @@ function animate() {
 
 // Initialize
 initializePattern();
+setColor(0); // Initialize color to black (hue 0)
 animate();
