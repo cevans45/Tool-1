@@ -186,18 +186,38 @@ function draw_raster(raster) {
         if ((row + 1 < rows) && (col + 1 < cols)) {
           if (raster[row + 1][col + 1] == 1) {
             push();
-            translate(x + radius, y + radius);
-            rotate(45);
-            rect(0, 0, radius * 1.5, radius * 1.5, radius * 0.5);
+            translate(x, y);
+            beginShape();
+            vertex(0, radius);
+            for (let angle = -90; angle <= 0; angle += 1) {
+              vertex(radius * cos(angle), radius * (2 + sin(angle)));
+            }
+            vertex(radius, 2 * radius);
+            vertex(2 * radius, radius);
+            for (let angle = 90; angle <= 180; angle += 1) {
+              vertex(radius * (2 + cos(angle)), radius * (0 + sin(angle)));
+            }
+            vertex(radius, 0);
+            endShape(CLOSE);
             pop();
           }
         }
         if ((row + 1 < rows) && (col - 1 >= 0)) {
           if (raster[row + 1][col - 1] == 1) {
             push();
-            translate(x - radius, y + radius);
-            rotate(-45);
-            rect(0, 0, radius * 1.5, radius * 1.5, radius * 0.5);
+            translate(x, y);
+            beginShape();
+            vertex(-radius, 0);
+            for (let angle = 0; angle <= 90; angle += 1) {
+              vertex(radius * (-2 + cos(angle)), radius * (0 + sin(angle)));
+            }
+            vertex(-2 * radius, radius);
+            vertex(-radius, 2 * radius);
+            for (let angle = 180; angle <= 270; angle += 1) {
+              vertex(radius * (0 + cos(angle)), radius * (2 + sin(angle)));
+            }
+            vertex(0, radius);
+            endShape(CLOSE);
             pop();
           }
         }
