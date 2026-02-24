@@ -24,6 +24,14 @@ let params = {
   seed: 123456789
 };
 
+function randomizeSeed() {
+  // Keep seed in the same range as the UI input (0..999999999).
+  const next = Math.floor(Math.random() * 1_000_000_000);
+  params.seed = next;
+  const seedEl = document.getElementById('param-seed');
+  if (seedEl) seedEl.value = String(next);
+}
+
 function setup() {
   w = min(windowWidth - 320, windowHeight - 48);
   w = max(w, 300);
@@ -35,6 +43,7 @@ function setup() {
 
   bindControls();
   bindInfoButton();
+  randomizeSeed();
   noLoop();
   redraw();
 }
