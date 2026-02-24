@@ -24,6 +24,18 @@ let params = {
   seed: 123456789
 };
 
+// Simple launcher: show the tool when the button is clicked.
+(function initLauncher() {
+  const btn = document.getElementById('open-tool-btn');
+  const app = document.querySelector('.app');
+  const landing = document.querySelector('.landing');
+  if (!btn || !app || !landing) return;
+  btn.addEventListener('click', () => {
+    landing.style.display = 'none';
+    app.classList.remove('app-hidden');
+  });
+})();
+
 function randomizeSeed() {
   // Keep seed in the same range as the UI input (0..999999999).
   const next = Math.floor(Math.random() * 1_000_000_000);

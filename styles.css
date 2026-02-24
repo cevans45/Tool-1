@@ -28,6 +28,56 @@ body {
     color: #e0e0e0;
 }
 
+.site-shell {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.landing {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px 16px;
+}
+
+.landing-inner {
+    max-width: 520px;
+}
+
+.landing h1 {
+    font-size: 32px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+
+.landing-tagline {
+    font-size: 14px;
+    color: #b0b0b0;
+    line-height: 1.6;
+    margin-bottom: 24px;
+}
+
+.landing-button {
+    padding: 10px 18px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-radius: 999px;
+    border: 1px solid #7c7cff;
+    background: #29294a;
+    color: #f4f4ff;
+    cursor: pointer;
+}
+
+.landing-button:hover {
+    background: #35356a;
+}
+
 .app {
     display: flex;
     min-height: 100vh;
@@ -35,6 +85,10 @@ body {
     justify-content: center;
     gap: 24px;
     padding: 24px;
+}
+
+.app-hidden {
+    display: none;
 }
 
 #sketch-container {

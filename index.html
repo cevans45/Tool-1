@@ -8,100 +8,112 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 </head>
 <body>
-    <div class="app">
-        <div id="sketch-container"></div>
-        <aside class="control-panel">
-            <header class="panel-header">
-                <h2>Controls</h2>
-                <button type="button" class="info-btn" id="info-btn" aria-label="What each control does">i</button>
-            </header>
-            <div class="info-overlay" id="info-overlay" role="dialog" aria-label="Control descriptions" hidden>
-                <div class="info-content">
-                    <h3>What each control does</h3>
-                    <dl>
-                        <dt>Rows / Cols</dt>
-                        <dd>Grid size. More = smaller circles and tighter pattern; fewer = bigger circles.</dd>
-                        <dt>Fill density</dt>
-                        <dd>How much of the grid is filled (%). Higher = more connected blobs.</dd>
-                        <dt>Margin %</dt>
-                        <dd>Space around the grid. Higher = smaller drawing area, more border.</dd>
-                        <dt>Background</dt>
-                        <dd>Canvas background color. Does not change the composition.</dd>
-                        <dt>Dot 1–5</dt>
-                        <dd>Colors for each layer. Changing these only changes color; the pattern stays the same.</dd>
-                        <dt>Stroke weight</dt>
-                        <dd>Outline thickness on shapes. 0 = no outline.</dd>
-                        <dt>Random seed</dt>
-                        <dd>Number that determines the pattern. Same seed = same composition every time.</dd>
-                    </dl>
-                    <button type="button" class="info-close" id="info-close">Close</button>
+    <div class="site-shell">
+        <section class="landing">
+            <div class="landing-inner">
+                <h1>Pearls</h1>
+                <p class="landing-tagline">A generative grid-blob playground for making soft, pearly compositions.</p>
+                <button type="button" class="landing-button" id="open-tool-btn">
+                    Open the generator
+                </button>
+            </div>
+        </section>
+
+        <div class="app app-hidden">
+            <div id="sketch-container"></div>
+            <aside class="control-panel">
+                <header class="panel-header">
+                    <h2>Controls</h2>
+                    <button type="button" class="info-btn" id="info-btn" aria-label="What each control does">i</button>
+                </header>
+                <div class="info-overlay" id="info-overlay" role="dialog" aria-label="Control descriptions" hidden>
+                    <div class="info-content">
+                        <h3>What each control does</h3>
+                        <dl>
+                            <dt>Rows / Cols</dt>
+                            <dd>Grid size. More = smaller circles and tighter pattern; fewer = bigger circles.</dd>
+                            <dt>Fill density</dt>
+                            <dd>How much of the grid is filled (%). Higher = more connected blobs.</dd>
+                            <dt>Margin %</dt>
+                            <dd>Space around the grid. Higher = smaller drawing area, more border.</dd>
+                            <dt>Background</dt>
+                            <dd>Canvas background color. Does not change the composition.</dd>
+                            <dt>Dot 1–5</dt>
+                            <dd>Colors for each layer. Changing these only changes color; the pattern stays the same.</dd>
+                            <dt>Stroke weight</dt>
+                            <dd>Outline thickness on shapes. 0 = no outline.</dd>
+                            <dt>Random seed</dt>
+                            <dd>Number that determines the pattern. Same seed = same composition every time.</dd>
+                        </dl>
+                        <button type="button" class="info-close" id="info-close">Close</button>
+                    </div>
                 </div>
-            </div>
-            <div class="panel-body">
-                <section class="control-section">
-                    <h3>Grid & size</h3>
-                    <div class="control-row">
-                        <label for="param-rows">Rows</label>
-                        <input type="range" id="param-rows" min="3" max="15" value="5" step="1">
-                        <span class="param-value" id="value-rows">5</span>
-                    </div>
-                    <div class="control-row">
-                        <label for="param-cols">Cols</label>
-                        <input type="range" id="param-cols" min="3" max="15" value="5" step="1">
-                        <span class="param-value" id="value-cols">5</span>
-                    </div>
-                    <div class="control-row">
-                        <label for="param-density">Fill density</label>
-                        <input type="range" id="param-density" min="10" max="90" value="25" step="5">
-                        <span class="param-value" id="value-density">25%</span>
-                    </div>
-                    <div class="control-row">
-                        <label for="param-margin">Margin %</label>
-                        <input type="range" id="param-margin" min="5" max="25" value="10" step="1">
-                        <span class="param-value" id="value-margin">10%</span>
-                    </div>
-                </section>
-                <section class="control-section">
-                    <h3>Colors</h3>
-                    <div class="control-row color-row">
-                        <label for="param-bg">Background</label>
-                        <input type="color" id="param-bg" value="#e8e4d9">
-                    </div>
-                    <div class="control-row color-row">
-                        <label>Dot 1</label>
-                        <input type="color" id="param-color1" value="#F1E9DA">
-                    </div>
-                    <div class="control-row color-row">
-                        <label>Dot 2</label>
-                        <input type="color" id="param-color2" value="#2E294E">
-                    </div>
-                    <div class="control-row color-row">
-                        <label>Dot 3</label>
-                        <input type="color" id="param-color3" value="#541388">
-                    </div>
-                    <div class="control-row color-row">
-                        <label>Dot 4</label>
-                        <input type="color" id="param-color4" value="#FFD400">
-                    </div>
-                    <div class="control-row color-row">
-                        <label>Dot 5</label>
-                        <input type="color" id="param-color5" value="#D90368">
-                    </div>
-                </section>
-                <section class="control-section">
-                    <h3>Style</h3>
-                    <div class="control-row">
-                        <label for="param-stroke">Stroke weight</label>
-                        <input type="range" id="param-stroke" min="0" max="4" value="0" step="1">
-                        <span class="param-value" id="value-stroke">0</span>
-                    </div>
-                    <div class="control-row">
-                        <label for="param-seed">Random seed</label>
-                        <input type="number" id="param-seed" min="0" max="999999999" value="123456789" step="1">
-                    </div>
-                </section>
-            </div>
-        </aside>
+                <div class="panel-body">
+                    <section class="control-section">
+                        <h3>Grid & size</h3>
+                        <div class="control-row">
+                            <label for="param-rows">Rows</label>
+                            <input type="range" id="param-rows" min="3" max="15" value="5" step="1">
+                            <span class="param-value" id="value-rows">5</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="param-cols">Cols</label>
+                            <input type="range" id="param-cols" min="3" max="15" value="5" step="1">
+                            <span class="param-value" id="value-cols">5</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="param-density">Fill density</label>
+                            <input type="range" id="param-density" min="10" max="90" value="25" step="5">
+                            <span class="param-value" id="value-density">25%</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="param-margin">Margin %</label>
+                            <input type="range" id="param-margin" min="5" max="25" value="10" step="1">
+                            <span class="param-value" id="value-margin">10%</span>
+                        </div>
+                    </section>
+                    <section class="control-section">
+                        <h3>Colors</h3>
+                        <div class="control-row color-row">
+                            <label for="param-bg">Background</label>
+                            <input type="color" id="param-bg" value="#e8e4d9">
+                        </div>
+                        <div class="control-row color-row">
+                            <label>Dot 1</label>
+                            <input type="color" id="param-color1" value="#F1E9DA">
+                        </div>
+                        <div class="control-row color-row">
+                            <label>Dot 2</label>
+                            <input type="color" id="param-color2" value="#2E294E">
+                        </div>
+                        <div class="control-row color-row">
+                            <label>Dot 3</label>
+                            <input type="color" id="param-color3" value="#541388">
+                        </div>
+                        <div class="control-row color-row">
+                            <label>Dot 4</label>
+                            <input type="color" id="param-color4" value="#FFD400">
+                        </div>
+                        <div class="control-row color-row">
+                            <label>Dot 5</label>
+                            <input type="color" id="param-color5" value="#D90368">
+                        </div>
+                    </section>
+                    <section class="control-section">
+                        <h3>Style</h3>
+                        <div class="control-row">
+                            <label for="param-stroke">Stroke weight</label>
+                            <input type="range" id="param-stroke" min="0" max="4" value="0" step="1">
+                            <span class="param-value" id="value-stroke">0</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="param-seed">Random seed</label>
+                            <input type="number" id="param-seed" min="0" max="999999999" value="123456789" step="1">
+                        </div>
+                    </section>
+                </div>
+            </aside>
+        </div>
     </div>
     <script src="script.js"></script>
 </body>
