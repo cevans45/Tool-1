@@ -34,57 +34,115 @@ body {
     flex-direction: column;
 }
 
-.landing {
-    flex: 1;
+.site-header {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 32px 24px 16px;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 18px 18px 8px;
+    border-bottom: 1px solid #3a3a3a;
 }
 
-.landing-inner {
-    max-width: 520px;
-}
-
-.landing h1 {
-    font-size: 32px;
+.site-header h1 {
+    font-size: 18px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    margin-bottom: 12px;
+    margin-bottom: 6px;
 }
 
-.landing-tagline {
-    font-size: 14px;
-    color: #b0b0b0;
-    line-height: 1.6;
-    margin-bottom: 24px;
-}
-
-.landing-button {
-    padding: 10px 18px;
-    font-family: inherit;
+.site-copy {
     font-size: 12px;
+    color: #b0b0b0;
+    line-height: 1.5;
+    max-width: 420px;
+}
+
+.site-link {
+    align-self: flex-start;
+    font-size: 12px;
+    color: #7c7cff;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.site-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    padding: 12px 18px 18px;
+}
+
+.site-card {
+    background: #e5e5e5;
+    color: #111;
+    border-radius: 4px;
+    overflow: hidden;
+    border: 1px solid #000;
+    display: flex;
+    flex-direction: column;
+}
+
+.site-card-preview {
+    background: #d0d0d0;
+    min-height: 120px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 8px;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.site-card-preview--pearls {
+    background: linear-gradient(135deg, #f1e9da, #ffd400 40%, #d90368 80%);
+}
+
+.site-card-preview span {
+    background: #000;
+    color: #f0f0f0;
+    padding: 2px 4px;
+}
+
+.site-card-body {
+    padding: 8px 8px 10px;
+    font-size: 11px;
+}
+
+.site-card-body h2 {
+    font-size: 12px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+}
+
+.site-card-body p {
+    margin-bottom: 6px;
+    line-height: 1.4;
+}
+
+.site-card-button {
+    padding: 4px 8px;
+    font-family: inherit;
+    font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     border-radius: 999px;
-    border: 1px solid #7c7cff;
-    background: #29294a;
-    color: #f4f4ff;
+    border: 1px solid #000;
+    background: #fff;
     cursor: pointer;
 }
 
-.landing-button:hover {
-    background: #35356a;
+.site-card-button:hover {
+    background: #f0f0f0;
 }
 
 .app {
     display: flex;
-    min-height: 100vh;
+    min-height: 70vh;
     align-items: center;
     justify-content: center;
     gap: 24px;
-    padding: 24px;
+    padding: 16px 18px 24px;
 }
 
 .app-hidden {

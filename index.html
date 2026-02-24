@@ -9,17 +9,51 @@
 </head>
 <body>
     <div class="site-shell">
-        <section class="landing">
-            <div class="landing-inner">
-                <h1>Pearls</h1>
-                <p class="landing-tagline">A generative grid-blob playground for making soft, pearly compositions.</p>
-                <button type="button" class="landing-button" id="open-tool-btn">
-                    Open the generator
-                </button>
+        <header class="site-header">
+            <div>
+                <h1>Brutalist Tools</h1>
+                <p class="site-copy">
+                    Small, opinionated experiments in generative graphics and odd little utilities.
+                    Built to feel rough, fast, and a bit unforgiving.
+                </p>
             </div>
-        </section>
+            <a href="#" class="site-link">Submit</a>
+        </header>
 
-        <div class="app app-hidden">
+        <main class="site-grid" aria-label="Tools">
+            <article class="site-card">
+                <div class="site-card-preview site-card-preview--pearls">
+                    <span>PEARLS</span>
+                </div>
+                <div class="site-card-body">
+                    <h2>Pearls generator</h2>
+                    <p>Grid blobs, soft circles, and random pearly clumps for fast layout sketches.</p>
+                    <button type="button" class="site-card-button" id="open-tool-btn">
+                        Open tool
+                    </button>
+                </div>
+            </article>
+            <article class="site-card">
+                <div class="site-card-preview">
+                    <span>COMING SOON</span>
+                </div>
+                <div class="site-card-body">
+                    <h2>Untitled tool</h2>
+                    <p>Placeholder for the next strange, probably unnecessary little utility.</p>
+                </div>
+            </article>
+            <article class="site-card">
+                <div class="site-card-preview">
+                    <span>COMING SOON</span>
+                </div>
+                <div class="site-card-body">
+                    <h2>Untitled tool</h2>
+                    <p>Another slot for something experimental, broken, or both.</p>
+                </div>
+            </article>
+        </main>
+
+        <div class="app app-hidden" aria-label="Pearls generator">
             <div id="sketch-container"></div>
             <aside class="control-panel">
                 <header class="panel-header">

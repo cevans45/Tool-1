@@ -28,11 +28,10 @@ let params = {
 (function initLauncher() {
   const btn = document.getElementById('open-tool-btn');
   const app = document.querySelector('.app');
-  const landing = document.querySelector('.landing');
-  if (!btn || !app || !landing) return;
+  if (!btn || !app) return;
   btn.addEventListener('click', () => {
-    landing.style.display = 'none';
     app.classList.remove('app-hidden');
+    app.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 })();
 
