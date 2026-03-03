@@ -21,7 +21,10 @@ let params = {
   bg: '#e8e4d9',
   colors: ['#F1E9DA', '#2E294E', '#541388', '#FFD400', '#D90368'],
   strokeWeight: 0,
-  seed: 123456789
+  seed: 123456789,
+  layers: 5,
+  shape: 'circle',      // circle | square | rounded | triangle
+  roundness: 0.6        // 0..1, only used for rounded
 };
 
 // Simple launcher: show the tool when the button is clicked.
@@ -141,6 +144,9 @@ function bindControls() {
   const densityEl = document.getElementById('param-density');
   const marginEl = document.getElementById('param-margin');
   const strokeEl = document.getElementById('param-stroke');
+  const layersEl = document.getElementById('param-layers');
+  const roundEl = document.getElementById('param-roundness');
+  const shapeEl = document.getElementById('param-shape');
   const seedEl = document.getElementById('param-seed');
   const bgEl = document.getElementById('param-bg');
   const colorEls = ['param-color1','param-color2','param-color3','param-color4','param-color5'];
@@ -180,6 +186,29 @@ function bindControls() {
       redraw();
     });
   }
+  if (layersEl) {
+    layersEl.addEventListener('input', () => {
+      params.layers = parseInt(layersEl.value, 10);
+      const val = document.getElementById('value-layers');
+      if (val) val.textContent = layersEl.value;
+      redraw();
+    });
+  }
+  if (roundEl) {
+    roundEl.addEventListener('input', () => {
+      const pct = parseInt(roundEl.value, 10);
+      params.roundness = pct / 100;
+      const val = document.getElementById('value-roundness');
+      if (val) val.textContent = pct + '%';
+      redraw();
+    });
+  }
+  if (shapeEl) {
+    shapeEl.addEventListener('change', () => {
+      params.shape = shapeEl.value;
+      redraw();
+    });
+  }
   if (seedEl) {
     seedEl.addEventListener('input', () => {
       params.seed = parseInt(seedEl.value, 10) || 0;
@@ -207,11 +236,13 @@ function draw() {
   rows = params.rows;
   cols = params.cols;
   margin = width * params.marginPct;
-  radius = (width - 2 * margin) / cols / 2;
+  const cellW = (width - 2 * margin) / cols;
+  const cellH = (height - 2 * margin) / rows;
+  radius = min(cellW, cellH) / 2;
 
   randomSeed(int(params.seed));
   cachedRasters = [];
-  const numLayers = params.colors.length;
+  const numLayers = min(params.layers || params.colors.length, params.colors.length);
   for (let L = 0; L < numLayers; L++) {
     cachedRasters.push(create_raster());
   }
@@ -238,7 +269,7 @@ function draw_raster(raster) {
       let y = margin + radius + row * 2 * radius;
 
       if (raster[row][col] == 1) {
-        circle(x, y, 2 * radius);
+        drawCellShape(x, y);
 
         if (col + 1 < cols) {
           if (raster[row][col + 1] == 1) {
@@ -252,7 +283,7 @@ function draw_raster(raster) {
           }
         }
 
-        if ((row + 1 < rows) && (col + 1 < cols)) {
+        if (params.shape === 'circle' && (row + 1 < rows) && (col + 1 < cols)) {
           if (raster[row + 1][col + 1] == 1) {
             push();
             translate(x, y);
@@ -271,7 +302,7 @@ function draw_raster(raster) {
             pop();
           }
         }
-        if ((row + 1 < rows) && (col - 1 >= 0)) {
+        if (params.shape === 'circle' && (row + 1 < rows) && (col - 1 >= 0)) {
           if (raster[row + 1][col - 1] == 1) {
             push();
             translate(x, y);
@@ -292,6 +323,27 @@ function draw_raster(raster) {
         }
       }
     }
+  }
+}
+
+function drawCellShape(x, y) {
+  const shape = params.shape || 'circle';
+  if (shape === 'square') {
+    rect(x, y, radius);
+  } else if (shape === 'rounded') {
+    const corner = radius * (params.roundness != null ? params.roundness : 0.6);
+    rect(x, y, radius, radius, corner);
+  } else if (shape === 'triangle') {
+    triangle(
+      x,
+      y - radius,
+      x - radius,
+      y + radius,
+      x + radius,
+      y + radius
+    );
+  } else {
+    circle(x, y, 2 * radius);
   }
 }
 
