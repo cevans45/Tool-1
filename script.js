@@ -146,6 +146,7 @@ function bindControls() {
   const strokeEl = document.getElementById('param-stroke');
   const layersEl = document.getElementById('param-layers');
   const roundEl = document.getElementById('param-roundness');
+  const roundRow = document.getElementById('row-roundness');
   const shapeEl = document.getElementById('param-shape');
   const seedEl = document.getElementById('param-seed');
   const bgEl = document.getElementById('param-bg');
@@ -194,6 +195,15 @@ function bindControls() {
       redraw();
     });
   }
+  const updateRoundnessEnabled = () => {
+    if (!roundEl) return;
+    const isRounded = (shapeEl ? shapeEl.value : params.shape) === 'rounded';
+    roundEl.disabled = !isRounded;
+    if (roundRow) {
+      roundRow.classList.toggle('control-row--disabled', !isRounded);
+    }
+  };
+
   if (roundEl) {
     roundEl.addEventListener('input', () => {
       const pct = parseInt(roundEl.value, 10);
@@ -206,6 +216,7 @@ function bindControls() {
   if (shapeEl) {
     shapeEl.addEventListener('change', () => {
       params.shape = shapeEl.value;
+      updateRoundnessEnabled();
       redraw();
     });
   }
@@ -230,6 +241,8 @@ function bindControls() {
       });
     }
   });
+
+  updateRoundnessEnabled();
 }
 
 function draw() {

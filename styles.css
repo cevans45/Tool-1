@@ -24,8 +24,8 @@ body {
     font-family: 'ABC Diatype Mono', monospace;
     min-height: 100vh;
     overflow: auto;
-    background: #1a1a1a;
-    color: #e0e0e0;
+    background: #f6f6f4;
+    color: #111111;
 }
 
 .site-shell {
@@ -48,22 +48,23 @@ body {
 }
 
 .hero-title {
-    font-size: 40px;
-    letter-spacing: 0.16em;
+    font-size: 52px;
+    letter-spacing: 0.2em;
     text-transform: uppercase;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
+    animation: overtPop 900ms ease-out 1;
 }
 
 .hero-copy {
-    font-size: 13px;
-    color: #b0b0b0;
+    font-size: 14px;
+    color: #444;
     line-height: 1.6;
     margin-bottom: 18px;
 }
 
 .hero-link {
     font-size: 12px;
-    color: #7c7cff;
+    color: #0000ee;
     text-decoration: underline;
     text-underline-offset: 3px;
 }
@@ -382,6 +383,32 @@ body {
 
 .color-row label {
     flex: 0 0 70px;
+}
+
+.control-row--disabled {
+    opacity: 0.45;
+}
+
+.control-row--disabled input[type="range"] {
+    cursor: default;
+}
+
+@keyframes overtPop {
+    0% {
+        transform: translateY(16px);
+        letter-spacing: 0.4em;
+        opacity: 0;
+    }
+    60% {
+        transform: translateY(0);
+        letter-spacing: 0.22em;
+        opacity: 1;
+    }
+    100% {
+        transform: translateY(0);
+        letter-spacing: 0.2em;
+        opacity: 1;
+    }
 }
 
 @media (max-width: 720px) {
