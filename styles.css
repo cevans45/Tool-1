@@ -40,11 +40,14 @@ body {
     align-items: center;
     justify-content: center;
     padding: 24px 18px 8px;
-    border-bottom: 1px solid #3a3a3a;
+    border-bottom: 1px solid #111;
+    background: #080808;
+    color: #f6f6f4;
 }
 
 .hero-inner {
-    max-width: 520px;
+    max-width: 1040px;
+    width: 100%;
 }
 
 .hero-title {
@@ -57,16 +60,19 @@ body {
 
 .hero-copy {
     font-size: 18px;
-    color: #444;
+    color: #f6f6f4;
     line-height: 1.6;
     margin-bottom: 18px;
 }
 
-.hero-link {
-    font-size: 12px;
-    color: #0000ee;
-    text-decoration: underline;
-    text-underline-offset: 3px;
+.hero-copy strong {
+    font-weight: 700;
+}
+
+#hero-canvas {
+    margin-top: 28px;
+    border: 1px solid #f6f6f4;
+    height: 260px;
 }
 
 .site-grid {
