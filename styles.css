@@ -77,7 +77,7 @@ body {
 }
 
 .site-card {
-    background: #e5e5e5;
+    background: #f2f2ee;
     color: #111;
     border-radius: 4px;
     overflow: hidden;
@@ -156,25 +156,25 @@ body {
 
 #sketch-container {
     flex-shrink: 0;
-    border-radius: 8px;
+    border-radius: 4px;
     overflow: hidden;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 0 0 1px #111;
 }
 
 .control-panel {
-    width: 280px;
+    width: 290px;
     flex-shrink: 0;
-    background: #2a2a2a;
-    border: 1px solid #3a3a3a;
-    border-radius: 12px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    background: #f9f9f5;
+    border: 1px solid #111;
+    border-radius: 4px;
+    box-shadow: 4px 4px 0 #111;
     overflow: hidden;
 }
 
 .panel-header {
     padding: 14px 18px;
-    border-bottom: 1px solid #3a3a3a;
-    background: #252525;
+    border-bottom: 1px solid #111;
+    background: #f0f0ea;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -290,7 +290,7 @@ body {
 }
 
 .panel-body {
-    padding: 16px;
+    padding: 14px;
     max-height: 80vh;
     overflow-y: auto;
 }
@@ -308,10 +308,10 @@ body {
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: #888;
-    margin-bottom: 12px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #333;
+    color: #222;
+    margin-bottom: 10px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid #ccc;
 }
 
 .control-row {
@@ -328,17 +328,49 @@ body {
 .control-row label {
     flex: 0 0 90px;
     font-size: 12px;
-    color: #bbb;
+    color: #222;
 }
 
 .control-row input[type="range"] {
     flex: 1;
     min-width: 0;
-    height: 6px;
-    accent-color: #7c7cff;
+    height: 2px;
     cursor: pointer;
-    background: #333;
-    border-radius: 3px;
+    background: transparent;
+    border: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.control-row input[type="range"]::-webkit-slider-runnable-track {
+    height: 2px;
+    background: #d0d0cc;
+    border-top: 1px solid #111;
+}
+
+.control-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 12px;
+    height: 16px;
+    background: #f6f6f4;
+    border: 1px solid #111;
+    box-shadow: 2px 2px 0 #111;
+    margin-top: -7px;
+}
+
+.control-row input[type="range"]::-moz-range-track {
+    height: 2px;
+    background: #d0d0cc;
+    border-top: 1px solid #111;
+}
+
+.control-row input[type="range"]::-moz-range-thumb {
+    width: 12px;
+    height: 16px;
+    background: #f6f6f4;
+    border: 1px solid #111;
+    box-shadow: 2px 2px 0 #111;
 }
 
 .control-row input[type="number"] {
@@ -365,10 +397,13 @@ body {
 }
 
 .param-value {
-    flex: 0 0 36px;
+    flex: 0 0 42px;
     font-size: 11px;
-    color: #888;
-    text-align: right;
+    color: #111;
+    text-align: center;
+    border: 1px solid #111;
+    padding: 2px 4px;
+    background: #fff;
 }
 
 .color-row input[type="color"] {
