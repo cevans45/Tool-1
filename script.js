@@ -27,17 +27,6 @@ let params = {
   roundness: 0.6        // 0..1, only used for rounded
 };
 
-// Simple launcher: show the tool when the button is clicked.
-(function initLauncher() {
-  const btn = document.getElementById('open-tool-btn');
-  const app = document.querySelector('.app');
-  if (!btn || !app) return;
-  btn.addEventListener('click', () => {
-    app.classList.remove('app-hidden');
-    app.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-})();
-
 function randomizeSeed() {
   // Keep seed in the same range as the UI input (0..999999999).
   const next = Math.floor(Math.random() * 1_000_000_000);
