@@ -26,6 +26,16 @@ body {
     overflow: auto;
     background: #f6f6f4;
     color: #111111;
+    opacity: 0;
+    transition: opacity 180ms ease;
+}
+
+body.is-ready {
+    opacity: 1;
+}
+
+body.is-leaving {
+    opacity: 0;
 }
 
 .site-shell {
@@ -156,6 +166,7 @@ body {
 }
 
 .site-card-button {
+    display: inline-block;
     padding: 4px 8px;
     font-family: inherit;
     font-size: 10px;
@@ -166,6 +177,8 @@ body {
     border: 1px solid #000;
     background: #fff;
     cursor: pointer;
+    text-decoration: none;
+    color: #111;
 }
 
 .site-card-button:hover {
