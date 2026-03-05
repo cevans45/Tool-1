@@ -3,20 +3,103 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dot fields — OVRT</title>
+    <title>Particle ring — OVRT</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 </head>
 <body>
     <div class="site-shell">
         <header class="tool-header">
             <a href="index.html" class="back-link">← Back to OVRT</a>
-            <span class="tool-title">Dot fields</span>
+            <span class="tool-title">Particle ring</span>
         </header>
-        <main class="tool-coming">
-            <p>Dot fields is coming soon.</p>
-        </main>
+        <div class="app" aria-label="Particle ring">
+            <div id="particle-canvas"></div>
+            <aside class="control-panel">
+                <header class="panel-header">
+                    <h2>Controls</h2>
+                </header>
+                <div class="panel-body">
+                    <section class="control-section">
+                        <h3>Rings</h3>
+                        <div class="control-row">
+                            <label for="pr-outer-count">Outer count</label>
+                            <input type="range" id="pr-outer-count" min="3" max="32" value="16" step="1">
+                            <span class="param-value" id="val-pr-outer-count">16</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="pr-inner-count">Inner count</label>
+                            <input type="range" id="pr-inner-count" min="0" max="12" value="5" step="1">
+                            <span class="param-value" id="val-pr-inner-count">5</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="pr-outer-radius">Outer radius</label>
+                            <input type="range" id="pr-outer-radius" min="20" max="45" value="35" step="1">
+                            <span class="param-value" id="val-pr-outer-radius">35%</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="pr-inner-radius">Inner radius</label>
+                            <input type="range" id="pr-inner-radius" min="5" max="35" value="14" step="1">
+                            <span class="param-value" id="val-pr-inner-radius">14%</span>
+                        </div>
+                    </section>
+                    <section class="control-section">
+                        <h3>Motion</h3>
+                        <div class="control-row">
+                            <label for="pr-outer-speed">Outer speed</label>
+                            <input type="range" id="pr-outer-speed" min="-200" max="200" value="60" step="5">
+                            <span class="param-value" id="val-pr-outer-speed">0.60x</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="pr-inner-speed">Inner speed</label>
+                            <input type="range" id="pr-inner-speed" min="-200" max="200" value="-120" step="5">
+                            <span class="param-value" id="val-pr-inner-speed">-1.20x</span>
+                        </div>
+                    </section>
+                    <section class="control-section">
+                        <h3>Style</h3>
+                        <div class="control-row color-row">
+                            <label for="pr-bg">Background</label>
+                            <input type="color" id="pr-bg" value="#000000">
+                        </div>
+                        <div class="control-row color-row">
+                            <label for="pr-outer-color">Outer</label>
+                            <input type="color" id="pr-outer-color" value="#007a4a">
+                        </div>
+                        <div class="control-row color-row">
+                            <label for="pr-inner-color">Inner</label>
+                            <input type="color" id="pr-inner-color" value="#8b1a10">
+                        </div>
+                    </section>
+                    <section class="control-section">
+                        <h3>Selected particle</h3>
+                        <div class="control-row">
+                            <label id="pr-selected-label">None</label>
+                        </div>
+                        <div class="control-row">
+                            <label for="pr-selected-size">Size</label>
+                            <input type="range" id="pr-selected-size" min="4" max="120" value="48" step="2">
+                            <span class="param-value" id="val-pr-selected-size">48</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="pr-selected-speed">Speed</label>
+                            <input type="range" id="pr-selected-speed" min="-400" max="400" value="100" step="10">
+                            <span class="param-value" id="val-pr-selected-speed">1.00x</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="pr-selected-shape">Shape</label>
+                            <select id="pr-selected-shape" class="select-input">
+                                <option value="circle" selected>Circle</option>
+                                <option value="square">Square</option>
+                            </select>
+                        </div>
+                    </section>
+                </div>
+            </aside>
+        </div>
     </div>
     <script src="page-transition.js"></script>
+    <script src="particles.js"></script>
 </body>
 </html>
 

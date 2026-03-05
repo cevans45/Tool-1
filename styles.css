@@ -205,6 +205,13 @@ body.is-leaving {
     box-shadow: none;
 }
 
+#particle-canvas {
+    flex-shrink: 0;
+    border-radius: 0;
+    overflow: hidden;
+    box-shadow: 0 0 0 1px #111;
+}
+
 #orbit-canvas {
     flex-shrink: 0;
     border-radius: 0;
