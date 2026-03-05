@@ -1,17 +1,56 @@
-const patternsSketch = (p) => {
-  let minWidth;
+// Your original sketch, wired to OVRT controls via applyUI
 
-  const params = {
-    seed: 123456,
-    depth: 7,
-    branches: 5,
-    radiusFactor: 0.15,
-    pa: 0.3,
-    pb: 0.3,
-    pc: 2,
-    pd: 0.5,
-    tiles: 'single', // single | row | grid
-  };
+const sketch = (p) => {
+  let min_width;
+
+  let PA;
+  let PB;
+  let PC;
+  let PD;
+
+  let SEED;
+
+  function applyUI() {
+    const depthEl = document.getElementById('pat-depth');
+    const branchesEl = document.getElementById('pat-branches');
+    const radiusEl = document.getElementById('pat-radius');
+    const paEl = document.getElementById('pat-pa');
+    const pbEl = document.getElementById('pat-pb');
+    const pcEl = document.getElementById('pat-pc');
+    const pdEl = document.getElementById('pat-pd');
+    const seedEl = document.getElementById('pat-seed');
+
+    SEED = parseInt(seedEl?.value || '0', 10) || 0;
+    PA = paEl ? parseInt(paEl.value, 10) / 100 : 0.3;
+    PB = pbEl ? parseInt(pbEl.value, 10) / 100 : 0.3;
+    PC = pcEl ? parseInt(pcEl.value, 10) : 2;
+    PD = pdEl ? parseInt(pdEl.value, 10) / 100 : 0.5;
+
+    // Also push numeric sliders into labels so UI stays in sync
+    const setVal = (id, txt) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = txt;
+    };
+    if (depthEl) setVal('val-pat-depth', depthEl.value);
+    if (branchesEl) setVal('val-pat-branches', branchesEl.value);
+    if (radiusEl) setVal('val-pat-radius', (parseInt(radiusEl.value, 10) / 100).toFixed(2));
+    if (paEl) setVal('val-pat-pa', PA.toFixed(2));
+    if (pbEl) setVal('val-pat-pb', PB.toFixed(2));
+    if (pcEl) setVal('val-pat-pc', String(PC));
+    if (pdEl) setVal('val-pat-pd', PD.toFixed(2));
+  }
+
+  function bindUIRedraw() {
+    const ids = ['pat-depth', 'pat-branches', 'pat-radius', 'pat-pa', 'pat-pb', 'pat-pc', 'pat-pd', 'pat-seed'];
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', () => {
+        applyUI();
+        p.redraw();
+      });
+    });
+  }
 
   p.setup = () => {
     const container = document.getElementById('pattern-canvas');
@@ -19,10 +58,14 @@ const patternsSketch = (p) => {
     const canvas = p.createCanvas(w, w);
     if (container) canvas.parent('pattern-canvas');
 
-    minWidth = p.min(p.width, p.height);
-    bindControls();
+    min_width = p.min(p.width, p.height);
+
+    applyUI();
+    SEED = p.random() * 998244353;
+    p.randomSeed(SEED);
+
+    bindUIRedraw();
     p.noLoop();
-    drawPattern();
   };
 
   p.windowResized = () => {
@@ -30,178 +73,44 @@ const patternsSketch = (p) => {
     if (!container) return;
     const w = Math.max(320, Math.min(window.innerWidth - 420, window.innerHeight - 120));
     p.resizeCanvas(w, w);
-    minWidth = p.min(p.width, p.height);
-    drawPattern();
+    min_width = p.min(p.width, p.height);
+    p.redraw();
   };
 
-  function bindControls() {
-    const byId = (id) => document.getElementById(id);
-
-    const depthEl = byId('pat-depth');
-    const branchesEl = byId('pat-branches');
-    const radiusEl = byId('pat-radius');
-    const paEl = byId('pat-pa');
-    const pbEl = byId('pat-pb');
-    const pcEl = byId('pat-pc');
-    const pdEl = byId('pat-pd');
-    const tilesEl = byId('pat-tiles');
-    const seedEl = byId('pat-seed');
-    const randSeedBtn = byId('pat-random-seed');
-    const randPaletteBtn = byId('pat-random-palette');
-
-    const setVal = (id, text) => {
-      const el = byId(id);
-      if (el) el.textContent = text;
-    };
-
-    if (depthEl) {
-      depthEl.addEventListener('input', () => {
-        params.depth = parseInt(depthEl.value, 10);
-        setVal('val-pat-depth', depthEl.value);
-        drawPattern();
-      });
-    }
-
-    if (branchesEl) {
-      branchesEl.addEventListener('input', () => {
-        params.branches = parseInt(branchesEl.value, 10);
-        setVal('val-pat-branches', branchesEl.value);
-        drawPattern();
-      });
-    }
-
-    if (radiusEl) {
-      radiusEl.addEventListener('input', () => {
-        params.radiusFactor = parseInt(radiusEl.value, 10) / 100;
-        setVal('val-pat-radius', params.radiusFactor.toFixed(2));
-        drawPattern();
-      });
-    }
-
-    if (paEl) {
-      paEl.addEventListener('input', () => {
-        params.pa = parseInt(paEl.value, 10) / 100;
-        setVal('val-pat-pa', params.pa.toFixed(2));
-        drawPattern();
-      });
-    }
-
-    if (pbEl) {
-      pbEl.addEventListener('input', () => {
-        params.pb = parseInt(pbEl.value, 10) / 100;
-        setVal('val-pat-pb', params.pb.toFixed(2));
-        drawPattern();
-      });
-    }
-
-    if (pcEl) {
-      pcEl.addEventListener('input', () => {
-        params.pc = parseInt(pcEl.value, 10);
-        setVal('val-pat-pc', pcEl.value);
-        drawPattern();
-      });
-    }
-
-    if (pdEl) {
-      pdEl.addEventListener('input', () => {
-        params.pd = parseInt(pdEl.value, 10) / 100;
-        setVal('val-pat-pd', params.pd.toFixed(2));
-        drawPattern();
-      });
-    }
-
-    if (tilesEl) {
-      tilesEl.addEventListener('change', () => {
-        params.tiles = tilesEl.value;
-        drawPattern();
-      });
-    }
-
-    if (seedEl) {
-      seedEl.addEventListener('input', () => {
-        params.seed = parseInt(seedEl.value, 10) || 0;
-        drawPattern();
-      });
-    }
-
-    if (randSeedBtn) {
-      randSeedBtn.addEventListener('click', () => {
-        params.seed = Math.floor(Math.random() * 1_000_000_000);
-        if (seedEl) seedEl.value = String(params.seed);
-        drawPattern();
-      });
-    }
-
-    if (randPaletteBtn) {
-      randPaletteBtn.addEventListener('click', () => {
-        params.pa = p.random(0.1, 0.5);
-        params.pb = p.random(0.1, 0.5);
-        params.pc = p.int(p.random(1, 3));
-        params.pd = p.random();
-
-        if (paEl) paEl.value = Math.round(params.pa * 100);
-        if (pbEl) pbEl.value = Math.round(params.pb * 100);
-        if (pcEl) pcEl.value = params.pc;
-        if (pdEl) pdEl.value = Math.round(params.pd * 100);
-
-        setVal('val-pat-pa', params.pa.toFixed(2));
-        setVal('val-pat-pb', params.pb.toFixed(2));
-        setVal('val-pat-pc', String(params.pc));
-        setVal('val-pat-pd', params.pd.toFixed(2));
-
-        drawPattern();
-      });
-    }
-
-    setVal('val-pat-depth', String(params.depth));
-    setVal('val-pat-branches', String(params.branches));
-    setVal('val-pat-radius', params.radiusFactor.toFixed(2));
-    setVal('val-pat-pa', params.pa.toFixed(2));
-    setVal('val-pat-pb', params.pb.toFixed(2));
-    setVal('val-pat-pc', String(params.pc));
-    setVal('val-pat-pd', params.pd.toFixed(2));
-  }
-
-  function drawPattern() {
-    p.randomSeed(params.seed);
+  p.draw = () => {
     p.blendMode(p.BLEND);
     p.background(0);
     p.colorMode(p.HSB);
     p.rectMode(p.CENTER);
 
-    const cellW = minWidth * 0.65 / 2;
-
-    if (params.tiles === 'single') {
-      pattern(p.width / 2, p.height / 2, cellW * 0.5);
-    } else if (params.tiles === 'row') {
-      for (let x = -1; x <= 1; ++x) {
-        pattern(p.width / 2 + cellW * x, p.height / 2, cellW * 0.5);
-      }
-    } else {
-      for (let x = -1; x <= 1; ++x) {
-        for (let y = -1; y <= 1; ++y) {
-          pattern(p.width / 2 + cellW * x, p.height / 2 + cellW * y, cellW * 0.5);
-        }
+    const cell_w = min_width * 0.65 / 2;
+    for (let x = -1; x <= 1; ++x) {
+      for (let y = -1; y <= 1; ++y) {
+        pattern(p.width / 2 + cell_w * x, p.height / 2 + cell_w * y, cell_w * 0.5);
       }
     }
-
-    p.redraw();
-  }
+    p.noLoop();
+  };
 
   function _draw(width, id, depth) {
     const x = p.sin(id * depth * 333.2);
     const y = p.sin(id * depth * 531.1);
-    const hue = (p.int(palette(params.pa, params.pb, params.pc, params.pd, x) * 360 + 720) % 360);
-
     if (y <= 0) {
       p.noStroke();
-      p.fill(hue, 100, 100, 0.5);
+      p.fill(
+        p.int(palette(PA, PB, PC, PD, x) * 360 + 720) % 360,
+        100, 100,
+        0.5
+      );
     } else {
       p.noFill();
       p.strokeWeight(1 + (width / 100) * y);
-      p.stroke(hue, 100, 100, 0.5);
+      p.stroke(
+        p.int(palette(PA, PB, PC, PD, x) * 360 + 720) % 360,
+        100, 100,
+        0.5
+      );
     }
-
     const radius = p.fract(p.sin(id * depth * p.TWO_PI + 103.19)) * width;
     if (x < 0) {
       p.rect(0, 0, radius);
@@ -210,8 +119,8 @@ const patternsSketch = (p) => {
     }
   }
 
-  function rec(x, y, width, d, maxD, id, sw, mw) {
-    if (maxD < d || sw >= mw) return;
+  function rec(x, y, width, d, mxd, id, sw, mw) {
+    if (mxd < d || sw >= mw) return;
 
     _draw(width, id, d);
 
@@ -222,27 +131,32 @@ const patternsSketch = (p) => {
     p.push();
     p.rotate(rot);
     p.translate(ox, 0);
-    rec(0, 0, width * 0.5, d + 1, maxD, id, sw + ox, mw);
+    rec(0, 0, width * 0.5, d + 1, mxd, id, sw + ox, mw);
     p.pop();
 
     p.push();
     p.rotate(0);
     p.translate(ox, 0);
-    rec(0, 0, width * 0.5, d + 1, maxD, id, sw + ox, mw);
+    rec(0, 0, width * 0.5, d + 1, mxd, id, sw + ox, mw);
     p.pop();
 
     p.push();
     p.rotate(-rot);
     p.translate(ox, 0);
-    rec(0, 0, width * 0.6, d + 1, maxD, id, sw + ox, mw);
+    rec(0, 0, width * 0.6, d + 1, mxd, id, sw + ox, mw);
     p.pop();
   }
 
   function pattern(x, y, width) {
-    const maxDepth = params.depth;
+    const depthEl = document.getElementById('pat-depth');
+    const branchesEl = document.getElementById('pat-branches');
+    const radiusEl = document.getElementById('pat-radius');
+
+    const max_depth = depthEl ? parseInt(depthEl.value, 10) : 7;
+    const n = branchesEl ? parseInt(branchesEl.value, 10) : 5;
+    const r = radiusEl ? parseInt(radiusEl.value, 10) / 100 : 0.15;
+
     const id = p.fract(p.random() * 19.19 + p.sin((x + y * 33.4) * 3.7));
-    const r = params.radiusFactor;
-    const n = params.branches;
 
     p.push();
     p.translate(x, y);
@@ -251,10 +165,9 @@ const patternsSketch = (p) => {
       p.push();
       p.rotate(a);
       p.translate(r * width, 0);
-      rec(0, 0, width / 2, 1, maxDepth, id, r * width, width);
+      rec(0, 0, width / 2, 1, max_depth, id, r * width, width);
       p.pop();
     }
-
     p.pop();
   }
 
@@ -263,5 +176,5 @@ const patternsSketch = (p) => {
   }
 };
 
-new p5(patternsSketch);
+new p5(sketch);
 
