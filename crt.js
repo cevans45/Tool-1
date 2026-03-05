@@ -112,27 +112,33 @@ function crtDrawBlock(p, x, y, w, h) {
 function rectSymmetric(p, w, h, xx, yy, sx, sy, vw, vh) {
   const m = crtParams.mirrors || 1;
 
-  // base position in top-left quadrant
+  // compute base position, then work in centered coordinates for clean symmetry
   const baseX = -w / 2 + w / 2 + (-w / 2 + xx) * sx;
   const baseY = -h / 2 + h / 2 + (-h / 2 + yy) * sy;
+  const cx = w / 2;
+  const cy = h / 2;
+  const dx = baseX - cx;
+  const dy = baseY - cy;
 
   const positions = [];
 
   // 1: base
-  if (m >= 1) positions.push({ x: baseX, y: baseY });
+  if (m >= 1) positions.push({ dx:  dx, dy:  dy });
   // 2: horizontal mirror
-  if (m >= 2) positions.push({ x: w - baseX - vw, y: baseY });
+  if (m >= 2) positions.push({ dx: -dx, dy:  dy });
   // 3: vertical mirror
-  if (m >= 3) positions.push({ x: baseX, y: h - baseY - vh });
+  if (m >= 3) positions.push({ dx:  dx, dy: -dy });
   // 4: both axes
-  if (m >= 4) positions.push({ x: w - baseX - vw, y: h - baseY - vh });
-  // 5–6: diagonals (swap x/y around center)
-  const diagX = baseY;
-  const diagY = baseX;
-  if (m >= 5) positions.push({ x: diagX, y: diagY });
-  if (m >= 6) positions.push({ x: w - diagX - vw, y: h - diagY - vh });
+  if (m >= 4) positions.push({ dx: -dx, dy: -dy });
+  // 5–6: diagonals (swap x/y)
+  if (m >= 5) positions.push({ dx:  dy, dy:  dx });
+  if (m >= 6) positions.push({ dx: -dy, dy: -dx });
 
-  positions.forEach(pos => crtDrawBlock(p, pos.x, pos.y, vw, vh));
+  positions.forEach(pos => {
+    const x = cx + pos.dx - vw / 2;
+    const y = cy + pos.dy - vh / 2;
+    crtDrawBlock(p, x, y, vw, vh);
+  });
 }
 
 function bindCrtControls() {
