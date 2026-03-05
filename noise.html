@@ -3,20 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Noise fields — OVRT</title>
+    <title>Recursive patterns — OVRT</title>
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 </head>
 <body>
     <div class="site-shell">
         <header class="tool-header">
             <a href="index.html" class="back-link">← Back to OVRT</a>
-            <span class="tool-title">Noise fields</span>
+            <span class="tool-title">Recursive patterns</span>
         </header>
-        <main class="tool-coming">
-            <p>Noise fields is coming soon.</p>
-        </main>
+        <div class="app" aria-label="Recursive patterns">
+            <div id="pattern-canvas"></div>
+            <aside class="control-panel">
+                <header class="panel-header">
+                    <h2>Controls</h2>
+                </header>
+                <div class="panel-body">
+                    <section class="control-section">
+                        <h3>Structure</h3>
+                        <div class="control-row">
+                            <label for="pat-depth">Depth</label>
+                            <input type="range" id="pat-depth" min="4" max="9" value="7" step="1">
+                            <span class="param-value" id="val-pat-depth">7</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="pat-branches">Branches</label>
+                            <input type="range" id="pat-branches" min="3" max="8" value="5" step="1">
+                            <span class="param-value" id="val-pat-branches">5</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="pat-radius">Radius</label>
+                            <input type="range" id="pat-radius" min="5" max="30" value="15" step="1">
+                            <span class="param-value" id="val-pat-radius">0.15</span>
+                        </div>
+                    </section>
+                    <section class="control-section">
+                        <h3>Palette</h3>
+                        <div class="control-row">
+                            <label for="pat-pa">PA</label>
+                            <input type="range" id="pat-pa" min="10" max="50" value="30" step="1">
+                            <span class="param-value" id="val-pat-pa">0.30</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="pat-pb">PB</label>
+                            <input type="range" id="pat-pb" min="10" max="50" value="30" step="1">
+                            <span class="param-value" id="val-pat-pb">0.30</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="pat-pc">PC</label>
+                            <input type="range" id="pat-pc" min="1" max="3" value="2" step="1">
+                            <span class="param-value" id="val-pat-pc">2</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="pat-pd">PD</label>
+                            <input type="range" id="pat-pd" min="0" max="100" value="50" step="1">
+                            <span class="param-value" id="val-pat-pd">0.50</span>
+                        </div>
+                    </section>
+                    <section class="control-section">
+                        <h3>Tiles</h3>
+                        <div class="control-row">
+                            <label for="pat-tiles">Layout</label>
+                            <select id="pat-tiles" class="select-input">
+                                <option value="single" selected>Single</option>
+                                <option value="row">Row of 3</option>
+                                <option value="grid">Grid of 9</option>
+                            </select>
+                        </div>
+                    </section>
+                    <section class="control-section">
+                        <h3>Randomness</h3>
+                        <div class="control-row">
+                            <label for="pat-seed">Seed</label>
+                            <input type="number" id="pat-seed" min="0" max="999999999" value="123456" step="1">
+                        </div>
+                        <div class="control-row">
+                            <label>Actions</label>
+                            <button type="button" id="pat-random-seed" class="panel-button">Random seed</button>
+                            <button type="button" id="pat-random-palette" class="panel-button">Random palette</button>
+                        </div>
+                    </section>
+                </div>
+            </aside>
+        </div>
     </div>
     <script src="page-transition.js"></script>
+    <script src="patterns.js"></script>
 </body>
 </html>
 
