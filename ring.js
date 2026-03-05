@@ -10,6 +10,7 @@ let orbitParams = {
   scalePct: 90,
   bg: '#f6f6f4',
   color: '#111111',
+  wrap: 'wrap',    // wrap | bounce
 };
 
 let orbitShapes = [];
@@ -92,6 +93,7 @@ function bindOrbitControls() {
   const bgEl = document.getElementById('orbit-bg');
   const colorEl = document.getElementById('orbit-color');
   const randBtn = document.getElementById('btn-orbit-random-colors');
+  const wrapEl = document.getElementById('orbit-wrap');
   const selSizeEl = document.getElementById('orbit-selected-size');
   const selSpeedEl = document.getElementById('orbit-selected-speed');
   const selModeEl = document.getElementById('orbit-selected-mode');
@@ -167,6 +169,12 @@ function bindOrbitControls() {
       orbitParams.bg = bg;
       if (colorEl) colorEl.value = fg;
       if (bgEl) bgEl.value = bg;
+    });
+  }
+
+  if (wrapEl) {
+    wrapEl.addEventListener('change', () => {
+      orbitParams.wrap = wrapEl.value;
     });
   }
 
@@ -302,10 +310,18 @@ function updateShapePosition(s, t, baseSpeed, idx) {
     }
     // Wrap around edges.
     const margin = orbitParams.size * (s.sizeFactor || 1);
-    if (s.x < -margin) s.x = width + margin;
-    if (s.x > width + margin) s.x = -margin;
-    if (s.y < -margin) s.y = height + margin;
-    if (s.y > height + margin) s.y = -margin;
+    if (orbitParams.wrap === 'wrap') {
+      if (s.x < -margin) s.x = width + margin;
+      if (s.x > width + margin) s.x = -margin;
+      if (s.y < -margin) s.y = height + margin;
+      if (s.y > height + margin) s.y = -margin;
+    } else {
+      // bounce
+      if (s.x < margin || s.x > width - margin) s.vx *= -1;
+      if (s.y < margin || s.y > height - margin) s.vy *= -1;
+      s.x = constrain(s.x, margin, width - margin);
+      s.y = constrain(s.y, margin, height - margin);
+    }
   }
 }
 
