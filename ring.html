@@ -85,6 +85,32 @@
                             <button type="button" id="btn-orbit-random-colors" class="panel-button">Random colors</button>
                         </div>
                     </section>
+                    <section class="control-section">
+                        <h3>Selected shape</h3>
+                        <div class="control-row">
+                            <label id="label-selected-index">Shape #1</label>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-selected-size">Size</label>
+                            <input type="range" id="orbit-selected-size" min="4" max="80" value="20" step="2">
+                            <span class="param-value" id="value-orbit-selected-size">20</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-selected-speed">Speed</label>
+                            <input type="range" id="orbit-selected-speed" min="25" max="400" value="100" step="5">
+                            <span class="param-value" id="value-orbit-selected-speed">1.00x</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-selected-mode">Mode</label>
+                            <select id="orbit-selected-mode" class="select-input">
+                                <option value="inherit" selected>Inherit</option>
+                                <option value="horizontal">Horizontal</option>
+                                <option value="vertical">Vertical</option>
+                                <option value="diagonal">Diagonal</option>
+                                <option value="orbit">Orbit</option>
+                            </select>
+                        </div>
+                    </section>
                 </div>
             </aside>
         </div>

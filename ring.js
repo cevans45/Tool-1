@@ -13,6 +13,7 @@ let orbitParams = {
 };
 
 let orbitShapes = [];
+let orbitSelected = -1;
 let orbitCanvasWidth;
 
 function createOrbitShapes() {
@@ -29,8 +30,21 @@ function createOrbitShapes() {
     const dir = random([-1, 1]);
     const vx = random([-1, 1]);
     const vy = random([-1, 1]);
-    orbitShapes.push({ x, y, angle, radius, dir, vx, vy });
+    orbitShapes.push({
+      x,
+      y,
+      angle,
+      radius,
+      dir,
+      vx,
+      vy,
+      sizeFactor: 1,
+      speedFactor: 1,
+      modeOverride: null,
+      kindOverride: null,
+    });
   }
+  orbitSelected = orbitShapes.length ? 0 : -1;
 }
 
 function resizeOrbitCanvas() {
@@ -78,6 +92,10 @@ function bindOrbitControls() {
   const bgEl = document.getElementById('orbit-bg');
   const colorEl = document.getElementById('orbit-color');
   const randBtn = document.getElementById('btn-orbit-random-colors');
+  const selSizeEl = document.getElementById('orbit-selected-size');
+  const selSpeedEl = document.getElementById('orbit-selected-speed');
+  const selModeEl = document.getElementById('orbit-selected-mode');
+  const selLabel = document.getElementById('label-selected-index');
 
   if (countEl) {
     countEl.addEventListener('input', () => {
@@ -151,10 +169,97 @@ function bindOrbitControls() {
       if (bgEl) bgEl.value = bg;
     });
   }
+
+  const updateSelectedLabel = () => {
+    if (!selLabel) return;
+    selLabel.textContent = orbitSelected >= 0 ? `Shape #${orbitSelected + 1}` : 'None';
+  };
+
+  const syncSelectedControls = () => {
+    const s = orbitShapes[orbitSelected];
+    if (!s) return;
+    if (selSizeEl) {
+      const v = Math.round(orbitParams.size * (s.sizeFactor || 1));
+      selSizeEl.value = constrain(v, parseInt(selSizeEl.min, 10), parseInt(selSizeEl.max, 10));
+      const out = document.getElementById('value-orbit-selected-size');
+      if (out) out.textContent = selSizeEl.value;
+    }
+    if (selSpeedEl) {
+      const v = (s.speedFactor || 1);
+      selSpeedEl.value = Math.round(v * 100);
+      const out = document.getElementById('value-orbit-selected-speed');
+      if (out) out.textContent = (v.toFixed(2) + 'x');
+    }
+    if (selModeEl) {
+      selModeEl.value = s.modeOverride || 'inherit';
+    }
+  };
+
+  if (selSizeEl) {
+    selSizeEl.addEventListener('input', () => {
+      const s = orbitShapes[orbitSelected];
+      if (!s) return;
+      const absSize = parseInt(selSizeEl.value, 10);
+      s.sizeFactor = absSize / orbitParams.size;
+      const out = document.getElementById('value-orbit-selected-size');
+      if (out) out.textContent = selSizeEl.value;
+    });
+  }
+
+  if (selSpeedEl) {
+    selSpeedEl.addEventListener('input', () => {
+      const s = orbitShapes[orbitSelected];
+      if (!s) return;
+      const pct = parseInt(selSpeedEl.value, 10); // 25–400
+      s.speedFactor = pct / 100;
+      const out = document.getElementById('value-orbit-selected-speed');
+      if (out) out.textContent = (s.speedFactor.toFixed(2) + 'x');
+    });
+  }
+
+  if (selModeEl) {
+    selModeEl.addEventListener('change', () => {
+      const s = orbitShapes[orbitSelected];
+      if (!s) return;
+      const v = selModeEl.value;
+      s.modeOverride = v === 'inherit' ? null : v;
+    });
+  }
+
+  updateSelectedLabel();
+  syncSelectedControls();
 }
 
 function hslToCss(h, s, l) {
   return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
+}
+
+function mousePressed() {
+  const container = document.getElementById('orbit-canvas');
+  if (!container) return;
+  const bounds = container.getBoundingClientRect();
+  const mx = mouseX;
+  const my = mouseY;
+  if (mx < 0 || my < 0 || mx > width || my > height) return;
+
+  let closest = -1;
+  let closestDist = Infinity;
+  for (let i = 0; i < orbitShapes.length; i++) {
+    const s = orbitShapes[i];
+    const d = dist(mx, my, s.x, s.y);
+    const radius = (orbitParams.size * (s.sizeFactor || 1)) * 0.7;
+    if (d < radius && d < closestDist) {
+      closestDist = d;
+      closest = i;
+    }
+  }
+  if (closest !== -1) {
+    orbitSelected = closest;
+    const selLabel = document.getElementById('label-selected-index');
+    if (selLabel) {
+      selLabel.textContent = `Shape #${orbitSelected + 1}`;
+    }
+  }
 }
 
 function draw() {
@@ -162,25 +267,24 @@ function draw() {
   const t = millis() / 1000;
   const baseSpeed = orbitParams.speed / 200;
 
-  fill(orbitParams.color);
-  noStroke();
-
-  const cx = width / 2;
-  const cy = height / 2;
-
   for (let i = 0; i < orbitShapes.length; i++) {
     const s = orbitShapes[i];
     updateShapePosition(s, t, baseSpeed, i);
-    drawMirroredShape(s.x, s.y);
+    const isSelected = i === orbitSelected;
+    drawMirroredShape(s.x, s.y, isSelected);
   }
 }
 
 function updateShapePosition(s, t, baseSpeed, idx) {
-  const mode = orbitParams.mode === 'mixed'
-    ? ['horizontal', 'vertical', 'diagonal', 'orbit'][idx % 4]
-    : orbitParams.mode;
+  const globalMode = orbitParams.mode;
+  let mode = globalMode;
+  if (s.modeOverride) {
+    mode = s.modeOverride;
+  } else if (globalMode === 'mixed') {
+    mode = ['horizontal', 'vertical', 'diagonal', 'orbit'][idx % 4];
+  }
 
-  const sp = baseSpeed * (1 + (idx % 7) * 0.15);
+  const sp = baseSpeed * (1 + (idx % 7) * 0.15) * (s.speedFactor || 1);
 
   if (mode === 'orbit') {
     const localAngle = s.angle + t * sp * s.dir * TWO_PI;
@@ -197,14 +301,15 @@ function updateShapePosition(s, t, baseSpeed, idx) {
       s.y += s.vy * sp * 100;
     }
     // Wrap around edges.
-    if (s.x < -orbitParams.size) s.x = width + orbitParams.size;
-    if (s.x > width + orbitParams.size) s.x = -orbitParams.size;
-    if (s.y < -orbitParams.size) s.y = height + orbitParams.size;
-    if (s.y > height + orbitParams.size) s.y = -orbitParams.size;
+    const margin = orbitParams.size * (s.sizeFactor || 1);
+    if (s.x < -margin) s.x = width + margin;
+    if (s.x > width + margin) s.x = -margin;
+    if (s.y < -margin) s.y = height + margin;
+    if (s.y > height + margin) s.y = -margin;
   }
 }
 
-function drawMirroredShape(x, y) {
+function drawMirroredShape(x, y, isSelected) {
   const m = orbitParams.mirror || 1;
   const positions = [{ x, y }];
   if (m >= 2) positions.push({ x: width - x, y });
@@ -212,6 +317,15 @@ function drawMirroredShape(x, y) {
   if (m >= 4) positions.push({ x: width - x, y: height - y });
 
   positions.forEach((p) => {
+    if (isSelected) {
+      stroke(orbitParams.color);
+      strokeWeight(2);
+      noFill();
+      const pad = orbitParams.size * 0.6;
+      rectMode(CENTER);
+      rect(p.x, p.y, orbitParams.size + pad, orbitParams.size + pad);
+      noStroke();
+    }
     drawOrbitShape(p.x, p.y);
   });
 }
