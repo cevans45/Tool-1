@@ -9,6 +9,10 @@ const crtParams = {
   xspeed: 5,
   fade: 0.05,
   bg: '#000000',
+  hueBase: 0,
+  hueRange: 360,
+  shape: 'square', // square | rounded | circle
+  mirrors: 4,      // 1..4
 };
 
 const crtSketch = (p) => {
@@ -64,12 +68,10 @@ const crtSketch = (p) => {
         const smy = (p.cos(xmotion / 50 + crtZMotion / 100 + ni * p.PI * 0.5 + nx * p.PI * 2)) * (w / 2 * p.sin(crtZMotion / 100));
         const brightness = 105 + 255 * Math.abs(p.sin(crtZMotion / 1000 + ni * p.PI * 1) * nx) - ((x ^ (i * 16 + p.frameCount * 16)) % 255);
 
-        p.fill(
-          (crtZMotion + (x + p.frameCount) | (i / 2 + p.frameCount * 2)) % 360,
-          200,
-          brightness,
-          1
-        );
+        let srcHue = (crtZMotion + (x + p.frameCount) | (i / 2 + p.frameCount * 2)) % 360;
+        const hue = (crtParams.hueBase + (srcHue / 360) * crtParams.hueRange) % 360;
+
+        p.fill(hue, 200, brightness, 1);
 
         const vw = sw * sx * (1 - ni);
         const vh = sh * sy * (1 - ni);
@@ -95,16 +97,40 @@ const crtSketch = (p) => {
   };
 };
 
-function rectSymmetric(p, w, h, xx, yy, sx, sy, vw, vh) {
-  p.rect(-w / 2 + w / 2 + (-w / 2 + xx) * sx, -h / 2 + h / 2 + (-h / 2 + yy) * sy, vw, vh);
-  p.rect(-w / 2 + w - (w / 2 + (-w / 2 + xx) * sx), -h / 2 + h / 2 + (-h / 2 + yy) * sy, vw, vh);
-  p.rect(-w / 2 + w / 2 + (-w / 2 + xx) * sx, -h / 2 + h - (h / 2 + (-h / 2 + yy) * sy), vw, vh);
-  p.rect(-w / 2 + w - (w / 2 + (-w / 2 + xx) * sx), -h / 2 + h - (h / 2 + (-h / 2 + yy) * sy), vw, vh);
+function crtDrawBlock(p, x, y, w, h) {
+  if (crtParams.shape === 'circle') {
+    const d = Math.min(w, h);
+    p.circle(x + w / 2, y + h / 2, d);
+  } else if (crtParams.shape === 'rounded') {
+    const r = Math.min(w, h) * 0.4;
+    p.rect(x, y, w, h, r);
+  } else {
+    p.rect(x, y, w, h);
+  }
+}
 
-  p.rect(-h / 2 + h / 2 + (-h / 2 + yy) * sy, -w / 2 + w / 2 + (-w / 2 + xx) * sx, vw, vh);
-  p.rect(-h / 2 + h / 2 + (-h / 2 + yy) * sy, -w / 2 + w - (w / 2 + (-w / 2 + xx) * sx), vw, vh);
-  p.rect(-h / 2 + h - (h / 2 + (-h / 2 + yy) * sy), -w / 2 + w / 2 + (-w / 2 + xx) * sx, vw, vh);
-  p.rect(-h / 2 + h - (h / 2 + (-h / 2 + yy) * sy), -w / 2 + w - (w / 2 + (-w / 2 + xx) * sx), vw, vh);
+function rectSymmetric(p, w, h, xx, yy, sx, sy, vw, vh) {
+  const m = crtParams.mirrors || 1;
+
+  // base orientation
+  if (m >= 1) {
+    crtDrawBlock(p, -w / 2 + w / 2 + (-w / 2 + xx) * sx, -h / 2 + h / 2 + (-h / 2 + yy) * sy, vw, vh);
+  }
+  if (m >= 2) {
+    crtDrawBlock(p, -w / 2 + w - (w / 2 + (-w / 2 + xx) * sx), -h / 2 + h / 2 + (-h / 2 + yy) * sy, vw, vh);
+  }
+  if (m >= 3) {
+    crtDrawBlock(p, -w / 2 + w / 2 + (-w / 2 + xx) * sx, -h / 2 + h - (h / 2 + (-h / 2 + yy) * sy), vw, vh);
+  }
+  if (m >= 4) {
+    crtDrawBlock(p, -w / 2 + w - (w / 2 + (-w / 2 + xx) * sx), -h / 2 + h - (h / 2 + (-h / 2 + yy) * sy), vw, vh);
+
+    // swapped orientation for extra complexity
+    crtDrawBlock(p, -h / 2 + h / 2 + (-h / 2 + yy) * sy, -w / 2 + w / 2 + (-w / 2 + xx) * sx, vw, vh);
+    crtDrawBlock(p, -h / 2 + h / 2 + (-h / 2 + yy) * sy, -w / 2 + w - (w / 2 + (-w / 2 + xx) * sx), vw, vh);
+    crtDrawBlock(p, -h / 2 + h - (h / 2 + (-h / 2 + yy) * sy), -w / 2 + w / 2 + (-w / 2 + xx) * sx, vw, vh);
+    crtDrawBlock(p, -h / 2 + h - (h / 2 + (-h / 2 + yy) * sy), -w / 2 + w - (w / 2 + (-w / 2 + xx) * sx), vw, vh);
+  }
 }
 
 function bindCrtControls() {
@@ -115,6 +141,10 @@ function bindCrtControls() {
   const xspeedEl = id('crt-xspeed');
   const fadeEl = id('crt-fade');
   const bgEl = id('crt-bg');
+  const hueBaseEl = id('crt-hue-base');
+  const hueRangeEl = id('crt-hue-range');
+  const shapeEl = id('crt-shape');
+  const mirrorsEl = id('crt-mirrors');
 
   const setVal = (labelId, text) => {
     const el = id(labelId);
@@ -162,11 +192,41 @@ function bindCrtControls() {
     });
   }
 
+  if (hueBaseEl) {
+    hueBaseEl.addEventListener('input', () => {
+      crtParams.hueBase = parseInt(hueBaseEl.value, 10) || 0;
+      setVal('val-crt-hue-base', crtParams.hueBase + '°');
+    });
+  }
+
+  if (hueRangeEl) {
+    hueRangeEl.addEventListener('input', () => {
+      crtParams.hueRange = parseInt(hueRangeEl.value, 10) || 0;
+      setVal('val-crt-hue-range', crtParams.hueRange + '°');
+    });
+  }
+
+  if (shapeEl) {
+    shapeEl.addEventListener('change', () => {
+      crtParams.shape = shapeEl.value;
+    });
+  }
+
+  if (mirrorsEl) {
+    mirrorsEl.addEventListener('input', () => {
+      crtParams.mirrors = parseInt(mirrorsEl.value, 10) || 1;
+      setVal('val-crt-mirrors', String(crtParams.mirrors));
+    });
+  }
+
   setVal('val-crt-layers', String(crtParams.layers));
   setVal('val-crt-block', String(crtParams.block));
   setVal('val-crt-zspeed', String(crtParams.zspeed));
   setVal('val-crt-xspeed', String(crtParams.xspeed));
   setVal('val-crt-fade', crtParams.fade.toFixed(2));
+  setVal('val-crt-hue-base', crtParams.hueBase + '°');
+  setVal('val-crt-hue-range', crtParams.hueRange + '°');
+  setVal('val-crt-mirrors', String(crtParams.mirrors));
 }
 
 new p5(crtSketch);
