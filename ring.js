@@ -1,18 +1,19 @@
-// Poster-like shape motion tool with multi-layer controls.
+// Poster-like shape motion tool with up to 4 declared shapes.
 
 const orbitParams = {
   seed: 2025,
-  mirror: 3, // 1..5 radial mirrored copies
+  mirror: 3,       // 1..5
   scalePct: 92,
+  shapeCount: 4,   // 1..4 declared shapes
   bg: '#050505',
-  layers: [
-    { shape: 'circle', dir: 'circle', count: 8, size: 120, speed: 45, radius: 220, rot: 0, spin: 18, color: '#ff2aa1' },
-    { shape: 'square', dir: 'diag-ur', count: 10, size: 56, speed: 72, radius: 120, rot: 35, spin: -24, color: '#ffffff' },
-    { shape: 'triangle', dir: 'left', count: 6, size: 88, speed: 30, radius: 280, rot: 0, spin: 12, color: '#ff2aa1' }
+  shapes: [
+    { shape: 'circle', dir: 'circle', size: 120, speed: 45, radius: 220, rot: 0, spin: 18, color: '#ff2aa1', phase: 0.0 },
+    { shape: 'square', dir: 'diag-ur', size: 56, speed: 72, radius: 120, rot: 35, spin: -24, color: '#ffffff', phase: 1.3 },
+    { shape: 'triangle', dir: 'left', size: 88, speed: 30, radius: 280, rot: 0, spin: 12, color: '#ff2aa1', phase: 2.2 },
+    { shape: 'circle', dir: 'right', size: 48, speed: 90, radius: 160, rot: 10, spin: 22, color: '#ffffff', phase: 0.7 }
   ]
 };
 
-let actors = [];
 let sceneBuffer;
 
 function setup() {
@@ -29,7 +30,6 @@ function setup() {
   sceneBuffer.noStroke();
 
   bindControls();
-  rebuildScene();
   resizePosterCanvas();
 }
 
@@ -47,11 +47,10 @@ function resizePosterCanvas() {
   sceneBuffer.rectMode(CENTER);
   sceneBuffer.angleMode(RADIANS);
   sceneBuffer.noStroke();
-  rebuildScene();
 }
 
 function bindControls() {
-  bindInput('orbit-seed', (v) => { orbitParams.seed = int(v) || 0; rebuildScene(); });
+  bindInput('orbit-seed', (v) => { orbitParams.seed = int(v) || 0; });
   bindRange('orbit-scale', 'value-orbit-scale', (v) => {
     orbitParams.scalePct = int(v);
     return `${int(v)}%`;
@@ -60,37 +59,37 @@ function bindControls() {
     orbitParams.mirror = constrain(int(v), 1, 5);
     return String(orbitParams.mirror);
   });
+  bindRange('orbit-shape-count', 'value-orbit-shape-count', (v) => {
+    orbitParams.shapeCount = constrain(int(v), 1, 4);
+    return String(orbitParams.shapeCount);
+  }, updateShapeSectionState);
   bindInput('orbit-bg', (v) => { orbitParams.bg = v; });
 
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const n = i + 1;
-    bindInput(`orbit-l${n}-shape`, (v) => { orbitParams.layers[i].shape = v; });
-    bindInput(`orbit-l${n}-dir`, (v) => { orbitParams.layers[i].dir = v; });
-    bindRange(`orbit-l${n}-count`, `value-orbit-l${n}-count`, (v) => {
-      orbitParams.layers[i].count = int(v);
-      return String(orbitParams.layers[i].count);
-    }, () => rebuildScene());
-    bindRange(`orbit-l${n}-size`, `value-orbit-l${n}-size`, (v) => {
-      orbitParams.layers[i].size = int(v);
+    bindInput(`orbit-s${n}-shape`, (v) => { orbitParams.shapes[i].shape = v; });
+    bindInput(`orbit-s${n}-dir`, (v) => { orbitParams.shapes[i].dir = v; });
+    bindRange(`orbit-s${n}-size`, `value-orbit-s${n}-size`, (v) => {
+      orbitParams.shapes[i].size = int(v);
       return String(int(v));
     });
-    bindRange(`orbit-l${n}-speed`, `value-orbit-l${n}-speed`, (v) => {
-      orbitParams.layers[i].speed = int(v);
+    bindRange(`orbit-s${n}-speed`, `value-orbit-s${n}-speed`, (v) => {
+      orbitParams.shapes[i].speed = int(v);
       return String(int(v));
     });
-    bindRange(`orbit-l${n}-radius`, `value-orbit-l${n}-radius`, (v) => {
-      orbitParams.layers[i].radius = int(v);
+    bindRange(`orbit-s${n}-radius`, `value-orbit-s${n}-radius`, (v) => {
+      orbitParams.shapes[i].radius = int(v);
       return String(int(v));
     });
-    bindRange(`orbit-l${n}-rot`, `value-orbit-l${n}-rot`, (v) => {
-      orbitParams.layers[i].rot = int(v);
+    bindRange(`orbit-s${n}-rot`, `value-orbit-s${n}-rot`, (v) => {
+      orbitParams.shapes[i].rot = int(v);
       return `${int(v)}°`;
     });
-    bindRange(`orbit-l${n}-spin`, `value-orbit-l${n}-spin`, (v) => {
-      orbitParams.layers[i].spin = int(v);
+    bindRange(`orbit-s${n}-spin`, `value-orbit-s${n}-spin`, (v) => {
+      orbitParams.shapes[i].spin = int(v);
       return String(int(v));
     });
-    bindInput(`orbit-l${n}-color`, (v) => { orbitParams.layers[i].color = v; });
+    bindInput(`orbit-s${n}-color`, (v) => { orbitParams.shapes[i].color = v; });
   }
 
   const seedBtn = document.getElementById('btn-orbit-random-seed');
@@ -99,7 +98,6 @@ function bindControls() {
       orbitParams.seed = floor(random(1_000_000_000));
       const seedEl = document.getElementById('orbit-seed');
       if (seedEl) seedEl.value = String(orbitParams.seed);
-      rebuildScene();
     });
   }
 
@@ -108,17 +106,20 @@ function bindControls() {
     paletteBtn.addEventListener('click', () => {
       const base = random(360);
       orbitParams.bg = toHexFromHsl(base, 18, 5);
-      orbitParams.layers[0].color = toHexFromHsl((base + 320) % 360, 90, 56);
-      orbitParams.layers[1].color = toHexFromHsl((base + 0) % 360, 10, 96);
-      orbitParams.layers[2].color = toHexFromHsl((base + 300) % 360, 90, 56);
+      orbitParams.shapes[0].color = toHexFromHsl((base + 320) % 360, 90, 56);
+      orbitParams.shapes[1].color = toHexFromHsl((base + 0) % 360, 10, 96);
+      orbitParams.shapes[2].color = toHexFromHsl((base + 300) % 360, 90, 56);
+      orbitParams.shapes[3].color = toHexFromHsl((base + 340) % 360, 40, 92);
       const bg = document.getElementById('orbit-bg');
       if (bg) bg.value = orbitParams.bg;
-      for (let i = 0; i < 3; i++) {
-        const el = document.getElementById(`orbit-l${i + 1}-color`);
-        if (el) el.value = orbitParams.layers[i].color;
+      for (let i = 0; i < 4; i++) {
+        const el = document.getElementById(`orbit-s${i + 1}-color`);
+        if (el) el.value = orbitParams.shapes[i].color;
       }
     });
   }
+
+  updateShapeSectionState();
 }
 
 function bindInput(id, onChange) {
@@ -141,20 +142,16 @@ function bindRange(id, valueId, mapFn, afterFn) {
   apply();
 }
 
-function rebuildScene() {
-  randomSeed(int(orbitParams.seed));
-  actors = [];
-  for (let li = 0; li < orbitParams.layers.length; li++) {
-    const layer = orbitParams.layers[li];
-    for (let i = 0; i < layer.count; i++) {
-      actors.push({
-        layer: li,
-        phase: random(TWO_PI),
-        anchorX: random(width * 0.25, width * 0.75),
-        anchorY: random(height * 0.25, height * 0.75),
-        drift: random(0.6, 1.4),
-      });
-    }
+function updateShapeSectionState() {
+  for (let i = 0; i < 4; i++) {
+    const section = document.getElementById(`shape-${i + 1}-section`);
+    if (!section) continue;
+    const active = i < orbitParams.shapeCount;
+    section.classList.toggle('control-row--disabled', !active);
+    const controls = section.querySelectorAll('input, select');
+    controls.forEach((control) => {
+      control.disabled = !active;
+    });
   }
 }
 
@@ -167,29 +164,31 @@ function draw() {
 function drawSceneToBuffer(t) {
   sceneBuffer.clear();
   sceneBuffer.background(orbitParams.bg);
-  for (const actor of actors) {
-    const layer = orbitParams.layers[actor.layer];
-    const point = actorPoint(actor, layer, t);
-    const spin = radians((layer.spin || 0) * t);
-    const baseRot = radians(layer.rot || 0);
-    drawShapeAt(sceneBuffer, point.x, point.y, baseRot + spin, layer.shape, layer.size, layer.color);
+  randomSeed(int(orbitParams.seed));
+  for (let i = 0; i < orbitParams.shapeCount; i++) {
+    const shapeDef = orbitParams.shapes[i];
+    const point = shapePoint(shapeDef, i, t);
+    const spin = radians((shapeDef.spin || 0) * t);
+    const baseRot = radians(shapeDef.rot || 0);
+    drawShapeAt(sceneBuffer, point.x, point.y, baseRot + spin, shapeDef.shape, shapeDef.size, shapeDef.color);
   }
 }
 
-function actorPoint(actor, layer, t) {
-  const speed = (layer.speed / 100) * actor.drift;
-  const r = layer.radius;
-  const tt = t * speed;
+function shapePoint(shapeDef, index, t) {
+  const speed = shapeDef.speed / 100;
+  const r = shapeDef.radius;
+  const phase = shapeDef.phase + index * 1.77;
+  const tt = t * speed + phase;
+  let x = width / 2;
+  let y = height / 2;
 
-  let x = actor.anchorX;
-  let y = actor.anchorY;
-  if (layer.dir === 'circle') {
-    x = width / 2 + cos(actor.phase + tt) * r;
-    y = height / 2 + sin(actor.phase + tt) * r;
+  if (shapeDef.dir === 'circle') {
+    x = width / 2 + cos(tt) * r;
+    y = height / 2 + sin(tt) * r;
   } else {
-    const vec = directionVector(layer.dir);
-    x = actor.anchorX + vec.x * sin(actor.phase + tt) * r;
-    y = actor.anchorY + vec.y * cos(actor.phase + tt) * r;
+    const vec = directionVector(shapeDef.dir);
+    x = width / 2 + vec.x * sin(tt) * r;
+    y = height / 2 + vec.y * sin(tt) * r;
   }
   return { x, y };
 }
