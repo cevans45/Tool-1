@@ -972,11 +972,9 @@ function bindControls() {
 
   const updateModeUI = () => {
     const isSketch = params.drawMode;
-    const sketchStyle = byId('section-sketch-style');
     const structure = byId('section-structure');
     const smoothing = byId('section-smoothing');
     const style = byId('section-style');
-    if (sketchStyle) sketchStyle.style.display = isSketch ? '' : 'none';
     if (structure) structure.style.display = isSketch ? 'none' : '';
     if (smoothing) smoothing.style.display = isSketch ? 'none' : '';
     if (style) style.style.display = isSketch ? 'none' : '';
