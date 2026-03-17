@@ -32,12 +32,21 @@
                                 <input type="checkbox" id="cs-draw-mode" checked>
                             </div>
                             <div class="control-row">
+                                <label>Draw mode</label>
+                                <button type="button" id="cs-mode-ink" class="panel-button">INK (+)</button>
+                                <button type="button" id="cs-mode-cut" class="panel-button">CUT (-)</button>
+                            </div>
+                            <div class="control-row">
                                 <label>Seed action</label>
                                 <button type="button" id="cs-random-seed" class="panel-button">Random seed</button>
                             </div>
                             <div class="control-row">
                                 <label>Sketch action</label>
                                 <button type="button" id="cs-clear" class="panel-button">Clear sketch</button>
+                            </div>
+                            <div class="control-row">
+                                <label>Export</label>
+                                <button type="button" id="cs-export" class="panel-button">PNG</button>
                             </div>
                             <div class="control-row">
                                 <label for="cs-curves">Curves</label>
@@ -176,6 +185,10 @@
                                 <label for="cs-texture-jitter">Jitter</label>
                                 <input type="range" id="cs-texture-jitter" min="0" max="100" value="22" step="1">
                                 <span class="param-value" id="val-cs-texture-jitter">0.22</span>
+                            </div>
+                            <div class="control-row">
+                                <label>Shortcuts</label>
+                                <span class="param-value" style="flex:1 1 auto; text-align:left;">1 ink / 2 cut / M mirror / Space clear / S export</span>
                             </div>
                         </section>
                     </details>

@@ -32,6 +32,7 @@ const params = {
   fillAmount: 0.72,
   strokeEnabled: true,
   drawMode: true,
+  drawOperation: 'ink', // ink | cut
   mirrorX: true,
   mirrorY: true,
   bg: '#e7e7e7',
@@ -781,6 +782,12 @@ function bindControls() {
       requestUpdate(true);
     });
   };
+  const updateDrawOperationUI = () => {
+    const inkBtn = byId('cs-mode-ink');
+    const cutBtn = byId('cs-mode-cut');
+    if (inkBtn) inkBtn.classList.toggle('is-active', params.drawOperation === 'ink');
+    if (cutBtn) cutBtn.classList.toggle('is-active', params.drawOperation === 'cut');
+  };
   const updateTextureModeUI = () => {
     const mode = params.textureMode;
     const rowStrength = byId('row-cs-texture-strength');
@@ -860,6 +867,22 @@ function bindControls() {
       requestUpdate(true);
     });
   }
+  const inkBtn = byId('cs-mode-ink');
+  const cutBtn = byId('cs-mode-cut');
+  if (inkBtn) {
+    inkBtn.addEventListener('click', () => {
+      params.drawOperation = 'ink';
+      updateDrawOperationUI();
+    });
+  }
+  if (cutBtn) {
+    cutBtn.addEventListener('click', () => {
+      params.drawOperation = 'cut';
+      updateDrawOperationUI();
+    });
+  }
+  updateDrawOperationUI();
+
   const clearBtn = byId('cs-clear');
   if (clearBtn) {
     clearBtn.addEventListener('click', () => {
@@ -867,6 +890,10 @@ function bindControls() {
       activeStroke = null;
       requestUpdate(true);
     });
+  }
+  const exportBtn = byId('cs-export');
+  if (exportBtn) {
+    exportBtn.addEventListener('click', () => exportPng());
   }
 
   const textureModeEl = byId('cs-texture-mode');
@@ -992,6 +1019,11 @@ function isInsideCanvas(x, y) {
 function mousePressed() {
   if (!params.drawMode) return;
   if (!isInsideCanvas(mouseX, mouseY)) return;
+  if (params.drawOperation === 'cut') {
+    eraseAt(mouseX, mouseY, params.strokeW * 2.6);
+    redraw();
+    return;
+  }
   const first = createVector(mouseX, mouseY);
   first.sw = params.strokeW * 1.2;
   activeStroke = [first];
@@ -1001,8 +1033,14 @@ function mousePressed() {
 
 function mouseDragged() {
   // Do not cancel browser default when dragging UI sliders.
-  if (!params.drawMode || !activeStroke) return;
+  if (!params.drawMode) return;
   if (!isInsideCanvas(mouseX, mouseY)) return;
+  if (params.drawOperation === 'cut') {
+    eraseAt(mouseX, mouseY, params.strokeW * 2.6);
+    redraw();
+    return false;
+  }
+  if (!activeStroke) return;
   const last = activeStroke[activeStroke.length - 1];
   if (!last || dist(last.x, last.y, mouseX, mouseY) >= 1.8) {
     const d = last ? dist(last.x, last.y, mouseX, mouseY) : 0;
@@ -1023,4 +1061,61 @@ function mouseDragged() {
 function mouseReleased() {
   if (!params.drawMode) return;
   activeStroke = null;
+}
+
+function eraseAt(x, y, radius) {
+  const nextPaths = [];
+  for (const path of drawnPaths) {
+    if (!path || path.length < 2) continue;
+    let segment = [];
+    for (let i = 0; i < path.length; i++) {
+      const p = path[i];
+      const keep = dist(p.x, p.y, x, y) > radius;
+      if (keep) {
+        segment.push(p);
+      } else if (segment.length > 1) {
+        nextPaths.push(segment);
+        segment = [];
+      } else {
+        segment = [];
+      }
+    }
+    if (segment.length > 1) nextPaths.push(segment);
+  }
+  drawnPaths = nextPaths;
+  activeStroke = null;
+}
+
+function exportPng() {
+  saveCanvas('cyber_stigilism', 'png');
+}
+
+function keyPressed() {
+  if (key === '1') {
+    params.drawOperation = 'ink';
+  } else if (key === '2') {
+    params.drawOperation = 'cut';
+  } else if (key === 'm' || key === 'M') {
+    params.mirrorX = !params.mirrorX;
+    const mx = document.getElementById('cs-mirror-x');
+    if (mx) mx.checked = params.mirrorX;
+    if (!params.mirrorX && !params.mirrorY) {
+      params.mirrorY = true;
+      const my = document.getElementById('cs-mirror-y');
+      if (my) my.checked = true;
+    }
+    regenerate();
+  } else if (key === ' ' || keyCode === 32) {
+    drawnPaths = [];
+    activeStroke = null;
+    redraw();
+    return false;
+  } else if (key === 's' || key === 'S') {
+    exportPng();
+  }
+
+  const inkBtn = document.getElementById('cs-mode-ink');
+  const cutBtn = document.getElementById('cs-mode-cut');
+  if (inkBtn) inkBtn.classList.toggle('is-active', params.drawOperation === 'ink');
+  if (cutBtn) cutBtn.classList.toggle('is-active', params.drawOperation === 'cut');
 }

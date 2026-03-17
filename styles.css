@@ -538,6 +538,11 @@ body.is-leaving {
     background: #f0f0f0;
 }
 
+.panel-button.is-active {
+    background: #111;
+    color: #fff;
+}
+
 .control-row--disabled {
     opacity: 0.45;
 }
