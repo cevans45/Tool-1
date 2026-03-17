@@ -24,6 +24,7 @@ const params = {
   vignette: 2.6,
   useGrain: true,
   useDots: false,
+  textureMode: 'grain',
   cellularity: 0.8,
   cellDensity: 120.0,
   cellSoftness: 0.14,
@@ -33,6 +34,7 @@ const params = {
   saturation: 1.0,
   tintAmount: 0.0,
   tintColor: [1.0, 0.1647, 0.6314],
+  grainSeed: 0.0,
   baseSeed: 0.0,
   lockSeed: false,
   fixedSeed: 0.0,
@@ -68,6 +70,8 @@ const frag = `
   uniform float u_vignette;
   uniform float u_use_grain;
   uniform float u_use_dots;
+  uniform float u_grain_seed;
+  uniform float u_pix_d;
   uniform float u_cellularity;
   uniform float u_cell_density;
   uniform float u_cell_softness;
@@ -90,6 +94,10 @@ const frag = `
     p = fract(p * vec2(123.34, 456.21));
     p += dot(p, p + 45.32);
     return fract(p.x * p.y);
+  }
+
+  float rand(vec2 n) {
+    return fract(sin(dot(n, vec2(12.9898, 4.1414))) * 43758.5453);
   }
 
   vec2 fold(vec2 p, float n) {
@@ -142,12 +150,9 @@ const frag = `
     }
     mass = clamp(mass / 2.8, 0.0, 1.0);
 
-    // Two grain bands: structural grain in the field + screen-space film grain.
+    // Keep tiny structural variation in the field.
     float gA = hash21(floor(p * 220.0 + vec2(u_seed * 0.13, u_time * 35.0)));
-    float gB = hash21(floor(p * 420.0 + vec2(u_time * 60.0, u_seed * 0.31)));
-    float gC = hash21(floor(gl_FragCoord.xy * 0.75 + vec2(u_seed * 0.07, u_time * 90.0)));
-    float fieldGrain = ((gA * 0.55 + gB * 0.45) - 0.5) * u_grain * 1.8 * u_use_grain;
-    float filmGrain = (gC - 0.5) * u_grain * 1.4 * u_use_grain;
+    float fieldGrain = (gA - 0.5) * u_grain * 0.25 * u_use_grain;
 
     // Dot/cell modulation integrated into the same texture field.
     vec2 cellUv = fract((w + 2.0 + vec2(u_cell_shift)) * u_cell_density) - 0.5;
@@ -170,6 +175,13 @@ const frag = `
     color = mix(vec3(luma), color, u_saturation);
     color = mix(color, color * (u_tint_color * 1.2), u_tint_amount);
 
+    // GorillaSun-like RGB grain.
+    vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+    float grainR = mix(-u_grain, u_grain, fract(u_grain_seed + rand(uv * 1234.5678 + u_time * 0.013)));
+    float grainG = mix(-u_grain, u_grain, fract(u_grain_seed + rand(uv * 876.54321 + u_time * 0.017)));
+    float grainB = mix(-u_grain, u_grain, fract(u_grain_seed + rand(uv * 3214.5678 + u_time * 0.011)));
+    color += vec3(grainR, grainG, grainB) * u_use_grain;
+
     gl_FragColor = vec4(color * u_opacity, 1.0);
   }
 `;
@@ -182,6 +194,7 @@ function setup() {
   noStroke();
   theShader = createShader(vert, frag);
   params.baseSeed = Math.floor(Math.random() * 1_000_000_000);
+  params.grainSeed = Math.random() * 100.0;
   params.fixedSeed = params.baseSeed;
   const seedInput = document.getElementById('sh-seed');
   if (seedInput) seedInput.value = String(params.fixedSeed);
@@ -249,6 +262,8 @@ function draw() {
   theShader.setUniform('u_vignette', params.vignette);
   theShader.setUniform('u_use_grain', params.useGrain ? 1.0 : 0.0);
   theShader.setUniform('u_use_dots', params.useDots ? 1.0 : 0.0);
+  theShader.setUniform('u_grain_seed', params.grainSeed);
+  theShader.setUniform('u_pix_d', pixelDensity());
   theShader.setUniform('u_cellularity', params.cellularity);
   theShader.setUniform('u_cell_density', params.cellDensity);
   theShader.setUniform('u_cell_softness', params.cellSoftness);
@@ -413,17 +428,15 @@ function bindControls() {
     });
   }
 
-  const useGrain = document.getElementById('sh-use-grain');
-  const useDots = document.getElementById('sh-use-dots');
+  const textureMode = document.getElementById('sh-texture-mode');
   const syncTextureMode = () => {
-    if (useGrain && useDots) {
-      params.useGrain = !!useGrain.checked;
-      params.useDots = !!useDots.checked;
-    }
+    const mode = textureMode ? textureMode.value : 'grain';
+    params.textureMode = mode;
+    params.useGrain = mode === 'grain' || mode === 'both';
+    params.useDots = mode === 'dots' || mode === 'both';
     updateTextureModeUI();
   };
-  if (useGrain) useGrain.addEventListener('change', syncTextureMode);
-  if (useDots) useDots.addEventListener('change', syncTextureMode);
+  if (textureMode) textureMode.addEventListener('change', syncTextureMode);
   syncTextureMode();
 }
 
