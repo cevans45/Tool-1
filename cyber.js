@@ -1,5 +1,7 @@
 let curveHash = new Map();
 let paths = [];
+let drawnPaths = [];
+let activeStroke = null;
 let isPreview = false;
 
 const params = {
@@ -15,6 +17,7 @@ const params = {
   branchChance: 0.22,
   strokeW: 6,
   taper: 0.68,
+  drawMode: true,
   mirrorX: true,
   mirrorY: false,
   bg: '#e7e7e7',
@@ -28,6 +31,7 @@ function setup() {
     params.curveCount = 5;
     params.blurPasses = 28;
     params.strokeW = 3;
+    params.drawMode = false;
   }
 
   const canvas = createCanvas(calcWidth(), calcHeight());
@@ -55,7 +59,12 @@ function calcHeight() {
 
 function windowResized() {
   resizeCanvas(calcWidth(), calcHeight());
-  regenerate();
+  if (params.drawMode) {
+    buildCurveHashFromPaths(getRenderablePaths());
+    redraw();
+  } else {
+    regenerate();
+  }
 }
 
 function randomizeSeed() {
@@ -65,6 +74,12 @@ function randomizeSeed() {
 }
 
 function regenerate() {
+  if (params.drawMode) {
+    buildCurveHashFromPaths(getRenderablePaths());
+    redraw();
+    return;
+  }
+
   randomSeed(int(params.seed));
   noiseSeed(int(params.seed));
   paths = [];
@@ -223,10 +238,10 @@ function prunePaths() {
   paths = keep;
 }
 
-function buildCurveHashFromPaths() {
+function buildCurveHashFromPaths(sourcePaths = getRenderablePaths()) {
   curveHash = new Map();
   const cell = max(6, params.influenceRadius * 0.9);
-  for (const path of paths) {
+  for (const path of sourcePaths) {
     for (let i = 0; i < path.length; i += 2) {
       const p = path[i];
       const ix = floor(p.x / cell);
@@ -259,6 +274,7 @@ function pointNearPaths(v) {
 
 function draw() {
   background(params.bg);
+  buildCurveHashFromPaths(getRenderablePaths());
   drawPaths();
   drawGridTexture();
 }
@@ -271,7 +287,7 @@ function drawPaths() {
   const maxCenterD = max(width, height) * 0.55;
 
   // Pass 1: heavy body
-  for (const path of paths) {
+  for (const path of getRenderablePaths()) {
     if (path.length < 2) continue;
     for (let i = 1; i < path.length; i++) {
       const a = path[i - 1];
@@ -288,7 +304,7 @@ function drawPaths() {
   }
 
   // Pass 2: crisp spine so forms stay sharp, not muddy.
-  for (const path of paths) {
+  for (const path of getRenderablePaths()) {
     if (path.length < 2) continue;
     for (let i = 1; i < path.length; i++) {
       const a = path[i - 1];
@@ -331,13 +347,22 @@ function bindControls() {
     if (el) el.textContent = txt;
   };
 
+  const requestUpdate = () => {
+    if (params.drawMode) {
+      buildCurveHashFromPaths(getRenderablePaths());
+      redraw();
+    } else {
+      regenerate();
+    }
+  };
+
   const bindRange = (id, valueId, cb) => {
     const el = byId(id);
     if (!el) return;
     const apply = () => {
       const txt = cb(el.value);
       if (valueId) setValue(valueId, txt);
-      regenerate();
+      requestUpdate();
     };
     el.addEventListener('input', apply);
   };
@@ -347,7 +372,7 @@ function bindControls() {
     if (!el) return;
     el.addEventListener('change', () => {
       cb(el.checked);
-      regenerate();
+      requestUpdate();
     });
   };
 
@@ -355,18 +380,36 @@ function bindControls() {
   if (seedEl) {
     seedEl.addEventListener('input', () => {
       params.seed = parseInt(seedEl.value || '0', 10) || 0;
-      regenerate();
+      requestUpdate();
     });
   }
   const seedBtn = byId('cs-random-seed');
   if (seedBtn) {
     seedBtn.addEventListener('click', () => {
       randomizeSeed();
-      regenerate();
+      requestUpdate();
     });
   }
   const regenBtn = byId('cs-regenerate');
-  if (regenBtn) regenBtn.addEventListener('click', regenerate);
+  if (regenBtn) regenBtn.addEventListener('click', requestUpdate);
+
+  const drawModeEl = byId('cs-draw-mode');
+  if (drawModeEl) {
+    drawModeEl.checked = params.drawMode;
+    drawModeEl.addEventListener('change', () => {
+      params.drawMode = !!drawModeEl.checked;
+      if (!params.drawMode && paths.length === 0) regenerate();
+      requestUpdate();
+    });
+  }
+  const clearBtn = byId('cs-clear');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      drawnPaths = [];
+      activeStroke = null;
+      requestUpdate();
+    });
+  }
 
   bindRange('cs-grid', 'val-cs-grid', (v) => {
     params.gridCount = parseInt(v, 10);
@@ -430,4 +473,42 @@ function bindControls() {
       redraw();
     });
   }
+}
+
+function getRenderablePaths() {
+  if (!params.drawMode) return paths;
+  const out = [];
+  for (const path of drawnPaths) {
+    const mirrored = createMirroredPaths(path);
+    for (const p of mirrored) out.push(p);
+  }
+  return out;
+}
+
+function isInsideCanvas(x, y) {
+  return x >= 0 && x <= width && y >= 0 && y <= height;
+}
+
+function mousePressed() {
+  if (!params.drawMode) return;
+  if (!isInsideCanvas(mouseX, mouseY)) return;
+  activeStroke = [createVector(mouseX, mouseY)];
+  drawnPaths.push(activeStroke);
+  redraw();
+}
+
+function mouseDragged() {
+  if (!params.drawMode || !activeStroke) return false;
+  if (!isInsideCanvas(mouseX, mouseY)) return false;
+  const last = activeStroke[activeStroke.length - 1];
+  if (!last || dist(last.x, last.y, mouseX, mouseY) >= 1.8) {
+    activeStroke.push(createVector(mouseX, mouseY));
+    redraw();
+  }
+  return false;
+}
+
+function mouseReleased() {
+  if (!params.drawMode) return;
+  activeStroke = null;
 }
