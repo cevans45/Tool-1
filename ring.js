@@ -36,6 +36,7 @@ function createOrbitShapes() {
 function resizeOrbitCanvas() {
   const container = document.getElementById('orbit-canvas');
   if (!container) return;
+  const bounds = container.getBoundingClientRect();
   const maxW = window.innerWidth - 420;
   const maxH = window.innerHeight - 140;
   const base = min(maxW, maxH);
@@ -138,17 +139,22 @@ function bindOrbitControls() {
   }
   if (randBtn) {
     randBtn.addEventListener('click', () => {
+      // Randomize foreground and background colors only.
       const hue = random(360);
       const sat = random(40, 90);
       const lit = random(35, 65);
-      const fg = `hsl(${Math.round(hue)}, ${Math.round(sat)}%, ${Math.round(lit)}%)`;
-      const bg = `hsl(${Math.round(hue)}, ${Math.round(sat * 0.2)}%, 96%)`;
+      const fg = hslToCss(hue, sat, lit);
+      const bg = hslToCss(hue, sat * 0.2, 96);
       orbitParams.color = fg;
       orbitParams.bg = bg;
-      if (colorEl) colorEl.value = color(fg).toString('#rrggbb');
-      if (bgEl) bgEl.value = color(bg).toString('#rrggbb');
+      if (colorEl) colorEl.value = fg;
+      if (bgEl) bgEl.value = bg;
     });
   }
+}
+
+function hslToCss(h, s, l) {
+  return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
 }
 
 function draw() {
@@ -158,6 +164,9 @@ function draw() {
 
   fill(orbitParams.color);
   noStroke();
+
+  const cx = width / 2;
+  const cy = height / 2;
 
   for (let i = 0; i < orbitShapes.length; i++) {
     const s = orbitShapes[i];
@@ -187,6 +196,7 @@ function updateShapePosition(s, t, baseSpeed, idx) {
       s.x += s.vx * sp * 100;
       s.y += s.vy * sp * 100;
     }
+    // Wrap around edges.
     if (s.x < -orbitParams.size) s.x = width + orbitParams.size;
     if (s.x > width + orbitParams.size) s.x = -orbitParams.size;
     if (s.y < -orbitParams.size) s.y = height + orbitParams.size;
