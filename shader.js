@@ -128,7 +128,9 @@ const frag = `
     float star = smoothstep(0.25, 0.0, abs(sin(a * (numMirrors + 1.0) + r * 6.0 - t * 1.3)));
     float ring = smoothstep(0.28, 0.0, abs(fract(r * 4.0 - t * u_pulse) - 0.5));
 
-    float grain = hash21(floor((p + 2.0) * 90.0) + u_seed * 0.13) * u_grain;
+    // Two grain bands: structural grain in the field + screen-space film grain.
+    float fieldGrain = (hash21(floor((p + 2.0) * 90.0) + u_seed * 0.13) - 0.5) * u_grain;
+    float filmGrain = (hash21(gl_FragCoord.xy * 0.5 + vec2(u_time * 120.0, u_seed * 17.0)) - 0.5) * u_grain;
 
     // Dot/cell modulation integrated into the same texture field.
     vec2 cellUv = fract((w + 2.0 + vec2(u_cell_shift)) * u_cell_density) - 0.5;
@@ -136,7 +138,7 @@ const frag = `
     float cellRadius = 0.42 * (0.6 + 0.4 * sin(t + r * 4.0));
     float cell = smoothstep(cellRadius, max(0.0, cellRadius - u_cell_softness), cellDist);
 
-    float mixV = weave * u_weave + star * u_star + ring * u_ring + grain + cell * u_cellularity;
+    float mixV = weave * u_weave + star * u_star + ring * u_ring + fieldGrain * 0.35 + cell * u_cellularity;
 
     vec3 colA = palette(t * 0.08 + r * 0.65 + u_seed * 0.01);
     vec3 colB = palette(0.35 + a * 0.20 - t * 0.04 + u_seed * 0.02);
@@ -145,6 +147,7 @@ const frag = `
     mixV = pow(max(mixV, 0.0), u_contrast);
     float vignette = smoothstep(u_vignette, 0.15, r);
     color *= (0.22 + 1.25 * mixV) * vignette * u_brightness;
+    color += vec3(filmGrain * 0.28);
 
     float luma = dot(color, vec3(0.299, 0.587, 0.114));
     color = mix(vec3(luma), color, u_saturation);
