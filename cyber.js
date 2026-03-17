@@ -53,7 +53,7 @@ function setup() {
 
   const canvas = createCanvas(calcWidth(), calcHeight());
   canvas.parent('stigil-canvas');
-  pixelDensity(1);
+  pixelDensity(displayDensity());
   noFill();
   strokeCap(ROUND);
   strokeJoin(ROUND);
@@ -1020,7 +1020,7 @@ function mousePressed() {
   if (!params.drawMode) return;
   if (!isInsideCanvas(mouseX, mouseY)) return;
   if (params.drawOperation === 'cut') {
-    eraseAt(mouseX, mouseY, params.strokeW * 2.6);
+    eraseAt(mouseX, mouseY, params.strokeW * 3);
     redraw();
     return;
   }
@@ -1036,7 +1036,7 @@ function mouseDragged() {
   if (!params.drawMode) return;
   if (!isInsideCanvas(mouseX, mouseY)) return;
   if (params.drawOperation === 'cut') {
-    eraseAt(mouseX, mouseY, params.strokeW * 2.6);
+    eraseAt(mouseX, mouseY, params.strokeW * 3);
     redraw();
     return false;
   }
