@@ -827,16 +827,12 @@ function bindControls() {
   };
   const updateStrokeUI = () => {
     const enabled = !!params.strokeEnabled;
-    const strokeEl = byId('cs-stroke');
     const taperEl = byId('cs-taper');
     const fillEl = byId('cs-fill');
-    const rowStroke = byId('row-cs-stroke');
     const rowTaper = byId('row-cs-taper');
     const rowFill = byId('row-cs-fill');
-    if (strokeEl) strokeEl.disabled = !enabled;
     if (taperEl) taperEl.disabled = !enabled;
     if (fillEl) fillEl.disabled = !enabled;
-    if (rowStroke) rowStroke.classList.toggle('control-row--disabled', !enabled);
     if (rowTaper) rowTaper.classList.toggle('control-row--disabled', !enabled);
     if (rowFill) rowFill.classList.toggle('control-row--disabled', !enabled);
   };
