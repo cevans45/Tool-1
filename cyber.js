@@ -7,14 +7,14 @@ const params = {
   gridCount: 170, // Repurposed as optional texture density.
   curveCount: 7,
   curveSamples: 110,
-  influenceRadius: 16,
+  influenceRadius: 20,
   threshold: 0.44,
-  blurPasses: 70,
+  blurPasses: 62,
   blurStrength: 0.18,
-  prunePasses: 10,
-  branchChance: 0.26,
-  strokeW: 3,
-  taper: 0.4,
+  prunePasses: 7,
+  branchChance: 0.22,
+  strokeW: 6,
+  taper: 0.68,
   mirrorX: true,
   mirrorY: false,
   bg: '#e7e7e7',
@@ -27,7 +27,7 @@ function setup() {
     params.gridCount = 120;
     params.curveCount = 5;
     params.blurPasses = 28;
-    params.strokeW = 2;
+    params.strokeW = 3;
   }
 
   const canvas = createCanvas(calcWidth(), calcHeight());
@@ -266,14 +266,36 @@ function draw() {
 function drawPaths() {
   const ink = color(params.ink);
   stroke(ink);
+  const cx = width * 0.5;
+  const cy = height * 0.5;
+  const maxCenterD = max(width, height) * 0.55;
+
+  // Pass 1: heavy body
   for (const path of paths) {
     if (path.length < 2) continue;
     for (let i = 1; i < path.length; i++) {
       const a = path[i - 1];
       const b = path[i];
       const t = i / (path.length - 1);
-      const bell = sin(PI * t); // thinner tips, fuller center
-      const w = max(0.5, params.strokeW * (1 - params.taper + params.taper * bell));
+      const bell = sin(PI * t);
+      const mx = (a.x + b.x) * 0.5;
+      const my = (a.y + b.y) * 0.5;
+      const centerBoost = 1 - constrain(dist(mx, my, cx, cy) / maxCenterD, 0, 1);
+      const w = max(0.9, params.strokeW * (0.28 + params.taper * bell + centerBoost * 0.9));
+      strokeWeight(w);
+      line(a.x, a.y, b.x, b.y);
+    }
+  }
+
+  // Pass 2: crisp spine so forms stay sharp, not muddy.
+  for (const path of paths) {
+    if (path.length < 2) continue;
+    for (let i = 1; i < path.length; i++) {
+      const a = path[i - 1];
+      const b = path[i];
+      const t = i / (path.length - 1);
+      const bell = sin(PI * t);
+      const w = max(0.55, params.strokeW * (0.12 + bell * 0.28));
       strokeWeight(w);
       line(a.x, a.y, b.x, b.y);
     }
