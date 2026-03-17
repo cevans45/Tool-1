@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shape orbits — OVRT</title>
+    <title>Shape motion poster — OVRT</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 </head>
@@ -11,9 +11,9 @@
     <div class="site-shell">
         <header class="tool-header">
             <a href="index.html" class="back-link">← Back to OVRT</a>
-            <span class="tool-title">Shape orbits</span>
+            <span class="tool-title">Shape motion poster</span>
         </header>
-        <div class="app" aria-label="Shape orbits">
+        <div class="app" aria-label="Shape motion poster">
             <div id="orbit-canvas"></div>
             <aside class="control-panel">
                 <header class="panel-header">
@@ -21,68 +21,200 @@
                 </header>
                 <div class="panel-body">
                     <section class="control-section">
-                        <h3>Layout</h3>
+                        <h3>Canvas</h3>
                         <div class="control-row">
-                            <label for="orbit-count">Shapes</label>
-                            <input type="range" id="orbit-count" min="1" max="80" value="24" step="1">
-                            <span class="param-value" id="value-orbit-count">24</span>
+                            <label for="orbit-seed">Seed</label>
+                            <input type="number" id="orbit-seed" min="0" max="999999999" value="2025" step="1">
                         </div>
                         <div class="control-row">
                             <label for="orbit-scale">Canvas scale</label>
-                            <input type="range" id="orbit-scale" min="50" max="100" value="90" step="5">
+                            <input type="range" id="orbit-scale" min="50" max="100" value="92" step="2">
                             <span class="param-value" id="value-orbit-scale">90%</span>
                         </div>
                         <div class="control-row">
                             <label for="orbit-mirror">Mirrors</label>
-                            <input type="range" id="orbit-mirror" min="1" max="4" value="1" step="1">
+                            <input type="range" id="orbit-mirror" min="1" max="5" value="3" step="1">
                             <span class="param-value" id="value-orbit-mirror">1</span>
-                        </div>
-                    </section>
-                    <section class="control-section">
-                        <h3>Motion</h3>
-                        <div class="control-row">
-                            <label for="orbit-speed">Speed</label>
-                            <input type="range" id="orbit-speed" min="5" max="200" value="60" step="5">
-                            <span class="param-value" id="value-orbit-speed">60</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="orbit-mode">Mode</label>
-                            <select id="orbit-mode" class="select-input">
-                                <option value="horizontal">Horizontal</option>
-                                <option value="vertical">Vertical</option>
-                                <option value="diagonal">Diagonal</option>
-                                <option value="orbit" selected>Orbit</option>
-                                <option value="mixed">Mixed</option>
-                            </select>
-                        </div>
-                    </section>
-                    <section class="control-section">
-                        <h3>Shapes & color</h3>
-                        <div class="control-row">
-                            <label for="orbit-shape">Shape</label>
-                            <select id="orbit-shape" class="select-input">
-                                <option value="circle" selected>Circles</option>
-                                <option value="square">Squares</option>
-                                <option value="triangle">Triangles</option>
-                                <option value="mixed">Mixed</option>
-                            </select>
-                        </div>
-                        <div class="control-row">
-                            <label for="orbit-size">Size</label>
-                            <input type="range" id="orbit-size" min="4" max="40" value="20" step="2">
-                            <span class="param-value" id="value-orbit-size">20</span>
                         </div>
                         <div class="control-row color-row">
                             <label for="orbit-bg">Background</label>
-                            <input type="color" id="orbit-bg" value="#f6f6f4">
+                            <input type="color" id="orbit-bg" value="#050505">
                         </div>
-                        <div class="control-row color-row">
-                            <label for="orbit-color">Shape</label>
-                            <input type="color" id="orbit-color" value="#111111">
+                        <div class="control-row">
+                            <label>Actions</label>
+                            <button type="button" id="btn-orbit-random-seed" class="panel-button">Random seed</button>
                         </div>
                         <div class="control-row">
                             <label>Palette</label>
                             <button type="button" id="btn-orbit-random-colors" class="panel-button">Random colors</button>
+                        </div>
+                    </section>
+
+                    <section class="control-section">
+                        <h3>Layer A</h3>
+                        <div class="control-row">
+                            <label for="orbit-l1-shape">Shape</label>
+                            <select id="orbit-l1-shape" class="select-input">
+                                <option value="circle" selected>Circle</option>
+                                <option value="square">Square</option>
+                                <option value="triangle">Triangle</option>
+                                <option value="diamond">Diamond</option>
+                            </select>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l1-dir">Direction</label>
+                            <select id="orbit-l1-dir" class="select-input">
+                                <option value="circle" selected>Circle</option>
+                                <option value="up">Up</option>
+                                <option value="down">Down</option>
+                                <option value="left">Left</option>
+                                <option value="right">Right</option>
+                                <option value="diag-ur">Diag up-right</option>
+                                <option value="diag-ul">Diag up-left</option>
+                                <option value="diag-dr">Diag down-right</option>
+                                <option value="diag-dl">Diag down-left</option>
+                            </select>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l1-count">Count</label>
+                            <input type="range" id="orbit-l1-count" min="1" max="28" value="8" step="1">
+                            <span class="param-value" id="value-orbit-l1-count">8</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l1-size">Size</label>
+                            <input type="range" id="orbit-l1-size" min="6" max="180" value="120" step="2">
+                            <span class="param-value" id="value-orbit-l1-size">120</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l1-speed">Speed</label>
+                            <input type="range" id="orbit-l1-speed" min="1" max="200" value="45" step="1">
+                            <span class="param-value" id="value-orbit-l1-speed">45</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l1-radius">Radius</label>
+                            <input type="range" id="orbit-l1-radius" min="10" max="420" value="220" step="2">
+                            <span class="param-value" id="value-orbit-l1-radius">220</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l1-rot">Rotation</label>
+                            <input type="range" id="orbit-l1-rot" min="0" max="360" value="0" step="1">
+                            <span class="param-value" id="value-orbit-l1-rot">0°</span>
+                        </div>
+                        <div class="control-row color-row">
+                            <label for="orbit-l1-color">Color</label>
+                            <input type="color" id="orbit-l1-color" value="#ff2aa1">
+                        </div>
+                    </section>
+
+                    <section class="control-section">
+                        <h3>Layer B</h3>
+                        <div class="control-row">
+                            <label for="orbit-l2-shape">Shape</label>
+                            <select id="orbit-l2-shape" class="select-input">
+                                <option value="circle">Circle</option>
+                                <option value="square" selected>Square</option>
+                                <option value="triangle">Triangle</option>
+                                <option value="diamond">Diamond</option>
+                            </select>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l2-dir">Direction</label>
+                            <select id="orbit-l2-dir" class="select-input">
+                                <option value="circle">Circle</option>
+                                <option value="up">Up</option>
+                                <option value="down">Down</option>
+                                <option value="left">Left</option>
+                                <option value="right">Right</option>
+                                <option value="diag-ur" selected>Diag up-right</option>
+                                <option value="diag-ul">Diag up-left</option>
+                                <option value="diag-dr">Diag down-right</option>
+                                <option value="diag-dl">Diag down-left</option>
+                            </select>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l2-count">Count</label>
+                            <input type="range" id="orbit-l2-count" min="1" max="28" value="10" step="1">
+                            <span class="param-value" id="value-orbit-l2-count">10</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l2-size">Size</label>
+                            <input type="range" id="orbit-l2-size" min="6" max="180" value="56" step="2">
+                            <span class="param-value" id="value-orbit-l2-size">56</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l2-speed">Speed</label>
+                            <input type="range" id="orbit-l2-speed" min="1" max="200" value="72" step="1">
+                            <span class="param-value" id="value-orbit-l2-speed">72</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l2-radius">Radius</label>
+                            <input type="range" id="orbit-l2-radius" min="10" max="420" value="120" step="2">
+                            <span class="param-value" id="value-orbit-l2-radius">120</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l2-rot">Rotation</label>
+                            <input type="range" id="orbit-l2-rot" min="0" max="360" value="35" step="1">
+                            <span class="param-value" id="value-orbit-l2-rot">35°</span>
+                        </div>
+                        <div class="control-row color-row">
+                            <label for="orbit-l2-color">Color</label>
+                            <input type="color" id="orbit-l2-color" value="#ffffff">
+                        </div>
+                    </section>
+
+                    <section class="control-section">
+                        <h3>Layer C</h3>
+                        <div class="control-row">
+                            <label for="orbit-l3-shape">Shape</label>
+                            <select id="orbit-l3-shape" class="select-input">
+                                <option value="circle">Circle</option>
+                                <option value="square">Square</option>
+                                <option value="triangle" selected>Triangle</option>
+                                <option value="diamond">Diamond</option>
+                            </select>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l3-dir">Direction</label>
+                            <select id="orbit-l3-dir" class="select-input">
+                                <option value="circle">Circle</option>
+                                <option value="up">Up</option>
+                                <option value="down">Down</option>
+                                <option value="left" selected>Left</option>
+                                <option value="right">Right</option>
+                                <option value="diag-ur">Diag up-right</option>
+                                <option value="diag-ul">Diag up-left</option>
+                                <option value="diag-dr">Diag down-right</option>
+                                <option value="diag-dl">Diag down-left</option>
+                            </select>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l3-count">Count</label>
+                            <input type="range" id="orbit-l3-count" min="1" max="28" value="6" step="1">
+                            <span class="param-value" id="value-orbit-l3-count">6</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l3-size">Size</label>
+                            <input type="range" id="orbit-l3-size" min="6" max="180" value="88" step="2">
+                            <span class="param-value" id="value-orbit-l3-size">88</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l3-speed">Speed</label>
+                            <input type="range" id="orbit-l3-speed" min="1" max="200" value="30" step="1">
+                            <span class="param-value" id="value-orbit-l3-speed">30</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l3-radius">Radius</label>
+                            <input type="range" id="orbit-l3-radius" min="10" max="420" value="280" step="2">
+                            <span class="param-value" id="value-orbit-l3-radius">280</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="orbit-l3-rot">Rotation</label>
+                            <input type="range" id="orbit-l3-rot" min="0" max="360" value="0" step="1">
+                            <span class="param-value" id="value-orbit-l3-rot">0°</span>
+                        </div>
+                        <div class="control-row color-row">
+                            <label for="orbit-l3-color">Color</label>
+                            <input type="color" id="orbit-l3-color" value="#ff2aa1">
                         </div>
                     </section>
                 </div>

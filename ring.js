@@ -1,244 +1,228 @@
-// Shape orbits tool — animated shapes with mirroring and modes
+// Poster-like shape motion tool with multi-layer controls.
 
-let orbitParams = {
-  count: 24,
-  speed: 60,       // pixels per second equivalent
-  mode: 'orbit',   // horizontal | vertical | diagonal | orbit | mixed
-  shape: 'circle', // circle | square | triangle | mixed
-  size: 20,
-  mirror: 1,       // 1..4
-  scalePct: 90,
-  bg: '#f6f6f4',
-  color: '#111111',
+const orbitParams = {
+  seed: 2025,
+  mirror: 3, // 1..5 radial mirrored copies
+  scalePct: 92,
+  bg: '#050505',
+  layers: [
+    { shape: 'circle', dir: 'circle', count: 8, size: 120, speed: 45, radius: 220, rot: 0, color: '#ff2aa1' },
+    { shape: 'square', dir: 'diag-ur', count: 10, size: 56, speed: 72, radius: 120, rot: 35, color: '#ffffff' },
+    { shape: 'triangle', dir: 'left', count: 6, size: 88, speed: 30, radius: 280, rot: 0, color: '#ff2aa1' }
+  ]
 };
 
-let orbitShapes = [];
-let orbitCanvasWidth;
-
-function createOrbitShapes() {
-  orbitShapes = [];
-  const cols = Math.ceil(Math.sqrt(orbitParams.count));
-  const rows = Math.ceil(orbitParams.count / cols);
-  for (let i = 0; i < orbitParams.count; i++) {
-    const c = i % cols;
-    const r = Math.floor(i / cols);
-    const x = map(c + 0.5, 0, cols, 0, width);
-    const y = map(r + 0.5, 0, rows, 0, height);
-    const angle = random(TWO_PI);
-    const radius = min(width, height) * 0.25 + random(-30, 30);
-    const dir = random([-1, 1]);
-    const vx = random([-1, 1]);
-    const vy = random([-1, 1]);
-    orbitShapes.push({ x, y, angle, radius, dir, vx, vy });
-  }
-}
-
-function resizeOrbitCanvas() {
-  const container = document.getElementById('orbit-canvas');
-  if (!container) return;
-  const bounds = container.getBoundingClientRect();
-  const maxW = window.innerWidth - 420;
-  const maxH = window.innerHeight - 140;
-  const base = min(maxW, maxH);
-  const scale = (orbitParams.scalePct || 90) / 100;
-  const target = max(260, base * scale);
-  orbitCanvasWidth = target;
-  if (typeof resizeCanvas === 'function') {
-    resizeCanvas(target, target);
-  }
-}
+let actors = [];
 
 function setup() {
   const container = document.getElementById('orbit-canvas');
   if (!container) return;
-  orbitCanvasWidth = min(windowWidth - 420, windowHeight - 140);
-  orbitCanvasWidth = max(260, orbitCanvasWidth);
-  const canvas = createCanvas(orbitCanvasWidth, orbitCanvasWidth);
-  canvas.parent('orbit-canvas');
+  const c = createCanvas(400, 400);
+  c.parent('orbit-canvas');
   rectMode(CENTER);
   angleMode(RADIANS);
   noStroke();
 
-  bindOrbitControls();
-  createOrbitShapes();
+  bindControls();
+  rebuildScene();
+  resizePosterCanvas();
 }
 
 function windowResized() {
-  resizeOrbitCanvas();
+  resizePosterCanvas();
 }
 
-function bindOrbitControls() {
-  const countEl = document.getElementById('orbit-count');
-  const speedEl = document.getElementById('orbit-speed');
-  const scaleEl = document.getElementById('orbit-scale');
-  const mirrorEl = document.getElementById('orbit-mirror');
-  const modeEl = document.getElementById('orbit-mode');
-  const shapeEl = document.getElementById('orbit-shape');
-  const sizeEl = document.getElementById('orbit-size');
-  const bgEl = document.getElementById('orbit-bg');
-  const colorEl = document.getElementById('orbit-color');
-  const randBtn = document.getElementById('btn-orbit-random-colors');
+function resizePosterCanvas() {
+  const maxW = window.innerWidth - 420;
+  const maxH = window.innerHeight - 140;
+  const base = min(maxW, maxH);
+  const target = max(260, base * (orbitParams.scalePct / 100));
+  resizeCanvas(target, target);
+  rebuildScene();
+}
 
-  if (countEl) {
-    countEl.addEventListener('input', () => {
-      orbitParams.count = parseInt(countEl.value, 10);
-      const v = document.getElementById('value-orbit-count');
-      if (v) v.textContent = countEl.value;
-      createOrbitShapes();
+function bindControls() {
+  bindInput('orbit-seed', (v) => { orbitParams.seed = int(v) || 0; rebuildScene(); });
+  bindRange('orbit-scale', 'value-orbit-scale', (v) => {
+    orbitParams.scalePct = int(v);
+    return `${int(v)}%`;
+  }, () => resizePosterCanvas());
+  bindRange('orbit-mirror', 'value-orbit-mirror', (v) => {
+    orbitParams.mirror = constrain(int(v), 1, 5);
+    return String(orbitParams.mirror);
+  });
+  bindInput('orbit-bg', (v) => { orbitParams.bg = v; });
+
+  for (let i = 0; i < 3; i++) {
+    const n = i + 1;
+    bindInput(`orbit-l${n}-shape`, (v) => { orbitParams.layers[i].shape = v; });
+    bindInput(`orbit-l${n}-dir`, (v) => { orbitParams.layers[i].dir = v; });
+    bindRange(`orbit-l${n}-count`, `value-orbit-l${n}-count`, (v) => {
+      orbitParams.layers[i].count = int(v);
+      return String(orbitParams.layers[i].count);
+    }, () => rebuildScene());
+    bindRange(`orbit-l${n}-size`, `value-orbit-l${n}-size`, (v) => {
+      orbitParams.layers[i].size = int(v);
+      return String(int(v));
+    });
+    bindRange(`orbit-l${n}-speed`, `value-orbit-l${n}-speed`, (v) => {
+      orbitParams.layers[i].speed = int(v);
+      return String(int(v));
+    });
+    bindRange(`orbit-l${n}-radius`, `value-orbit-l${n}-radius`, (v) => {
+      orbitParams.layers[i].radius = int(v);
+      return String(int(v));
+    });
+    bindRange(`orbit-l${n}-rot`, `value-orbit-l${n}-rot`, (v) => {
+      orbitParams.layers[i].rot = int(v);
+      return `${int(v)}°`;
+    });
+    bindInput(`orbit-l${n}-color`, (v) => { orbitParams.layers[i].color = v; });
+  }
+
+  const seedBtn = document.getElementById('btn-orbit-random-seed');
+  if (seedBtn) {
+    seedBtn.addEventListener('click', () => {
+      orbitParams.seed = floor(random(1_000_000_000));
+      const seedEl = document.getElementById('orbit-seed');
+      if (seedEl) seedEl.value = String(orbitParams.seed);
+      rebuildScene();
     });
   }
-  if (speedEl) {
-    speedEl.addEventListener('input', () => {
-      orbitParams.speed = parseInt(speedEl.value, 10);
-      const v = document.getElementById('value-orbit-speed');
-      if (v) v.textContent = speedEl.value;
-    });
-  }
-  if (scaleEl) {
-    scaleEl.addEventListener('input', () => {
-      const pct = parseInt(scaleEl.value, 10);
-      orbitParams.scalePct = pct;
-      const v = document.getElementById('value-orbit-scale');
-      if (v) v.textContent = pct + '%';
-      resizeOrbitCanvas();
-    });
-  }
-  if (mirrorEl) {
-    mirrorEl.addEventListener('input', () => {
-      orbitParams.mirror = parseInt(mirrorEl.value, 10);
-      const v = document.getElementById('value-orbit-mirror');
-      if (v) v.textContent = mirrorEl.value;
-    });
-  }
-  if (modeEl) {
-    modeEl.addEventListener('change', () => {
-      orbitParams.mode = modeEl.value;
-    });
-  }
-  if (shapeEl) {
-    shapeEl.addEventListener('change', () => {
-      orbitParams.shape = shapeEl.value;
-    });
-  }
-  if (sizeEl) {
-    sizeEl.addEventListener('input', () => {
-      orbitParams.size = parseInt(sizeEl.value, 10);
-      const v = document.getElementById('value-orbit-size');
-      if (v) v.textContent = sizeEl.value;
-    });
-  }
-  if (bgEl) {
-    bgEl.addEventListener('input', () => {
-      orbitParams.bg = bgEl.value;
-    });
-  }
-  if (colorEl) {
-    colorEl.addEventListener('input', () => {
-      orbitParams.color = colorEl.value;
-    });
-  }
-  if (randBtn) {
-    randBtn.addEventListener('click', () => {
-      // Randomize foreground and background colors only.
-      const hue = random(360);
-      const sat = random(40, 90);
-      const lit = random(35, 65);
-      const fg = hslToCss(hue, sat, lit);
-      const bg = hslToCss(hue, sat * 0.2, 96);
-      orbitParams.color = fg;
-      orbitParams.bg = bg;
-      if (colorEl) colorEl.value = fg;
-      if (bgEl) bgEl.value = bg;
+
+  const paletteBtn = document.getElementById('btn-orbit-random-colors');
+  if (paletteBtn) {
+    paletteBtn.addEventListener('click', () => {
+      const base = random(360);
+      orbitParams.bg = toHexFromHsl(base, 18, 5);
+      orbitParams.layers[0].color = toHexFromHsl((base + 320) % 360, 90, 56);
+      orbitParams.layers[1].color = toHexFromHsl((base + 0) % 360, 10, 96);
+      orbitParams.layers[2].color = toHexFromHsl((base + 300) % 360, 90, 56);
+      const bg = document.getElementById('orbit-bg');
+      if (bg) bg.value = orbitParams.bg;
+      for (let i = 0; i < 3; i++) {
+        const el = document.getElementById(`orbit-l${i + 1}-color`);
+        if (el) el.value = orbitParams.layers[i].color;
+      }
     });
   }
 }
 
-function hslToCss(h, s, l) {
-  return `hsl(${Math.round(h)}, ${Math.round(s)}%, ${Math.round(l)}%)`;
+function bindInput(id, onChange) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const evt = el.tagName === 'SELECT' ? 'change' : 'input';
+  el.addEventListener(evt, () => onChange(el.value));
+}
+
+function bindRange(id, valueId, mapFn, afterFn) {
+  const el = document.getElementById(id);
+  const val = document.getElementById(valueId);
+  if (!el) return;
+  const apply = () => {
+    const text = mapFn(el.value);
+    if (val) val.textContent = text;
+    if (afterFn) afterFn();
+  };
+  el.addEventListener('input', apply);
+  apply();
+}
+
+function rebuildScene() {
+  randomSeed(int(orbitParams.seed));
+  actors = [];
+  for (let li = 0; li < orbitParams.layers.length; li++) {
+    const layer = orbitParams.layers[li];
+    for (let i = 0; i < layer.count; i++) {
+      actors.push({
+        layer: li,
+        phase: random(TWO_PI),
+        anchorX: random(width * 0.25, width * 0.75),
+        anchorY: random(height * 0.25, height * 0.75),
+        drift: random(0.6, 1.4),
+      });
+    }
+  }
 }
 
 function draw() {
   background(orbitParams.bg);
-  const t = millis() / 1000;
-  const baseSpeed = orbitParams.speed / 200;
+  const t = millis() * 0.001;
 
-  fill(orbitParams.color);
-  noStroke();
-
-  const cx = width / 2;
-  const cy = height / 2;
-
-  for (let i = 0; i < orbitShapes.length; i++) {
-    const s = orbitShapes[i];
-    updateShapePosition(s, t, baseSpeed, i);
-    drawMirroredShape(s.x, s.y);
+  for (const actor of actors) {
+    const layer = orbitParams.layers[actor.layer];
+    const point = actorPoint(actor, layer, t);
+    drawMirrored(point.x, point.y, radians(layer.rot), layer.shape, layer.size, layer.color);
   }
 }
 
-function updateShapePosition(s, t, baseSpeed, idx) {
-  const mode = orbitParams.mode === 'mixed'
-    ? ['horizontal', 'vertical', 'diagonal', 'orbit'][idx % 4]
-    : orbitParams.mode;
+function actorPoint(actor, layer, t) {
+  const speed = (layer.speed / 100) * actor.drift;
+  const r = layer.radius;
+  const tt = t * speed;
 
-  const sp = baseSpeed * (1 + (idx % 7) * 0.15);
-
-  if (mode === 'orbit') {
-    const localAngle = s.angle + t * sp * s.dir * TWO_PI;
-    const r = s.radius;
-    s.x = width / 2 + cos(localAngle) * r;
-    s.y = height / 2 + sin(localAngle) * r;
+  let x = actor.anchorX;
+  let y = actor.anchorY;
+  if (layer.dir === 'circle') {
+    x = width / 2 + cos(actor.phase + tt) * r;
+    y = height / 2 + sin(actor.phase + tt) * r;
   } else {
-    if (mode === 'horizontal') {
-      s.x += s.vx * sp * 120;
-    } else if (mode === 'vertical') {
-      s.y += s.vy * sp * 120;
-    } else if (mode === 'diagonal') {
-      s.x += s.vx * sp * 100;
-      s.y += s.vy * sp * 100;
-    }
-    // Wrap around edges.
-    if (s.x < -orbitParams.size) s.x = width + orbitParams.size;
-    if (s.x > width + orbitParams.size) s.x = -orbitParams.size;
-    if (s.y < -orbitParams.size) s.y = height + orbitParams.size;
-    if (s.y > height + orbitParams.size) s.y = -orbitParams.size;
+    const vec = directionVector(layer.dir);
+    x = actor.anchorX + vec.x * sin(actor.phase + tt) * r;
+    y = actor.anchorY + vec.y * cos(actor.phase + tt) * r;
+  }
+  return { x, y };
+}
+
+function directionVector(dir) {
+  if (dir === 'up') return { x: 0, y: -1 };
+  if (dir === 'down') return { x: 0, y: 1 };
+  if (dir === 'left') return { x: -1, y: 0 };
+  if (dir === 'right') return { x: 1, y: 0 };
+  if (dir === 'diag-ur') return { x: 0.71, y: -0.71 };
+  if (dir === 'diag-ul') return { x: -0.71, y: -0.71 };
+  if (dir === 'diag-dr') return { x: 0.71, y: 0.71 };
+  if (dir === 'diag-dl') return { x: -0.71, y: 0.71 };
+  return { x: 1, y: 0 };
+}
+
+function drawMirrored(x, y, rot, shape, size, colorHex) {
+  const m = constrain(orbitParams.mirror, 1, 5);
+  fill(colorHex);
+  for (let i = 0; i < m; i++) {
+    const a = (TWO_PI * i) / m;
+    push();
+    translate(width / 2, height / 2);
+    rotate(a);
+    translate(x - width / 2, y - height / 2);
+    rotate(rot + a);
+    drawShape(shape, size);
+    pop();
   }
 }
 
-function drawMirroredShape(x, y) {
-  const m = orbitParams.mirror || 1;
-  const positions = [{ x, y }];
-  if (m >= 2) positions.push({ x: width - x, y });
-  if (m >= 3) positions.push({ x, y: height - y });
-  if (m >= 4) positions.push({ x: width - x, y: height - y });
-
-  positions.forEach((p) => {
-    drawOrbitShape(p.x, p.y);
-  });
-}
-
-function pickShapeForIndex() {
-  if (orbitParams.shape !== 'mixed') return orbitParams.shape;
-  const options = ['circle', 'square', 'triangle'];
-  return random(options);
-}
-
-function drawOrbitShape(x, y) {
-  const sz = orbitParams.size;
-  const s = pickShapeForIndex();
-  if (s === 'square') {
-    rect(x, y, sz, sz);
-  } else if (s === 'triangle') {
-    const h = sz * 1.15;
-    triangle(
-      x,
-      y - h / 2,
-      x - sz / 2,
-      y + h / 2,
-      x + sz / 2,
-      y + h / 2
-    );
+function drawShape(shape, s) {
+  if (shape === 'square') {
+    rect(0, 0, s, s);
+  } else if (shape === 'triangle') {
+    const h = s * 1.1;
+    triangle(0, -h / 2, -s / 2, h / 2, s / 2, h / 2);
+  } else if (shape === 'diamond') {
+    beginShape();
+    vertex(0, -s / 2);
+    vertex(s / 2, 0);
+    vertex(0, s / 2);
+    vertex(-s / 2, 0);
+    endShape(CLOSE);
   } else {
-    circle(x, y, sz);
+    circle(0, 0, s);
   }
+}
+
+function toHexFromHsl(h, s, l) {
+  colorMode(HSL, 360, 100, 100, 1);
+  const c = color(h, s, l);
+  colorMode(RGB, 255, 255, 255, 255);
+  return `#${hex(red(c), 2)}${hex(green(c), 2)}${hex(blue(c), 2)}`;
 }
 
