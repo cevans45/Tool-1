@@ -220,11 +220,16 @@ body.is-leaving {
     display: none;
 }
 
-#sketch-container {
+#sketch-container,
+#stigil-canvas {
     flex-shrink: 0;
     border-radius: 0;
     overflow: hidden;
     box-shadow: none;
+}
+
+#stigil-canvas {
+    cursor: crosshair;
 }
 
 .control-panel {

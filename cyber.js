@@ -1,7 +1,5 @@
 let curveHash = new Map();
 let paths = [];
-let drawnPaths = [];
-let activeStroke = null;
 let isPreview = false;
 let beziers = [];
 let grid = [];
@@ -11,14 +9,25 @@ let hEdges = [];
 let vEdges = [];
 let blurs = 0;
 
+let drawBuffer;
+let drawPoints = [];
+let isDrawing = false;
+
+const DRAW_CONFIG = {
+  connectDistance: 70,
+  baseJitter: 4,
+  jitterMultiplier: 0.8,
+  passes: 6
+};
+
 const params = {
   seed: 0,
-  textureMode: 'grid', // none | grid | grain | dots | pixel
-  textureStrength: 0.8, // 0..1
-  textureDensity: 0.72, // 0..1
-  textureSize: 0.56, // 0..1
-  textureOpacity: 0.82, // 0..1
-  textureJitter: 0.22, // 0..1
+  textureMode: 'grid',
+  textureStrength: 0.8,
+  textureDensity: 0.72,
+  textureSize: 0.56,
+  textureOpacity: 0.82,
+  textureJitter: 0.22,
   curveCount: 7,
   curveSamples: 110,
   influenceRadius: 20,
@@ -27,14 +36,14 @@ const params = {
   blurStrength: 0.18,
   prunePasses: 7,
   branchChance: 0.35,
-  strokeW: 6,
+  strokeW: 2,
   taper: 0.68,
   fillAmount: 0.72,
   strokeEnabled: true,
   drawMode: true,
-  drawOperation: 'ink', // ink | cut
+  drawOperation: 'ink',
   mirrorX: true,
-  mirrorY: true,
+  mirrorY: false,
   bg: '#e7e7e7',
   ink: '#000000'
 };
@@ -58,15 +67,24 @@ function setup() {
   strokeCap(ROUND);
   strokeJoin(ROUND);
 
+  drawBuffer = createGraphics(width, height);
+  drawBuffer.pixelDensity(displayDensity());
+
   bindControls();
   if (!params.seed) randomizeSeed();
-  regenerate();
+
+  if (params.drawMode) {
+    drawGuideline();
+    redraw();
+  } else {
+    regenerate();
+  }
   noLoop();
 }
 
 function calcWidth() {
   if (isPreview) return max(220, min(windowWidth, windowHeight));
-  return max(360, windowWidth - 440);
+  return max(360, windowWidth - 340);
 }
 
 function calcHeight() {
@@ -76,8 +94,8 @@ function calcHeight() {
 
 function windowResized() {
   resizeCanvas(calcWidth(), calcHeight());
+  drawBuffer.resizeCanvas(width, height);
   if (params.drawMode) {
-    buildCurveHashFromPaths(getRenderablePaths());
     redraw();
   } else {
     regenerate();
@@ -92,7 +110,6 @@ function randomizeSeed() {
 
 function regenerate() {
   if (params.drawMode) {
-    buildCurveHashFromPaths(getRenderablePaths());
     redraw();
     return;
   }
@@ -259,7 +276,8 @@ function prunePaths() {
   paths = keep;
 }
 
-function buildCurveHashFromPaths(sourcePaths = getRenderablePaths()) {
+function buildCurveHashFromPaths(sourcePaths) {
+  if (!sourcePaths) sourcePaths = paths;
   curveHash = new Map();
   const cell = max(6, params.influenceRadius * 0.9);
   for (const path of sourcePaths) {
@@ -293,14 +311,128 @@ function pointNearPaths(v) {
   return constrain(1 - minD / (params.influenceRadius * 1.6), 0, 1);
 }
 
+/* ===== DRAW LOOP ===== */
+
 function draw() {
   background(params.bg);
-  buildCurveHashFromPaths(getRenderablePaths());
-  drawPaths();
+
+  if (params.drawMode) {
+    image(drawBuffer, 0, 0);
+    if (params.mirrorX) drawGuidelineOnMain();
+    return;
+  }
+
+  buildCurveHashFromPaths(paths);
+  drawGeneratedPaths();
   drawTextureEffect();
 }
 
-function drawPaths() {
+function drawGuidelineOnMain() {
+  const ctx = drawingContext;
+  ctx.save();
+  ctx.setLineDash([6, 6]);
+  ctx.strokeStyle = 'rgba(0,0,0,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(width / 2, 0);
+  ctx.lineTo(width / 2, height);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawGuideline() {
+  if (!params.mirrorX) return;
+  redraw();
+}
+
+/* ===== MYCELIUM SCRATCH-LINE DRAWING ENGINE ===== */
+
+function scratchLine(ctx, x1, y1, x2, y2, d) {
+  const distFactor = Math.max(0.2, (DRAW_CONFIG.connectDistance - d) / 10);
+  const finalThickness = params.strokeW * distFactor;
+  const jitter = DRAW_CONFIG.baseJitter + (finalThickness * DRAW_CONFIG.jitterMultiplier);
+  const w = drawBuffer.width;
+  const h = drawBuffer.height;
+
+  if (params.drawOperation === 'ink') {
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.strokeStyle = params.ink;
+    ctx.fillStyle = params.ink;
+  } else {
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.strokeStyle = 'rgba(0,0,0,1)';
+    ctx.fillStyle = 'rgba(0,0,0,1)';
+  }
+
+  for (let i = 0; i < DRAW_CONFIG.passes; i++) {
+    const jx1 = (Math.random() - 0.5) * jitter;
+    const jy1 = (Math.random() - 0.5) * jitter;
+    const jx2 = (Math.random() - 0.5) * jitter;
+    const jy2 = (Math.random() - 0.5) * jitter;
+
+    if (Math.random() > 0.15) {
+      const px1 = x1 + jx1, py1 = y1 + jy1;
+      const px2 = x2 + jx2, py2 = y2 + jy2;
+
+      ctx.beginPath();
+      ctx.lineWidth = finalThickness;
+      ctx.lineCap = 'square';
+      ctx.lineJoin = 'bevel';
+      ctx.moveTo(px1, py1);
+      ctx.lineTo(px2, py2);
+
+      if (params.mirrorX) {
+        ctx.moveTo(w - px1, py1);
+        ctx.lineTo(w - px2, py2);
+      }
+      if (params.mirrorY) {
+        ctx.moveTo(px1, h - py1);
+        ctx.lineTo(px2, h - py2);
+      }
+      if (params.mirrorX && params.mirrorY) {
+        ctx.moveTo(w - px1, h - py1);
+        ctx.lineTo(w - px2, h - py2);
+      }
+
+      ctx.stroke();
+    }
+  }
+
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function addDrawPoint(x, y) {
+  const p = { x, y };
+  drawPoints.push(p);
+
+  const ctx = drawBuffer.drawingContext;
+  const startIndex = Math.max(0, drawPoints.length - 250);
+
+  for (let i = startIndex; i < drawPoints.length - 1; i++) {
+    const prev = drawPoints[i];
+    if (!prev) continue;
+
+    const dx = p.x - prev.x;
+    const dy = p.y - prev.y;
+    const d = Math.hypot(dx, dy);
+    const dynamicConnect = DRAW_CONFIG.connectDistance + params.strokeW;
+
+    if (d < dynamicConnect) {
+      scratchLine(ctx, prev.x, prev.y, p.x, p.y, d);
+    }
+  }
+}
+
+function clearDrawBuffer() {
+  drawPoints = [];
+  isDrawing = false;
+  drawBuffer.clear();
+  redraw();
+}
+
+/* ===== GENERATED MODE RENDERING ===== */
+
+function drawGeneratedPaths() {
   if (!params.strokeEnabled) return;
   const ink = color(params.ink);
   stroke(ink);
@@ -308,8 +440,7 @@ function drawPaths() {
   const cy = height * 0.5;
   const maxCenterD = max(width, height) * 0.55;
 
-  // Pass 1: heavy body
-  for (const path of getRenderablePaths()) {
+  for (const path of paths) {
     if (path.length < 2) continue;
     for (let i = 1; i < path.length; i++) {
       const a = path[i - 1];
@@ -326,8 +457,7 @@ function drawPaths() {
     }
   }
 
-  // Pass 2: crisp spine so forms stay sharp, not muddy.
-  for (const path of getRenderablePaths()) {
+  for (const path of paths) {
     if (path.length < 2) continue;
     for (let i = 1; i < path.length; i++) {
       const a = path[i - 1];
@@ -346,13 +476,12 @@ function drawPaths() {
 }
 
 function drawSpikes() {
-  const sourcePaths = getRenderablePaths();
   const cx = width * 0.5;
   const cy = height * 0.5;
   noStroke();
   fill(params.ink);
 
-  for (const path of sourcePaths) {
+  for (const path of paths) {
     if (path.length < 8) continue;
     const step = max(3, floor(map(params.branchChance, 0, 1, 16, 5)));
     for (let i = step; i < path.length - step; i += step) {
@@ -395,15 +524,53 @@ function drawSpikes() {
   }
 }
 
+function drawInteriorFill() {
+  if (params.fillAmount <= 0) return;
+  noStroke();
+  fill(params.ink);
+  for (const path of paths) {
+    if (path.length < 4) continue;
+    for (let i = 2; i < path.length - 2; i += 2) {
+      const p = path[i];
+      const d = localPointDensity(p);
+      if (d < 0.28) continue;
+      const base = p.sw != null ? p.sw : params.strokeW;
+      const r = base * (0.18 + params.fillAmount * d * 0.95);
+      if (r > 0.7) circle(p.x, p.y, r * 2);
+    }
+  }
+}
+
+function localPointDensity(v) {
+  const cell = max(6, params.influenceRadius * 0.9);
+  const ix = floor(v.x / cell);
+  const iy = floor(v.y / cell);
+  let count = 0;
+  const r2 = (params.influenceRadius * 0.8) * (params.influenceRadius * 0.8);
+  for (let yy = -1; yy <= 1; yy++) {
+    for (let xx = -1; xx <= 1; xx++) {
+      const bucket = curveHash.get(`${ix + xx},${iy + yy}`);
+      if (!bucket) continue;
+      for (const p of bucket) {
+        const dx = v.x - p.x;
+        const dy = v.y - p.y;
+        if (dx * dx + dy * dy <= r2) count++;
+      }
+    }
+  }
+  return constrain(count / 24, 0, 1);
+}
+
+/* ===== TEXTURE EFFECTS (generated mode) ===== */
+
 function drawTextureEffect() {
   if (params.textureMode === 'none' || params.textureStrength <= 0) return;
-  const sourcePaths = getRenderablePaths();
-  if (sourcePaths.length === 0) return;
+  if (paths.length === 0) return;
   if (params.textureMode === 'grain') {
-    drawGrainTexture(sourcePaths);
+    drawGrainTexture(paths);
     return;
   }
-  rebuildGridSystemFromPaths(sourcePaths);
+  rebuildGridSystemFromPaths(paths);
   if (params.textureMode === 'grid') drawEdgesTexture('grid');
   else if (params.textureMode === 'dots') drawEdgesTexture('dots');
   else if (params.textureMode === 'pixel') drawEdgesTexture('pixel');
@@ -420,7 +587,6 @@ function rebuildGridSystemFromPaths(sourcePaths) {
   curveHash = new Map();
   beziers = [];
 
-  // Sample source paths into curve points.
   const stride = max(1, floor(map(k, 0, 1, 5, 1)));
   for (const path of sourcePaths) {
     for (let i = 0; i < path.length; i += stride) {
@@ -448,7 +614,6 @@ function rebuildGridSystemFromPaths(sourcePaths) {
     pruneDanglingEdgesLegacy();
   }
 
-  // Keep texture structure crisp; avoid muddy blur.
   const blurMax = floor(map(k, 0, 1, 0, 18));
   const blurAmt = max(0.02, params.blurStrength * 0.35);
   while (blurs < blurMax) {
@@ -474,7 +639,6 @@ function pointNearCurvesLegacy(v) {
   const ix = floor(v.x / cell);
   const iy = floor(v.y / cell);
   const r2 = params.influenceRadius * params.influenceRadius;
-
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
       const key = `${ix + dx},${iy + dy}`;
@@ -511,18 +675,12 @@ function pruneDanglingEdgesLegacy() {
   const degree = grid.map((r) => r.map(() => 0));
   for (let y = 0; y < hEdges.length; y++) {
     for (let x = 0; x < hEdges[y].length; x++) {
-      if (hEdges[y][x]) {
-        degree[y][x]++;
-        degree[y][x + 1]++;
-      }
+      if (hEdges[y][x]) { degree[y][x]++; degree[y][x + 1]++; }
     }
   }
   for (let y = 0; y < vEdges.length; y++) {
     for (let x = 0; x < vEdges[y].length; x++) {
-      if (vEdges[y][x]) {
-        degree[y][x]++;
-        degree[y + 1][x]++;
-      }
+      if (vEdges[y][x]) { degree[y][x]++; degree[y + 1][x]++; }
     }
   }
   for (let y = 0; y < hEdges.length; y++) {
@@ -542,7 +700,6 @@ function blurGridLegacy(g, mask, amount) {
   const w = g[0].length;
   const cx = Array.from({ length: h }, () => Array(w));
   const cy = Array.from({ length: h }, () => Array(w));
-
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       cx[y][x] = g[y][x].x;
@@ -552,9 +709,7 @@ function blurGridLegacy(g, mask, amount) {
   for (let y = 1; y < h - 1; y++) {
     for (let x = 1; x < w - 1; x++) {
       if (!mask[y][x]) continue;
-      let sx = 0;
-      let sy = 0;
-      let n = 0;
+      let sx = 0, sy = 0, n = 0;
       if (mask[y][x]) { sx += cx[y][x]; sy += cy[y][x]; n++; }
       if (mask[y - 1][x]) { sx += cx[y - 1][x]; sy += cy[y - 1][x]; n++; }
       if (mask[y + 1][x]) { sx += cx[y + 1][x]; sy += cy[y + 1][x]; n++; }
@@ -594,16 +749,9 @@ function drawEdgesTexture(mode) {
       const b = grid[y][x + 1];
       const mx = (a.x + b.x) * 0.5 + random(-jitterAmp, jitterAmp);
       const my = (a.y + b.y) * 0.5 + random(-jitterAmp, jitterAmp);
-      if (mode === 'grid') {
-        line(a.x, a.y, b.x, b.y);
-      } else if (mode === 'dots') {
-        circle(mx, my, map(k * (0.4 + 0.6 * s), 0, 1, 0.9, 6.5));
-      } else if (mode === 'pixel') {
-        rectMode(CENTER);
-        const px = map(k * (0.4 + 0.6 * s), 0, 1, 1.2, 7.2);
-        rect(mx, my, px, px);
-        rectMode(CORNER);
-      }
+      if (mode === 'grid') { line(a.x, a.y, b.x, b.y); }
+      else if (mode === 'dots') { circle(mx, my, map(k * (0.4 + 0.6 * s), 0, 1, 0.9, 6.5)); }
+      else if (mode === 'pixel') { rectMode(CENTER); rect(mx, my, map(k * (0.4 + 0.6 * s), 0, 1, 1.2, 7.2), map(k * (0.4 + 0.6 * s), 0, 1, 1.2, 7.2)); rectMode(CORNER); }
     }
   }
   for (let y = 0; y < vEdges.length; y++) {
@@ -614,16 +762,9 @@ function drawEdgesTexture(mode) {
       const b = grid[y + 1][x];
       const mx = (a.x + b.x) * 0.5 + random(-jitterAmp, jitterAmp);
       const my = (a.y + b.y) * 0.5 + random(-jitterAmp, jitterAmp);
-      if (mode === 'grid') {
-        line(a.x, a.y, b.x, b.y);
-      } else if (mode === 'dots') {
-        circle(mx, my, map(k * (0.4 + 0.6 * s), 0, 1, 0.9, 6.5));
-      } else if (mode === 'pixel') {
-        rectMode(CENTER);
-        const px = map(k * (0.4 + 0.6 * s), 0, 1, 1.2, 7.2);
-        rect(mx, my, px, px);
-        rectMode(CORNER);
-      }
+      if (mode === 'grid') { line(a.x, a.y, b.x, b.y); }
+      else if (mode === 'dots') { circle(mx, my, map(k * (0.4 + 0.6 * s), 0, 1, 0.9, 6.5)); }
+      else if (mode === 'pixel') { rectMode(CENTER); rect(mx, my, map(k * (0.4 + 0.6 * s), 0, 1, 1.2, 7.2), map(k * (0.4 + 0.6 * s), 0, 1, 1.2, 7.2)); rectMode(CORNER); }
     }
   }
 }
@@ -633,12 +774,12 @@ function drawGrainTexture(sourcePaths) {
   const d = constrain(params.textureDensity, 0, 1);
   const s = constrain(params.textureSize, 0, 1);
   const o = constrain(params.textureOpacity, 0, 1);
-  const j = constrain(params.textureJitter, 0, 1);
+  const jt = constrain(params.textureJitter, 0, 1);
   const baseInk = color(params.ink);
   stroke(red(baseInk), green(baseInk), blue(baseInk), map(k * o, 0, 1, 8, 135));
   strokeWeight(map(s, 0, 1, 0.8, 2.2));
   const stride = max(1, floor(map(d, 0, 1, 4, 1)));
-  const spread = map(j, 0, 1, 0.9, 4.8);
+  const spread = map(jt, 0, 1, 0.9, 4.8);
   for (const path of sourcePaths) {
     for (let i = 0; i < path.length; i += stride) {
       const p = path[i];
@@ -652,83 +793,74 @@ function drawGrainTexture(sourcePaths) {
   }
 }
 
-function drawDotsTexture(sourcePaths) {
-  const k = constrain(params.textureStrength, 0, 1);
-  const d = constrain(params.textureDensity, 0, 1);
-  const s = constrain(params.textureSize, 0, 1);
-  const o = constrain(params.textureOpacity, 0, 1);
-  const j = constrain(params.textureJitter, 0, 1);
-  noStroke();
-  fill(red(color(params.ink)), green(color(params.ink)), blue(color(params.ink)), map(k * o, 0, 1, 10, 220));
-  const step = max(1, floor(map(d, 0, 1, 9, 2)));
-  const jitterAmp = map(j, 0, 1, 0, 2.2);
-  for (const path of sourcePaths) {
-    for (let i = 0; i < path.length; i += step) {
-      const p = path[i];
-      const size = map(k * (0.4 + 0.6 * s), 0, 1, 0.9, 6.4);
-      circle(p.x + random(-jitterAmp, jitterAmp), p.y + random(-jitterAmp, jitterAmp), size);
-    }
-  }
+/* ===== MOUSE / TOUCH HANDLERS ===== */
+
+function mousePressed() {
+  if (!params.drawMode) return;
+  if (!isInsideCanvas(mouseX, mouseY)) return;
+  isDrawing = true;
+  const noiseScale = params.strokeW * 0.8;
+  const nx = (Math.random() - 0.5) * noiseScale;
+  const ny = (Math.random() - 0.5) * noiseScale;
+  addDrawPoint(mouseX + nx, mouseY + ny);
+  redraw();
 }
 
-function drawPixelTexture(sourcePaths) {
-  const k = constrain(params.textureStrength, 0, 1);
-  const d = constrain(params.textureDensity, 0, 1);
-  const s = constrain(params.textureSize, 0, 1);
-  const o = constrain(params.textureOpacity, 0, 1);
-  const j = constrain(params.textureJitter, 0, 1);
-  noStroke();
-  fill(red(color(params.ink)), green(color(params.ink)), blue(color(params.ink)), map(k * o, 0, 1, 12, 230));
-  const size = map(k * (0.4 + 0.6 * s), 0, 1, 1.3, 8.2);
-  const step = max(1, floor(map(d, 0, 1, 9, 2)));
-  const jitterAmp = map(j, 0, 1, 0, 1.8);
-  rectMode(CENTER);
-  for (const path of sourcePaths) {
-    for (let i = 0; i < path.length; i += step) {
-      const p = path[i];
-      rect(p.x + random(-jitterAmp, jitterAmp), p.y + random(-jitterAmp, jitterAmp), size, size);
-    }
-  }
-  rectMode(CORNER);
+function mouseDragged() {
+  if (!params.drawMode) return;
+  if (!isInsideCanvas(mouseX, mouseY)) return;
+  if (!isDrawing) return;
+  const noiseScale = params.strokeW * 0.8;
+  const nx = (Math.random() - 0.5) * noiseScale;
+  const ny = (Math.random() - 0.5) * noiseScale;
+  addDrawPoint(mouseX + nx, mouseY + ny);
+  redraw();
+  return false;
 }
 
-function localPointDensity(v) {
-  const cell = max(6, params.influenceRadius * 0.9);
-  const ix = floor(v.x / cell);
-  const iy = floor(v.y / cell);
-  let count = 0;
-  const r2 = (params.influenceRadius * 0.8) * (params.influenceRadius * 0.8);
-  for (let yy = -1; yy <= 1; yy++) {
-    for (let xx = -1; xx <= 1; xx++) {
-      const bucket = curveHash.get(`${ix + xx},${iy + yy}`);
-      if (!bucket) continue;
-      for (const p of bucket) {
-        const dx = v.x - p.x;
-        const dy = v.y - p.y;
-        if (dx * dx + dy * dy <= r2) count++;
-      }
-    }
-  }
-  return constrain(count / 24, 0, 1);
+function mouseReleased() {
+  if (!params.drawMode) return;
+  isDrawing = false;
+  drawPoints.push(null);
 }
 
-function drawInteriorFill() {
-  if (params.fillAmount <= 0) return;
-  const sourcePaths = getRenderablePaths();
-  noStroke();
-  fill(params.ink);
-  for (const path of sourcePaths) {
-    if (path.length < 4) continue;
-    for (let i = 2; i < path.length - 2; i += 2) {
-      const p = path[i];
-      const d = localPointDensity(p);
-      if (d < 0.28) continue;
-      const base = p.sw != null ? p.sw : params.strokeW;
-      const r = base * (0.18 + params.fillAmount * d * 0.95);
-      if (r > 0.7) circle(p.x, p.y, r * 2);
-    }
-  }
+function isInsideCanvas(x, y) {
+  return x >= 0 && x <= width && y >= 0 && y <= height;
 }
+
+function hash01(a, b, c) {
+  const n = sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453123;
+  return n - floor(n);
+}
+
+function exportPng() {
+  saveCanvas('cyber_stigilism', 'png');
+}
+
+function keyPressed() {
+  if (key === '1') {
+    params.drawOperation = 'ink';
+  } else if (key === '2') {
+    params.drawOperation = 'cut';
+  } else if (key === 'm' || key === 'M') {
+    params.mirrorX = !params.mirrorX;
+    const mx = document.getElementById('cs-mirror-x');
+    if (mx) mx.checked = params.mirrorX;
+    redraw();
+  } else if (key === ' ' || keyCode === 32) {
+    clearDrawBuffer();
+    return false;
+  } else if (key === 's' || key === 'S') {
+    exportPng();
+  }
+
+  const inkBtn = document.getElementById('cs-mode-ink');
+  const cutBtn = document.getElementById('cs-mode-cut');
+  if (inkBtn) inkBtn.classList.toggle('is-active', params.drawOperation === 'ink');
+  if (cutBtn) cutBtn.classList.toggle('is-active', params.drawOperation === 'cut');
+}
+
+/* ===== UI BINDINGS ===== */
 
 function bindControls() {
   const byId = (id) => document.getElementById(id);
@@ -740,7 +872,6 @@ function bindControls() {
   let updateTimer = null;
   const runUpdate = () => {
     if (params.drawMode) {
-      buildCurveHashFromPaths(getRenderablePaths());
       redraw();
     } else {
       regenerate();
@@ -748,18 +879,12 @@ function bindControls() {
   };
   const requestUpdate = (immediate = false) => {
     if (immediate) {
-      if (updateTimer) {
-        clearTimeout(updateTimer);
-        updateTimer = null;
-      }
+      if (updateTimer) { clearTimeout(updateTimer); updateTimer = null; }
       runUpdate();
       return;
     }
     if (updateTimer) clearTimeout(updateTimer);
-    updateTimer = setTimeout(() => {
-      updateTimer = null;
-      runUpdate();
-    }, 50);
+    updateTimer = setTimeout(() => { updateTimer = null; runUpdate(); }, 50);
   };
 
   const bindRange = (id, valueId, cb) => {
@@ -782,12 +907,14 @@ function bindControls() {
       requestUpdate(true);
     });
   };
+
   const updateDrawOperationUI = () => {
     const inkBtn = byId('cs-mode-ink');
     const cutBtn = byId('cs-mode-cut');
     if (inkBtn) inkBtn.classList.toggle('is-active', params.drawOperation === 'ink');
     if (cutBtn) cutBtn.classList.toggle('is-active', params.drawOperation === 'cut');
   };
+
   const updateTextureModeUI = () => {
     const mode = params.textureMode;
     const rowStrength = byId('row-cs-texture-strength');
@@ -795,36 +922,17 @@ function bindControls() {
     const rowSize = byId('row-cs-texture-size');
     const rowOpacity = byId('row-cs-texture-opacity');
     const rowJitter = byId('row-cs-texture-jitter');
-
-    const setRow = (row, visible) => {
-      if (!row) return;
-      row.style.display = visible ? 'flex' : 'none';
-    };
-
+    const setRow = (row, visible) => { if (row) row.style.display = visible ? 'flex' : 'none'; };
     if (mode === 'none') {
-      setRow(rowStrength, false);
-      setRow(rowDensity, false);
-      setRow(rowSize, false);
-      setRow(rowOpacity, false);
-      setRow(rowJitter, false);
+      setRow(rowStrength, false); setRow(rowDensity, false); setRow(rowSize, false);
+      setRow(rowOpacity, false); setRow(rowJitter, false);
       return;
     }
-
-    // Default: show all controls unless mode has no use.
-    setRow(rowStrength, true);
-    setRow(rowDensity, true);
-    setRow(rowSize, true);
-    setRow(rowOpacity, true);
-    setRow(rowJitter, true);
-
-    if (mode === 'grid') {
-      // Grid already has strong structure; jitter is less useful.
-      setRow(rowJitter, false);
-    } else if (mode === 'grain') {
-      // Grain always uses jitter/spread.
-      setRow(rowDensity, true);
-    }
+    setRow(rowStrength, true); setRow(rowDensity, true); setRow(rowSize, true);
+    setRow(rowOpacity, true); setRow(rowJitter, true);
+    if (mode === 'grid') setRow(rowJitter, false);
   };
+
   const updateStrokeUI = () => {
     const enabled = !!params.strokeEnabled;
     const taperEl = byId('cs-taper');
@@ -845,12 +953,8 @@ function bindControls() {
     });
   }
   const seedBtn = byId('cs-random-seed');
-  if (seedBtn) {
-    seedBtn.addEventListener('click', () => {
-      randomizeSeed();
-      requestUpdate(true);
-    });
-  }
+  if (seedBtn) seedBtn.addEventListener('click', () => { randomizeSeed(); requestUpdate(true); });
+
   const regenBtn = byId('cs-regenerate');
   if (regenBtn) regenBtn.addEventListener('click', () => requestUpdate(true));
 
@@ -863,34 +967,18 @@ function bindControls() {
       requestUpdate(true);
     });
   }
+
   const inkBtn = byId('cs-mode-ink');
   const cutBtn = byId('cs-mode-cut');
-  if (inkBtn) {
-    inkBtn.addEventListener('click', () => {
-      params.drawOperation = 'ink';
-      updateDrawOperationUI();
-    });
-  }
-  if (cutBtn) {
-    cutBtn.addEventListener('click', () => {
-      params.drawOperation = 'cut';
-      updateDrawOperationUI();
-    });
-  }
+  if (inkBtn) inkBtn.addEventListener('click', () => { params.drawOperation = 'ink'; updateDrawOperationUI(); });
+  if (cutBtn) cutBtn.addEventListener('click', () => { params.drawOperation = 'cut'; updateDrawOperationUI(); });
   updateDrawOperationUI();
 
   const clearBtn = byId('cs-clear');
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      drawnPaths = [];
-      activeStroke = null;
-      requestUpdate(true);
-    });
-  }
+  if (clearBtn) clearBtn.addEventListener('click', () => clearDrawBuffer());
+
   const exportBtn = byId('cs-export');
-  if (exportBtn) {
-    exportBtn.addEventListener('click', () => exportPng());
-  }
+  if (exportBtn) exportBtn.addEventListener('click', () => exportPng());
 
   const textureModeEl = byId('cs-texture-mode');
   if (textureModeEl) {
@@ -901,71 +989,26 @@ function bindControls() {
       requestUpdate(true);
     });
   }
-  bindRange('cs-texture-strength', 'val-cs-texture-strength', (v) => {
-    params.textureStrength = parseInt(v, 10) / 100;
-    return params.textureStrength.toFixed(2);
-  });
-  bindRange('cs-texture-density', 'val-cs-texture-density', (v) => {
-    params.textureDensity = parseInt(v, 10) / 100;
-    return params.textureDensity.toFixed(2);
-  });
-  bindRange('cs-texture-size', 'val-cs-texture-size', (v) => {
-    params.textureSize = parseInt(v, 10) / 100;
-    return params.textureSize.toFixed(2);
-  });
-  bindRange('cs-texture-opacity', 'val-cs-texture-opacity', (v) => {
-    params.textureOpacity = parseInt(v, 10) / 100;
-    return params.textureOpacity.toFixed(2);
-  });
-  bindRange('cs-texture-jitter', 'val-cs-texture-jitter', (v) => {
-    params.textureJitter = parseInt(v, 10) / 100;
-    return params.textureJitter.toFixed(2);
-  });
+
+  bindRange('cs-texture-strength', 'val-cs-texture-strength', (v) => { params.textureStrength = parseInt(v, 10) / 100; return params.textureStrength.toFixed(2); });
+  bindRange('cs-texture-density', 'val-cs-texture-density', (v) => { params.textureDensity = parseInt(v, 10) / 100; return params.textureDensity.toFixed(2); });
+  bindRange('cs-texture-size', 'val-cs-texture-size', (v) => { params.textureSize = parseInt(v, 10) / 100; return params.textureSize.toFixed(2); });
+  bindRange('cs-texture-opacity', 'val-cs-texture-opacity', (v) => { params.textureOpacity = parseInt(v, 10) / 100; return params.textureOpacity.toFixed(2); });
+  bindRange('cs-texture-jitter', 'val-cs-texture-jitter', (v) => { params.textureJitter = parseInt(v, 10) / 100; return params.textureJitter.toFixed(2); });
   updateTextureModeUI();
-  bindRange('cs-curves', 'val-cs-curves', (v) => {
-    params.curveCount = parseInt(v, 10);
-    return String(params.curveCount);
-  });
-  bindRange('cs-samples', 'val-cs-samples', (v) => {
-    params.curveSamples = parseInt(v, 10);
-    return String(params.curveSamples);
-  });
-  bindRange('cs-influence', 'val-cs-influence', (v) => {
-    params.influenceRadius = parseInt(v, 10);
-    return String(params.influenceRadius);
-  });
-  bindRange('cs-threshold', 'val-cs-threshold', (v) => {
-    params.threshold = parseInt(v, 10) / 100;
-    return params.threshold.toFixed(2);
-  });
-  bindRange('cs-prune', 'val-cs-prune', (v) => {
-    params.prunePasses = parseInt(v, 10);
-    return String(params.prunePasses);
-  });
-  bindRange('cs-branch', 'val-cs-branch', (v) => {
-    params.branchChance = parseInt(v, 10) / 100;
-    return `${v}%`;
-  });
-  bindRange('cs-blurs', 'val-cs-blurs', (v) => {
-    params.blurPasses = parseInt(v, 10);
-    return String(params.blurPasses);
-  });
-  bindRange('cs-blur-strength', 'val-cs-blur-strength', (v) => {
-    params.blurStrength = parseInt(v, 10) / 100;
-    return params.blurStrength.toFixed(2);
-  });
-  bindRange('cs-stroke', 'val-cs-stroke', (v) => {
-    params.strokeW = parseInt(v, 10);
-    return String(params.strokeW);
-  });
-  bindRange('cs-taper', 'val-cs-taper', (v) => {
-    params.taper = parseInt(v, 10) / 100;
-    return params.taper.toFixed(2);
-  });
-  bindRange('cs-fill', 'val-cs-fill', (v) => {
-    params.fillAmount = parseInt(v, 10) / 100;
-    return params.fillAmount.toFixed(2);
-  });
+
+  bindRange('cs-curves', 'val-cs-curves', (v) => { params.curveCount = parseInt(v, 10); return String(params.curveCount); });
+  bindRange('cs-samples', 'val-cs-samples', (v) => { params.curveSamples = parseInt(v, 10); return String(params.curveSamples); });
+  bindRange('cs-influence', 'val-cs-influence', (v) => { params.influenceRadius = parseInt(v, 10); return String(params.influenceRadius); });
+  bindRange('cs-threshold', 'val-cs-threshold', (v) => { params.threshold = parseInt(v, 10) / 100; return params.threshold.toFixed(2); });
+  bindRange('cs-prune', 'val-cs-prune', (v) => { params.prunePasses = parseInt(v, 10); return String(params.prunePasses); });
+  bindRange('cs-branch', 'val-cs-branch', (v) => { params.branchChance = parseInt(v, 10) / 100; return `${v}%`; });
+  bindRange('cs-blurs', 'val-cs-blurs', (v) => { params.blurPasses = parseInt(v, 10); return String(params.blurPasses); });
+  bindRange('cs-blur-strength', 'val-cs-blur-strength', (v) => { params.blurStrength = parseInt(v, 10) / 100; return params.blurStrength.toFixed(2); });
+  bindRange('cs-stroke', 'val-cs-stroke', (v) => { params.strokeW = parseInt(v, 10); return String(params.strokeW); });
+  bindRange('cs-taper', 'val-cs-taper', (v) => { params.taper = parseInt(v, 10) / 100; return params.taper.toFixed(2); });
+  bindRange('cs-fill', 'val-cs-fill', (v) => { params.fillAmount = parseInt(v, 10) / 100; return params.fillAmount.toFixed(2); });
+
   bindCheck('cs-stroke-enabled', (checked) => { params.strokeEnabled = checked; });
   const strokeEnabledEl = byId('cs-stroke-enabled');
   if (strokeEnabledEl) {
@@ -974,144 +1017,11 @@ function bindControls() {
   }
   updateStrokeUI();
 
-  bindCheck('cs-mirror-x', (checked) => { params.mirrorX = checked; });
+  bindCheck('cs-mirror-x', (checked) => { params.mirrorX = checked; redraw(); });
   bindCheck('cs-mirror-y', (checked) => { params.mirrorY = checked; });
 
   const bg = byId('cs-bg');
-  if (bg) {
-    bg.addEventListener('input', () => {
-      params.bg = bg.value;
-      redraw();
-    });
-  }
+  if (bg) bg.addEventListener('input', () => { params.bg = bg.value; redraw(); });
   const ink = byId('cs-ink');
-  if (ink) {
-    ink.addEventListener('input', () => {
-      params.ink = ink.value;
-      redraw();
-    });
-  }
-}
-
-function getRenderablePaths() {
-  if (!params.drawMode) return paths;
-  const out = [];
-  for (const path of drawnPaths) {
-    const mirrored = createMirroredPaths(path);
-    for (const p of mirrored) out.push(p);
-  }
-  return out;
-}
-
-function hash01(a, b, c) {
-  const n = sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453123;
-  return n - floor(n);
-}
-
-function isInsideCanvas(x, y) {
-  return x >= 0 && x <= width && y >= 0 && y <= height;
-}
-
-function mousePressed() {
-  if (!params.drawMode) return;
-  if (!isInsideCanvas(mouseX, mouseY)) return;
-  if (params.drawOperation === 'cut') {
-    eraseAt(mouseX, mouseY, params.strokeW * 3);
-    redraw();
-    return;
-  }
-  const first = createVector(mouseX, mouseY);
-  first.sw = params.strokeW * 1.2;
-  activeStroke = [first];
-  drawnPaths.push(activeStroke);
-  redraw();
-}
-
-function mouseDragged() {
-  // Do not cancel browser default when dragging UI sliders.
-  if (!params.drawMode) return;
-  if (!isInsideCanvas(mouseX, mouseY)) return;
-  if (params.drawOperation === 'cut') {
-    eraseAt(mouseX, mouseY, params.strokeW * 3);
-    redraw();
-    return false;
-  }
-  if (!activeStroke) return;
-  const last = activeStroke[activeStroke.length - 1];
-  if (!last || dist(last.x, last.y, mouseX, mouseY) >= 1.8) {
-    const d = last ? dist(last.x, last.y, mouseX, mouseY) : 0;
-    const dt = max(1, deltaTime || 16);
-    const speed = d / dt; // px per ms
-    const speedNorm = constrain(map(speed, 0.02, 1.2, 0, 1), 0, 1);
-    const target = params.strokeW * lerp(1.75, 0.38, speedNorm); // slower->thicker, faster->thinner
-    const prevW = last && last.sw != null ? last.sw : params.strokeW;
-    const sw = lerp(prevW, target, 0.45);
-    const p = createVector(mouseX, mouseY);
-    p.sw = sw;
-    activeStroke.push(p);
-    redraw();
-  }
-  return false;
-}
-
-function mouseReleased() {
-  if (!params.drawMode) return;
-  activeStroke = null;
-}
-
-function eraseAt(x, y, radius) {
-  const nextPaths = [];
-  for (const path of drawnPaths) {
-    if (!path || path.length < 2) continue;
-    let segment = [];
-    for (let i = 0; i < path.length; i++) {
-      const p = path[i];
-      const keep = dist(p.x, p.y, x, y) > radius;
-      if (keep) {
-        segment.push(p);
-      } else if (segment.length > 1) {
-        nextPaths.push(segment);
-        segment = [];
-      } else {
-        segment = [];
-      }
-    }
-    if (segment.length > 1) nextPaths.push(segment);
-  }
-  drawnPaths = nextPaths;
-  activeStroke = null;
-}
-
-function exportPng() {
-  saveCanvas('cyber_stigilism', 'png');
-}
-
-function keyPressed() {
-  if (key === '1') {
-    params.drawOperation = 'ink';
-  } else if (key === '2') {
-    params.drawOperation = 'cut';
-  } else if (key === 'm' || key === 'M') {
-    params.mirrorX = !params.mirrorX;
-    const mx = document.getElementById('cs-mirror-x');
-    if (mx) mx.checked = params.mirrorX;
-    if (!params.mirrorX && !params.mirrorY) {
-      params.mirrorY = true;
-      const my = document.getElementById('cs-mirror-y');
-      if (my) my.checked = true;
-    }
-    regenerate();
-  } else if (key === ' ' || keyCode === 32) {
-    drawnPaths = [];
-    activeStroke = null;
-    redraw();
-    return false;
-  } else if (key === 's' || key === 'S') {
-    exportPng();
-  }
-
-  const inkBtn = document.getElementById('cs-mode-ink');
-  const cutBtn = document.getElementById('cs-mode-cut');
-  if (inkBtn) inkBtn.classList.toggle('is-active', params.drawOperation === 'ink');
-  if (cutBtn) cutBtn.classList.toggle('is-active', params.drawOperation === 'cut');
+  if (ink) ink.addEventListener('input', () => { params.ink = ink.value; redraw(); });
 }
