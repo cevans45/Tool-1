@@ -16,21 +16,16 @@
         <div class="app" aria-label="Cyber stigilism generator">
             <div id="stigil-canvas"></div>
             <aside class="control-panel">
-                <header class="panel-header">
-                    <h2>Controls</h2>
-                </header>
+                <div class="mode-switch" id="cs-main-mode" style="margin:0;">
+                    <button type="button" id="cs-mode-sketch" class="panel-button is-active">Sketch</button>
+                    <button type="button" id="cs-mode-generate" class="panel-button">Generate</button>
+                </div>
                 <div class="panel-body">
-                    <details class="control-window" open>
-                        <summary>Core</summary>
+                    <details class="control-window" id="section-sketch-core" open>
+                        <summary>Draw</summary>
                         <section class="control-section">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="cs-draw-mode" checked>
-                                <span class="toggle-box"></span>
-                                <span class="cb-label">Sketch pad</span>
-                            </label>
-
                             <span class="control-row" style="margin-bottom:6px;">
-                                <label>Mode</label>
+                                <label>Brush</label>
                             </span>
                             <div class="mode-switch" style="margin-bottom:14px;">
                                 <button type="button" id="cs-mode-ink" class="panel-button is-active">ADD +</button>
@@ -49,23 +44,26 @@
                                 <span class="param-value" id="val-cs-stroke">2</span>
                             </div>
 
+                            <div class="control-row" id="row-cs-sketch-reach">
+                                <label for="cs-sketch-reach">Reach</label>
+                                <input type="range" id="cs-sketch-reach" min="10" max="200" value="70" step="5">
+                                <span class="param-value" id="val-cs-sketch-reach">70</span>
+                            </div>
+
                             <div class="control-row" style="gap:6px;">
                                 <button type="button" id="cs-clear" class="panel-button">Clear</button>
                                 <button type="button" id="cs-export" class="panel-button">Export PNG</button>
-                                <button type="button" id="cs-random-seed" class="panel-button">Random</button>
                             </div>
 
                             <div class="shortcuts-block">
                                 <span>[1]</span> ADD &nbsp; <span>[2]</span> ERASE<br>
-                                <span>[M]</span> MIRROR<br>
-                                <span>[SPACE]</span> CLEAR<br>
-                                <span>[S]</span> EXPORT PNG
+                                <span>[M]</span> MIRROR &nbsp; <span>[SPACE]</span> CLEAR &nbsp; <span>[S]</span> EXPORT
                             </div>
                         </section>
                     </details>
 
                     <details class="control-window" id="section-sketch-style" open>
-                        <summary>Sketch style</summary>
+                        <summary>Style</summary>
                         <section class="control-section">
                             <div class="control-row">
                                 <label for="cs-sketch-roughness">Roughness</label>
@@ -77,25 +75,30 @@
                                 <input type="range" id="cs-sketch-density" min="1" max="16" value="6" step="1">
                                 <span class="param-value" id="val-cs-sketch-density">6</span>
                             </div>
-                            <div class="control-row">
-                                <label for="cs-sketch-reach">Reach</label>
-                                <input type="range" id="cs-sketch-reach" min="10" max="200" value="70" step="5">
-                                <span class="param-value" id="val-cs-sketch-reach">70</span>
-                            </div>
                             <div class="control-row color-row">
-                                <label for="cs-bg">Background</label>
+                                <label for="cs-bg-sketch">Background</label>
                                 <input type="color" id="cs-bg-sketch" value="#e7e7e7">
                             </div>
                             <div class="control-row color-row">
-                                <label for="cs-ink">Ink</label>
+                                <label for="cs-ink-sketch">Ink</label>
                                 <input type="color" id="cs-ink-sketch" value="#000000">
                             </div>
                         </section>
                     </details>
 
-                    <details class="control-window" id="section-structure">
+                    <details class="control-window" id="section-structure" open>
                         <summary>Structure</summary>
                         <section class="control-section">
+                            <div class="control-row" style="gap:6px; margin-bottom:12px;">
+                                <button type="button" id="cs-regenerate" class="panel-button" style="flex:1;">Regenerate</button>
+                                <button type="button" id="cs-random-seed" class="panel-button" style="flex:1;">Random</button>
+                                <button type="button" id="cs-export-gen" class="panel-button">Export</button>
+                            </div>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="cs-mirror-x-gen" checked>
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Mirror X</span>
+                            </label>
                             <label class="checkbox-label">
                                 <input type="checkbox" id="cs-mirror-y">
                                 <span class="toggle-box"></span>
@@ -179,9 +182,6 @@
                             <div class="control-row color-row">
                                 <label for="cs-ink">Ink</label>
                                 <input type="color" id="cs-ink" value="#000000">
-                            </div>
-                            <div class="control-row">
-                                <button type="button" id="cs-regenerate" class="panel-button" style="width:100%;">Regenerate</button>
                             </div>
                         </section>
                     </details>
