@@ -117,6 +117,10 @@ body.is-leaving {
     padding: 12px 18px 18px;
 }
 
+.site-card--ready {
+    order: -1;
+}
+
 .site-card {
     background: #f2f2ee;
     color: #111;
@@ -128,6 +132,7 @@ body.is-leaving {
 }
 
 .site-card-preview {
+    position: relative;
     background: #d0d0d0;
     min-height: 120px;
     display: flex;
@@ -143,10 +148,27 @@ body.is-leaving {
     background: linear-gradient(135deg, #f1e9da, #ffd400 40%, #d90368 80%);
 }
 
+.site-card-preview--live {
+    background: #0b0b0b;
+    overflow: hidden;
+}
+
 .site-card-preview span {
+    position: relative;
+    z-index: 2;
     background: #000;
     color: #f0f0f0;
     padding: 2px 4px;
+}
+
+.tool-preview-frame {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+    pointer-events: none;
+    background: #0b0b0b;
 }
 
 .site-card-body {
@@ -570,4 +592,39 @@ body.is-leaving {
     .site-grid {
         grid-template-columns: 1fr;
     }
+}
+
+body.is-preview {
+    background: #0b0b0b;
+    color: #f6f6f4;
+    opacity: 1;
+}
+
+body.is-preview .site-shell {
+    min-height: 100vh;
+}
+
+body.is-preview .tool-header,
+body.is-preview .control-panel {
+    display: none;
+}
+
+body.is-preview .app {
+    min-height: 100vh;
+    height: 100vh;
+    padding: 0;
+    gap: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+body.is-preview #sketch-container,
+body.is-preview #particle-canvas,
+body.is-preview #orbit-canvas,
+body.is-preview #shader-canvas {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }

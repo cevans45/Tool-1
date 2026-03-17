@@ -4,6 +4,12 @@
 (function () {
   const READY_CLASS = 'is-ready';
   const LEAVING_CLASS = 'is-leaving';
+  const PREVIEW_CLASS = 'is-preview';
+  const isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
+
+  if (isPreview) {
+    document.body.classList.add(PREVIEW_CLASS);
+  }
 
   function isModifiedClick(e) {
     return e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0;
@@ -40,6 +46,7 @@
   });
 
   document.addEventListener('click', (e) => {
+    if (isPreview) return;
     if (isModifiedClick(e)) return;
     const a = e.target instanceof Element ? e.target.closest('a') : null;
     if (!a) return;
