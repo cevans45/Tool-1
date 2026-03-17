@@ -20,8 +20,9 @@
                     <h2>Controls</h2>
                 </header>
                 <div class="panel-body">
-                    <section class="control-section">
-                        <h3>Cycle</h3>
+                    <details class="control-window">
+                        <summary>Cycle</summary>
+                        <section class="control-section">
                         <div class="control-row">
                             <label for="sh-cycle">Duration</label>
                             <input type="range" id="sh-cycle" min="20" max="180" value="79" step="1">
@@ -42,10 +43,12 @@
                             <input type="range" id="sh-fade-out" min="1" max="20" value="5" step="1">
                             <span class="param-value" id="val-sh-fade-out">5s</span>
                         </div>
-                    </section>
+                        </section>
+                    </details>
 
-                    <section class="control-section">
-                        <h3>Zoom & mirrors</h3>
+                    <details class="control-window">
+                        <summary>Zoom & mirrors</summary>
+                        <section class="control-section">
                         <div class="control-row">
                             <label for="sh-zoom-min">Zoom min</label>
                             <input type="range" id="sh-zoom-min" min="5" max="150" value="10" step="1">
@@ -71,10 +74,12 @@
                             <input type="range" id="sh-mirror-span" min="1" max="10" value="6" step="1">
                             <span class="param-value" id="val-sh-mirror-span">6</span>
                         </div>
-                    </section>
+                        </section>
+                    </details>
 
-                    <section class="control-section">
-                        <h3>Rotation & look</h3>
+                    <details class="control-window" open>
+                        <summary>Rotation & look</summary>
+                        <section class="control-section">
                         <div class="control-row">
                             <label for="sh-rot-start">Rot start %</label>
                             <input type="range" id="sh-rot-start" min="0" max="95" value="60" step="1">
@@ -97,27 +102,37 @@
                         </div>
                         <div class="control-row">
                             <label for="sh-stripes">Stripes</label>
-                            <input type="range" id="sh-stripes" min="1" max="24" value="8" step="1">
-                            <span class="param-value" id="val-sh-stripes">8</span>
+                            <input type="range" id="sh-stripes" min="1" max="24" value="5" step="1">
+                            <span class="param-value" id="val-sh-stripes">5</span>
                         </div>
                         <div class="control-row">
                             <label for="sh-pulse">Pulse</label>
                             <input type="range" id="sh-pulse" min="0" max="300" value="90" step="1">
                             <span class="param-value" id="val-sh-pulse">0.90</span>
                         </div>
-                    </section>
+                        </section>
+                    </details>
 
-                    <section class="control-section">
-                        <h3>Texture & detail</h3>
+                    <details class="control-window" open>
+                        <summary>Texture & detail</summary>
+                        <section class="control-section">
                         <div class="control-row">
+                            <label for="sh-use-grain">Use grain</label>
+                            <input type="checkbox" id="sh-use-grain" checked>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-use-dots">Use dots</label>
+                            <input type="checkbox" id="sh-use-dots">
+                        </div>
+                        <div class="control-row" id="row-sh-grain">
                             <label for="sh-grain">Grain</label>
                             <input type="range" id="sh-grain" min="0" max="100" value="6" step="1">
                             <span class="param-value" id="val-sh-grain">0.06</span>
                         </div>
                         <div class="control-row">
                             <label for="sh-weave">Weave</label>
-                            <input type="range" id="sh-weave" min="0" max="200" value="65" step="1">
-                            <span class="param-value" id="val-sh-weave">0.65</span>
+                            <input type="range" id="sh-weave" min="0" max="200" value="40" step="1">
+                            <span class="param-value" id="val-sh-weave">0.40</span>
                         </div>
                         <div class="control-row">
                             <label for="sh-star">Star</label>
@@ -139,30 +154,32 @@
                             <input type="range" id="sh-vignette" min="20" max="400" value="260" step="1">
                             <span class="param-value" id="val-sh-vignette">2.60</span>
                         </div>
-                        <div class="control-row">
+                        <div class="control-row dots-row" id="row-sh-cellularity">
                             <label for="sh-cellularity">Cell dots</label>
                             <input type="range" id="sh-cellularity" min="0" max="200" value="80" step="1">
                             <span class="param-value" id="val-sh-cellularity">0.80</span>
                         </div>
-                        <div class="control-row">
+                        <div class="control-row dots-row" id="row-sh-cell-density">
                             <label for="sh-cell-density">Cell density</label>
                             <input type="range" id="sh-cell-density" min="10" max="260" value="120" step="1">
                             <span class="param-value" id="val-sh-cell-density">120</span>
                         </div>
-                        <div class="control-row">
+                        <div class="control-row dots-row" id="row-sh-cell-softness">
                             <label for="sh-cell-softness">Cell softness</label>
                             <input type="range" id="sh-cell-softness" min="1" max="80" value="14" step="1">
                             <span class="param-value" id="val-sh-cell-softness">0.14</span>
                         </div>
-                        <div class="control-row">
+                        <div class="control-row dots-row" id="row-sh-cell-shift">
                             <label for="sh-cell-shift">Cell shift</label>
                             <input type="range" id="sh-cell-shift" min="0" max="100" value="30" step="1">
                             <span class="param-value" id="val-sh-cell-shift">0.30</span>
                         </div>
-                    </section>
+                        </section>
+                    </details>
 
-                    <section class="control-section">
-                        <h3>Color tuning</h3>
+                    <details class="control-window">
+                        <summary>Color tuning</summary>
+                        <section class="control-section">
                         <div class="control-row">
                             <label for="sh-hue">Hue shift</label>
                             <input type="range" id="sh-hue" min="0" max="360" value="0" step="1">
@@ -195,7 +212,8 @@
                             <label for="sh-seed">Fixed seed</label>
                             <input type="number" id="sh-seed" min="0" max="999999999" value="0" step="1">
                         </div>
-                    </section>
+                        </section>
+                    </details>
                 </div>
             </aside>
         </div>

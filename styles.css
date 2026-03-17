@@ -347,6 +347,41 @@ body.is-leaving {
     margin-bottom: 0;
 }
 
+.control-window {
+    margin-bottom: 10px;
+    border: 1px solid #c9c9c2;
+    background: #f5f5ef;
+}
+
+.control-window summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 8px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #111;
+    border-bottom: 1px solid #c9c9c2;
+}
+
+.control-window summary::-webkit-details-marker {
+    display: none;
+}
+
+.control-window[open] summary {
+    background: #ecece5;
+}
+
+.control-window .control-section {
+    margin: 0;
+    padding: 10px;
+}
+
+.control-window .control-section h3 {
+    display: none;
+}
+
 .control-section h3 {
     font-size: 12px;
     font-weight: 700;

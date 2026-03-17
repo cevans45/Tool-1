@@ -22,6 +22,8 @@ const params = {
   ringAmt: 0.55,
   contrast: 1.2,
   vignette: 2.6,
+  useGrain: true,
+  useDots: false,
   cellularity: 0.8,
   cellDensity: 120.0,
   cellSoftness: 0.14,
@@ -64,6 +66,8 @@ const frag = `
   uniform float u_ring;
   uniform float u_contrast;
   uniform float u_vignette;
+  uniform float u_use_grain;
+  uniform float u_use_dots;
   uniform float u_cellularity;
   uniform float u_cell_density;
   uniform float u_cell_softness;
@@ -139,8 +143,8 @@ const frag = `
     mass = clamp(mass / 2.8, 0.0, 1.0);
 
     // Two grain bands: structural grain in the field + screen-space film grain.
-    float fieldGrain = (hash21(floor((p + 2.0) * 90.0) + u_seed * 0.13) - 0.5) * u_grain;
-    float filmGrain = (hash21(gl_FragCoord.xy * 0.5 + vec2(u_time * 120.0, u_seed * 17.0)) - 0.5) * u_grain;
+    float fieldGrain = (hash21(floor((p + 2.0) * 90.0) + u_seed * 0.13) - 0.5) * u_grain * u_use_grain;
+    float filmGrain = (hash21(gl_FragCoord.xy * 0.5 + vec2(u_time * 120.0, u_seed * 17.0)) - 0.5) * u_grain * u_use_grain;
 
     // Dot/cell modulation integrated into the same texture field.
     vec2 cellUv = fract((w + 2.0 + vec2(u_cell_shift)) * u_cell_density) - 0.5;
@@ -148,7 +152,7 @@ const frag = `
     float cellRadius = 0.42 * (0.6 + 0.4 * sin(t + r * 4.0));
     float cell = smoothstep(cellRadius, max(0.0, cellRadius - u_cell_softness), cellDist);
 
-    float mixV = mass * 0.9 + weave * u_weave + star * u_star + ring * u_ring + fieldGrain * 0.35 + cell * u_cellularity;
+    float mixV = mass * 0.9 + weave * u_weave + star * u_star + ring * u_ring + fieldGrain * 0.35 + cell * u_cellularity * u_use_dots;
 
     vec3 colA = palette(t * 0.08 + r * 0.65 + u_seed * 0.01);
     vec3 colB = palette(0.35 + a * 0.20 - t * 0.04 + u_seed * 0.02);
@@ -240,6 +244,8 @@ function draw() {
   theShader.setUniform('u_ring', params.ringAmt);
   theShader.setUniform('u_contrast', params.contrast);
   theShader.setUniform('u_vignette', params.vignette);
+  theShader.setUniform('u_use_grain', params.useGrain ? 1.0 : 0.0);
+  theShader.setUniform('u_use_dots', params.useDots ? 1.0 : 0.0);
   theShader.setUniform('u_cellularity', params.cellularity);
   theShader.setUniform('u_cell_density', params.cellDensity);
   theShader.setUniform('u_cell_softness', params.cellSoftness);
@@ -403,6 +409,21 @@ function bindControls() {
       params.tintColor = hexToRgb01(tint.value);
     });
   }
+
+  const useGrain = document.getElementById('sh-use-grain');
+  const useDots = document.getElementById('sh-use-dots');
+  const syncTextureMode = () => {
+    if (useGrain && useDots) {
+      if (!useGrain.checked && !useDots.checked) useGrain.checked = true;
+      if (useGrain.checked && useDots.checked) useDots.checked = false;
+      params.useGrain = !!useGrain.checked;
+      params.useDots = !!useDots.checked;
+    }
+    updateTextureModeUI();
+  };
+  if (useGrain) useGrain.addEventListener('change', syncTextureMode);
+  if (useDots) useDots.addEventListener('change', syncTextureMode);
+  syncTextureMode();
 }
 
 function bindRange(id, valueId, onInput) {
@@ -425,5 +446,14 @@ function hexToRgb01(hexValue) {
     parseInt(m[2], 16) / 255,
     parseInt(m[3], 16) / 255
   ];
+}
+
+function updateTextureModeUI() {
+  const grainRow = document.getElementById('row-sh-grain');
+  const dotsRows = document.querySelectorAll('.dots-row');
+  if (grainRow) grainRow.style.display = params.useGrain ? 'flex' : 'none';
+  dotsRows.forEach((row) => {
+    row.style.display = params.useDots ? 'flex' : 'none';
+  });
 }
 
