@@ -13,6 +13,9 @@ const params = {
   rotationStartPct: 60.0,
   rotationMaxDeg: 90.0,
   brightness: 0.8,
+  warp: 1.2,
+  stripes: 8.0,
+  pulse: 0.9,
   lockSeed: false,
   fixedSeed: 0.0,
 };
@@ -36,12 +39,22 @@ const frag = `
   uniform float u_mirror_min;
   uniform float u_mirror_span;
   uniform float u_brightness;
+  uniform float u_warp;
+  uniform float u_stripes;
+  uniform float u_pulse;
 
-  vec3 getRainbow(float t) {
-    vec3 a = vec3(0.5, 0.5, 0.5);
-    vec3 b = vec3(0.5, 0.5, 0.5);
-    vec3 d = vec3(0.0, 0.33, 0.67);
-    return a + b * cos(6.28318 * (t + d));
+  vec3 palette(float t) {
+    vec3 a = vec3(0.56, 0.52, 0.48);
+    vec3 b = vec3(0.40, 0.44, 0.46);
+    vec3 c = vec3(1.0, 1.0, 1.0);
+    vec3 d = vec3(0.01, 0.18, 0.42);
+    return a + b * cos(6.28318 * (c * t + d));
+  }
+
+  float hash21(vec2 p) {
+    p = fract(p * vec2(123.34, 456.21));
+    p += dot(p, p + 45.32);
+    return fract(p.x * p.y);
   }
 
   vec2 fold(vec2 p, float n) {
@@ -66,27 +79,33 @@ const frag = `
 
     p *= u_zoom;
 
-    float t = u_time * 0.05;
-    vec3 color = vec3(0.0);
+    float t = u_time * 0.25;
+    float r = length(p);
+    float a = atan(p.y, p.x);
 
-    vec2 shift = vec2(0.8 + sin(u_seed * 1.5) * 0.1, 0.8 + cos(u_seed * 0.7) * 0.1);
+    // Domain-warped coordinate field: distinct from the old recursive fold look.
+    vec2 w = p;
+    w += vec2(
+      sin((a * 3.0 + t) * u_warp) * 0.12,
+      cos((r * 8.0 - t * 0.7) * u_warp) * 0.10
+    );
 
-    for (int i = 0; i < 7; i++) {
-      p = abs(p) / dot(p, p) - (shift + sin(t * 2.0 + u_seed) * 0.05);
+    float stripeA = sin((a * u_stripes + t * 1.5) + w.x * 3.0);
+    float stripeB = cos((r * (u_stripes * 1.6) - t * 2.1) + w.y * 2.6);
+    float weave = smoothstep(-0.12, 0.12, stripeA * stripeB);
 
-      float dust = smoothstep(0.3, 0.0, length(fract(p * 2.0) - 0.5));
-      float colorShift = t + float(i) * 0.1 + length(p) * 0.2 + u_seed * 0.1;
-      vec3 dustColor = getRainbow(colorShift);
+    float star = smoothstep(0.25, 0.0, abs(sin(a * (numMirrors + 1.0) + r * 6.0 - t * 1.3)));
+    float ring = smoothstep(0.28, 0.0, abs(fract(r * 4.0 - t * u_pulse) - 0.5));
 
-      float intensity = pow(float(i + 1), 1.5);
-      color += dustColor * dust * intensity * 0.2;
+    float grain = hash21(floor((p + 2.0) * 90.0) + u_seed * 0.13) * 0.06;
+    float mixV = weave * 0.65 + star * 0.45 + ring * 0.55 + grain;
 
-      float line = 0.1 / abs(p.x + p.y + sin(t * 10.0 + float(i) + u_seed));
-      color += getRainbow(colorShift + 0.5) * line * 0.5;
-    }
+    vec3 colA = palette(t * 0.08 + r * 0.65 + u_seed * 0.01);
+    vec3 colB = palette(0.35 + a * 0.20 - t * 0.04 + u_seed * 0.02);
+    vec3 color = mix(colA, colB, clamp(mixV, 0.0, 1.0));
 
-    color *= u_brightness;
-    color *= smoothstep(5.0, 0.0, length(p));
+    float vignette = smoothstep(2.6, 0.15, r);
+    color *= (0.22 + 1.25 * mixV) * vignette * u_brightness;
 
     gl_FragColor = vec4(color * u_opacity, 1.0);
   }
@@ -150,6 +169,9 @@ function draw() {
   theShader.setUniform('u_mirror_min', params.mirrorMin);
   theShader.setUniform('u_mirror_span', params.mirrorSpan);
   theShader.setUniform('u_brightness', params.brightness);
+  theShader.setUniform('u_warp', params.warp);
+  theShader.setUniform('u_stripes', params.stripes);
+  theShader.setUniform('u_pulse', params.pulse);
 
   quad(-1, -1, 1, -1, 1, 1, -1, 1);
 }
@@ -216,6 +238,18 @@ function bindControls() {
   bindRange('sh-bright', 'val-sh-bright', (v) => {
     params.brightness = parseInt(v, 10) / 100;
     return params.brightness.toFixed(2);
+  });
+  bindRange('sh-warp', 'val-sh-warp', (v) => {
+    params.warp = parseInt(v, 10) / 100;
+    return params.warp.toFixed(2);
+  });
+  bindRange('sh-stripes', 'val-sh-stripes', (v) => {
+    params.stripes = parseFloat(v);
+    return String(v);
+  });
+  bindRange('sh-pulse', 'val-sh-pulse', (v) => {
+    params.pulse = parseInt(v, 10) / 100;
+    return params.pulse.toFixed(2);
   });
 
   const lock = document.getElementById('sh-lock-seed');

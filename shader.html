@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Transfinite shader — OVRT</title>
+    <title>Prism weave — OVRT</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 </head>
@@ -11,9 +11,9 @@
     <div class="site-shell">
         <header class="tool-header">
             <a href="index.html" class="back-link">← Back to OVRT</a>
-            <span class="tool-title">Transfinite shader</span>
+            <span class="tool-title">Prism weave</span>
         </header>
-        <div class="app" aria-label="Transfinite shader">
+        <div class="app" aria-label="Prism weave">
             <div id="shader-canvas"></div>
             <aside class="control-panel">
                 <header class="panel-header">
@@ -89,6 +89,21 @@
                             <label for="sh-bright">Brightness</label>
                             <input type="range" id="sh-bright" min="20" max="200" value="80" step="1">
                             <span class="param-value" id="val-sh-bright">0.80</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-warp">Warp</label>
+                            <input type="range" id="sh-warp" min="0" max="300" value="120" step="1">
+                            <span class="param-value" id="val-sh-warp">1.20</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-stripes">Stripes</label>
+                            <input type="range" id="sh-stripes" min="1" max="24" value="8" step="1">
+                            <span class="param-value" id="val-sh-stripes">8</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-pulse">Pulse</label>
+                            <input type="range" id="sh-pulse" min="0" max="300" value="90" step="1">
+                            <span class="param-value" id="val-sh-pulse">0.90</span>
                         </div>
                         <div class="control-row">
                             <label for="sh-lock-seed">Lock seed</label>
