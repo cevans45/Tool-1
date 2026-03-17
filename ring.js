@@ -6,13 +6,14 @@ const orbitParams = {
   scalePct: 92,
   bg: '#050505',
   layers: [
-    { shape: 'circle', dir: 'circle', count: 8, size: 120, speed: 45, radius: 220, rot: 0, color: '#ff2aa1' },
-    { shape: 'square', dir: 'diag-ur', count: 10, size: 56, speed: 72, radius: 120, rot: 35, color: '#ffffff' },
-    { shape: 'triangle', dir: 'left', count: 6, size: 88, speed: 30, radius: 280, rot: 0, color: '#ff2aa1' }
+    { shape: 'circle', dir: 'circle', count: 8, size: 120, speed: 45, radius: 220, rot: 0, spin: 18, color: '#ff2aa1' },
+    { shape: 'square', dir: 'diag-ur', count: 10, size: 56, speed: 72, radius: 120, rot: 35, spin: -24, color: '#ffffff' },
+    { shape: 'triangle', dir: 'left', count: 6, size: 88, speed: 30, radius: 280, rot: 0, spin: 12, color: '#ff2aa1' }
   ]
 };
 
 let actors = [];
+let sceneBuffer;
 
 function setup() {
   const container = document.getElementById('orbit-canvas');
@@ -22,6 +23,10 @@ function setup() {
   rectMode(CENTER);
   angleMode(RADIANS);
   noStroke();
+  sceneBuffer = createGraphics(400, 400);
+  sceneBuffer.rectMode(CENTER);
+  sceneBuffer.angleMode(RADIANS);
+  sceneBuffer.noStroke();
 
   bindControls();
   rebuildScene();
@@ -38,6 +43,10 @@ function resizePosterCanvas() {
   const base = min(maxW, maxH);
   const target = max(260, base * (orbitParams.scalePct / 100));
   resizeCanvas(target, target);
+  sceneBuffer = createGraphics(target, target);
+  sceneBuffer.rectMode(CENTER);
+  sceneBuffer.angleMode(RADIANS);
+  sceneBuffer.noStroke();
   rebuildScene();
 }
 
@@ -76,6 +85,10 @@ function bindControls() {
     bindRange(`orbit-l${n}-rot`, `value-orbit-l${n}-rot`, (v) => {
       orbitParams.layers[i].rot = int(v);
       return `${int(v)}°`;
+    });
+    bindRange(`orbit-l${n}-spin`, `value-orbit-l${n}-spin`, (v) => {
+      orbitParams.layers[i].spin = int(v);
+      return String(int(v));
     });
     bindInput(`orbit-l${n}-color`, (v) => { orbitParams.layers[i].color = v; });
   }
@@ -146,13 +159,20 @@ function rebuildScene() {
 }
 
 function draw() {
-  background(orbitParams.bg);
   const t = millis() * 0.001;
+  drawSceneToBuffer(t);
+  drawMirroredCanvas();
+}
 
+function drawSceneToBuffer(t) {
+  sceneBuffer.clear();
+  sceneBuffer.background(orbitParams.bg);
   for (const actor of actors) {
     const layer = orbitParams.layers[actor.layer];
     const point = actorPoint(actor, layer, t);
-    drawMirrored(point.x, point.y, radians(layer.rot), layer.shape, layer.size, layer.color);
+    const spin = radians((layer.spin || 0) * t);
+    const baseRot = radians(layer.rot || 0);
+    drawShapeAt(sceneBuffer, point.x, point.y, baseRot + spin, layer.shape, layer.size, layer.color);
   }
 }
 
@@ -186,36 +206,50 @@ function directionVector(dir) {
   return { x: 1, y: 0 };
 }
 
-function drawMirrored(x, y, rot, shape, size, colorHex) {
+function drawMirroredCanvas() {
+  background(orbitParams.bg);
   const m = constrain(orbitParams.mirror, 1, 5);
-  fill(colorHex);
-  for (let i = 0; i < m; i++) {
-    const a = (TWO_PI * i) / m;
-    push();
-    translate(width / 2, height / 2);
-    rotate(a);
-    translate(x - width / 2, y - height / 2);
-    rotate(rot + a);
-    drawShape(shape, size);
-    pop();
-  }
+  drawImageTransformed(sceneBuffer, false, false, 0);
+  if (m >= 2) drawImageTransformed(sceneBuffer, true, false, 0);
+  if (m >= 3) drawImageTransformed(sceneBuffer, false, true, 0);
+  if (m >= 4) drawImageTransformed(sceneBuffer, true, true, 0);
+  if (m >= 5) drawImageTransformed(sceneBuffer, true, false, HALF_PI);
 }
 
-function drawShape(shape, s) {
+function drawImageTransformed(img, flipX, flipY, rotateBy) {
+  push();
+  translate(width / 2, height / 2);
+  rotate(rotateBy);
+  scale(flipX ? -1 : 1, flipY ? -1 : 1);
+  imageMode(CENTER);
+  image(img, 0, 0, width, height);
+  pop();
+}
+
+function drawShapeAt(g, x, y, rot, shape, size, colorHex) {
+  g.push();
+  g.translate(x, y);
+  g.rotate(rot);
+  g.fill(colorHex);
+  drawShape(g, shape, size);
+  g.pop();
+}
+
+function drawShape(g, shape, s) {
   if (shape === 'square') {
-    rect(0, 0, s, s);
+    g.rect(0, 0, s, s);
   } else if (shape === 'triangle') {
     const h = s * 1.1;
-    triangle(0, -h / 2, -s / 2, h / 2, s / 2, h / 2);
+    g.triangle(0, -h / 2, -s / 2, h / 2, s / 2, h / 2);
   } else if (shape === 'diamond') {
-    beginShape();
-    vertex(0, -s / 2);
-    vertex(s / 2, 0);
-    vertex(0, s / 2);
-    vertex(-s / 2, 0);
-    endShape(CLOSE);
+    g.beginShape();
+    g.vertex(0, -s / 2);
+    g.vertex(s / 2, 0);
+    g.vertex(0, s / 2);
+    g.vertex(-s / 2, 0);
+    g.endShape(CLOSE);
   } else {
-    circle(0, 0, s);
+    g.circle(0, 0, s);
   }
 }
 
