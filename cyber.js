@@ -3,6 +3,13 @@ let paths = [];
 let drawnPaths = [];
 let activeStroke = null;
 let isPreview = false;
+let beziers = [];
+let grid = [];
+let curvePoints = [];
+let nearPoint = [];
+let hEdges = [];
+let vEdges = [];
+let blurs = 0;
 
 const params = {
   seed: 0,
@@ -383,32 +390,215 @@ function drawTextureEffect() {
   if (params.textureMode === 'none' || params.textureStrength <= 0) return;
   const sourcePaths = getRenderablePaths();
   if (sourcePaths.length === 0) return;
-  if (params.textureMode === 'grid') drawGridTexture(sourcePaths);
-  else if (params.textureMode === 'grain') drawGrainTexture(sourcePaths);
-  else if (params.textureMode === 'dots') drawDotsTexture(sourcePaths);
-  else if (params.textureMode === 'pixel') drawPixelTexture(sourcePaths);
+  if (params.textureMode === 'grain') {
+    drawGrainTexture(sourcePaths);
+    return;
+  }
+  rebuildGridSystemFromPaths(sourcePaths);
+  if (params.textureMode === 'grid') drawEdgesTexture('grid');
+  else if (params.textureMode === 'dots') drawEdgesTexture('dots');
+  else if (params.textureMode === 'pixel') drawEdgesTexture('pixel');
 }
 
-function drawGridTexture(sourcePaths) {
+function rebuildGridSystemFromPaths(sourcePaths) {
   const k = constrain(params.textureStrength, 0, 1);
-  const spacing = map(k, 0, 1, 18, 5);
-  const alphaBase = map(k, 0, 1, 20, 180);
-  const baseInk = color(params.ink);
-  stroke(red(baseInk), green(baseInk), blue(baseInk), alphaBase);
-  strokeWeight(map(k, 0, 1, 1, 1.8));
+  curvePoints = [];
+  grid = [];
+  nearPoint = [];
+  hEdges = [];
+  vEdges = [];
+  blurs = 0;
+  curveHash = new Map();
+  beziers = [];
+
+  // Sample source paths into curve points.
+  const stride = max(1, floor(map(k, 0, 1, 5, 1)));
   for (const path of sourcePaths) {
-    if (path.length < 2) continue;
-    for (let i = 1; i < path.length; i++) {
-      const a = path[i - 1];
-      const b = path[i];
-      const segLen = dist(a.x, a.y, b.x, b.y);
-      const steps = max(1, floor(segLen / spacing));
-      for (let s = 0; s <= steps; s++) {
-        const t = s / steps;
-        const x = lerp(a.x, b.x, t);
-        const y = lerp(a.y, b.y, t);
-        line(x - 1.5, y, x + 1.5, y);
-        line(x, y - 1.5, x, y + 1.5);
+    for (let i = 0; i < path.length; i += stride) {
+      curvePoints.push(path[i].copy());
+    }
+  }
+  buildCurveHashLegacy();
+
+  const gridCount = floor(map(k, 0, 1, 120, 240));
+  const step = width / gridCount;
+  for (let y = 0; y <= gridCount; y++) {
+    const row = [];
+    const nearRow = [];
+    for (let x = 0; x <= gridCount; x++) {
+      const v = createVector(x * step, y * step);
+      row.push(v);
+      nearRow.push(pointNearCurvesLegacy(v));
+    }
+    grid.push(row);
+    nearPoint.push(nearRow);
+  }
+
+  buildEdgesLegacy();
+  for (let i = 0; i < max(1, floor(map(k, 0, 1, 2, 8))); i++) {
+    pruneDanglingEdgesLegacy();
+  }
+
+  const blurMax = floor(map(k, 0, 1, 8, 80));
+  const blurAmt = max(0.08, params.blurStrength * 0.85);
+  while (blurs < blurMax) {
+    blurGridLegacy(grid, nearPoint, blurAmt);
+    blurs++;
+  }
+}
+
+function buildCurveHashLegacy() {
+  const cell = max(4, params.influenceRadius);
+  curveHash = new Map();
+  for (const p of curvePoints) {
+    const ix = floor(p.x / cell);
+    const iy = floor(p.y / cell);
+    const key = `${ix},${iy}`;
+    if (!curveHash.has(key)) curveHash.set(key, []);
+    curveHash.get(key).push(p);
+  }
+}
+
+function pointNearCurvesLegacy(v) {
+  const cell = max(4, params.influenceRadius);
+  const ix = floor(v.x / cell);
+  const iy = floor(v.y / cell);
+  const r2 = params.influenceRadius * params.influenceRadius;
+
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const key = `${ix + dx},${iy + dy}`;
+      const bucket = curveHash.get(key);
+      if (!bucket) continue;
+      for (const p of bucket) {
+        const dxp = v.x - p.x;
+        const dyp = v.y - p.y;
+        if (dxp * dxp + dyp * dyp < r2) return true;
+      }
+    }
+  }
+  return false;
+}
+
+function buildEdgesLegacy() {
+  for (let y = 0; y < grid.length; y++) {
+    const r = [];
+    for (let x = 0; x < grid[y].length - 1; x++) {
+      r.push(nearPoint[y][x] && nearPoint[y][x + 1]);
+    }
+    hEdges.push(r);
+  }
+  for (let y = 0; y < grid.length - 1; y++) {
+    const r = [];
+    for (let x = 0; x < grid[y].length; x++) {
+      r.push(nearPoint[y][x] && nearPoint[y + 1][x]);
+    }
+    vEdges.push(r);
+  }
+}
+
+function pruneDanglingEdgesLegacy() {
+  const degree = grid.map((r) => r.map(() => 0));
+  for (let y = 0; y < hEdges.length; y++) {
+    for (let x = 0; x < hEdges[y].length; x++) {
+      if (hEdges[y][x]) {
+        degree[y][x]++;
+        degree[y][x + 1]++;
+      }
+    }
+  }
+  for (let y = 0; y < vEdges.length; y++) {
+    for (let x = 0; x < vEdges[y].length; x++) {
+      if (vEdges[y][x]) {
+        degree[y][x]++;
+        degree[y + 1][x]++;
+      }
+    }
+  }
+  for (let y = 0; y < hEdges.length; y++) {
+    for (let x = 0; x < hEdges[y].length; x++) {
+      if (hEdges[y][x] && (degree[y][x] < 2 || degree[y][x + 1] < 2)) hEdges[y][x] = false;
+    }
+  }
+  for (let y = 0; y < vEdges.length; y++) {
+    for (let x = 0; x < vEdges[y].length; x++) {
+      if (vEdges[y][x] && (degree[y][x] < 2 || degree[y + 1][x] < 2)) vEdges[y][x] = false;
+    }
+  }
+}
+
+function blurGridLegacy(g, mask, amount) {
+  const h = g.length;
+  const w = g[0].length;
+  const cx = Array.from({ length: h }, () => Array(w));
+  const cy = Array.from({ length: h }, () => Array(w));
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      cx[y][x] = g[y][x].x;
+      cy[y][x] = g[y][x].y;
+    }
+  }
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      if (!mask[y][x]) continue;
+      let sx = 0;
+      let sy = 0;
+      let n = 0;
+      if (mask[y][x]) { sx += cx[y][x]; sy += cy[y][x]; n++; }
+      if (mask[y - 1][x]) { sx += cx[y - 1][x]; sy += cy[y - 1][x]; n++; }
+      if (mask[y + 1][x]) { sx += cx[y + 1][x]; sy += cy[y + 1][x]; n++; }
+      if (mask[y][x - 1]) { sx += cx[y][x - 1]; sy += cy[y][x - 1]; n++; }
+      if (mask[y][x + 1]) { sx += cx[y][x + 1]; sy += cy[y][x + 1]; n++; }
+      if (n > 0) {
+        g[y][x].x += (sx / n - g[y][x].x) * amount;
+        g[y][x].y += (sy / n - g[y][x].y) * amount;
+      }
+    }
+  }
+}
+
+function drawEdgesTexture(mode) {
+  const k = constrain(params.textureStrength, 0, 1);
+  const baseInk = color(params.ink);
+  const alpha = map(k, 0, 1, 55, 220);
+  if (mode === 'dots' || mode === 'pixel') {
+    noStroke();
+    fill(red(baseInk), green(baseInk), blue(baseInk), alpha);
+  } else {
+    stroke(red(baseInk), green(baseInk), blue(baseInk), alpha);
+    strokeWeight(map(k, 0, 1, 0.8, 2.2));
+  }
+
+  for (let y = 0; y < hEdges.length; y++) {
+    for (let x = 0; x < hEdges[y].length; x++) {
+      if (!hEdges[y][x]) continue;
+      const a = grid[y][x];
+      const b = grid[y][x + 1];
+      if (mode === 'grid') {
+        line(a.x, a.y, b.x, b.y);
+      } else if (mode === 'dots') {
+        circle((a.x + b.x) * 0.5, (a.y + b.y) * 0.5, map(k, 0, 1, 1.1, 3.6));
+      } else if (mode === 'pixel') {
+        rectMode(CENTER);
+        rect((a.x + b.x) * 0.5, (a.y + b.y) * 0.5, map(k, 0, 1, 1.5, 4.8), map(k, 0, 1, 1.5, 4.8));
+        rectMode(CORNER);
+      }
+    }
+  }
+  for (let y = 0; y < vEdges.length; y++) {
+    for (let x = 0; x < vEdges[y].length; x++) {
+      if (!vEdges[y][x]) continue;
+      const a = grid[y][x];
+      const b = grid[y + 1][x];
+      if (mode === 'grid') {
+        line(a.x, a.y, b.x, b.y);
+      } else if (mode === 'dots') {
+        circle((a.x + b.x) * 0.5, (a.y + b.y) * 0.5, map(k, 0, 1, 1.1, 3.6));
+      } else if (mode === 'pixel') {
+        rectMode(CENTER);
+        rect((a.x + b.x) * 0.5, (a.y + b.y) * 0.5, map(k, 0, 1, 1.5, 4.8), map(k, 0, 1, 1.5, 4.8));
+        rectMode(CORNER);
       }
     }
   }
