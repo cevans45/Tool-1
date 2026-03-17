@@ -64,7 +64,36 @@
                         </section>
                     </details>
 
-                    <details class="control-window">
+                    <details class="control-window" id="section-sketch-style" open>
+                        <summary>Sketch style</summary>
+                        <section class="control-section">
+                            <div class="control-row">
+                                <label for="cs-sketch-roughness">Roughness</label>
+                                <input type="range" id="cs-sketch-roughness" min="0" max="20" value="4" step="1">
+                                <span class="param-value" id="val-cs-sketch-roughness">4</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-sketch-density">Density</label>
+                                <input type="range" id="cs-sketch-density" min="1" max="16" value="6" step="1">
+                                <span class="param-value" id="val-cs-sketch-density">6</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-sketch-reach">Reach</label>
+                                <input type="range" id="cs-sketch-reach" min="10" max="200" value="70" step="5">
+                                <span class="param-value" id="val-cs-sketch-reach">70</span>
+                            </div>
+                            <div class="control-row color-row">
+                                <label for="cs-bg">Background</label>
+                                <input type="color" id="cs-bg-sketch" value="#e7e7e7">
+                            </div>
+                            <div class="control-row color-row">
+                                <label for="cs-ink">Ink</label>
+                                <input type="color" id="cs-ink-sketch" value="#000000">
+                            </div>
+                        </section>
+                    </details>
+
+                    <details class="control-window" id="section-structure">
                         <summary>Structure</summary>
                         <section class="control-section">
                             <label class="checkbox-label">
@@ -109,7 +138,7 @@
                         </section>
                     </details>
 
-                    <details class="control-window">
+                    <details class="control-window" id="section-smoothing">
                         <summary>Smoothing</summary>
                         <section class="control-section">
                             <div class="control-row">
@@ -125,7 +154,7 @@
                         </section>
                     </details>
 
-                    <details class="control-window">
+                    <details class="control-window" id="section-style">
                         <summary>Style</summary>
                         <section class="control-section">
                             <label class="checkbox-label">
@@ -163,8 +192,8 @@
                             <div class="control-row">
                                 <label for="cs-texture-mode">Texture mode</label>
                                 <select id="cs-texture-mode" class="select-input">
-                                    <option value="none">None</option>
-                                    <option value="grid" selected>Grid</option>
+                                    <option value="none" selected>None</option>
+                                    <option value="grid">Grid</option>
                                     <option value="grain">Grain</option>
                                     <option value="dots">Dots</option>
                                     <option value="pixel">Pixel</option>

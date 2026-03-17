@@ -13,16 +13,9 @@ let drawBuffer;
 let drawPoints = [];
 let isDrawing = false;
 
-const DRAW_CONFIG = {
-  connectDistance: 70,
-  baseJitter: 4,
-  jitterMultiplier: 0.8,
-  passes: 6
-};
-
 const params = {
   seed: 0,
-  textureMode: 'grid',
+  textureMode: 'none',
   textureStrength: 0.8,
   textureDensity: 0.72,
   textureSize: 0.56,
@@ -45,7 +38,10 @@ const params = {
   mirrorX: true,
   mirrorY: false,
   bg: '#e7e7e7',
-  ink: '#000000'
+  ink: '#000000',
+  sketchRoughness: 4,
+  sketchDensity: 6,
+  sketchReach: 70
 };
 
 function setup() {
@@ -311,6 +307,29 @@ function pointNearPaths(v) {
   return constrain(1 - minD / (params.influenceRadius * 1.6), 0, 1);
 }
 
+/* ===== PATH EXTRACTION FROM SKETCH ===== */
+
+function getDrawnPathSegments() {
+  const segments = [];
+  let current = [];
+  for (const p of drawPoints) {
+    if (p === null) {
+      if (current.length > 1) segments.push(current);
+      current = [];
+    } else {
+      current.push(createVector(p.x, p.y));
+    }
+  }
+  if (current.length > 1) segments.push(current);
+
+  const out = [];
+  for (const seg of segments) {
+    const mirrored = createMirroredPaths(seg);
+    for (const m of mirrored) out.push(m);
+  }
+  return out;
+}
+
 /* ===== DRAW LOOP ===== */
 
 function draw() {
@@ -318,13 +337,19 @@ function draw() {
 
   if (params.drawMode) {
     image(drawBuffer, 0, 0);
+
+    const sketchPaths = getDrawnPathSegments();
+    if (sketchPaths.length > 0) {
+      drawTextureOnPaths(sketchPaths);
+    }
+
     if (params.mirrorX) drawGuidelineOnMain();
     return;
   }
 
   buildCurveHashFromPaths(paths);
   drawGeneratedPaths();
-  drawTextureEffect();
+  drawTextureOnPaths(paths);
 }
 
 function drawGuidelineOnMain() {
@@ -348,9 +373,9 @@ function drawGuideline() {
 /* ===== MYCELIUM SCRATCH-LINE DRAWING ENGINE ===== */
 
 function scratchLine(ctx, x1, y1, x2, y2, d) {
-  const distFactor = Math.max(0.2, (DRAW_CONFIG.connectDistance - d) / 10);
+  const distFactor = Math.max(0.2, (params.sketchReach - d) / 10);
   const finalThickness = params.strokeW * distFactor;
-  const jitter = DRAW_CONFIG.baseJitter + (finalThickness * DRAW_CONFIG.jitterMultiplier);
+  const jitter = params.sketchRoughness + (finalThickness * 0.8);
   const w = drawBuffer.width;
   const h = drawBuffer.height;
 
@@ -364,7 +389,7 @@ function scratchLine(ctx, x1, y1, x2, y2, d) {
     ctx.fillStyle = 'rgba(0,0,0,1)';
   }
 
-  for (let i = 0; i < DRAW_CONFIG.passes; i++) {
+  for (let i = 0; i < params.sketchDensity; i++) {
     const jx1 = (Math.random() - 0.5) * jitter;
     const jy1 = (Math.random() - 0.5) * jitter;
     const jx2 = (Math.random() - 0.5) * jitter;
@@ -415,7 +440,7 @@ function addDrawPoint(x, y) {
     const dx = p.x - prev.x;
     const dy = p.y - prev.y;
     const d = Math.hypot(dx, dy);
-    const dynamicConnect = DRAW_CONFIG.connectDistance + params.strokeW;
+    const dynamicConnect = params.sketchReach + params.strokeW;
 
     if (d < dynamicConnect) {
       scratchLine(ctx, prev.x, prev.y, p.x, p.y, d);
@@ -563,14 +588,14 @@ function localPointDensity(v) {
 
 /* ===== TEXTURE EFFECTS (generated mode) ===== */
 
-function drawTextureEffect() {
+function drawTextureOnPaths(sourcePaths) {
   if (params.textureMode === 'none' || params.textureStrength <= 0) return;
-  if (paths.length === 0) return;
+  if (!sourcePaths || sourcePaths.length === 0) return;
   if (params.textureMode === 'grain') {
-    drawGrainTexture(paths);
+    drawGrainTexture(sourcePaths);
     return;
   }
-  rebuildGridSystemFromPaths(paths);
+  rebuildGridSystemFromPaths(sourcePaths);
   if (params.textureMode === 'grid') drawEdgesTexture('grid');
   else if (params.textureMode === 'dots') drawEdgesTexture('dots');
   else if (params.textureMode === 'pixel') drawEdgesTexture('pixel');
@@ -945,6 +970,18 @@ function bindControls() {
     if (rowFill) rowFill.classList.toggle('control-row--disabled', !enabled);
   };
 
+  const updateModeUI = () => {
+    const isSketch = params.drawMode;
+    const sketchStyle = byId('section-sketch-style');
+    const structure = byId('section-structure');
+    const smoothing = byId('section-smoothing');
+    const style = byId('section-style');
+    if (sketchStyle) sketchStyle.style.display = isSketch ? '' : 'none';
+    if (structure) structure.style.display = isSketch ? 'none' : '';
+    if (smoothing) smoothing.style.display = isSketch ? 'none' : '';
+    if (style) style.style.display = isSketch ? 'none' : '';
+  };
+
   const seedEl = byId('cs-seed');
   if (seedEl) {
     seedEl.addEventListener('input', () => {
@@ -963,10 +1000,12 @@ function bindControls() {
     drawModeEl.checked = params.drawMode;
     drawModeEl.addEventListener('change', () => {
       params.drawMode = !!drawModeEl.checked;
+      updateModeUI();
       if (!params.drawMode && paths.length === 0) regenerate();
       requestUpdate(true);
     });
   }
+  updateModeUI();
 
   const inkBtn = byId('cs-mode-ink');
   const cutBtn = byId('cs-mode-cut');
@@ -1020,8 +1059,31 @@ function bindControls() {
   bindCheck('cs-mirror-x', (checked) => { params.mirrorX = checked; redraw(); });
   bindCheck('cs-mirror-y', (checked) => { params.mirrorY = checked; });
 
+  bindRange('cs-sketch-roughness', 'val-cs-sketch-roughness', (v) => { params.sketchRoughness = parseInt(v, 10); return String(params.sketchRoughness); });
+  bindRange('cs-sketch-density', 'val-cs-sketch-density', (v) => { params.sketchDensity = parseInt(v, 10); return String(params.sketchDensity); });
+  bindRange('cs-sketch-reach', 'val-cs-sketch-reach', (v) => { params.sketchReach = parseInt(v, 10); return String(params.sketchReach); });
+
   const bg = byId('cs-bg');
   if (bg) bg.addEventListener('input', () => { params.bg = bg.value; redraw(); });
   const ink = byId('cs-ink');
   if (ink) ink.addEventListener('input', () => { params.ink = ink.value; redraw(); });
+
+  const bgSketch = byId('cs-bg-sketch');
+  if (bgSketch) {
+    bgSketch.value = params.bg;
+    bgSketch.addEventListener('input', () => {
+      params.bg = bgSketch.value;
+      if (bg) bg.value = bgSketch.value;
+      redraw();
+    });
+  }
+  const inkSketch = byId('cs-ink-sketch');
+  if (inkSketch) {
+    inkSketch.value = params.ink;
+    inkSketch.addEventListener('input', () => {
+      params.ink = inkSketch.value;
+      if (ink) ink.value = inkSketch.value;
+      redraw();
+    });
+  }
 }
