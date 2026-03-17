@@ -17,6 +17,7 @@ const params = {
   branchChance: 0.22,
   strokeW: 6,
   taper: 0.68,
+  fillAmount: 0.58,
   drawMode: true,
   mirrorX: true,
   mirrorY: false,
@@ -130,10 +131,14 @@ function createMirroredPaths(path) {
   if (params.mirrorX && params.mirrorY) transforms.push({ mx: true, my: true });
 
   for (const t of transforms) {
-    out.push(path.map((p) => createVector(
-      t.mx ? width - p.x : p.x,
-      t.my ? height - p.y : p.y
-    )));
+    out.push(path.map((p) => {
+      const q = createVector(
+        t.mx ? width - p.x : p.x,
+        t.my ? height - p.y : p.y
+      );
+      if (p.sw != null) q.sw = p.sw;
+      return q;
+    }));
   }
   return out;
 }
@@ -297,7 +302,8 @@ function drawPaths() {
       const mx = (a.x + b.x) * 0.5;
       const my = (a.y + b.y) * 0.5;
       const centerBoost = 1 - constrain(dist(mx, my, cx, cy) / maxCenterD, 0, 1);
-      const w = max(0.9, params.strokeW * (0.28 + params.taper * bell + centerBoost * 0.9));
+      const speedBase = (((a.sw != null ? a.sw : params.strokeW) + (b.sw != null ? b.sw : params.strokeW)) * 0.5);
+      const w = max(0.9, speedBase * (0.28 + params.taper * bell + centerBoost * 0.9));
       strokeWeight(w);
       line(a.x, a.y, b.x, b.y);
     }
@@ -311,11 +317,14 @@ function drawPaths() {
       const b = path[i];
       const t = i / (path.length - 1);
       const bell = sin(PI * t);
-      const w = max(0.55, params.strokeW * (0.12 + bell * 0.28));
+      const speedBase = (((a.sw != null ? a.sw : params.strokeW) + (b.sw != null ? b.sw : params.strokeW)) * 0.5);
+      const w = max(0.55, speedBase * (0.12 + bell * 0.28));
       strokeWeight(w);
       line(a.x, a.y, b.x, b.y);
     }
   }
+
+  drawInteriorFill();
 }
 
 function drawGridTexture() {
@@ -336,6 +345,44 @@ function drawGridTexture() {
       } else {
         line(x - 1, y, x + 1, y);
       }
+    }
+  }
+}
+
+function localPointDensity(v) {
+  const cell = max(6, params.influenceRadius * 0.9);
+  const ix = floor(v.x / cell);
+  const iy = floor(v.y / cell);
+  let count = 0;
+  const r2 = (params.influenceRadius * 0.8) * (params.influenceRadius * 0.8);
+  for (let yy = -1; yy <= 1; yy++) {
+    for (let xx = -1; xx <= 1; xx++) {
+      const bucket = curveHash.get(`${ix + xx},${iy + yy}`);
+      if (!bucket) continue;
+      for (const p of bucket) {
+        const dx = v.x - p.x;
+        const dy = v.y - p.y;
+        if (dx * dx + dy * dy <= r2) count++;
+      }
+    }
+  }
+  return constrain(count / 24, 0, 1);
+}
+
+function drawInteriorFill() {
+  if (params.fillAmount <= 0) return;
+  const sourcePaths = getRenderablePaths();
+  noStroke();
+  fill(params.ink);
+  for (const path of sourcePaths) {
+    if (path.length < 4) continue;
+    for (let i = 2; i < path.length - 2; i += 2) {
+      const p = path[i];
+      const d = localPointDensity(p);
+      if (d < 0.28) continue;
+      const base = p.sw != null ? p.sw : params.strokeW;
+      const r = base * (0.18 + params.fillAmount * d * 0.95);
+      if (r > 0.7) circle(p.x, p.y, r * 2);
     }
   }
 }
@@ -455,6 +502,10 @@ function bindControls() {
     params.taper = parseInt(v, 10) / 100;
     return params.taper.toFixed(2);
   });
+  bindRange('cs-fill', 'val-cs-fill', (v) => {
+    params.fillAmount = parseInt(v, 10) / 100;
+    return params.fillAmount.toFixed(2);
+  });
 
   bindCheck('cs-mirror-x', (checked) => { params.mirrorX = checked; });
   bindCheck('cs-mirror-y', (checked) => { params.mirrorY = checked; });
@@ -492,7 +543,9 @@ function isInsideCanvas(x, y) {
 function mousePressed() {
   if (!params.drawMode) return;
   if (!isInsideCanvas(mouseX, mouseY)) return;
-  activeStroke = [createVector(mouseX, mouseY)];
+  const first = createVector(mouseX, mouseY);
+  first.sw = params.strokeW * 1.2;
+  activeStroke = [first];
   drawnPaths.push(activeStroke);
   redraw();
 }
@@ -502,7 +555,16 @@ function mouseDragged() {
   if (!isInsideCanvas(mouseX, mouseY)) return false;
   const last = activeStroke[activeStroke.length - 1];
   if (!last || dist(last.x, last.y, mouseX, mouseY) >= 1.8) {
-    activeStroke.push(createVector(mouseX, mouseY));
+    const d = last ? dist(last.x, last.y, mouseX, mouseY) : 0;
+    const dt = max(1, deltaTime || 16);
+    const speed = d / dt; // px per ms
+    const speedNorm = constrain(map(speed, 0.02, 1.2, 0, 1), 0, 1);
+    const target = params.strokeW * lerp(1.75, 0.38, speedNorm); // slower->thicker, faster->thinner
+    const prevW = last && last.sw != null ? last.sw : params.strokeW;
+    const sw = lerp(prevW, target, 0.45);
+    const p = createVector(mouseX, mouseY);
+    p.sw = sw;
+    activeStroke.push(p);
     redraw();
   }
   return false;
