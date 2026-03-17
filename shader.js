@@ -81,7 +81,6 @@ const frag = `
   uniform float u_saturation;
   uniform vec3 u_tint_color;
   uniform float u_tint_amount;
-  uniform float u_grain_seed;
 
   vec3 palette(float t) {
     vec3 a = vec3(0.56, 0.52, 0.48);
@@ -263,7 +262,6 @@ function draw() {
   theShader.setUniform('u_vignette', params.vignette);
   theShader.setUniform('u_use_grain', params.useGrain ? 1.0 : 0.0);
   theShader.setUniform('u_use_dots', params.useDots ? 1.0 : 0.0);
-  theShader.setUniform('u_grain_seed', params.grainSeed);
   theShader.setUniform('u_pix_d', pixelDensity());
   theShader.setUniform('u_cellularity', params.cellularity);
   theShader.setUniform('u_cell_density', params.cellDensity);
