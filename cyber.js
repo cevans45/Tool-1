@@ -972,13 +972,32 @@ function bindControls() {
 
   const updateModeUI = () => {
     const isSketch = params.drawMode;
+    const sketchCore = byId('section-sketch-core');
     const structure = byId('section-structure');
     const smoothing = byId('section-smoothing');
     const style = byId('section-style');
+    const sketchBtn = byId('cs-mode-sketch');
+    const genBtn = byId('cs-mode-generate');
+    if (sketchCore) sketchCore.style.display = isSketch ? '' : 'none';
     if (structure) structure.style.display = isSketch ? 'none' : '';
     if (smoothing) smoothing.style.display = isSketch ? 'none' : '';
     if (style) style.style.display = isSketch ? 'none' : '';
+    if (sketchBtn) sketchBtn.classList.toggle('is-active', isSketch);
+    if (genBtn) genBtn.classList.toggle('is-active', !isSketch);
   };
+
+  const setDrawMode = (sketch) => {
+    params.drawMode = sketch;
+    updateModeUI();
+    if (!sketch) regenerate();
+    else redraw();
+  };
+
+  const sketchModeBtn = byId('cs-mode-sketch');
+  const genModeBtn = byId('cs-mode-generate');
+  if (sketchModeBtn) sketchModeBtn.addEventListener('click', () => setDrawMode(true));
+  if (genModeBtn) genModeBtn.addEventListener('click', () => setDrawMode(false));
+  updateModeUI();
 
   const seedEl = byId('cs-seed');
   if (seedEl) {
@@ -993,17 +1012,19 @@ function bindControls() {
   const regenBtn = byId('cs-regenerate');
   if (regenBtn) regenBtn.addEventListener('click', () => requestUpdate(true));
 
-  const drawModeEl = byId('cs-draw-mode');
-  if (drawModeEl) {
-    drawModeEl.checked = params.drawMode;
-    drawModeEl.addEventListener('change', () => {
-      params.drawMode = !!drawModeEl.checked;
-      updateModeUI();
-      if (!params.drawMode && paths.length === 0) regenerate();
+  const exportGenBtn = byId('cs-export-gen');
+  if (exportGenBtn) exportGenBtn.addEventListener('click', () => exportPng());
+
+  const mirrorXGen = byId('cs-mirror-x-gen');
+  if (mirrorXGen) {
+    mirrorXGen.checked = params.mirrorX;
+    mirrorXGen.addEventListener('change', () => {
+      params.mirrorX = mirrorXGen.checked;
+      const mx = byId('cs-mirror-x');
+      if (mx) mx.checked = params.mirrorX;
       requestUpdate(true);
     });
   }
-  updateModeUI();
 
   const inkBtn = byId('cs-mode-ink');
   const cutBtn = byId('cs-mode-cut');
@@ -1054,7 +1075,12 @@ function bindControls() {
   }
   updateStrokeUI();
 
-  bindCheck('cs-mirror-x', (checked) => { params.mirrorX = checked; redraw(); });
+  bindCheck('cs-mirror-x', (checked) => {
+    params.mirrorX = checked;
+    const mxg = byId('cs-mirror-x-gen');
+    if (mxg) mxg.checked = checked;
+    redraw();
+  });
   bindCheck('cs-mirror-y', (checked) => { params.mirrorY = checked; });
 
   bindRange('cs-sketch-roughness', 'val-cs-sketch-roughness', (v) => { params.sketchRoughness = parseInt(v, 10); return String(params.sketchRoughness); });
