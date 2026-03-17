@@ -35,6 +35,11 @@
                             <input type="range" id="pr-cell" min="30" max="90" value="65" step="1">
                             <span class="param-value" id="val-pr-cell">65%</span>
                         </div>
+                        <div class="control-row">
+                            <label for="pr-zoom">Zoom</label>
+                            <input type="range" id="pr-zoom" min="50" max="300" value="100" step="5">
+                            <span class="param-value" id="val-pr-zoom">1.00x</span>
+                        </div>
                     </section>
 
                     <section class="control-section">
@@ -89,6 +94,10 @@
                     <section class="control-section">
                         <h3>Color engine</h3>
                         <p class="control-help">These four sliders drive the cosine palette formula.</p>
+                        <div class="control-row color-row">
+                            <label for="pr-bg">Background</label>
+                            <input type="color" id="pr-bg" value="#000000">
+                        </div>
                         <div class="control-row">
                             <label for="pr-pa">Base tone</label>
                             <input type="range" id="pr-pa" min="10" max="50" value="30" step="1">
@@ -110,14 +119,14 @@
                             <span class="param-value" id="val-pr-pd">0.50</span>
                         </div>
                         <div class="control-row">
-                            <label for="pr-hue-shift">Hue offset</label>
-                            <input type="range" id="pr-hue-shift" min="0" max="360" value="0" step="1">
-                            <span class="param-value" id="val-pr-hue-shift">0</span>
+                            <label for="pr-hue-start">Hue start</label>
+                            <input type="range" id="pr-hue-start" min="0" max="360" value="0" step="1">
+                            <span class="param-value" id="val-pr-hue-start">0°</span>
                         </div>
                         <div class="control-row">
-                            <label for="pr-hue-range">Hue range</label>
-                            <input type="range" id="pr-hue-range" min="0" max="360" value="360" step="1">
-                            <span class="param-value" id="val-pr-hue-range">360</span>
+                            <label for="pr-hue-end">Hue end</label>
+                            <input type="range" id="pr-hue-end" min="0" max="360" value="360" step="1">
+                            <span class="param-value" id="val-pr-hue-end">360°</span>
                         </div>
                         <div class="control-row">
                             <label for="pr-sat">Saturation</label>

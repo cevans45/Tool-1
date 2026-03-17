@@ -16,6 +16,7 @@ const particleSketch = (p) => {
     radius: 0.15,
     idValue: 0.5,
     cellScale: 0.65,
+    zoom: 1,
     tiles: 'single', // single | row | grid
     animate: true,
     motion: 0.2,
@@ -24,8 +25,9 @@ const particleSketch = (p) => {
     branchA: 0.5,
     branchB: 0.5,
     branchC: 0.6,
-    hueShift: 0,
-    hueRange: 360,
+    hueStart: 0,
+    hueEnd: 360,
+    bg: '#000000',
     saturation: 100,
     brightnessMul: 1,
     alpha: 0.5,
@@ -52,6 +54,7 @@ const particleSketch = (p) => {
     const radiusEl = byId('pr-radius');
     const idEl = byId('pr-id');
     const cellEl = byId('pr-cell');
+    const zoomEl = byId('pr-zoom');
     const tilesEl = byId('pr-tiles');
     const animateEl = byId('pr-animate');
     const motionEl = byId('pr-motion');
@@ -60,8 +63,9 @@ const particleSketch = (p) => {
     const b1El = byId('pr-b1');
     const b2El = byId('pr-b2');
     const b3El = byId('pr-b3');
-    const hueShiftEl = byId('pr-hue-shift');
-    const hueRangeEl = byId('pr-hue-range');
+    const hueStartEl = byId('pr-hue-start');
+    const hueEndEl = byId('pr-hue-end');
+    const bgEl = byId('pr-bg');
     const satEl = byId('pr-sat');
     const brightEl = byId('pr-bright');
     const alphaEl = byId('pr-alpha');
@@ -78,6 +82,7 @@ const particleSketch = (p) => {
     params.radius = (parseInt(radiusEl?.value || '15', 10)) / 100;
     params.idValue = (parseInt(idEl?.value || '500', 10)) / 1000;
     params.cellScale = (parseInt(cellEl?.value || '65', 10)) / 100;
+    params.zoom = (parseInt(zoomEl?.value || '100', 10)) / 100;
     params.tiles = tilesEl?.value || 'single';
     params.animate = !!animateEl?.checked;
     params.motion = (parseInt(motionEl?.value || '20', 10)) / 100;
@@ -86,8 +91,9 @@ const particleSketch = (p) => {
     params.branchA = (parseInt(b1El?.value || '50', 10)) / 100;
     params.branchB = (parseInt(b2El?.value || '50', 10)) / 100;
     params.branchC = (parseInt(b3El?.value || '60', 10)) / 100;
-    params.hueShift = parseInt(hueShiftEl?.value || '0', 10);
-    params.hueRange = parseInt(hueRangeEl?.value || '360', 10);
+    params.hueStart = parseInt(hueStartEl?.value || '0', 10);
+    params.hueEnd = parseInt(hueEndEl?.value || '360', 10);
+    params.bg = bgEl?.value || '#000000';
     params.saturation = parseInt(satEl?.value || '100', 10);
     params.brightnessMul = (parseInt(brightEl?.value || '100', 10)) / 100;
     params.alpha = (parseInt(alphaEl?.value || '50', 10)) / 100;
@@ -103,14 +109,15 @@ const particleSketch = (p) => {
     setVal('val-pr-radius', params.radius.toFixed(2));
     setVal('val-pr-id', params.idValue.toFixed(2));
     setVal('val-pr-cell', Math.round(params.cellScale * 100) + '%');
+    setVal('val-pr-zoom', params.zoom.toFixed(2) + 'x');
     setVal('val-pr-motion', params.motion.toFixed(2));
     setVal('val-pr-rot-freq', params.rotFreq.toFixed(1));
     setVal('val-pr-rad-freq', params.radFreq.toFixed(1));
     setVal('val-pr-b1', params.branchA.toFixed(2));
     setVal('val-pr-b2', params.branchB.toFixed(2));
     setVal('val-pr-b3', params.branchC.toFixed(2));
-    setVal('val-pr-hue-shift', String(params.hueShift));
-    setVal('val-pr-hue-range', String(params.hueRange));
+    setVal('val-pr-hue-start', params.hueStart + '°');
+    setVal('val-pr-hue-end', params.hueEnd + '°');
     setVal('val-pr-sat', String(params.saturation));
     setVal('val-pr-bright', Math.round(params.brightnessMul * 100) + '%');
     setVal('val-pr-alpha', params.alpha.toFixed(2));
@@ -120,9 +127,9 @@ const particleSketch = (p) => {
   function bindControls() {
     const ids = [
       'pr-seed', 'pr-pa', 'pr-pb', 'pr-pc', 'pr-pd',
-      'pr-depth', 'pr-branches', 'pr-radius', 'pr-id', 'pr-cell', 'pr-motion',
+      'pr-depth', 'pr-branches', 'pr-radius', 'pr-id', 'pr-cell', 'pr-zoom', 'pr-motion',
       'pr-rot-freq', 'pr-rad-freq', 'pr-b1', 'pr-b2', 'pr-b3',
-      'pr-hue-shift', 'pr-hue-range', 'pr-sat', 'pr-bright', 'pr-alpha', 'pr-stroke-width'
+      'pr-hue-start', 'pr-hue-end', 'pr-sat', 'pr-bright', 'pr-alpha', 'pr-stroke-width'
     ];
     ids.forEach((id) => {
       const el = byId(id);
@@ -182,10 +189,10 @@ const particleSketch = (p) => {
         if (pbEl) pbEl.value = String(Math.round(params.pb * 100));
         if (pcEl) pcEl.value = String(params.pc);
         if (pdEl) pdEl.value = String(Math.round(params.pd * 100));
-        const hsEl = byId('pr-hue-shift');
-        const hrEl = byId('pr-hue-range');
+        const hsEl = byId('pr-hue-start');
+        const hrEl = byId('pr-hue-end');
         if (hsEl) hsEl.value = String(Math.floor(p.random(360)));
-        if (hrEl) hrEl.value = String(Math.floor(p.random(120, 360)));
+        if (hrEl) hrEl.value = String(Math.floor(p.random(360)));
         applyUI();
         p.redraw();
       });
@@ -215,11 +222,11 @@ const particleSketch = (p) => {
   p.draw = () => {
     p.randomSeed(params.seed);
     p.blendMode(p.BLEND);
-    p.background(0);
+    p.background(params.bg);
     p.colorMode(p.HSB);
     p.rectMode(p.CENTER);
 
-    const cellW = minWidth * params.cellScale / 2;
+    const cellW = minWidth * params.cellScale / 2 * params.zoom;
 
     if (params.tiles === 'single') {
       pattern(p.width / 2, p.height / 2, cellW * 0.5);
@@ -247,7 +254,14 @@ const particleSketch = (p) => {
     const x = p.sin(id * depth * 333.2 + motion * 0.05);
     const y = p.sin(id * depth * 531.1 + motion * 0.08);
     const sourceHue = (p.int(palette(params.pa, params.pb, params.pc, params.pd, x) * 360 + 720) % 360 + 360) % 360;
-    const hue = (params.hueShift + (sourceHue / 360) * params.hueRange) % 360;
+    const t = sourceHue / 360;
+    let hue;
+    if (params.hueEnd >= params.hueStart) {
+      hue = params.hueStart + t * (params.hueEnd - params.hueStart);
+    } else {
+      const span = (params.hueEnd + 360) - params.hueStart;
+      hue = (params.hueStart + t * span) % 360;
+    }
     const bright = Math.max(0, Math.min(100, 100 * params.brightnessMul));
 
     if (params.strokeMode === 'fill') {
@@ -322,6 +336,19 @@ const particleSketch = (p) => {
   function palette(a, b, c, d, x) {
     return a + b * p.cos(p.TWO_PI * c * x + d);
   }
+
+  p.mouseWheel = (event) => {
+    const zoomEl = byId('pr-zoom');
+    if (!zoomEl) return;
+    const current = parseInt(zoomEl.value, 10);
+    const next = event.deltaY < 0 ? current + 5 : current - 5;
+    const min = parseInt(zoomEl.min, 10);
+    const max = parseInt(zoomEl.max, 10);
+    zoomEl.value = String(Math.max(min, Math.min(max, next)));
+    applyUI();
+    p.redraw();
+    return false;
+  };
 };
 
 new p5(particleSketch);
