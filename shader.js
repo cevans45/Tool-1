@@ -16,6 +16,12 @@ const params = {
   warp: 1.2,
   stripes: 8.0,
   pulse: 0.9,
+  grain: 0.06,
+  weaveAmt: 0.65,
+  starAmt: 0.45,
+  ringAmt: 0.55,
+  contrast: 1.2,
+  vignette: 2.6,
   lockSeed: false,
   fixedSeed: 0.0,
 };
@@ -42,6 +48,12 @@ const frag = `
   uniform float u_warp;
   uniform float u_stripes;
   uniform float u_pulse;
+  uniform float u_grain;
+  uniform float u_weave;
+  uniform float u_star;
+  uniform float u_ring;
+  uniform float u_contrast;
+  uniform float u_vignette;
 
   vec3 palette(float t) {
     vec3 a = vec3(0.56, 0.52, 0.48);
@@ -97,14 +109,15 @@ const frag = `
     float star = smoothstep(0.25, 0.0, abs(sin(a * (numMirrors + 1.0) + r * 6.0 - t * 1.3)));
     float ring = smoothstep(0.28, 0.0, abs(fract(r * 4.0 - t * u_pulse) - 0.5));
 
-    float grain = hash21(floor((p + 2.0) * 90.0) + u_seed * 0.13) * 0.06;
-    float mixV = weave * 0.65 + star * 0.45 + ring * 0.55 + grain;
+    float grain = hash21(floor((p + 2.0) * 90.0) + u_seed * 0.13) * u_grain;
+    float mixV = weave * u_weave + star * u_star + ring * u_ring + grain;
 
     vec3 colA = palette(t * 0.08 + r * 0.65 + u_seed * 0.01);
     vec3 colB = palette(0.35 + a * 0.20 - t * 0.04 + u_seed * 0.02);
     vec3 color = mix(colA, colB, clamp(mixV, 0.0, 1.0));
 
-    float vignette = smoothstep(2.6, 0.15, r);
+    mixV = pow(max(mixV, 0.0), u_contrast);
+    float vignette = smoothstep(u_vignette, 0.15, r);
     color *= (0.22 + 1.25 * mixV) * vignette * u_brightness;
 
     gl_FragColor = vec4(color * u_opacity, 1.0);
@@ -172,6 +185,12 @@ function draw() {
   theShader.setUniform('u_warp', params.warp);
   theShader.setUniform('u_stripes', params.stripes);
   theShader.setUniform('u_pulse', params.pulse);
+  theShader.setUniform('u_grain', params.grain);
+  theShader.setUniform('u_weave', params.weaveAmt);
+  theShader.setUniform('u_star', params.starAmt);
+  theShader.setUniform('u_ring', params.ringAmt);
+  theShader.setUniform('u_contrast', params.contrast);
+  theShader.setUniform('u_vignette', params.vignette);
 
   quad(-1, -1, 1, -1, 1, 1, -1, 1);
 }
@@ -250,6 +269,30 @@ function bindControls() {
   bindRange('sh-pulse', 'val-sh-pulse', (v) => {
     params.pulse = parseInt(v, 10) / 100;
     return params.pulse.toFixed(2);
+  });
+  bindRange('sh-grain', 'val-sh-grain', (v) => {
+    params.grain = parseInt(v, 10) / 100;
+    return params.grain.toFixed(2);
+  });
+  bindRange('sh-weave', 'val-sh-weave', (v) => {
+    params.weaveAmt = parseInt(v, 10) / 100;
+    return params.weaveAmt.toFixed(2);
+  });
+  bindRange('sh-star', 'val-sh-star', (v) => {
+    params.starAmt = parseInt(v, 10) / 100;
+    return params.starAmt.toFixed(2);
+  });
+  bindRange('sh-ring', 'val-sh-ring', (v) => {
+    params.ringAmt = parseInt(v, 10) / 100;
+    return params.ringAmt.toFixed(2);
+  });
+  bindRange('sh-contrast', 'val-sh-contrast', (v) => {
+    params.contrast = parseInt(v, 10) / 100;
+    return params.contrast.toFixed(2);
+  });
+  bindRange('sh-vignette', 'val-sh-vignette', (v) => {
+    params.vignette = parseInt(v, 10) / 100;
+    return params.vignette.toFixed(2);
   });
 
   const lock = document.getElementById('sh-lock-seed');
