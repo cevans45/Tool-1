@@ -339,7 +339,8 @@ function drawSpikes() {
     if (path.length < 8) continue;
     const step = max(3, floor(map(params.branchChance, 0, 1, 16, 5)));
     for (let i = step; i < path.length - step; i += step) {
-      if (random() > (0.16 + params.branchChance * 0.54)) continue;
+      const gate = hash01(path[i].x * 0.013 + i, path[i].y * 0.017, params.seed * 0.0001);
+      if (gate > (0.16 + params.branchChance * 0.54)) continue;
 
       const p = path[i];
       const prev = path[i - 1];
@@ -379,22 +380,36 @@ function drawSpikes() {
 
 function drawGridTexture() {
   const amount = constrain(params.textureAmount, 0, 100);
-  const step = map(amount, 0, 100, 18, 5);
+  const spacing = map(amount, 0, 100, 22, 5);
   const alphaBase = map(amount, 0, 100, 0, 95);
   if (alphaBase < 1) return;
+
+  const sourcePaths = getRenderablePaths();
+  if (sourcePaths.length === 0) return;
 
   const baseInk = color(params.ink);
   stroke(red(baseInk), green(baseInk), blue(baseInk), alphaBase);
   strokeWeight(1);
-  for (let y = 0; y <= height; y += step) {
-    for (let x = 0; x <= width; x += step) {
-      const n = pointNearPaths(createVector(x, y));
-      if (n < 0.12) continue;
-      if (((floor(x / step) + floor(y / step)) & 1) === 0) {
-        line(x - 1, y, x + 1, y);
-        line(x, y - 1, x, y + 1);
-      } else {
-        point(x, y);
+  // Stamp micro-grid marks along stroke skeleton, so texture always appears.
+  for (const path of sourcePaths) {
+    if (path.length < 2) continue;
+    for (let i = 1; i < path.length; i++) {
+      const a = path[i - 1];
+      const b = path[i];
+      const segLen = dist(a.x, a.y, b.x, b.y);
+      if (segLen < 0.01) continue;
+      const steps = max(1, floor(segLen / spacing));
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        const x = lerp(a.x, b.x, t);
+        const y = lerp(a.y, b.y, t);
+        const idx = i * 131 + s * 17;
+        if (idx % 3 === 0) {
+          line(x - 1, y, x + 1, y);
+          line(x, y - 1, x, y + 1);
+        } else {
+          point(x, y);
+        }
       }
     }
   }
@@ -585,6 +600,11 @@ function getRenderablePaths() {
     for (const p of mirrored) out.push(p);
   }
   return out;
+}
+
+function hash01(a, b, c) {
+  const n = sin(a * 127.1 + b * 311.7 + c * 74.7) * 43758.5453123;
+  return n - floor(n);
 }
 
 function isInsideCanvas(x, y) {
