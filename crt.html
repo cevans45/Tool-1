@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CRT wash — OVRT</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 </head>
 <body>
     <div class="site-shell">
@@ -13,80 +12,11 @@
             <a href="index.html" class="back-link">← Back to OVRT</a>
             <span class="tool-title">CRT wash</span>
         </header>
-        <div class="app" aria-label="CRT wash">
-            <div id="crt-canvas"></div>
-            <aside class="control-panel">
-                <header class="panel-header">
-                    <h2>Controls</h2>
-                </header>
-                <div class="panel-body">
-                    <section class="control-section">
-                        <h3>Field</h3>
-                        <div class="control-row">
-                            <label for="crt-layers">Layers</label>
-                            <input type="range" id="crt-layers" min="10" max="200" value="100" step="5">
-                            <span class="param-value" id="val-crt-layers">100</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="crt-block">Block size</label>
-                            <input type="range" id="crt-block" min="6" max="40" value="20" step="1">
-                            <span class="param-value" id="val-crt-block">20</span>
-                        </div>
-                    </section>
-                    <section class="control-section">
-                        <h3>Motion</h3>
-                        <div class="control-row">
-                            <label for="crt-zspeed">Z motion</label>
-                            <input type="range" id="crt-zspeed" min="1" max="20" value="5" step="1">
-                            <span class="param-value" id="val-crt-zspeed">5</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="crt-xspeed">X/Y motion</label>
-                            <input type="range" id="crt-xspeed" min="1" max="10" value="5" step="1">
-                            <span class="param-value" id="val-crt-xspeed">5</span>
-                        </div>
-                    </section>
-                    <section class="control-section">
-                        <h3>Style</h3>
-                        <div class="control-row color-row">
-                            <label for="crt-bg">Background</label>
-                            <input type="color" id="crt-bg" value="#000000">
-                        </div>
-                        <div class="control-row">
-                            <label for="crt-fade">Trail fade</label>
-                            <input type="range" id="crt-fade" min="1" max="20" value="5" step="1">
-                            <span class="param-value" id="val-crt-fade">0.05</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="crt-hue-base">Hue base</label>
-                            <input type="range" id="crt-hue-base" min="0" max="360" value="0" step="10">
-                            <span class="param-value" id="val-crt-hue-base">0°</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="crt-hue-range">Hue range</label>
-                            <input type="range" id="crt-hue-range" min="0" max="360" value="360" step="10">
-                            <span class="param-value" id="val-crt-hue-range">360°</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="crt-shape">Shape</label>
-                            <select id="crt-shape" class="select-input">
-                                <option value="square" selected>Square</option>
-                                <option value="rounded">Rounded</option>
-                                <option value="circle">Circle</option>
-                            </select>
-                        </div>
-                        <div class="control-row">
-                            <label for="crt-mirrors">Mirrors</label>
-                            <input type="range" id="crt-mirrors" min="1" max="6" value="4" step="1">
-                            <span class="param-value" id="val-crt-mirrors">4</span>
-                        </div>
-                    </section>
-                </div>
-            </aside>
-        </div>
+        <main class="tool-coming">
+            <p>CRT wash is coming soon.</p>
+        </main>
     </div>
     <script src="page-transition.js"></script>
-    <script src="crt.js"></script>
 </body>
 </html>
 

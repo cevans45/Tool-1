@@ -205,28 +205,6 @@ body.is-leaving {
     box-shadow: none;
 }
 
-#particle-canvas {
-    flex-shrink: 0;
-    border-radius: 0;
-    overflow: hidden;
-    box-shadow: 0 0 0 1px #111;
-}
-
-#orbit-canvas {
-    flex-shrink: 0;
-    border-radius: 0;
-    overflow: hidden;
-    box-shadow: 0 0 0 1px #111;
-    background: #f6f6f4;
-}
-
-#crt-canvas {
-    flex-shrink: 0;
-    border-radius: 0;
-    overflow: hidden;
-    box-shadow: 0 0 0 1px #111;
-}
-
 .control-panel {
     width: 360px;
     flex-shrink: 0;
@@ -378,13 +356,6 @@ body.is-leaving {
     margin-bottom: 10px;
     padding-bottom: 4px;
     border-bottom: 1px solid #ccc;
-}
-
-.control-help {
-    font-size: 11px;
-    color: #555;
-    margin-bottom: 10px;
-    line-height: 1.35;
 }
 
 .control-row {

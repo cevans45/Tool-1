@@ -3,17 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Particle recursion — OVRT</title>
+    <title>Dot fields — OVRT</title>
     <link rel="stylesheet" href="styles.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 </head>
 <body>
     <div class="site-shell">
         <header class="tool-header">
             <a href="index.html" class="back-link">← Back to OVRT</a>
-            <span class="tool-title">Particle recursion</span>
+            <span class="tool-title">Dot fields</span>
         </header>
-        <div class="app" aria-label="Particle recursion">
+        <div class="app" aria-label="Particle ring">
             <div id="particle-canvas"></div>
             <aside class="control-panel">
                 <header class="panel-header">
@@ -21,162 +20,77 @@
                 </header>
                 <div class="panel-body">
                     <section class="control-section">
-                        <h3>Layout</h3>
+                        <h3>Rings</h3>
                         <div class="control-row">
-                            <label for="pr-tiles">Tiles</label>
-                            <select id="pr-tiles" class="select-input">
-                                <option value="single" selected>Single composition</option>
-                            </select>
+                            <label for="pr-outer-count">Outer count</label>
+                            <input type="range" id="pr-outer-count" min="3" max="32" value="16" step="1">
+                            <span class="param-value" id="val-pr-outer-count">16</span>
                         </div>
                         <div class="control-row">
-                            <label for="pr-cell">Cell scale</label>
-                            <input type="range" id="pr-cell" min="30" max="90" value="65" step="1">
-                            <span class="param-value" id="val-pr-cell">65%</span>
+                            <label for="pr-inner-count">Inner count</label>
+                            <input type="range" id="pr-inner-count" min="0" max="12" value="5" step="1">
+                            <span class="param-value" id="val-pr-inner-count">5</span>
                         </div>
                         <div class="control-row">
-                            <label for="pr-zoom">Zoom</label>
-                            <input type="range" id="pr-zoom" min="50" max="900" value="150" step="10">
-                            <span class="param-value" id="val-pr-zoom">1.00x</span>
-                        </div>
-                    </section>
-
-                    <section class="control-section">
-                        <h3>Pattern</h3>
-                        <div class="control-row">
-                            <label for="pr-depth">Max depth</label>
-                            <input type="range" id="pr-depth" min="3" max="10" value="7" step="1">
-                            <span class="param-value" id="val-pr-depth">7</span>
+                            <label for="pr-outer-radius">Outer radius</label>
+                            <input type="range" id="pr-outer-radius" min="20" max="45" value="35" step="1">
+                            <span class="param-value" id="val-pr-outer-radius">35%</span>
                         </div>
                         <div class="control-row">
-                            <label for="pr-branches">Branches</label>
-                            <input type="range" id="pr-branches" min="3" max="10" value="5" step="1">
-                            <span class="param-value" id="val-pr-branches">5</span>
+                            <label for="pr-inner-radius">Inner radius</label>
+                            <input type="range" id="pr-inner-radius" min="5" max="35" value="14" step="1">
+                            <span class="param-value" id="val-pr-inner-radius">14%</span>
                         </div>
                         <div class="control-row">
-                            <label for="pr-radius">Radius</label>
-                            <input type="range" id="pr-radius" min="5" max="35" value="15" step="1">
-                            <span class="param-value" id="val-pr-radius">0.15</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-id">ID</label>
-                            <input type="range" id="pr-id" min="0" max="1000" value="500" step="1">
-                            <span class="param-value" id="val-pr-id">0.50</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-rot-freq">Twist freq</label>
-                            <input type="range" id="pr-rot-freq" min="10" max="300" value="132" step="1">
-                            <span class="param-value" id="val-pr-rot-freq">13.2</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-rad-freq">Branch freq</label>
-                            <input type="range" id="pr-rad-freq" min="10" max="500" value="334" step="1">
-                            <span class="param-value" id="val-pr-rad-freq">33.4</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-b1">Branch A</label>
-                            <input type="range" id="pr-b1" min="20" max="90" value="50" step="1">
-                            <span class="param-value" id="val-pr-b1">0.50</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-b2">Branch B</label>
-                            <input type="range" id="pr-b2" min="20" max="90" value="50" step="1">
-                            <span class="param-value" id="val-pr-b2">0.50</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-b3">Branch C</label>
-                            <input type="range" id="pr-b3" min="20" max="90" value="60" step="1">
-                            <span class="param-value" id="val-pr-b3">0.60</span>
+                            <label for="pr-outer-speed">Outer speed</label>
+                            <input type="range" id="pr-outer-speed" min="-200" max="200" value="60" step="5">
+                            <span class="param-value" id="val-pr-outer-speed">0.60x</span>
                         </div>
                     </section>
-
                     <section class="control-section">
-                        <h3>Color engine</h3>
-                        <p class="control-help">These four sliders drive the cosine palette formula.</p>
+                        <h3>Motion</h3>
+                        <div class="control-row">
+                            <label for="pr-inner-speed">Inner speed</label>
+                            <input type="range" id="pr-inner-speed" min="-200" max="200" value="-120" step="5">
+                            <span class="param-value" id="val-pr-inner-speed">-1.20x</span>
+                        </div>
+                    </section>
+                    <section class="control-section">
+                        <h3>Style</h3>
                         <div class="control-row color-row">
                             <label for="pr-bg">Background</label>
                             <input type="color" id="pr-bg" value="#000000">
                         </div>
-                        <div class="control-row">
-                            <label for="pr-pa">Base tone</label>
-                            <input type="range" id="pr-pa" min="10" max="50" value="30" step="1">
-                            <span class="param-value" id="val-pr-pa">0.30</span>
+                        <div class="control-row color-row">
+                            <label for="pr-outer-color">Outer</label>
+                            <input type="color" id="pr-outer-color" value="#007a4a">
                         </div>
-                        <div class="control-row">
-                            <label for="pr-pb">Contrast</label>
-                            <input type="range" id="pr-pb" min="10" max="50" value="30" step="1">
-                            <span class="param-value" id="val-pr-pb">0.30</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-pc">Hue cycles</label>
-                            <input type="range" id="pr-pc" min="1" max="3" value="2" step="1">
-                            <span class="param-value" id="val-pr-pc">2</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-pd">Phase shift</label>
-                            <input type="range" id="pr-pd" min="0" max="100" value="50" step="1">
-                            <span class="param-value" id="val-pr-pd">0.50</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-hue-start">Hue start</label>
-                            <input type="range" id="pr-hue-start" min="0" max="360" value="0" step="1">
-                            <span class="param-value" id="val-pr-hue-start">0°</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-hue-end">Hue end</label>
-                            <input type="range" id="pr-hue-end" min="0" max="360" value="360" step="1">
-                            <span class="param-value" id="val-pr-hue-end">360°</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-sat">Saturation</label>
-                            <input type="range" id="pr-sat" min="0" max="200" value="100" step="1">
-                            <span class="param-value" id="val-pr-sat">100</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-bright">Brightness</label>
-                            <input type="range" id="pr-bright" min="0" max="200" value="100" step="1">
-                            <span class="param-value" id="val-pr-bright">100%</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-alpha">Opacity</label>
-                            <input type="range" id="pr-alpha" min="0" max="100" value="50" step="1">
-                            <span class="param-value" id="val-pr-alpha">0.50</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-stroke-mode">Draw mode</label>
-                            <select id="pr-stroke-mode" class="select-input">
-                                <option value="auto" selected>Auto fill/stroke</option>
-                                <option value="fill">Fill only</option>
-                                <option value="stroke">Stroke only</option>
-                            </select>
-                        </div>
-                        <div class="control-row">
-                            <label for="pr-stroke-width">Stroke width</label>
-                            <input type="range" id="pr-stroke-width" min="0" max="10" value="1" step="1">
-                            <span class="param-value" id="val-pr-stroke-width">1</span>
-                        </div>
-                        <div class="control-row">
-                            <label>Palette</label>
-                            <button type="button" id="pr-random-palette" class="panel-button">Random palette</button>
+                        <div class="control-row color-row">
+                            <label for="pr-inner-color">Inner</label>
+                            <input type="color" id="pr-inner-color" value="#8b1a10">
                         </div>
                     </section>
                     <section class="control-section">
-                        <h3>Seed & motion</h3>
+                        <h3>Selected particle</h3>
                         <div class="control-row">
-                            <label for="pr-seed">Seed</label>
-                            <input type="number" id="pr-seed" min="0" max="999999999" value="123456" step="1">
+                            <label id="pr-selected-label">None</label>
                         </div>
                         <div class="control-row">
-                            <label>Seed</label>
-                            <button type="button" id="pr-random-seed" class="panel-button">Random seed</button>
+                            <label for="pr-selected-size">Size</label>
+                            <input type="range" id="pr-selected-size" min="4" max="120" value="48" step="2">
+                            <span class="param-value" id="val-pr-selected-size">48</span>
                         </div>
                         <div class="control-row">
-                            <label for="pr-animate">Animate</label>
-                            <input type="checkbox" id="pr-animate" checked>
+                            <label for="pr-selected-speed">Speed</label>
+                            <input type="range" id="pr-selected-speed" min="-400" max="400" value="100" step="10">
+                            <span class="param-value" id="val-pr-selected-speed">1.00x</span>
                         </div>
                         <div class="control-row">
-                            <label for="pr-motion">Motion</label>
-                            <input type="range" id="pr-motion" min="0" max="100" value="20" step="1">
-                            <span class="param-value" id="val-pr-motion">0.20</span>
+                            <label for="pr-selected-shape">Shape</label>
+                            <select id="pr-selected-shape" class="select-input">
+                                <option value="circle" selected>Circle</option>
+                                <option value="square">Square</option>
+                            </select>
                         </div>
                     </section>
                 </div>
@@ -184,7 +98,6 @@
         </div>
     </div>
     <script src="page-transition.js"></script>
-    <script src="particles.js"></script>
 </body>
 </html>
 
