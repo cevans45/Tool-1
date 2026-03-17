@@ -7,10 +7,10 @@ const orbitParams = {
   shapeCount: 4,   // 1..4 declared shapes
   bg: '#050505',
   shapes: [
-    { shape: 'circle', dir: 'circle', size: 120, speed: 45, radius: 220, rot: 0, spin: 18, color: '#ff2aa1', phase: 0.0 },
-    { shape: 'square', dir: 'diag-ur', size: 56, speed: 72, radius: 120, rot: 35, spin: -24, color: '#ffffff', phase: 1.3 },
-    { shape: 'triangle', dir: 'left', size: 88, speed: 30, radius: 280, rot: 0, spin: 12, color: '#ff2aa1', phase: 2.2 },
-    { shape: 'circle', dir: 'right', size: 48, speed: 90, radius: 160, rot: 10, spin: 22, color: '#ffffff', phase: 0.7 }
+    { enabled: true, shape: 'circle', dir: 'circle', size: 120, speed: 45, radius: 220, rot: 0, spin: 18, color: '#ff2aa1', phase: 0.0 },
+    { enabled: true, shape: 'square', dir: 'diag-ur', size: 56, speed: 72, radius: 120, rot: 35, spin: -24, color: '#ffffff', phase: 1.3 },
+    { enabled: true, shape: 'triangle', dir: 'left', size: 88, speed: 30, radius: 280, rot: 0, spin: 12, color: '#ff2aa1', phase: 2.2 },
+    { enabled: true, shape: 'circle', dir: 'right', size: 48, speed: 90, radius: 160, rot: 10, spin: 22, color: '#ffffff', phase: 0.7 }
   ]
 };
 
@@ -67,6 +67,7 @@ function bindControls() {
 
   for (let i = 0; i < 4; i++) {
     const n = i + 1;
+    bindCheck(`orbit-s${n}-enabled`, (checked) => { orbitParams.shapes[i].enabled = checked; });
     bindInput(`orbit-s${n}-shape`, (v) => { orbitParams.shapes[i].shape = v; });
     bindInput(`orbit-s${n}-dir`, (v) => { orbitParams.shapes[i].dir = v; });
     bindRange(`orbit-s${n}-size`, `value-orbit-s${n}-size`, (v) => {
@@ -129,6 +130,12 @@ function bindInput(id, onChange) {
   el.addEventListener(evt, () => onChange(el.value));
 }
 
+function bindCheck(id, onChange) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('change', () => onChange(!!el.checked));
+}
+
 function bindRange(id, valueId, mapFn, afterFn) {
   const el = document.getElementById(id);
   const val = document.getElementById(valueId);
@@ -167,6 +174,7 @@ function drawSceneToBuffer(t) {
   randomSeed(int(orbitParams.seed));
   for (let i = 0; i < orbitParams.shapeCount; i++) {
     const shapeDef = orbitParams.shapes[i];
+    if (!shapeDef.enabled) continue;
     const point = shapePoint(shapeDef, i, t);
     const spin = radians((shapeDef.spin || 0) * t);
     const baseRot = radians(shapeDef.rot || 0);

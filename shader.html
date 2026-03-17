@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transfinite shader — OVRT</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+</head>
+<body>
+    <div class="site-shell">
+        <header class="tool-header">
+            <a href="index.html" class="back-link">← Back to OVRT</a>
+            <span class="tool-title">Transfinite shader</span>
+        </header>
+        <div class="app" aria-label="Transfinite shader">
+            <div id="shader-canvas"></div>
+            <aside class="control-panel">
+                <header class="panel-header">
+                    <h2>Controls</h2>
+                </header>
+                <div class="panel-body">
+                    <section class="control-section">
+                        <h3>Cycle</h3>
+                        <div class="control-row">
+                            <label for="sh-cycle">Duration</label>
+                            <input type="range" id="sh-cycle" min="20" max="180" value="79" step="1">
+                            <span class="param-value" id="val-sh-cycle">79s</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-black">Black hold</label>
+                            <input type="range" id="sh-black" min="0" max="10" value="1" step="1">
+                            <span class="param-value" id="val-sh-black">1s</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-fade-in">Fade in</label>
+                            <input type="range" id="sh-fade-in" min="1" max="30" value="15" step="1">
+                            <span class="param-value" id="val-sh-fade-in">15s</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-fade-out">Fade out</label>
+                            <input type="range" id="sh-fade-out" min="1" max="20" value="5" step="1">
+                            <span class="param-value" id="val-sh-fade-out">5s</span>
+                        </div>
+                    </section>
+
+                    <section class="control-section">
+                        <h3>Zoom & mirrors</h3>
+                        <div class="control-row">
+                            <label for="sh-zoom-min">Zoom min</label>
+                            <input type="range" id="sh-zoom-min" min="5" max="150" value="10" step="1">
+                            <span class="param-value" id="val-sh-zoom-min">0.10</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-zoom-max">Zoom max</label>
+                            <input type="range" id="sh-zoom-max" min="20" max="600" value="300" step="5">
+                            <span class="param-value" id="val-sh-zoom-max">3.00</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-zoom-speed">Zoom speed</label>
+                            <input type="range" id="sh-zoom-speed" min="2" max="80" value="10" step="1">
+                            <span class="param-value" id="val-sh-zoom-speed">0.10</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-mirror-min">Mirror min</label>
+                            <input type="range" id="sh-mirror-min" min="2" max="10" value="3" step="1">
+                            <span class="param-value" id="val-sh-mirror-min">3</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-mirror-span">Mirror span</label>
+                            <input type="range" id="sh-mirror-span" min="1" max="10" value="6" step="1">
+                            <span class="param-value" id="val-sh-mirror-span">6</span>
+                        </div>
+                    </section>
+
+                    <section class="control-section">
+                        <h3>Rotation & look</h3>
+                        <div class="control-row">
+                            <label for="sh-rot-start">Rot start %</label>
+                            <input type="range" id="sh-rot-start" min="0" max="95" value="60" step="1">
+                            <span class="param-value" id="val-sh-rot-start">60%</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-rot-max">Rot max</label>
+                            <input type="range" id="sh-rot-max" min="0" max="180" value="90" step="1">
+                            <span class="param-value" id="val-sh-rot-max">90°</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-bright">Brightness</label>
+                            <input type="range" id="sh-bright" min="20" max="200" value="80" step="1">
+                            <span class="param-value" id="val-sh-bright">0.80</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-lock-seed">Lock seed</label>
+                            <input type="checkbox" id="sh-lock-seed">
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-seed">Fixed seed</label>
+                            <input type="number" id="sh-seed" min="0" max="999999999" value="0" step="1">
+                        </div>
+                    </section>
+                </div>
+            </aside>
+        </div>
+    </div>
+    <script src="page-transition.js"></script>
+    <script src="shader.js"></script>
+</body>
+</html>
+
