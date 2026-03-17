@@ -466,6 +466,45 @@ function renderPathsToBuffer(pathList) {
   params.drawOperation = savedOp;
 }
 
+function reRenderSketch() {
+  drawBuffer.clear();
+  const ctx = drawBuffer.drawingContext;
+  const savedOp = params.drawOperation;
+  params.drawOperation = 'ink';
+
+  const segments = [];
+  let current = [];
+  for (const p of drawPoints) {
+    if (p === null) {
+      if (current.length > 0) segments.push(current);
+      current = [];
+    } else {
+      current.push(p);
+    }
+  }
+  if (current.length > 0) segments.push(current);
+
+  for (const seg of segments) {
+    for (let i = 0; i < seg.length; i++) {
+      const p = seg[i];
+      const lookback = Math.max(0, i - 249);
+      for (let j = lookback; j < i; j++) {
+        const prev = seg[j];
+        const dx = p.x - prev.x;
+        const dy = p.y - prev.y;
+        const d = Math.hypot(dx, dy);
+        const dynamicConnect = params.sketchReach + params.strokeW;
+        if (d < dynamicConnect) {
+          scratchLine(ctx, prev.x, prev.y, p.x, p.y, d, true);
+        }
+      }
+    }
+  }
+
+  params.drawOperation = savedOp;
+  redraw();
+}
+
 function clearDrawBuffer() {
   drawPoints = [];
   isDrawing = false;
@@ -804,7 +843,8 @@ function bindControls() {
   let updateTimer = null;
   const runUpdate = () => {
     if (params.drawMode) {
-      redraw();
+      if (drawPoints.length > 0) reRenderSketch();
+      else redraw();
     } else {
       regenerate();
     }
