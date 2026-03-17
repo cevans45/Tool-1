@@ -281,24 +281,26 @@ const particleSketch = (p) => {
     if (maxDepth < d || sw >= mw) return;
     _draw(width, id, d);
 
+    const orbit = motion * (0.006 + d * 0.0015);
     const rot = fract(p.sin(id * d * p.TWO_PI * params.rotFreq)) * p.PI;
-    const r = fract(p.sin(id * d * p.TWO_PI * params.radFreq)) + 0.2;
+    const rBase = fract(p.sin(id * d * p.TWO_PI * params.radFreq)) + 0.2;
+    const r = rBase * (0.9 + 0.12 * p.sin(motion * 0.04 + d * 0.7));
     const ox = width * r;
 
     p.push();
-    p.rotate(rot);
+    p.rotate(rot + orbit);
     p.translate(ox, 0);
     rec(width * params.branchA, d + 1, maxDepth, id, sw + ox, mw);
     p.pop();
 
     p.push();
-    p.rotate(0);
+    p.rotate(orbit * 0.7);
     p.translate(ox, 0);
     rec(width * params.branchB, d + 1, maxDepth, id, sw + ox, mw);
     p.pop();
 
     p.push();
-    p.rotate(-rot);
+    p.rotate(-rot + orbit * 1.2);
     p.translate(ox, 0);
     rec(width * params.branchC, d + 1, maxDepth, id, sw + ox, mw);
     p.pop();
@@ -312,11 +314,10 @@ const particleSketch = (p) => {
 
     p.push();
     p.translate(x, y);
-    // Move the whole composition as one unit instead of morphing internals.
-    p.rotate(motion * 0.02);
+    const globalOrbit = motion * 0.03;
     for (let a = 0; a < p.TWO_PI - 1e-3; a += p.TWO_PI / n) {
       p.push();
-      p.rotate(a);
+      p.rotate(a + globalOrbit);
       p.translate(r * width, 0);
       rec(width / 2, 1, maxDepth, id, r * width, width);
       p.pop();
