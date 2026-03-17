@@ -19,6 +19,18 @@ const particleSketch = (p) => {
     tiles: 'single', // single | row | grid
     animate: true,
     motion: 0.2,
+    rotFreq: 13.21,
+    radFreq: 33.4,
+    branchA: 0.5,
+    branchB: 0.5,
+    branchC: 0.6,
+    hueShift: 0,
+    hueRange: 360,
+    saturation: 100,
+    brightnessMul: 1,
+    alpha: 0.5,
+    strokeMode: 'auto', // auto | fill | stroke
+    strokeWidth: 1,
   };
 
   const fract = (v) => v - Math.floor(v);
@@ -43,6 +55,18 @@ const particleSketch = (p) => {
     const tilesEl = byId('pr-tiles');
     const animateEl = byId('pr-animate');
     const motionEl = byId('pr-motion');
+    const rotFreqEl = byId('pr-rot-freq');
+    const radFreqEl = byId('pr-rad-freq');
+    const b1El = byId('pr-b1');
+    const b2El = byId('pr-b2');
+    const b3El = byId('pr-b3');
+    const hueShiftEl = byId('pr-hue-shift');
+    const hueRangeEl = byId('pr-hue-range');
+    const satEl = byId('pr-sat');
+    const brightEl = byId('pr-bright');
+    const alphaEl = byId('pr-alpha');
+    const strokeModeEl = byId('pr-stroke-mode');
+    const strokeWidthEl = byId('pr-stroke-width');
 
     params.seed = parseInt(seedEl?.value || '0', 10) || 0;
     params.pa = (parseInt(paEl?.value || '30', 10)) / 100;
@@ -57,6 +81,18 @@ const particleSketch = (p) => {
     params.tiles = tilesEl?.value || 'single';
     params.animate = !!animateEl?.checked;
     params.motion = (parseInt(motionEl?.value || '20', 10)) / 100;
+    params.rotFreq = (parseInt(rotFreqEl?.value || '132', 10)) / 10;
+    params.radFreq = (parseInt(radFreqEl?.value || '334', 10)) / 10;
+    params.branchA = (parseInt(b1El?.value || '50', 10)) / 100;
+    params.branchB = (parseInt(b2El?.value || '50', 10)) / 100;
+    params.branchC = (parseInt(b3El?.value || '60', 10)) / 100;
+    params.hueShift = parseInt(hueShiftEl?.value || '0', 10);
+    params.hueRange = parseInt(hueRangeEl?.value || '360', 10);
+    params.saturation = parseInt(satEl?.value || '100', 10);
+    params.brightnessMul = (parseInt(brightEl?.value || '100', 10)) / 100;
+    params.alpha = (parseInt(alphaEl?.value || '50', 10)) / 100;
+    params.strokeMode = strokeModeEl?.value || 'auto';
+    params.strokeWidth = parseInt(strokeWidthEl?.value || '1', 10);
 
     setVal('val-pr-pa', params.pa.toFixed(2));
     setVal('val-pr-pb', params.pb.toFixed(2));
@@ -68,10 +104,26 @@ const particleSketch = (p) => {
     setVal('val-pr-id', params.idValue.toFixed(2));
     setVal('val-pr-cell', Math.round(params.cellScale * 100) + '%');
     setVal('val-pr-motion', params.motion.toFixed(2));
+    setVal('val-pr-rot-freq', params.rotFreq.toFixed(1));
+    setVal('val-pr-rad-freq', params.radFreq.toFixed(1));
+    setVal('val-pr-b1', params.branchA.toFixed(2));
+    setVal('val-pr-b2', params.branchB.toFixed(2));
+    setVal('val-pr-b3', params.branchC.toFixed(2));
+    setVal('val-pr-hue-shift', String(params.hueShift));
+    setVal('val-pr-hue-range', String(params.hueRange));
+    setVal('val-pr-sat', String(params.saturation));
+    setVal('val-pr-bright', Math.round(params.brightnessMul * 100) + '%');
+    setVal('val-pr-alpha', params.alpha.toFixed(2));
+    setVal('val-pr-stroke-width', String(params.strokeWidth));
   }
 
   function bindControls() {
-    const ids = ['pr-seed', 'pr-pa', 'pr-pb', 'pr-pc', 'pr-pd', 'pr-depth', 'pr-branches', 'pr-radius', 'pr-id', 'pr-cell', 'pr-motion'];
+    const ids = [
+      'pr-seed', 'pr-pa', 'pr-pb', 'pr-pc', 'pr-pd',
+      'pr-depth', 'pr-branches', 'pr-radius', 'pr-id', 'pr-cell', 'pr-motion',
+      'pr-rot-freq', 'pr-rad-freq', 'pr-b1', 'pr-b2', 'pr-b3',
+      'pr-hue-shift', 'pr-hue-range', 'pr-sat', 'pr-bright', 'pr-alpha', 'pr-stroke-width'
+    ];
     ids.forEach((id) => {
       const el = byId(id);
       if (!el) return;
@@ -84,6 +136,14 @@ const particleSketch = (p) => {
     const tilesEl = byId('pr-tiles');
     if (tilesEl) {
       tilesEl.addEventListener('change', () => {
+        applyUI();
+        p.redraw();
+      });
+    }
+
+    const strokeModeEl = byId('pr-stroke-mode');
+    if (strokeModeEl) {
+      strokeModeEl.addEventListener('change', () => {
         applyUI();
         p.redraw();
       });
@@ -122,6 +182,10 @@ const particleSketch = (p) => {
         if (pbEl) pbEl.value = String(Math.round(params.pb * 100));
         if (pcEl) pcEl.value = String(params.pc);
         if (pdEl) pdEl.value = String(Math.round(params.pd * 100));
+        const hsEl = byId('pr-hue-shift');
+        const hrEl = byId('pr-hue-range');
+        if (hsEl) hsEl.value = String(Math.floor(p.random(360)));
+        if (hrEl) hrEl.value = String(Math.floor(p.random(120, 360)));
         applyUI();
         p.redraw();
       });
@@ -182,15 +246,24 @@ const particleSketch = (p) => {
   function _draw(width, id, depth) {
     const x = p.sin(id * depth * 333.2 + motion * 0.05);
     const y = p.sin(id * depth * 531.1 + motion * 0.08);
-    const hue = (p.int(palette(params.pa, params.pb, params.pc, params.pd, x) * 360 + 720) % 360);
+    const sourceHue = (p.int(palette(params.pa, params.pb, params.pc, params.pd, x) * 360 + 720) % 360 + 360) % 360;
+    const hue = (params.hueShift + (sourceHue / 360) * params.hueRange) % 360;
+    const bright = Math.max(0, Math.min(100, 100 * params.brightnessMul));
 
-    if (y <= 0) {
+    if (params.strokeMode === 'fill') {
       p.noStroke();
-      p.fill(hue, 100, 100, 0.5);
+      p.fill(hue, params.saturation, bright, params.alpha);
+    } else if (params.strokeMode === 'stroke') {
+      p.noFill();
+      p.strokeWeight(Math.max(0.5, params.strokeWidth));
+      p.stroke(hue, params.saturation, bright, params.alpha);
+    } else if (y <= 0) {
+      p.noStroke();
+      p.fill(hue, params.saturation, bright, params.alpha);
     } else {
       p.noFill();
-      p.strokeWeight(1 + width / 100 * y);
-      p.stroke(hue, 100, 100, 0.5);
+      p.strokeWeight(Math.max(0.5, params.strokeWidth) + (width / 100) * y);
+      p.stroke(hue, params.saturation, bright, params.alpha);
     }
 
     const radius = fract(p.sin(id * depth * p.TWO_PI + 103.19 + motion * 0.01)) * width;
@@ -205,26 +278,26 @@ const particleSketch = (p) => {
     if (maxDepth < d || sw >= mw) return;
     _draw(width, id, d);
 
-    const rot = fract(p.sin(id * d * p.TWO_PI * 13.21 + motion * 0.01)) * p.PI;
-    const r = fract(p.sin(id * d * p.TWO_PI * 33.4 + motion * 0.01)) + 0.2;
+    const rot = fract(p.sin(id * d * p.TWO_PI * params.rotFreq + motion * 0.01)) * p.PI;
+    const r = fract(p.sin(id * d * p.TWO_PI * params.radFreq + motion * 0.01)) + 0.2;
     const ox = width * r;
 
     p.push();
     p.rotate(rot);
     p.translate(ox, 0);
-    rec(width * 0.5, d + 1, maxDepth, id, sw + ox, mw);
+    rec(width * params.branchA, d + 1, maxDepth, id, sw + ox, mw);
     p.pop();
 
     p.push();
     p.rotate(0);
     p.translate(ox, 0);
-    rec(width * 0.5, d + 1, maxDepth, id, sw + ox, mw);
+    rec(width * params.branchB, d + 1, maxDepth, id, sw + ox, mw);
     p.pop();
 
     p.push();
     p.rotate(-rot);
     p.translate(ox, 0);
-    rec(width * 0.6, d + 1, maxDepth, id, sw + ox, mw);
+    rec(width * params.branchC, d + 1, maxDepth, id, sw + ox, mw);
     p.pop();
   }
 
