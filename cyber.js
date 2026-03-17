@@ -148,7 +148,8 @@ function regenerate() {
   addBranches();
   smoothPaths();
   prunePaths();
-  buildCurveHashFromPaths();
+  renderPathsToBuffer(paths);
+  buildCurveHashFromPaths(paths);
   redraw();
 }
 
@@ -334,22 +335,14 @@ function getDrawnPathSegments() {
 
 function draw() {
   background(params.bg);
+  image(drawBuffer, 0, 0);
 
-  if (params.drawMode) {
-    image(drawBuffer, 0, 0);
-
-    const sketchPaths = getDrawnPathSegments();
-    if (sketchPaths.length > 0) {
-      drawTextureOnPaths(sketchPaths);
-    }
-
-    if (params.mirrorX) drawGuidelineOnMain();
-    return;
+  const activePaths = params.drawMode ? getDrawnPathSegments() : paths;
+  if (activePaths.length > 0) {
+    drawTextureOnPaths(activePaths);
   }
 
-  buildCurveHashFromPaths(paths);
-  drawGeneratedPaths();
-  drawTextureOnPaths(paths);
+  if (params.drawMode && params.mirrorX) drawGuidelineOnMain();
 }
 
 function drawGuidelineOnMain() {
@@ -372,12 +365,16 @@ function drawGuideline() {
 
 /* ===== MYCELIUM SCRATCH-LINE DRAWING ENGINE ===== */
 
-function scratchLine(ctx, x1, y1, x2, y2, d) {
-  const distFactor = Math.max(0.2, (params.sketchReach - d) / 10);
+function scratchLine(ctx, x1, y1, x2, y2, d, mirror) {
+  const reach = mirror ? params.sketchReach : Math.max(params.sketchReach, 100);
+  const distFactor = Math.max(0.2, (reach - d) / 10);
   const finalThickness = params.strokeW * distFactor;
-  const jitter = params.sketchRoughness + (finalThickness * 0.8);
+  const roughness = params.sketchRoughness;
+  const jitter = roughness + (finalThickness * 0.8);
+  const passes = params.sketchDensity;
   const w = drawBuffer.width;
   const h = drawBuffer.height;
+  const isSmooth = roughness === 0;
 
   if (params.drawOperation === 'ink') {
     ctx.globalCompositeOperation = 'source-over';
@@ -389,34 +386,36 @@ function scratchLine(ctx, x1, y1, x2, y2, d) {
     ctx.fillStyle = 'rgba(0,0,0,1)';
   }
 
-  for (let i = 0; i < params.sketchDensity; i++) {
-    const jx1 = (Math.random() - 0.5) * jitter;
-    const jy1 = (Math.random() - 0.5) * jitter;
-    const jx2 = (Math.random() - 0.5) * jitter;
-    const jy2 = (Math.random() - 0.5) * jitter;
+  for (let i = 0; i < passes; i++) {
+    const jx1 = isSmooth ? 0 : (Math.random() - 0.5) * jitter;
+    const jy1 = isSmooth ? 0 : (Math.random() - 0.5) * jitter;
+    const jx2 = isSmooth ? 0 : (Math.random() - 0.5) * jitter;
+    const jy2 = isSmooth ? 0 : (Math.random() - 0.5) * jitter;
 
-    if (Math.random() > 0.15) {
+    if (isSmooth || Math.random() > 0.15) {
       const px1 = x1 + jx1, py1 = y1 + jy1;
       const px2 = x2 + jx2, py2 = y2 + jy2;
 
       ctx.beginPath();
       ctx.lineWidth = finalThickness;
-      ctx.lineCap = 'square';
-      ctx.lineJoin = 'bevel';
+      ctx.lineCap = isSmooth ? 'round' : 'square';
+      ctx.lineJoin = isSmooth ? 'round' : 'bevel';
       ctx.moveTo(px1, py1);
       ctx.lineTo(px2, py2);
 
-      if (params.mirrorX) {
-        ctx.moveTo(w - px1, py1);
-        ctx.lineTo(w - px2, py2);
-      }
-      if (params.mirrorY) {
-        ctx.moveTo(px1, h - py1);
-        ctx.lineTo(px2, h - py2);
-      }
-      if (params.mirrorX && params.mirrorY) {
-        ctx.moveTo(w - px1, h - py1);
-        ctx.lineTo(w - px2, h - py2);
+      if (mirror) {
+        if (params.mirrorX) {
+          ctx.moveTo(w - px1, py1);
+          ctx.lineTo(w - px2, py2);
+        }
+        if (params.mirrorY) {
+          ctx.moveTo(px1, h - py1);
+          ctx.lineTo(px2, h - py2);
+        }
+        if (params.mirrorX && params.mirrorY) {
+          ctx.moveTo(w - px1, h - py1);
+          ctx.lineTo(w - px2, h - py2);
+        }
       }
 
       ctx.stroke();
@@ -443,9 +442,28 @@ function addDrawPoint(x, y) {
     const dynamicConnect = params.sketchReach + params.strokeW;
 
     if (d < dynamicConnect) {
-      scratchLine(ctx, prev.x, prev.y, p.x, p.y, d);
+      scratchLine(ctx, prev.x, prev.y, p.x, p.y, d, true);
     }
   }
+}
+
+function renderPathsToBuffer(pathList) {
+  drawBuffer.clear();
+  const ctx = drawBuffer.drawingContext;
+  const savedOp = params.drawOperation;
+  params.drawOperation = 'ink';
+
+  for (const path of pathList) {
+    if (path.length < 2) continue;
+    for (let i = 1; i < path.length; i++) {
+      const a = path[i - 1];
+      const b = path[i];
+      const d = Math.hypot(b.x - a.x, b.y - a.y);
+      scratchLine(ctx, a.x, a.y, b.x, b.y, d, false);
+    }
+  }
+
+  params.drawOperation = savedOp;
 }
 
 function clearDrawBuffer() {
@@ -453,117 +471,6 @@ function clearDrawBuffer() {
   isDrawing = false;
   drawBuffer.clear();
   redraw();
-}
-
-/* ===== GENERATED MODE RENDERING ===== */
-
-function drawGeneratedPaths() {
-  if (!params.strokeEnabled) return;
-  const ink = color(params.ink);
-  stroke(ink);
-  const cx = width * 0.5;
-  const cy = height * 0.5;
-  const maxCenterD = max(width, height) * 0.55;
-
-  for (const path of paths) {
-    if (path.length < 2) continue;
-    for (let i = 1; i < path.length; i++) {
-      const a = path[i - 1];
-      const b = path[i];
-      const t = i / (path.length - 1);
-      const bell = sin(PI * t);
-      const mx = (a.x + b.x) * 0.5;
-      const my = (a.y + b.y) * 0.5;
-      const centerBoost = 1 - constrain(dist(mx, my, cx, cy) / maxCenterD, 0, 1);
-      const speedBase = (((a.sw != null ? a.sw : params.strokeW) + (b.sw != null ? b.sw : params.strokeW)) * 0.5);
-      const w = max(0.9, speedBase * (0.28 + params.taper * bell + centerBoost * 0.9));
-      strokeWeight(w);
-      line(a.x, a.y, b.x, b.y);
-    }
-  }
-
-  for (const path of paths) {
-    if (path.length < 2) continue;
-    for (let i = 1; i < path.length; i++) {
-      const a = path[i - 1];
-      const b = path[i];
-      const t = i / (path.length - 1);
-      const bell = sin(PI * t);
-      const speedBase = (((a.sw != null ? a.sw : params.strokeW) + (b.sw != null ? b.sw : params.strokeW)) * 0.5);
-      const w = max(0.55, speedBase * (0.12 + bell * 0.28));
-      strokeWeight(w);
-      line(a.x, a.y, b.x, b.y);
-    }
-  }
-
-  drawSpikes();
-  drawInteriorFill();
-}
-
-function drawSpikes() {
-  const cx = width * 0.5;
-  const cy = height * 0.5;
-  noStroke();
-  fill(params.ink);
-
-  for (const path of paths) {
-    if (path.length < 8) continue;
-    const step = max(3, floor(map(params.branchChance, 0, 1, 16, 5)));
-    for (let i = step; i < path.length - step; i += step) {
-      const gate = hash01(path[i].x * 0.013 + i, path[i].y * 0.017, params.seed * 0.0001);
-      if (gate > (0.16 + params.branchChance * 0.54)) continue;
-
-      const p = path[i];
-      const prev = path[i - 1];
-      const next = path[i + 1];
-      const tan = p5.Vector.sub(next, prev);
-      if (tan.magSq() < 1e-4) continue;
-      tan.normalize();
-      const normal = createVector(-tan.y, tan.x);
-
-      const centerDir = createVector(p.x - cx, p.y - cy);
-      const outward = centerDir.dot(normal) >= 0 ? 1 : -1;
-      const density = localPointDensity(p);
-      const len = (params.influenceRadius * (0.5 + params.fillAmount * 1.7)) * (0.5 + density * 0.9);
-      const baseW = ((p.sw != null ? p.sw : params.strokeW) * (0.26 + params.fillAmount * 0.2));
-
-      const tip = createVector(
-        p.x + normal.x * outward * len,
-        p.y + normal.y * outward * len
-      );
-      const left = createVector(
-        p.x + tan.x * baseW,
-        p.y + tan.y * baseW
-      );
-      const right = createVector(
-        p.x - tan.x * baseW,
-        p.y - tan.y * baseW
-      );
-
-      beginShape();
-      vertex(left.x, left.y);
-      vertex(tip.x, tip.y);
-      vertex(right.x, right.y);
-      endShape(CLOSE);
-    }
-  }
-}
-
-function drawInteriorFill() {
-  if (params.fillAmount <= 0) return;
-  noStroke();
-  fill(params.ink);
-  for (const path of paths) {
-    if (path.length < 4) continue;
-    for (let i = 2; i < path.length - 2; i += 2) {
-      const p = path[i];
-      const d = localPointDensity(p);
-      if (d < 0.28) continue;
-      const base = p.sw != null ? p.sw : params.strokeW;
-      const r = base * (0.18 + params.fillAmount * d * 0.95);
-      if (r > 0.7) circle(p.x, p.y, r * 2);
-    }
-  }
 }
 
 function localPointDensity(v) {
