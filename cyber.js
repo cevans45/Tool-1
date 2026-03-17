@@ -1,14 +1,10 @@
 let curveHash = new Map();
-let beziers = [];
-let grid = [];
-let nearPoint = [];
-let hEdges = [];
-let vEdges = [];
+let paths = [];
 let isPreview = false;
 
 const params = {
   seed: 0,
-  gridCount: 170,
+  gridCount: 170, // Repurposed as optional texture density.
   curveCount: 7,
   curveSamples: 110,
   influenceRadius: 16,
@@ -28,9 +24,9 @@ const params = {
 function setup() {
   isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
   if (isPreview) {
-    params.gridCount = 110;
+    params.gridCount = 120;
     params.curveCount = 5;
-    params.blurPasses = 36;
+    params.blurPasses = 28;
     params.strokeW = 2;
   }
 
@@ -71,63 +67,184 @@ function randomizeSeed() {
 function regenerate() {
   randomSeed(int(params.seed));
   noiseSeed(int(params.seed));
+  paths = [];
   curveHash = new Map();
-  beziers = [];
-  grid = [];
-  nearPoint = [];
-  hEdges = [];
-  vEdges = [];
 
-  const m = params.influenceRadius * 1.3;
-  const rw = () => random(width - m * 2) + m;
-  const rh = () => random(height - m * 2) + m;
+  const basePaths = [];
+  const m = params.influenceRadius * 2.0;
   for (let i = 0; i < params.curveCount; i++) {
-    beziers.push({ x1: rw(), y1: rh(), x2: rw(), y2: rh(), x3: rw(), y3: rh(), x4: rw(), y4: rh() });
-  }
+    const side = random() < 0.5 ? -1 : 1;
+    const cx = width * 0.5 + side * random(width * 0.06, width * 0.26);
+    const x1 = constrain(cx + side * random(-40, 80), m, width - m);
+    const y1 = random(height * 0.22, height * 0.72);
+    const x2 = constrain(cx + side * random(-80, 120), m, width - m);
+    const y2 = random(height * 0.1, height * 0.85);
+    const x3 = constrain(cx + side * random(-120, 120), m, width - m);
+    const y3 = random(height * 0.12, height * 0.88);
+    const x4 = constrain(cx + side * random(-50, 100), m, width - m);
+    const y4 = random(height * 0.2, height * 0.9);
 
-  const points = [];
-  for (const b of beziers) {
-    for (let i = 0; i <= params.curveSamples; i++) {
-      const t = i / params.curveSamples;
-      const px = bezierPoint(b.x1, b.x2, b.x3, b.x4, t);
-      const py = bezierPoint(b.y1, b.y2, b.y3, b.y4, t);
-      points.push(createVector(px, py));
-      if (params.mirrorX) points.push(createVector(width - px, py));
-      if (params.mirrorY) points.push(createVector(px, height - py));
-      if (params.mirrorX && params.mirrorY) points.push(createVector(width - px, height - py));
+    const path = [];
+    for (let s = 0; s <= params.curveSamples; s++) {
+      const t = s / params.curveSamples;
+      path.push(createVector(
+        bezierPoint(x1, x2, x3, x4, t),
+        bezierPoint(y1, y2, y3, y4, t)
+      ));
     }
+    basePaths.push(path);
   }
 
-  buildCurveHash(points);
-  buildGrid();
-  buildEdges();
-  pruneDanglingEdges();
-
-  for (let i = 0; i < params.blurPasses; i++) {
-    blurGrid(params.blurStrength);
+  for (const path of basePaths) {
+    const mirrored = createMirroredPaths(path);
+    for (const p of mirrored) paths.push(warpPath(p));
   }
+
+  addBranches();
+  smoothPaths();
+  prunePaths();
+  buildCurveHashFromPaths();
   redraw();
 }
 
-function buildCurveHash(points) {
-  const cell = max(4, params.influenceRadius);
-  for (const p of points) {
-    const ix = floor(p.x / cell);
-    const iy = floor(p.y / cell);
-    const key = `${ix},${iy}`;
-    if (!curveHash.has(key)) curveHash.set(key, []);
-    curveHash.get(key).push(p);
+function createMirroredPaths(path) {
+  const out = [];
+  const transforms = [{ mx: false, my: false }];
+  if (params.mirrorX) transforms.push({ mx: true, my: false });
+  if (params.mirrorY) transforms.push({ mx: false, my: true });
+  if (params.mirrorX && params.mirrorY) transforms.push({ mx: true, my: true });
+
+  for (const t of transforms) {
+    out.push(path.map((p) => createVector(
+      t.mx ? width - p.x : p.x,
+      t.my ? height - p.y : p.y
+    )));
+  }
+  return out;
+}
+
+function warpPath(path) {
+  const warped = [];
+  const amp = params.influenceRadius * 0.55;
+  for (let i = 0; i < path.length; i++) {
+    const p = path[i];
+    const prev = path[max(0, i - 1)];
+    const next = path[min(path.length - 1, i + 1)];
+    const tan = p5.Vector.sub(next, prev);
+    if (tan.magSq() < 1e-4) tan.set(1, 0);
+    tan.normalize();
+    const normal = createVector(-tan.y, tan.x);
+
+    const nx = params.mirrorX ? min(p.x, width - p.x) : p.x;
+    const ny = params.mirrorY ? min(p.y, height - p.y) : p.y;
+    const n = noise(nx * 0.01, ny * 0.01, params.seed * 0.00001);
+    const spine = params.mirrorX ? (width * 0.5 - p.x) * 0.015 : 0;
+    const w = (n - 0.5) * 2 * amp + spine;
+    const tangentSkew = (noise(nx * 0.015, ny * 0.015, 90 + params.seed * 0.00002) - 0.5) * params.influenceRadius * 0.18;
+    warped.push(createVector(
+      p.x + normal.x * w + tan.x * tangentSkew,
+      p.y + normal.y * w + tan.y * tangentSkew
+    ));
+  }
+  return warped;
+}
+
+function addBranches() {
+  const base = paths.slice();
+  const branchProb = params.branchChance * 0.34;
+  for (const path of base) {
+    const step = max(5, floor(path.length / 11));
+    for (let i = step; i < path.length - step; i += step) {
+      if (random() > branchProb) continue;
+      const a = path[i - 1];
+      const b = path[i + 1];
+      const root = path[i];
+      const tan = p5.Vector.sub(b, a);
+      if (tan.magSq() < 1e-4) continue;
+      tan.normalize();
+      const normal = createVector(-tan.y, tan.x).mult(random() < 0.5 ? -1 : 1);
+
+      const len = params.influenceRadius * random(0.8, 2.4);
+      const segs = floor(random(5, 13));
+      const branch = [root.copy()];
+      for (let s = 1; s <= segs; s++) {
+        const t = s / segs;
+        const bend = (noise((root.x + s * 7) * 0.02, (root.y + s * 7) * 0.02, params.seed * 0.00003) - 0.5) * 2;
+        const p = createVector(
+          root.x + normal.x * len * t + tan.x * len * 0.23 * bend * t,
+          root.y + normal.y * len * t + tan.y * len * 0.23 * bend * t
+        );
+        branch.push(p);
+      }
+      for (const mirrored of createMirroredPaths(branch)) {
+        paths.push(mirrored);
+      }
+    }
   }
 }
 
-function pointNearCurves(v) {
-  const cell = max(4, params.influenceRadius);
+function smoothPaths() {
+  const passes = min(200, params.blurPasses);
+  const strength = constrain(params.blurStrength, 0, 1) * 0.55;
+  for (let pass = 0; pass < passes; pass++) {
+    for (let p = 0; p < paths.length; p++) {
+      const path = paths[p];
+      if (path.length < 4) continue;
+      const next = [path[0].copy()];
+      for (let i = 1; i < path.length - 1; i++) {
+        const prev = path[i - 1];
+        const cur = path[i];
+        const nxt = path[i + 1];
+        const avg = createVector((prev.x + nxt.x) * 0.5, (prev.y + nxt.y) * 0.5);
+        const v = p5.Vector.lerp(cur, avg, strength);
+        next.push(v);
+      }
+      next.push(path[path.length - 1].copy());
+      paths[p] = next;
+    }
+  }
+}
+
+function prunePaths() {
+  const keep = [];
+  const pruneN = constrain(params.prunePasses / 24, 0, 1);
+  const keepChance = 1 - pruneN * 0.55;
+  const minLen = max(4, floor(map(pruneN, 0, 1, 3, 11)));
+
+  for (const path of paths) {
+    if (path.length <= minLen) continue;
+    if (path.length >= params.curveSamples * 0.8 || random() < keepChance) {
+      const trim = floor(random(0, map(pruneN, 0, 1, 0, 5)));
+      const start = min(trim, path.length - 2);
+      const end = max(start + 2, path.length - trim);
+      keep.push(path.slice(start, end));
+    }
+  }
+  paths = keep;
+}
+
+function buildCurveHashFromPaths() {
+  curveHash = new Map();
+  const cell = max(6, params.influenceRadius * 0.9);
+  for (const path of paths) {
+    for (let i = 0; i < path.length; i += 2) {
+      const p = path[i];
+      const ix = floor(p.x / cell);
+      const iy = floor(p.y / cell);
+      const key = `${ix},${iy}`;
+      if (!curveHash.has(key)) curveHash.set(key, []);
+      curveHash.get(key).push(p);
+    }
+  }
+}
+
+function pointNearPaths(v) {
+  const cell = max(6, params.influenceRadius * 0.9);
   const ix = floor(v.x / cell);
   const iy = floor(v.y / cell);
-  const search = 2;
   let minD = 1e9;
-  for (let yy = -search; yy <= search; yy++) {
-    for (let xx = -search; xx <= search; xx++) {
+  for (let yy = -2; yy <= 2; yy++) {
+    for (let xx = -2; xx <= 2; xx++) {
       const bucket = curveHash.get(`${ix + xx},${iy + yy}`);
       if (!bucket) continue;
       for (const p of bucket) {
@@ -136,172 +253,51 @@ function pointNearCurves(v) {
       }
     }
   }
-  if (minD > params.influenceRadius) return 0;
-  const q = 1 - minD / params.influenceRadius;
-  return constrain(q, 0, 1);
-}
-
-function buildGrid() {
-  const stepX = width / params.gridCount;
-  const stepY = height / params.gridCount;
-  for (let y = 0; y <= params.gridCount; y++) {
-    const row = [];
-    const nearRow = [];
-    for (let x = 0; x <= params.gridCount; x++) {
-      const v = createVector(x * stepX, y * stepY);
-      row.push(v);
-      nearRow.push(pointNearCurves(v));
-    }
-    grid.push(row);
-    nearPoint.push(nearRow);
-  }
-}
-
-function buildEdges() {
-  for (let y = 0; y <= params.gridCount; y++) {
-    const hr = [];
-    for (let x = 0; x < params.gridCount; x++) {
-      const a = nearPoint[y][x] > params.threshold;
-      const b = nearPoint[y][x + 1] > params.threshold;
-      let on = a && b;
-      if (!on && (a || b) && random() < params.branchChance * 0.2) on = true;
-      hr.push(on);
-    }
-    hEdges.push(hr);
-  }
-  for (let y = 0; y < params.gridCount; y++) {
-    const vr = [];
-    for (let x = 0; x <= params.gridCount; x++) {
-      const a = nearPoint[y][x] > params.threshold;
-      const b = nearPoint[y + 1][x] > params.threshold;
-      let on = a && b;
-      if (!on && (a || b) && random() < params.branchChance * 0.2) on = true;
-      vr.push(on);
-    }
-    vEdges.push(vr);
-  }
-}
-
-function nodeDegree(y, x) {
-  let d = 0;
-  if (x > 0 && hEdges[y][x - 1]) d++;
-  if (x < params.gridCount && hEdges[y][x]) d++;
-  if (y > 0 && vEdges[y - 1][x]) d++;
-  if (y < params.gridCount && vEdges[y][x]) d++;
-  return d;
-}
-
-function pruneDanglingEdges() {
-  for (let pass = 0; pass < params.prunePasses; pass++) {
-    let changed = false;
-    for (let y = 0; y <= params.gridCount; y++) {
-      for (let x = 0; x < params.gridCount; x++) {
-        if (!hEdges[y][x]) continue;
-        const a = nodeDegree(y, x);
-        const b = nodeDegree(y, x + 1);
-        if (a <= 1 || b <= 1) {
-          hEdges[y][x] = false;
-          changed = true;
-        }
-      }
-    }
-    for (let y = 0; y < params.gridCount; y++) {
-      for (let x = 0; x <= params.gridCount; x++) {
-        if (!vEdges[y][x]) continue;
-        const a = nodeDegree(y, x);
-        const b = nodeDegree(y + 1, x);
-        if (a <= 1 || b <= 1) {
-          vEdges[y][x] = false;
-          changed = true;
-        }
-      }
-    }
-    if (!changed) break;
-  }
-}
-
-function blurGrid(strength) {
-  if (strength <= 0) return;
-  const next = [];
-  for (let y = 0; y <= params.gridCount; y++) {
-    const row = [];
-    for (let x = 0; x <= params.gridCount; x++) {
-      const v = grid[y][x].copy();
-      if (x > 0 && x < params.gridCount && y > 0 && y < params.gridCount) {
-        if (nearPoint[y][x] > params.threshold) {
-          const avg = p5.Vector.add(grid[y - 1][x], grid[y + 1][x]);
-          avg.add(grid[y][x - 1]);
-          avg.add(grid[y][x + 1]);
-          avg.mult(0.25);
-          v.lerp(avg, strength);
-        }
-      }
-      row.push(v);
-    }
-    next.push(row);
-  }
-  grid = next;
-  applyMirrorConstraint();
-}
-
-function applyMirrorConstraint() {
-  const cx = width * 0.5;
-  const cy = height * 0.5;
-  if (params.mirrorX) {
-    for (let y = 0; y <= params.gridCount; y++) {
-      for (let x = 0; x <= floor(params.gridCount / 2); x++) {
-        const mx = params.gridCount - x;
-        const left = grid[y][x];
-        const right = grid[y][mx];
-        const mid = (left.x + (2 * cx - right.x)) * 0.5;
-        left.x = mid;
-        right.x = 2 * cx - mid;
-      }
-    }
-  }
-  if (params.mirrorY) {
-    for (let y = 0; y <= floor(params.gridCount / 2); y++) {
-      const my = params.gridCount - y;
-      for (let x = 0; x <= params.gridCount; x++) {
-        const top = grid[y][x];
-        const bottom = grid[my][x];
-        const mid = (top.y + (2 * cy - bottom.y)) * 0.5;
-        top.y = mid;
-        bottom.y = 2 * cy - mid;
-      }
-    }
-  }
+  if (minD > params.influenceRadius * 1.6) return 0;
+  return constrain(1 - minD / (params.influenceRadius * 1.6), 0, 1);
 }
 
 function draw() {
   background(params.bg);
-  drawEdges();
+  drawPaths();
+  drawGridTexture();
 }
 
-function drawEdges() {
+function drawPaths() {
   const ink = color(params.ink);
   stroke(ink);
-
-  for (let y = 0; y <= params.gridCount; y++) {
-    for (let x = 0; x < params.gridCount; x++) {
-      if (!hEdges[y][x]) continue;
-      const a = grid[y][x];
-      const b = grid[y][x + 1];
-      const n = (nearPoint[y][x] + nearPoint[y][x + 1]) * 0.5;
-      const w = max(0.6, params.strokeW * (1 - params.taper + params.taper * n));
+  for (const path of paths) {
+    if (path.length < 2) continue;
+    for (let i = 1; i < path.length; i++) {
+      const a = path[i - 1];
+      const b = path[i];
+      const t = i / (path.length - 1);
+      const bell = sin(PI * t); // thinner tips, fuller center
+      const w = max(0.5, params.strokeW * (1 - params.taper + params.taper * bell));
       strokeWeight(w);
       line(a.x, a.y, b.x, b.y);
     }
   }
-  for (let y = 0; y < params.gridCount; y++) {
-    for (let x = 0; x <= params.gridCount; x++) {
-      if (!vEdges[y][x]) continue;
-      const a = grid[y][x];
-      const b = grid[y + 1][x];
-      const n = (nearPoint[y][x] + nearPoint[y + 1][x]) * 0.5;
-      const w = max(0.6, params.strokeW * (1 - params.taper + params.taper * n));
-      strokeWeight(w);
-      line(a.x, a.y, b.x, b.y);
+}
+
+function drawGridTexture() {
+  const density = constrain(params.gridCount, 80, 260);
+  const step = map(density, 80, 260, 22, 6);
+  const alphaBase = map(density, 80, 260, 0, 42);
+  if (alphaBase < 1) return;
+
+  const baseInk = color(params.ink);
+  stroke(red(baseInk), green(baseInk), blue(baseInk), alphaBase);
+  strokeWeight(1);
+  for (let y = 0; y <= height; y += step) {
+    for (let x = 0; x <= width; x += step) {
+      const n = pointNearPaths(createVector(x, y));
+      if (n < params.threshold * 0.55) continue;
+      if (((floor(x / step) + floor(y / step)) & 1) === 0) {
+        point(x, y);
+      } else {
+        line(x - 1, y, x + 1, y);
+      }
     }
   }
 }
