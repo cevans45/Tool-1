@@ -240,8 +240,8 @@ const particleSketch = (p) => {
   };
 
   function _draw(width, id, depth) {
-    const x = p.sin(id * depth * 333.2);
-    const y = p.sin(id * depth * 531.1);
+    const x = p.sin(id * depth * 333.2 + motion * 0.05);
+    const y = p.sin(id * depth * 531.1 + motion * 0.08);
     const sourceHue = (p.int(palette(params.pa, params.pb, params.pc, params.pd, x) * 360 + 720) % 360 + 360) % 360;
     const t = sourceHue / 360;
     let hue;
@@ -269,7 +269,7 @@ const particleSketch = (p) => {
       p.stroke(hue, params.saturation, bright, params.alpha);
     }
 
-    const radius = fract(p.sin(id * depth * p.TWO_PI + 103.19)) * width;
+    const radius = fract(p.sin(id * depth * p.TWO_PI + 103.19 + motion * 0.01)) * width;
     if (x < 0) {
       p.rect(0, 0, radius);
     } else {
@@ -281,26 +281,24 @@ const particleSketch = (p) => {
     if (maxDepth < d || sw >= mw) return;
     _draw(width, id, d);
 
-    const orbit = motion * (0.006 + d * 0.0015);
-    const rot = fract(p.sin(id * d * p.TWO_PI * params.rotFreq)) * p.PI;
-    const rBase = fract(p.sin(id * d * p.TWO_PI * params.radFreq)) + 0.2;
-    const r = rBase * (0.9 + 0.12 * p.sin(motion * 0.04 + d * 0.7));
+    const rot = fract(p.sin(id * d * p.TWO_PI * params.rotFreq + motion * 0.01)) * p.PI;
+    const r = fract(p.sin(id * d * p.TWO_PI * params.radFreq + motion * 0.01)) + 0.2;
     const ox = width * r;
 
     p.push();
-    p.rotate(rot + orbit);
+    p.rotate(rot);
     p.translate(ox, 0);
     rec(width * params.branchA, d + 1, maxDepth, id, sw + ox, mw);
     p.pop();
 
     p.push();
-    p.rotate(orbit * 0.7);
+    p.rotate(0);
     p.translate(ox, 0);
     rec(width * params.branchB, d + 1, maxDepth, id, sw + ox, mw);
     p.pop();
 
     p.push();
-    p.rotate(-rot + orbit * 1.2);
+    p.rotate(-rot);
     p.translate(ox, 0);
     rec(width * params.branchC, d + 1, maxDepth, id, sw + ox, mw);
     p.pop();
@@ -314,10 +312,9 @@ const particleSketch = (p) => {
 
     p.push();
     p.translate(x, y);
-    const globalOrbit = motion * 0.03;
     for (let a = 0; a < p.TWO_PI - 1e-3; a += p.TWO_PI / n) {
       p.push();
-      p.rotate(a + globalOrbit);
+      p.rotate(a);
       p.translate(r * width, 0);
       rec(width / 2, 1, maxDepth, id, r * width, width);
       p.pop();
