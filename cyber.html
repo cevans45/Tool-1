@@ -40,11 +40,6 @@
                                 <button type="button" id="cs-clear" class="panel-button">Clear sketch</button>
                             </div>
                             <div class="control-row">
-                                <label for="cs-grid">Grid texture</label>
-                                <input type="range" id="cs-grid" min="0" max="100" value="22" step="1">
-                                <span class="param-value" id="val-cs-grid">22%</span>
-                            </div>
-                            <div class="control-row">
                                 <label for="cs-curves">Curves</label>
                                 <input type="range" id="cs-curves" min="2" max="16" value="7" step="1">
                                 <span class="param-value" id="val-cs-curves">7</span>
@@ -136,6 +131,27 @@
                             <div class="control-row">
                                 <label>Generate</label>
                                 <button type="button" id="cs-regenerate" class="panel-button">Regenerate</button>
+                            </div>
+                        </section>
+                    </details>
+
+                    <details class="control-window" open>
+                        <summary>Effects</summary>
+                        <section class="control-section">
+                            <div class="control-row">
+                                <label for="cs-texture-mode">Texture mode</label>
+                                <select id="cs-texture-mode" class="select-input">
+                                    <option value="none">None</option>
+                                    <option value="grid" selected>Grid</option>
+                                    <option value="grain">Grain</option>
+                                    <option value="dots">Dots</option>
+                                    <option value="pixel">Pixel</option>
+                                </select>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-texture-strength">Effect strength</label>
+                                <input type="range" id="cs-texture-strength" min="0" max="100" value="80" step="1">
+                                <span class="param-value" id="val-cs-texture-strength">0.80</span>
                             </div>
                         </section>
                     </details>

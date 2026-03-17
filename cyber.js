@@ -6,7 +6,8 @@ let isPreview = false;
 
 const params = {
   seed: 0,
-  textureAmount: 22, // 0..100 optional texture overlay
+  textureMode: 'grid', // none | grid | grain | dots | pixel
+  textureStrength: 0.8, // 0..1
   curveCount: 7,
   curveSamples: 110,
   influenceRadius: 20,
@@ -28,7 +29,7 @@ const params = {
 function setup() {
   isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
   if (isPreview) {
-    params.textureAmount = 10;
+    params.textureStrength = 0.55;
     params.curveCount = 5;
     params.blurPasses = 28;
     params.strokeW = 3;
@@ -281,7 +282,7 @@ function draw() {
   background(params.bg);
   buildCurveHashFromPaths(getRenderablePaths());
   drawPaths();
-  drawGridTexture();
+  drawTextureEffect();
 }
 
 function drawPaths() {
@@ -378,41 +379,87 @@ function drawSpikes() {
   }
 }
 
-function drawGridTexture() {
-  const amount = constrain(params.textureAmount, 0, 100);
-  const spacing = map(amount, 0, 100, 22, 5);
-  const alphaBase = map(amount, 0, 100, 0, 95);
-  if (alphaBase < 1) return;
-
+function drawTextureEffect() {
+  if (params.textureMode === 'none' || params.textureStrength <= 0) return;
   const sourcePaths = getRenderablePaths();
   if (sourcePaths.length === 0) return;
+  if (params.textureMode === 'grid') drawGridTexture(sourcePaths);
+  else if (params.textureMode === 'grain') drawGrainTexture(sourcePaths);
+  else if (params.textureMode === 'dots') drawDotsTexture(sourcePaths);
+  else if (params.textureMode === 'pixel') drawPixelTexture(sourcePaths);
+}
 
+function drawGridTexture(sourcePaths) {
+  const k = constrain(params.textureStrength, 0, 1);
+  const spacing = map(k, 0, 1, 18, 5);
+  const alphaBase = map(k, 0, 1, 20, 180);
   const baseInk = color(params.ink);
   stroke(red(baseInk), green(baseInk), blue(baseInk), alphaBase);
-  strokeWeight(1);
-  // Stamp micro-grid marks along stroke skeleton, so texture always appears.
+  strokeWeight(map(k, 0, 1, 1, 1.8));
   for (const path of sourcePaths) {
     if (path.length < 2) continue;
     for (let i = 1; i < path.length; i++) {
       const a = path[i - 1];
       const b = path[i];
       const segLen = dist(a.x, a.y, b.x, b.y);
-      if (segLen < 0.01) continue;
       const steps = max(1, floor(segLen / spacing));
       for (let s = 0; s <= steps; s++) {
         const t = s / steps;
         const x = lerp(a.x, b.x, t);
         const y = lerp(a.y, b.y, t);
-        const idx = i * 131 + s * 17;
-        if (idx % 3 === 0) {
-          line(x - 1, y, x + 1, y);
-          line(x, y - 1, x, y + 1);
-        } else {
-          point(x, y);
-        }
+        line(x - 1.5, y, x + 1.5, y);
+        line(x, y - 1.5, x, y + 1.5);
       }
     }
   }
+}
+
+function drawGrainTexture(sourcePaths) {
+  const k = constrain(params.textureStrength, 0, 1);
+  const baseInk = color(params.ink);
+  stroke(red(baseInk), green(baseInk), blue(baseInk), map(k, 0, 1, 10, 80));
+  strokeWeight(1);
+  for (const path of sourcePaths) {
+    for (let i = 0; i < path.length; i += 2) {
+      const p = path[i];
+      const samples = floor(map(k, 0, 1, 1, 4));
+      for (let j = 0; j < samples; j++) {
+        const ox = random(-2.5, 2.5);
+        const oy = random(-2.5, 2.5);
+        point(p.x + ox, p.y + oy);
+      }
+    }
+  }
+}
+
+function drawDotsTexture(sourcePaths) {
+  const k = constrain(params.textureStrength, 0, 1);
+  noStroke();
+  fill(red(color(params.ink)), green(color(params.ink)), blue(color(params.ink)), map(k, 0, 1, 24, 160));
+  const step = max(2, floor(map(k, 0, 1, 7, 3)));
+  for (const path of sourcePaths) {
+    for (let i = 0; i < path.length; i += step) {
+      const p = path[i];
+      const d = map(k, 0, 1, 1.2, 3.8);
+      circle(p.x, p.y, d);
+    }
+  }
+}
+
+function drawPixelTexture(sourcePaths) {
+  const k = constrain(params.textureStrength, 0, 1);
+  noStroke();
+  fill(red(color(params.ink)), green(color(params.ink)), blue(color(params.ink)), map(k, 0, 1, 24, 170));
+  const size = map(k, 0, 1, 2, 5);
+  const step = max(2, floor(map(k, 0, 1, 8, 3)));
+  rectMode(CENTER);
+  for (const path of sourcePaths) {
+    for (let i = 0; i < path.length; i += step) {
+      const p = path[i];
+      rect(p.x, p.y, size, size);
+    }
+  }
+  rectMode(CORNER);
 }
 
 function localPointDensity(v) {
@@ -524,9 +571,17 @@ function bindControls() {
     });
   }
 
-  bindRange('cs-grid', 'val-cs-grid', (v) => {
-    params.textureAmount = parseInt(v, 10);
-    return `${params.textureAmount}%`;
+  const textureModeEl = byId('cs-texture-mode');
+  if (textureModeEl) {
+    textureModeEl.value = params.textureMode;
+    textureModeEl.addEventListener('change', () => {
+      params.textureMode = textureModeEl.value;
+      requestUpdate();
+    });
+  }
+  bindRange('cs-texture-strength', 'val-cs-texture-strength', (v) => {
+    params.textureStrength = parseInt(v, 10) / 100;
+    return params.textureStrength.toFixed(2);
   });
   bindRange('cs-curves', 'val-cs-curves', (v) => {
     params.curveCount = parseInt(v, 10);
