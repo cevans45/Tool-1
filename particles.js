@@ -16,8 +16,8 @@ const particleSketch = (p) => {
     radius: 0.15,
     idValue: 0.5,
     cellScale: 0.65,
-    zoom: 1,
-    tiles: 'single', // single | row | grid
+    zoom: 1.5,
+    tiles: 'single', // locked to single composition
     animate: true,
     motion: 0.2,
     rotFreq: 13.21,
@@ -83,7 +83,7 @@ const particleSketch = (p) => {
     params.idValue = (parseInt(idEl?.value || '500', 10)) / 1000;
     params.cellScale = (parseInt(cellEl?.value || '65', 10)) / 100;
     params.zoom = (parseInt(zoomEl?.value || '100', 10)) / 100;
-    params.tiles = tilesEl?.value || 'single';
+    params.tiles = 'single';
     params.animate = !!animateEl?.checked;
     params.motion = (parseInt(motionEl?.value || '20', 10)) / 100;
     params.rotFreq = (parseInt(rotFreqEl?.value || '132', 10)) / 10;
@@ -228,19 +228,8 @@ const particleSketch = (p) => {
 
     const cellW = minWidth * params.cellScale / 2 * params.zoom;
 
-    if (params.tiles === 'single') {
-      pattern(p.width / 2, p.height / 2, cellW * 0.5);
-    } else if (params.tiles === 'row') {
-      for (let x = -1; x <= 1; ++x) {
-        pattern(p.width / 2 + cellW * x, p.height / 2, cellW * 0.5);
-      }
-    } else {
-      for (let x = -1; x <= 1; ++x) {
-        for (let y = -1; y <= 1; ++y) {
-          pattern(p.width / 2 + cellW * x, p.height / 2 + cellW * y, cellW * 0.5);
-        }
-      }
-    }
+    // Keep one stable composition only.
+    pattern(p.width / 2, p.height / 2, cellW * 0.5);
 
     if (params.animate) {
       motion += params.motion;
@@ -251,8 +240,8 @@ const particleSketch = (p) => {
   };
 
   function _draw(width, id, depth) {
-    const x = p.sin(id * depth * 333.2 + motion * 0.05);
-    const y = p.sin(id * depth * 531.1 + motion * 0.08);
+    const x = p.sin(id * depth * 333.2);
+    const y = p.sin(id * depth * 531.1);
     const sourceHue = (p.int(palette(params.pa, params.pb, params.pc, params.pd, x) * 360 + 720) % 360 + 360) % 360;
     const t = sourceHue / 360;
     let hue;
@@ -280,7 +269,7 @@ const particleSketch = (p) => {
       p.stroke(hue, params.saturation, bright, params.alpha);
     }
 
-    const radius = fract(p.sin(id * depth * p.TWO_PI + 103.19 + motion * 0.01)) * width;
+    const radius = fract(p.sin(id * depth * p.TWO_PI + 103.19)) * width;
     if (x < 0) {
       p.rect(0, 0, radius);
     } else {
@@ -292,8 +281,8 @@ const particleSketch = (p) => {
     if (maxDepth < d || sw >= mw) return;
     _draw(width, id, d);
 
-    const rot = fract(p.sin(id * d * p.TWO_PI * params.rotFreq + motion * 0.01)) * p.PI;
-    const r = fract(p.sin(id * d * p.TWO_PI * params.radFreq + motion * 0.01)) + 0.2;
+    const rot = fract(p.sin(id * d * p.TWO_PI * params.rotFreq)) * p.PI;
+    const r = fract(p.sin(id * d * p.TWO_PI * params.radFreq)) + 0.2;
     const ox = width * r;
 
     p.push();
@@ -323,6 +312,8 @@ const particleSketch = (p) => {
 
     p.push();
     p.translate(x, y);
+    // Move the whole composition as one unit instead of morphing internals.
+    p.rotate(motion * 0.02);
     for (let a = 0; a < p.TWO_PI - 1e-3; a += p.TWO_PI / n) {
       p.push();
       p.rotate(a);
@@ -338,10 +329,14 @@ const particleSketch = (p) => {
   }
 
   p.mouseWheel = (event) => {
+    // Let normal trackpad/page scrolling work.
+    // Only zoom with a modifier key while hovering canvas.
+    if (!event.shiftKey) return true;
+
     const zoomEl = byId('pr-zoom');
     if (!zoomEl) return;
     const current = parseInt(zoomEl.value, 10);
-    const next = event.deltaY < 0 ? current + 5 : current - 5;
+    const next = event.deltaY < 0 ? current + 25 : current - 25;
     const min = parseInt(zoomEl.min, 10);
     const max = parseInt(zoomEl.max, 10);
     zoomEl.value = String(Math.max(min, Math.min(max, next)));
