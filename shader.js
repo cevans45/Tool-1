@@ -22,12 +22,10 @@ const params = {
   ringAmt: 0.55,
   contrast: 1.2,
   vignette: 2.6,
-  dotsEnabled: false,
-  dotsDensity: 120.0,
-  dotsScale: 0.018,
-  dotsSpeed: 0.010,
-  dotsRadius: 0.24,
-  dotsOpacity: 0.45,
+  cellularity: 0.8,
+  cellDensity: 120.0,
+  cellSoftness: 0.14,
+  cellShift: 0.3,
   hueShift: 0.0,
   paletteSpread: 1.0,
   saturation: 1.0,
@@ -66,12 +64,10 @@ const frag = `
   uniform float u_ring;
   uniform float u_contrast;
   uniform float u_vignette;
-  uniform float u_dots_enabled;
-  uniform float u_dots_density;
-  uniform float u_dots_scale;
-  uniform float u_dots_speed;
-  uniform float u_dots_radius;
-  uniform float u_dots_opacity;
+  uniform float u_cellularity;
+  uniform float u_cell_density;
+  uniform float u_cell_softness;
+  uniform float u_cell_shift;
   uniform float u_hue_shift;
   uniform float u_palette_spread;
   uniform float u_saturation;
@@ -90,47 +86,6 @@ const frag = `
     p = fract(p * vec2(123.34, 456.21));
     p += dot(p, p + 45.32);
     return fract(p.x * p.y);
-  }
-
-  float hash31(vec3 p) {
-    p = fract(p * vec3(0.1031, 0.1030, 0.0973));
-    p += dot(p, p.yzx + 33.33);
-    return fract((p.x + p.y) * p.z);
-  }
-
-  float noise3(vec3 x) {
-    vec3 i = floor(x);
-    vec3 f = fract(x);
-    f = f * f * (3.0 - 2.0 * f);
-    float n000 = hash31(i + vec3(0.0, 0.0, 0.0));
-    float n100 = hash31(i + vec3(1.0, 0.0, 0.0));
-    float n010 = hash31(i + vec3(0.0, 1.0, 0.0));
-    float n110 = hash31(i + vec3(1.0, 1.0, 0.0));
-    float n001 = hash31(i + vec3(0.0, 0.0, 1.0));
-    float n101 = hash31(i + vec3(1.0, 0.0, 1.0));
-    float n011 = hash31(i + vec3(0.0, 1.0, 1.0));
-    float n111 = hash31(i + vec3(1.0, 1.0, 1.0));
-    float nx00 = mix(n000, n100, f.x);
-    float nx10 = mix(n010, n110, f.x);
-    float nx01 = mix(n001, n101, f.x);
-    float nx11 = mix(n011, n111, f.x);
-    float nxy0 = mix(nx00, nx10, f.y);
-    float nxy1 = mix(nx01, nx11, f.y);
-    return mix(nxy0, nxy1, f.z);
-  }
-
-  vec3 dotPalette(float v) {
-    vec3 white = vec3(0.98);
-    vec3 black = vec3(0.05);
-    vec3 blue = vec3(0.11, 0.27, 0.45);
-    vec3 red = vec3(0.92, 0.09, 0.10);
-
-    if (v < 0.22) return white;
-    if (v < 0.34) return red;
-    if (v < 0.52) return white;
-    if (v < 0.66) return blue;
-    if (v < 0.82) return black;
-    return white;
   }
 
   vec2 fold(vec2 p, float n) {
@@ -174,7 +129,14 @@ const frag = `
     float ring = smoothstep(0.28, 0.0, abs(fract(r * 4.0 - t * u_pulse) - 0.5));
 
     float grain = hash21(floor((p + 2.0) * 90.0) + u_seed * 0.13) * u_grain;
-    float mixV = weave * u_weave + star * u_star + ring * u_ring + grain;
+
+    // Dot/cell modulation integrated into the same texture field.
+    vec2 cellUv = fract((w + 2.0 + vec2(u_cell_shift)) * u_cell_density) - 0.5;
+    float cellDist = length(cellUv);
+    float cellRadius = 0.42 * (0.6 + 0.4 * sin(t + r * 4.0));
+    float cell = smoothstep(cellRadius, max(0.0, cellRadius - u_cell_softness), cellDist);
+
+    float mixV = weave * u_weave + star * u_star + ring * u_ring + grain + cell * u_cellularity;
 
     vec3 colA = palette(t * 0.08 + r * 0.65 + u_seed * 0.01);
     vec3 colB = palette(0.35 + a * 0.20 - t * 0.04 + u_seed * 0.02);
@@ -183,31 +145,6 @@ const frag = `
     mixV = pow(max(mixV, 0.0), u_contrast);
     float vignette = smoothstep(u_vignette, 0.15, r);
     color *= (0.22 + 1.25 * mixV) * vignette * u_brightness;
-
-    // Optional living-dot layer inspired by Rorschach cells.
-    if (u_dots_enabled > 0.5) {
-      vec2 q = p;
-      float ca = cos(-2.35619449); // -3*PI/4
-      float sa = sin(-2.35619449);
-      q = vec2(q.x * ca - q.y * sa, q.x * sa + q.y * ca);
-
-      // Mirror around vertical axis to reinforce bilateral feel.
-      q.x = abs(q.x);
-
-      float n = noise3(vec3(q * u_dots_scale * 100.0, u_time * u_dots_speed * 100.0 + u_seed * 0.07));
-      vec3 dc = dotPalette(n);
-
-      // Radius fades near color transitions to mimic "cell breakups".
-      float interval = fract(n * 8.0);
-      float radiusScale = 1.0 - abs(interval * 2.0 - 1.0);
-      float rad = u_dots_radius * radiusScale;
-
-      vec2 gv = fract((q + 2.0) * u_dots_density) - 0.5;
-      float d = length(gv);
-      float dotMask = smoothstep(rad, max(0.0, rad - 0.08), d);
-
-      color = mix(color, dc, dotMask * u_dots_opacity);
-    }
 
     float luma = dot(color, vec3(0.299, 0.587, 0.114));
     color = mix(vec3(luma), color, u_saturation);
@@ -290,12 +227,10 @@ function draw() {
   theShader.setUniform('u_ring', params.ringAmt);
   theShader.setUniform('u_contrast', params.contrast);
   theShader.setUniform('u_vignette', params.vignette);
-  theShader.setUniform('u_dots_enabled', params.dotsEnabled ? 1.0 : 0.0);
-  theShader.setUniform('u_dots_density', params.dotsDensity);
-  theShader.setUniform('u_dots_scale', params.dotsScale);
-  theShader.setUniform('u_dots_speed', params.dotsSpeed);
-  theShader.setUniform('u_dots_radius', params.dotsRadius);
-  theShader.setUniform('u_dots_opacity', params.dotsOpacity);
+  theShader.setUniform('u_cellularity', params.cellularity);
+  theShader.setUniform('u_cell_density', params.cellDensity);
+  theShader.setUniform('u_cell_softness', params.cellSoftness);
+  theShader.setUniform('u_cell_shift', params.cellShift);
   theShader.setUniform('u_hue_shift', params.hueShift);
   theShader.setUniform('u_palette_spread', params.paletteSpread);
   theShader.setUniform('u_saturation', params.saturation);
@@ -404,25 +339,21 @@ function bindControls() {
     params.vignette = parseInt(v, 10) / 100;
     return params.vignette.toFixed(2);
   });
-  bindRange('sh-dots-density', 'val-sh-dots-density', (v) => {
-    params.dotsDensity = parseFloat(v);
+  bindRange('sh-cellularity', 'val-sh-cellularity', (v) => {
+    params.cellularity = parseInt(v, 10) / 100;
+    return params.cellularity.toFixed(2);
+  });
+  bindRange('sh-cell-density', 'val-sh-cell-density', (v) => {
+    params.cellDensity = parseFloat(v);
     return String(v);
   });
-  bindRange('sh-dots-scale', 'val-sh-dots-scale', (v) => {
-    params.dotsScale = parseInt(v, 10) / 1000;
-    return params.dotsScale.toFixed(3);
+  bindRange('sh-cell-softness', 'val-sh-cell-softness', (v) => {
+    params.cellSoftness = parseInt(v, 10) / 100;
+    return params.cellSoftness.toFixed(2);
   });
-  bindRange('sh-dots-speed', 'val-sh-dots-speed', (v) => {
-    params.dotsSpeed = parseInt(v, 10) / 1000;
-    return params.dotsSpeed.toFixed(3);
-  });
-  bindRange('sh-dots-radius', 'val-sh-dots-radius', (v) => {
-    params.dotsRadius = parseInt(v, 10) / 100;
-    return params.dotsRadius.toFixed(2);
-  });
-  bindRange('sh-dots-opacity', 'val-sh-dots-opacity', (v) => {
-    params.dotsOpacity = parseInt(v, 10) / 100;
-    return params.dotsOpacity.toFixed(2);
+  bindRange('sh-cell-shift', 'val-sh-cell-shift', (v) => {
+    params.cellShift = parseInt(v, 10) / 100;
+    return params.cellShift.toFixed(2);
   });
   bindRange('sh-hue', 'val-sh-hue', (v) => {
     params.hueShift = parseInt(v, 10) / 360;
@@ -457,12 +388,6 @@ function bindControls() {
   if (tint) {
     tint.addEventListener('input', () => {
       params.tintColor = hexToRgb01(tint.value);
-    });
-  }
-  const dotsEnable = document.getElementById('sh-dots-enable');
-  if (dotsEnable) {
-    dotsEnable.addEventListener('change', () => {
-      params.dotsEnabled = !!dotsEnable.checked;
     });
   }
 }
