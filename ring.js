@@ -208,21 +208,38 @@ function directionVector(dir) {
 function drawMirroredCanvas() {
   background(orbitParams.bg);
   const m = constrain(orbitParams.mirror, 1, 5);
-  drawImageTransformed(sceneBuffer, false, false, 0);
-  if (m >= 2) drawImageTransformed(sceneBuffer, true, false, 0);
-  if (m >= 3) drawImageTransformed(sceneBuffer, false, true, 0);
-  if (m >= 4) drawImageTransformed(sceneBuffer, true, true, 0);
-  if (m >= 5) drawImageTransformed(sceneBuffer, true, false, HALF_PI);
-}
+  if (m <= 1) {
+    imageMode(CORNER);
+    image(sceneBuffer, 0, 0, width, height);
+    return;
+  }
 
-function drawImageTransformed(img, flipX, flipY, rotateBy) {
-  push();
-  translate(width / 2, height / 2);
-  rotate(rotateBy);
-  scale(flipX ? -1 : 1, flipY ? -1 : 1);
-  imageMode(CENTER);
-  image(img, 0, 0, width, height);
-  pop();
+  // Kaleidoscope-style mirroring: split into radial wedges and
+  // alternate horizontal flips per wedge.
+  const wedges = m * 2;
+  const wedgeAngle = TWO_PI / wedges;
+  const radius = Math.sqrt(width * width + height * height);
+
+  for (let i = 0; i < wedges; i++) {
+    const ctx = drawingContext;
+    ctx.save();
+    push();
+    translate(width / 2, height / 2);
+    rotate(i * wedgeAngle);
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(radius * Math.cos(-wedgeAngle / 2), radius * Math.sin(-wedgeAngle / 2));
+    ctx.lineTo(radius * Math.cos(wedgeAngle / 2), radius * Math.sin(wedgeAngle / 2));
+    ctx.closePath();
+    ctx.clip();
+
+    if (i % 2 === 1) scale(-1, 1);
+    imageMode(CENTER);
+    image(sceneBuffer, 0, 0, width, height);
+    pop();
+    ctx.restore();
+  }
 }
 
 function drawShapeAt(g, x, y, rot, shape, size, colorHex) {
