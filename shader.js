@@ -123,10 +123,20 @@ const frag = `
 
     float stripeA = sin((a * u_stripes + t * 1.5) + w.x * 3.0);
     float stripeB = cos((r * (u_stripes * 1.6) - t * 2.1) + w.y * 2.6);
-    float weave = smoothstep(-0.12, 0.12, stripeA * stripeB);
+    float weave = smoothstep(-0.22, 0.22, stripeA * stripeB);
 
     float star = smoothstep(0.25, 0.0, abs(sin(a * (numMirrors + 1.0) + r * 6.0 - t * 1.3)));
     float ring = smoothstep(0.28, 0.0, abs(fract(r * 4.0 - t * u_pulse) - 0.5));
+
+    // Recursive mass field to avoid "lines-only" output.
+    vec2 q = w;
+    float mass = 0.0;
+    vec2 shift = vec2(0.78 + 0.08 * sin(t + u_seed * 0.03), 0.86 + 0.09 * cos(t * 0.9 + u_seed * 0.02));
+    for (int i = 0; i < 4; i++) {
+      q = abs(q) / max(dot(q, q), 0.08) - shift;
+      mass += exp(-2.2 * length(q));
+    }
+    mass = clamp(mass / 2.8, 0.0, 1.0);
 
     // Two grain bands: structural grain in the field + screen-space film grain.
     float fieldGrain = (hash21(floor((p + 2.0) * 90.0) + u_seed * 0.13) - 0.5) * u_grain;
@@ -138,13 +148,13 @@ const frag = `
     float cellRadius = 0.42 * (0.6 + 0.4 * sin(t + r * 4.0));
     float cell = smoothstep(cellRadius, max(0.0, cellRadius - u_cell_softness), cellDist);
 
-    float mixV = weave * u_weave + star * u_star + ring * u_ring + fieldGrain * 0.35 + cell * u_cellularity;
+    float mixV = mass * 0.9 + weave * u_weave + star * u_star + ring * u_ring + fieldGrain * 0.35 + cell * u_cellularity;
 
     vec3 colA = palette(t * 0.08 + r * 0.65 + u_seed * 0.01);
     vec3 colB = palette(0.35 + a * 0.20 - t * 0.04 + u_seed * 0.02);
     vec3 color = mix(colA, colB, clamp(mixV, 0.0, 1.0));
 
-    mixV = pow(max(mixV, 0.0), u_contrast);
+    mixV = pow(clamp(mixV, 0.0, 1.6), u_contrast);
     float vignette = smoothstep(u_vignette, 0.15, r);
     color *= (0.22 + 1.25 * mixV) * vignette * u_brightness;
     color += vec3(filmGrain * 0.28);
