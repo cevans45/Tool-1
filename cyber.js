@@ -6,7 +6,7 @@ let isPreview = false;
 
 const params = {
   seed: 0,
-  gridCount: 170, // Repurposed as optional texture density.
+  textureAmount: 22, // 0..100 optional texture overlay
   curveCount: 7,
   curveSamples: 110,
   influenceRadius: 20,
@@ -14,13 +14,13 @@ const params = {
   blurPasses: 62,
   blurStrength: 0.18,
   prunePasses: 7,
-  branchChance: 0.22,
+  branchChance: 0.35,
   strokeW: 6,
   taper: 0.68,
-  fillAmount: 0.58,
+  fillAmount: 0.72,
   drawMode: true,
   mirrorX: true,
-  mirrorY: false,
+  mirrorY: true,
   bg: '#e7e7e7',
   ink: '#000000'
 };
@@ -28,7 +28,7 @@ const params = {
 function setup() {
   isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
   if (isPreview) {
-    params.gridCount = 120;
+    params.textureAmount = 10;
     params.curveCount = 5;
     params.blurPasses = 28;
     params.strokeW = 3;
@@ -324,13 +324,63 @@ function drawPaths() {
     }
   }
 
+  drawSpikes();
   drawInteriorFill();
 }
 
+function drawSpikes() {
+  const sourcePaths = getRenderablePaths();
+  const cx = width * 0.5;
+  const cy = height * 0.5;
+  noStroke();
+  fill(params.ink);
+
+  for (const path of sourcePaths) {
+    if (path.length < 8) continue;
+    const step = max(3, floor(map(params.branchChance, 0, 1, 16, 5)));
+    for (let i = step; i < path.length - step; i += step) {
+      if (random() > (0.16 + params.branchChance * 0.54)) continue;
+
+      const p = path[i];
+      const prev = path[i - 1];
+      const next = path[i + 1];
+      const tan = p5.Vector.sub(next, prev);
+      if (tan.magSq() < 1e-4) continue;
+      tan.normalize();
+      const normal = createVector(-tan.y, tan.x);
+
+      const centerDir = createVector(p.x - cx, p.y - cy);
+      const outward = centerDir.dot(normal) >= 0 ? 1 : -1;
+      const density = localPointDensity(p);
+      const len = (params.influenceRadius * (0.5 + params.fillAmount * 1.7)) * (0.5 + density * 0.9);
+      const baseW = ((p.sw != null ? p.sw : params.strokeW) * (0.26 + params.fillAmount * 0.2));
+
+      const tip = createVector(
+        p.x + normal.x * outward * len,
+        p.y + normal.y * outward * len
+      );
+      const left = createVector(
+        p.x + tan.x * baseW,
+        p.y + tan.y * baseW
+      );
+      const right = createVector(
+        p.x - tan.x * baseW,
+        p.y - tan.y * baseW
+      );
+
+      beginShape();
+      vertex(left.x, left.y);
+      vertex(tip.x, tip.y);
+      vertex(right.x, right.y);
+      endShape(CLOSE);
+    }
+  }
+}
+
 function drawGridTexture() {
-  const density = constrain(params.gridCount, 80, 260);
-  const step = map(density, 80, 260, 22, 6);
-  const alphaBase = map(density, 80, 260, 0, 42);
+  const amount = constrain(params.textureAmount, 0, 100);
+  const step = map(amount, 0, 100, 18, 5);
+  const alphaBase = map(amount, 0, 100, 0, 95);
   if (alphaBase < 1) return;
 
   const baseInk = color(params.ink);
@@ -339,11 +389,12 @@ function drawGridTexture() {
   for (let y = 0; y <= height; y += step) {
     for (let x = 0; x <= width; x += step) {
       const n = pointNearPaths(createVector(x, y));
-      if (n < params.threshold * 0.55) continue;
+      if (n < 0.12) continue;
       if (((floor(x / step) + floor(y / step)) & 1) === 0) {
-        point(x, y);
-      } else {
         line(x - 1, y, x + 1, y);
+        line(x, y - 1, x, y + 1);
+      } else {
+        point(x, y);
       }
     }
   }
@@ -459,8 +510,8 @@ function bindControls() {
   }
 
   bindRange('cs-grid', 'val-cs-grid', (v) => {
-    params.gridCount = parseInt(v, 10);
-    return String(params.gridCount);
+    params.textureAmount = parseInt(v, 10);
+    return `${params.textureAmount}%`;
   });
   bindRange('cs-curves', 'val-cs-curves', (v) => {
     params.curveCount = parseInt(v, 10);
