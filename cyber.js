@@ -439,8 +439,9 @@ function rebuildGridSystemFromPaths(sourcePaths) {
     pruneDanglingEdgesLegacy();
   }
 
-  const blurMax = floor(map(k, 0, 1, 8, 80));
-  const blurAmt = max(0.08, params.blurStrength * 0.85);
+  // Keep texture structure crisp; avoid muddy blur.
+  const blurMax = floor(map(k, 0, 1, 0, 18));
+  const blurAmt = max(0.02, params.blurStrength * 0.35);
   while (blurs < blurMax) {
     blurGridLegacy(grid, nearPoint, blurAmt);
     blurs++;
@@ -697,13 +698,29 @@ function bindControls() {
     if (el) el.textContent = txt;
   };
 
-  const requestUpdate = () => {
+  let updateTimer = null;
+  const runUpdate = () => {
     if (params.drawMode) {
       buildCurveHashFromPaths(getRenderablePaths());
       redraw();
     } else {
       regenerate();
     }
+  };
+  const requestUpdate = (immediate = false) => {
+    if (immediate) {
+      if (updateTimer) {
+        clearTimeout(updateTimer);
+        updateTimer = null;
+      }
+      runUpdate();
+      return;
+    }
+    if (updateTimer) clearTimeout(updateTimer);
+    updateTimer = setTimeout(() => {
+      updateTimer = null;
+      runUpdate();
+    }, 50);
   };
 
   const bindRange = (id, valueId, cb) => {
@@ -712,9 +729,10 @@ function bindControls() {
     const apply = () => {
       const txt = cb(el.value);
       if (valueId) setValue(valueId, txt);
-      requestUpdate();
+      requestUpdate(false);
     };
     el.addEventListener('input', apply);
+    el.addEventListener('change', () => requestUpdate(true));
   };
 
   const bindCheck = (id, cb) => {
@@ -722,7 +740,7 @@ function bindControls() {
     if (!el) return;
     el.addEventListener('change', () => {
       cb(el.checked);
-      requestUpdate();
+      requestUpdate(true);
     });
   };
 
@@ -730,18 +748,18 @@ function bindControls() {
   if (seedEl) {
     seedEl.addEventListener('input', () => {
       params.seed = parseInt(seedEl.value || '0', 10) || 0;
-      requestUpdate();
+      requestUpdate(true);
     });
   }
   const seedBtn = byId('cs-random-seed');
   if (seedBtn) {
     seedBtn.addEventListener('click', () => {
       randomizeSeed();
-      requestUpdate();
+      requestUpdate(true);
     });
   }
   const regenBtn = byId('cs-regenerate');
-  if (regenBtn) regenBtn.addEventListener('click', requestUpdate);
+  if (regenBtn) regenBtn.addEventListener('click', () => requestUpdate(true));
 
   const drawModeEl = byId('cs-draw-mode');
   if (drawModeEl) {
@@ -749,7 +767,7 @@ function bindControls() {
     drawModeEl.addEventListener('change', () => {
       params.drawMode = !!drawModeEl.checked;
       if (!params.drawMode && paths.length === 0) regenerate();
-      requestUpdate();
+      requestUpdate(true);
     });
   }
   const clearBtn = byId('cs-clear');
@@ -757,7 +775,7 @@ function bindControls() {
     clearBtn.addEventListener('click', () => {
       drawnPaths = [];
       activeStroke = null;
-      requestUpdate();
+      requestUpdate(true);
     });
   }
 
@@ -766,7 +784,7 @@ function bindControls() {
     textureModeEl.value = params.textureMode;
     textureModeEl.addEventListener('change', () => {
       params.textureMode = textureModeEl.value;
-      requestUpdate();
+      requestUpdate(true);
     });
   }
   bindRange('cs-texture-strength', 'val-cs-texture-strength', (v) => {
@@ -867,8 +885,9 @@ function mousePressed() {
 }
 
 function mouseDragged() {
-  if (!params.drawMode || !activeStroke) return false;
-  if (!isInsideCanvas(mouseX, mouseY)) return false;
+  // Do not cancel browser default when dragging UI sliders.
+  if (!params.drawMode || !activeStroke) return;
+  if (!isInsideCanvas(mouseX, mouseY)) return;
   const last = activeStroke[activeStroke.length - 1];
   if (!last || dist(last.x, last.y, mouseX, mouseY) >= 1.8) {
     const d = last ? dist(last.x, last.y, mouseX, mouseY) : 0;
