@@ -781,6 +781,43 @@ function bindControls() {
       requestUpdate(true);
     });
   };
+  const updateTextureModeUI = () => {
+    const mode = params.textureMode;
+    const rowStrength = byId('row-cs-texture-strength');
+    const rowDensity = byId('row-cs-texture-density');
+    const rowSize = byId('row-cs-texture-size');
+    const rowOpacity = byId('row-cs-texture-opacity');
+    const rowJitter = byId('row-cs-texture-jitter');
+
+    const setRow = (row, visible) => {
+      if (!row) return;
+      row.style.display = visible ? 'flex' : 'none';
+    };
+
+    if (mode === 'none') {
+      setRow(rowStrength, false);
+      setRow(rowDensity, false);
+      setRow(rowSize, false);
+      setRow(rowOpacity, false);
+      setRow(rowJitter, false);
+      return;
+    }
+
+    // Default: show all controls unless mode has no use.
+    setRow(rowStrength, true);
+    setRow(rowDensity, true);
+    setRow(rowSize, true);
+    setRow(rowOpacity, true);
+    setRow(rowJitter, true);
+
+    if (mode === 'grid') {
+      // Grid already has strong structure; jitter is less useful.
+      setRow(rowJitter, false);
+    } else if (mode === 'grain') {
+      // Grain always uses jitter/spread.
+      setRow(rowDensity, true);
+    }
+  };
   const updateStrokeUI = () => {
     const enabled = !!params.strokeEnabled;
     const strokeEl = byId('cs-stroke');
@@ -837,6 +874,7 @@ function bindControls() {
     textureModeEl.value = params.textureMode;
     textureModeEl.addEventListener('change', () => {
       params.textureMode = textureModeEl.value;
+      updateTextureModeUI();
       requestUpdate(true);
     });
   }
@@ -860,6 +898,7 @@ function bindControls() {
     params.textureJitter = parseInt(v, 10) / 100;
     return params.textureJitter.toFixed(2);
   });
+  updateTextureModeUI();
   bindRange('cs-curves', 'val-cs-curves', (v) => {
     params.curveCount = parseInt(v, 10);
     return String(params.curveCount);
