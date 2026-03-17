@@ -81,6 +81,7 @@ const frag = `
   uniform float u_saturation;
   uniform vec3 u_tint_color;
   uniform float u_tint_amount;
+  uniform float u_grain_seed;
 
   vec3 palette(float t) {
     vec3 a = vec3(0.56, 0.52, 0.48);
@@ -273,6 +274,7 @@ function draw() {
   theShader.setUniform('u_saturation', params.saturation);
   theShader.setUniform('u_tint_color', params.tintColor);
   theShader.setUniform('u_tint_amount', params.tintAmount);
+  theShader.setUniform('u_grain_seed', params.grainSeed);
 
   quad(-1, -1, 1, -1, 1, 1, -1, 1);
 }
