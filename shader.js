@@ -2,8 +2,8 @@ let theShader;
 
 const params = {
   cycleDuration: 78.5,
-  blackHold: 1.0,
-  fadeIn: 15.0,
+  blackHold: 0.0,
+  fadeIn: 2.0,
   fadeOut: 5.0,
   zoomMin: 0.1,
   zoomMax: 3.0,
@@ -14,7 +14,7 @@ const params = {
   rotationMaxDeg: 90.0,
   brightness: 0.8,
   warp: 1.2,
-  stripes: 8.0,
+  stripes: 5.0,
   pulse: 0.9,
   grain: 0.06,
   weaveAmt: 0.65,
@@ -169,7 +169,6 @@ const frag = `
     mixV = pow(clamp(mixV, 0.0, 1.6), u_contrast);
     float vignette = smoothstep(u_vignette, 0.15, r);
     color *= (0.22 + 1.25 * mixV) * vignette * u_brightness;
-    color += vec3(filmGrain * 0.9);
 
     float luma = dot(color, vec3(0.299, 0.587, 0.114));
     color = mix(vec3(luma), color, u_saturation);
