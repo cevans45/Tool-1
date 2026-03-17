@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recursive composer — OVRT</title>
+    <title>Shape orbits — OVRT</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 </head>
@@ -11,7 +11,7 @@
     <div class="site-shell">
         <header class="tool-header">
             <a href="index.html" class="back-link">← Back to OVRT</a>
-            <span class="tool-title">Recursive composer</span>
+            <span class="tool-title">Shape orbits</span>
         </header>
         <div class="app" aria-label="Shape orbits">
             <div id="orbit-canvas"></div>
@@ -21,18 +21,11 @@
                 </header>
                 <div class="panel-body">
                     <section class="control-section">
-                        <h3>Composition</h3>
+                        <h3>Layout</h3>
                         <div class="control-row">
-                            <label for="orbit-distribution">System</label>
-                            <select id="orbit-distribution" class="select-input">
-                                <option value="tone" selected>Tone blend</option>
-                                <option value="exact">Exact count</option>
-                            </select>
-                        </div>
-                        <div class="control-row">
-                            <label for="orbit-total">Total</label>
-                            <input type="range" id="orbit-total" min="3" max="180" value="72" step="1">
-                            <span class="param-value" id="value-orbit-total">72</span>
+                            <label for="orbit-count">Shapes</label>
+                            <input type="range" id="orbit-count" min="1" max="80" value="24" step="1">
+                            <span class="param-value" id="value-orbit-count">24</span>
                         </div>
                         <div class="control-row">
                             <label for="orbit-scale">Canvas scale</label>
@@ -59,96 +52,33 @@
                                 <option value="vertical">Vertical</option>
                                 <option value="diagonal">Diagonal</option>
                                 <option value="orbit" selected>Orbit</option>
-                                <option value="chaos">Every way</option>
+                                <option value="mixed">Mixed</option>
                             </select>
                         </div>
                     </section>
                     <section class="control-section">
-                        <h3>Circle</h3>
-                        <div class="control-row" id="row-tone-circle">
-                            <label for="tone-circle">Tone</label>
-                            <input type="range" id="tone-circle" min="0" max="100" value="50" step="1">
-                            <span class="param-value" id="value-tone-circle">50</span>
-                        </div>
-                        <div class="control-row" id="row-count-circle">
-                            <label for="count-circle">Count</label>
-                            <input type="range" id="count-circle" min="0" max="120" value="24" step="1">
-                            <span class="param-value" id="value-count-circle">24</span>
+                        <h3>Shapes & color</h3>
+                        <div class="control-row">
+                            <label for="orbit-shape">Shape</label>
+                            <select id="orbit-shape" class="select-input">
+                                <option value="circle" selected>Circles</option>
+                                <option value="square">Squares</option>
+                                <option value="triangle">Triangles</option>
+                                <option value="mixed">Mixed</option>
+                            </select>
                         </div>
                         <div class="control-row">
-                            <label for="size-circle">Size</label>
-                            <input type="range" id="size-circle" min="4" max="180" value="28" step="1">
-                            <span class="param-value" id="value-size-circle">28</span>
+                            <label for="orbit-size">Size</label>
+                            <input type="range" id="orbit-size" min="4" max="40" value="20" step="2">
+                            <span class="param-value" id="value-orbit-size">20</span>
                         </div>
-                        <div class="control-row">
-                            <label for="speed-circle">Speed</label>
-                            <input type="range" id="speed-circle" min="5" max="220" value="60" step="1">
-                            <span class="param-value" id="value-speed-circle">60</span>
-                        </div>
-                        <div class="control-row color-row">
-                            <label for="color-circle">Color</label>
-                            <input type="color" id="color-circle" value="#ff2ca8">
-                        </div>
-                    </section>
-                    <section class="control-section">
-                        <h3>Square</h3>
-                        <div class="control-row" id="row-tone-square">
-                            <label for="tone-square">Tone</label>
-                            <input type="range" id="tone-square" min="0" max="100" value="30" step="1">
-                            <span class="param-value" id="value-tone-square">30</span>
-                        </div>
-                        <div class="control-row" id="row-count-square">
-                            <label for="count-square">Count</label>
-                            <input type="range" id="count-square" min="0" max="120" value="24" step="1">
-                            <span class="param-value" id="value-count-square">24</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="size-square">Size</label>
-                            <input type="range" id="size-square" min="4" max="180" value="24" step="1">
-                            <span class="param-value" id="value-size-square">24</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="speed-square">Speed</label>
-                            <input type="range" id="speed-square" min="5" max="220" value="52" step="1">
-                            <span class="param-value" id="value-speed-square">52</span>
-                        </div>
-                        <div class="control-row color-row">
-                            <label for="color-square">Color</label>
-                            <input type="color" id="color-square" value="#ffffff">
-                        </div>
-                    </section>
-                    <section class="control-section">
-                        <h3>Triangle</h3>
-                        <div class="control-row" id="row-tone-triangle">
-                            <label for="tone-triangle">Tone</label>
-                            <input type="range" id="tone-triangle" min="0" max="100" value="20" step="1">
-                            <span class="param-value" id="value-tone-triangle">20</span>
-                        </div>
-                        <div class="control-row" id="row-count-triangle">
-                            <label for="count-triangle">Count</label>
-                            <input type="range" id="count-triangle" min="0" max="120" value="24" step="1">
-                            <span class="param-value" id="value-count-triangle">24</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="size-triangle">Size</label>
-                            <input type="range" id="size-triangle" min="4" max="180" value="36" step="1">
-                            <span class="param-value" id="value-size-triangle">36</span>
-                        </div>
-                        <div class="control-row">
-                            <label for="speed-triangle">Speed</label>
-                            <input type="range" id="speed-triangle" min="5" max="220" value="66" step="1">
-                            <span class="param-value" id="value-speed-triangle">66</span>
-                        </div>
-                        <div class="control-row color-row">
-                            <label for="color-triangle">Color</label>
-                            <input type="color" id="color-triangle" value="#ff2ca8">
-                        </div>
-                    </section>
-                    <section class="control-section">
-                        <h3>Background</h3>
                         <div class="control-row color-row">
                             <label for="orbit-bg">Background</label>
                             <input type="color" id="orbit-bg" value="#f6f6f4">
+                        </div>
+                        <div class="control-row color-row">
+                            <label for="orbit-color">Shape</label>
+                            <input type="color" id="orbit-color" value="#111111">
                         </div>
                         <div class="control-row">
                             <label>Palette</label>
