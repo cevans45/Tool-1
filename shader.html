@@ -139,6 +139,67 @@
                             <input type="range" id="sh-vignette" min="20" max="400" value="260" step="1">
                             <span class="param-value" id="val-sh-vignette">2.60</span>
                         </div>
+                    </section>
+
+                    <section class="control-section">
+                        <h3>Dots effect</h3>
+                        <div class="control-row">
+                            <label for="sh-dots-enable">Enable dots</label>
+                            <input type="checkbox" id="sh-dots-enable">
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-dots-density">Density</label>
+                            <input type="range" id="sh-dots-density" min="10" max="260" value="120" step="1">
+                            <span class="param-value" id="val-sh-dots-density">120</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-dots-scale">Noise scale</label>
+                            <input type="range" id="sh-dots-scale" min="1" max="80" value="18" step="1">
+                            <span class="param-value" id="val-sh-dots-scale">0.018</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-dots-speed">Noise speed</label>
+                            <input type="range" id="sh-dots-speed" min="1" max="80" value="10" step="1">
+                            <span class="param-value" id="val-sh-dots-speed">0.010</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-dots-radius">Max radius</label>
+                            <input type="range" id="sh-dots-radius" min="1" max="60" value="24" step="1">
+                            <span class="param-value" id="val-sh-dots-radius">0.24</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-dots-opacity">Dot opacity</label>
+                            <input type="range" id="sh-dots-opacity" min="0" max="100" value="45" step="1">
+                            <span class="param-value" id="val-sh-dots-opacity">0.45</span>
+                        </div>
+                    </section>
+
+                    <section class="control-section">
+                        <h3>Color tuning</h3>
+                        <div class="control-row">
+                            <label for="sh-hue">Hue shift</label>
+                            <input type="range" id="sh-hue" min="0" max="360" value="0" step="1">
+                            <span class="param-value" id="val-sh-hue">0°</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-spread">Palette spread</label>
+                            <input type="range" id="sh-spread" min="20" max="200" value="100" step="1">
+                            <span class="param-value" id="val-sh-spread">1.00</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-sat">Saturation</label>
+                            <input type="range" id="sh-sat" min="0" max="200" value="100" step="1">
+                            <span class="param-value" id="val-sh-sat">1.00</span>
+                        </div>
+                        <div class="control-row color-row">
+                            <label for="sh-tint-color">Tint color</label>
+                            <input type="color" id="sh-tint-color" value="#ff2aa1">
+                        </div>
+                        <div class="control-row">
+                            <label for="sh-tint">Tint amount</label>
+                            <input type="range" id="sh-tint" min="0" max="100" value="0" step="1">
+                            <span class="param-value" id="val-sh-tint">0.00</span>
+                        </div>
                         <div class="control-row">
                             <label for="sh-lock-seed">Lock seed</label>
                             <input type="checkbox" id="sh-lock-seed">

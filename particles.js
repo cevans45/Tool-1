@@ -3,6 +3,7 @@
 const particleSketch = (p) => {
   let minWidth;
   let motion = 0;
+  let seedPhase = 0;
 
   const params = {
     seed: 123456,
@@ -199,6 +200,9 @@ const particleSketch = (p) => {
     const canvas = p.createCanvas(w, w);
     if (container) canvas.parent('particle-canvas');
     minWidth = p.min(p.width, p.height);
+    params.seed = Math.floor(Math.random() * 1_000_000_000);
+    const seedEl = byId('pr-seed');
+    if (seedEl) seedEl.value = String(params.seed);
     p.noLoop();
     applyUI();
     bindControls();
@@ -216,6 +220,7 @@ const particleSketch = (p) => {
 
   p.draw = () => {
     p.randomSeed(params.seed);
+    seedPhase = fract(Math.sin(params.seed * 0.017 + 1.23) * 43758.5453);
     p.blendMode(p.BLEND);
     p.background(params.bg);
     p.colorMode(p.HSB, 360, 100, 100, 1);
@@ -237,8 +242,8 @@ const particleSketch = (p) => {
   }
 
   function drawNode(width, id, depth) {
-    const x = p.sin(id * depth * 333.2 + motion * 0.05);
-    const y = p.sin(id * depth * 531.1 + motion * 0.08);
+    const x = p.sin(id * depth * 333.2 + motion * 0.05 + seedPhase * 5.0);
+    const y = p.sin(id * depth * 531.1 + motion * 0.08 + seedPhase * 7.0);
     const sourceHue = ((p.int(palette(params.pa, params.pb, params.pc, params.pd, x) * 360 + 720) % 360) + 360) % 360;
     const t = sourceHue / 360;
 
@@ -268,7 +273,7 @@ const particleSketch = (p) => {
       p.stroke(hue, params.saturation, bright, params.alpha);
     }
 
-    const radius = fract(p.sin(id * depth * p.TWO_PI + 103.19 + motion * 0.01)) * width;
+    const radius = fract(p.sin(id * depth * p.TWO_PI + 103.19 + motion * 0.01 + seedPhase * 3.0)) * width;
     if (x < 0) p.rect(0, 0, radius, radius);
     else p.circle(0, 0, radius);
   }
@@ -277,8 +282,8 @@ const particleSketch = (p) => {
     if (maxDepth < d || sw >= mw) return;
     drawNode(width, id, d);
 
-    const rot = fract(p.sin(id * d * p.TWO_PI * params.rotFreq + motion * 0.01)) * p.PI;
-    const r = fract(p.sin(id * d * p.TWO_PI * params.radFreq + motion * 0.01)) + 0.2;
+    const rot = fract(p.sin(id * d * p.TWO_PI * params.rotFreq + motion * 0.01 + seedPhase)) * p.PI;
+    const r = fract(p.sin(id * d * p.TWO_PI * params.radFreq + motion * 0.01 + seedPhase * 1.7)) + 0.2;
     const ox = width * r;
 
     p.push();
@@ -303,7 +308,7 @@ const particleSketch = (p) => {
   function pattern(x, y, width) {
     const n = Math.max(2, params.branches);
     const maxDepth = Math.max(1, params.depth);
-    const id = params.idValue;
+    const id = params.idValue + seedPhase;
     const r = Math.max(0.01, params.radius);
 
     p.push();

@@ -30,6 +30,7 @@ function setup() {
   sceneBuffer.noStroke();
 
   bindControls();
+  randomizeOnLoad();
   resizePosterCanvas();
 }
 
@@ -123,6 +124,12 @@ function bindControls() {
   updateShapeSectionState();
 }
 
+function randomizeOnLoad() {
+  orbitParams.seed = Math.floor(Math.random() * 1_000_000_000);
+  const seedEl = document.getElementById('orbit-seed');
+  if (seedEl) seedEl.value = String(orbitParams.seed);
+}
+
 function bindInput(id, onChange) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -184,8 +191,9 @@ function drawSceneToBuffer(t) {
 
 function shapePoint(shapeDef, index, t) {
   const speed = shapeDef.speed / 100;
-  const r = shapeDef.radius;
-  const phase = shapeDef.phase + index * 1.77;
+  const seedOffset = seeded01(index + 1) * TWO_PI;
+  const r = shapeDef.radius * (0.85 + 0.3 * seeded01(index + 9));
+  const phase = shapeDef.phase + index * 1.77 + seedOffset;
   const tt = t * speed + phase;
   let x = width / 2;
   let y = height / 2;
@@ -199,6 +207,11 @@ function shapePoint(shapeDef, index, t) {
     y = height / 2 + vec.y * sin(tt) * r;
   }
   return { x, y };
+}
+
+function seeded01(n) {
+  const v = Math.sin((orbitParams.seed + n * 97.13) * 12.9898) * 43758.5453;
+  return v - Math.floor(v);
 }
 
 function directionVector(dir) {

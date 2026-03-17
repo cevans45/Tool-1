@@ -22,6 +22,18 @@ const params = {
   ringAmt: 0.55,
   contrast: 1.2,
   vignette: 2.6,
+  dotsEnabled: false,
+  dotsDensity: 120.0,
+  dotsScale: 0.018,
+  dotsSpeed: 0.010,
+  dotsRadius: 0.24,
+  dotsOpacity: 0.45,
+  hueShift: 0.0,
+  paletteSpread: 1.0,
+  saturation: 1.0,
+  tintAmount: 0.0,
+  tintColor: [1.0, 0.1647, 0.6314],
+  baseSeed: 0.0,
   lockSeed: false,
   fixedSeed: 0.0,
 };
@@ -54,19 +66,71 @@ const frag = `
   uniform float u_ring;
   uniform float u_contrast;
   uniform float u_vignette;
+  uniform float u_dots_enabled;
+  uniform float u_dots_density;
+  uniform float u_dots_scale;
+  uniform float u_dots_speed;
+  uniform float u_dots_radius;
+  uniform float u_dots_opacity;
+  uniform float u_hue_shift;
+  uniform float u_palette_spread;
+  uniform float u_saturation;
+  uniform vec3 u_tint_color;
+  uniform float u_tint_amount;
 
   vec3 palette(float t) {
     vec3 a = vec3(0.56, 0.52, 0.48);
     vec3 b = vec3(0.40, 0.44, 0.46);
     vec3 c = vec3(1.0, 1.0, 1.0);
-    vec3 d = vec3(0.01, 0.18, 0.42);
-    return a + b * cos(6.28318 * (c * t + d));
+    vec3 d = vec3(0.01, 0.18, 0.42) * u_palette_spread;
+    return a + b * cos(6.28318 * (c * (t + u_hue_shift) + d));
   }
 
   float hash21(vec2 p) {
     p = fract(p * vec2(123.34, 456.21));
     p += dot(p, p + 45.32);
     return fract(p.x * p.y);
+  }
+
+  float hash31(vec3 p) {
+    p = fract(p * vec3(0.1031, 0.1030, 0.0973));
+    p += dot(p, p.yzx + 33.33);
+    return fract((p.x + p.y) * p.z);
+  }
+
+  float noise3(vec3 x) {
+    vec3 i = floor(x);
+    vec3 f = fract(x);
+    f = f * f * (3.0 - 2.0 * f);
+    float n000 = hash31(i + vec3(0.0, 0.0, 0.0));
+    float n100 = hash31(i + vec3(1.0, 0.0, 0.0));
+    float n010 = hash31(i + vec3(0.0, 1.0, 0.0));
+    float n110 = hash31(i + vec3(1.0, 1.0, 0.0));
+    float n001 = hash31(i + vec3(0.0, 0.0, 1.0));
+    float n101 = hash31(i + vec3(1.0, 0.0, 1.0));
+    float n011 = hash31(i + vec3(0.0, 1.0, 1.0));
+    float n111 = hash31(i + vec3(1.0, 1.0, 1.0));
+    float nx00 = mix(n000, n100, f.x);
+    float nx10 = mix(n010, n110, f.x);
+    float nx01 = mix(n001, n101, f.x);
+    float nx11 = mix(n011, n111, f.x);
+    float nxy0 = mix(nx00, nx10, f.y);
+    float nxy1 = mix(nx01, nx11, f.y);
+    return mix(nxy0, nxy1, f.z);
+  }
+
+  vec3 dotPalette(float v) {
+    vec3 white = vec3(0.98);
+    vec3 black = vec3(0.05);
+    vec3 blue = vec3(0.11, 0.27, 0.45);
+    vec3 red = vec3(0.92, 0.09, 0.10);
+
+    if (v < 0.22) return white;
+    if (v < 0.34) return red;
+    if (v < 0.52) return white;
+    if (v < 0.66) return blue;
+    if (v < 0.82) return black;
+    return white;
   }
 
   vec2 fold(vec2 p, float n) {
@@ -120,6 +184,35 @@ const frag = `
     float vignette = smoothstep(u_vignette, 0.15, r);
     color *= (0.22 + 1.25 * mixV) * vignette * u_brightness;
 
+    // Optional living-dot layer inspired by Rorschach cells.
+    if (u_dots_enabled > 0.5) {
+      vec2 q = p;
+      float ca = cos(-2.35619449); // -3*PI/4
+      float sa = sin(-2.35619449);
+      q = vec2(q.x * ca - q.y * sa, q.x * sa + q.y * ca);
+
+      // Mirror around vertical axis to reinforce bilateral feel.
+      q.x = abs(q.x);
+
+      float n = noise3(vec3(q * u_dots_scale * 100.0, u_time * u_dots_speed * 100.0 + u_seed * 0.07));
+      vec3 dc = dotPalette(n);
+
+      // Radius fades near color transitions to mimic "cell breakups".
+      float interval = fract(n * 8.0);
+      float radiusScale = 1.0 - abs(interval * 2.0 - 1.0);
+      float rad = u_dots_radius * radiusScale;
+
+      vec2 gv = fract((q + 2.0) * u_dots_density) - 0.5;
+      float d = length(gv);
+      float dotMask = smoothstep(rad, max(0.0, rad - 0.08), d);
+
+      color = mix(color, dc, dotMask * u_dots_opacity);
+    }
+
+    float luma = dot(color, vec3(0.299, 0.587, 0.114));
+    color = mix(vec3(luma), color, u_saturation);
+    color = mix(color, color * (u_tint_color * 1.2), u_tint_amount);
+
     gl_FragColor = vec4(color * u_opacity, 1.0);
   }
 `;
@@ -131,6 +224,10 @@ function setup() {
   pixelDensity(1);
   noStroke();
   theShader = createShader(vert, frag);
+  params.baseSeed = Math.floor(Math.random() * 1_000_000_000);
+  params.fixedSeed = params.baseSeed;
+  const seedInput = document.getElementById('sh-seed');
+  if (seedInput) seedInput.value = String(params.fixedSeed);
   bindControls();
 }
 
@@ -148,7 +245,9 @@ function draw() {
   const absoluteTime = millis() / 1000.0;
   const cycleDuration = max(5.0, params.cycleDuration);
   const t = absoluteTime % cycleDuration;
-  const loopSeed = params.lockSeed ? float(params.fixedSeed) : float(floor(absoluteTime / cycleDuration));
+  const loopSeed = params.lockSeed
+    ? float(params.fixedSeed)
+    : float(params.baseSeed + floor(absoluteTime / cycleDuration));
 
   const zoomPulse = sin(t * params.zoomSpeed);
   const currentZoom = map(zoomPulse, 1, -1, params.zoomMin, params.zoomMax);
@@ -191,6 +290,17 @@ function draw() {
   theShader.setUniform('u_ring', params.ringAmt);
   theShader.setUniform('u_contrast', params.contrast);
   theShader.setUniform('u_vignette', params.vignette);
+  theShader.setUniform('u_dots_enabled', params.dotsEnabled ? 1.0 : 0.0);
+  theShader.setUniform('u_dots_density', params.dotsDensity);
+  theShader.setUniform('u_dots_scale', params.dotsScale);
+  theShader.setUniform('u_dots_speed', params.dotsSpeed);
+  theShader.setUniform('u_dots_radius', params.dotsRadius);
+  theShader.setUniform('u_dots_opacity', params.dotsOpacity);
+  theShader.setUniform('u_hue_shift', params.hueShift);
+  theShader.setUniform('u_palette_spread', params.paletteSpread);
+  theShader.setUniform('u_saturation', params.saturation);
+  theShader.setUniform('u_tint_color', params.tintColor);
+  theShader.setUniform('u_tint_amount', params.tintAmount);
 
   quad(-1, -1, 1, -1, 1, 1, -1, 1);
 }
@@ -294,6 +404,42 @@ function bindControls() {
     params.vignette = parseInt(v, 10) / 100;
     return params.vignette.toFixed(2);
   });
+  bindRange('sh-dots-density', 'val-sh-dots-density', (v) => {
+    params.dotsDensity = parseFloat(v);
+    return String(v);
+  });
+  bindRange('sh-dots-scale', 'val-sh-dots-scale', (v) => {
+    params.dotsScale = parseInt(v, 10) / 1000;
+    return params.dotsScale.toFixed(3);
+  });
+  bindRange('sh-dots-speed', 'val-sh-dots-speed', (v) => {
+    params.dotsSpeed = parseInt(v, 10) / 1000;
+    return params.dotsSpeed.toFixed(3);
+  });
+  bindRange('sh-dots-radius', 'val-sh-dots-radius', (v) => {
+    params.dotsRadius = parseInt(v, 10) / 100;
+    return params.dotsRadius.toFixed(2);
+  });
+  bindRange('sh-dots-opacity', 'val-sh-dots-opacity', (v) => {
+    params.dotsOpacity = parseInt(v, 10) / 100;
+    return params.dotsOpacity.toFixed(2);
+  });
+  bindRange('sh-hue', 'val-sh-hue', (v) => {
+    params.hueShift = parseInt(v, 10) / 360;
+    return `${int(v)}°`;
+  });
+  bindRange('sh-spread', 'val-sh-spread', (v) => {
+    params.paletteSpread = parseInt(v, 10) / 100;
+    return params.paletteSpread.toFixed(2);
+  });
+  bindRange('sh-sat', 'val-sh-sat', (v) => {
+    params.saturation = parseInt(v, 10) / 100;
+    return params.saturation.toFixed(2);
+  });
+  bindRange('sh-tint', 'val-sh-tint', (v) => {
+    params.tintAmount = parseInt(v, 10) / 100;
+    return params.tintAmount.toFixed(2);
+  });
 
   const lock = document.getElementById('sh-lock-seed');
   if (lock) {
@@ -305,6 +451,18 @@ function bindControls() {
   if (fixed) {
     fixed.addEventListener('input', () => {
       params.fixedSeed = parseInt(fixed.value || '0', 10) || 0;
+    });
+  }
+  const tint = document.getElementById('sh-tint-color');
+  if (tint) {
+    tint.addEventListener('input', () => {
+      params.tintColor = hexToRgb01(tint.value);
+    });
+  }
+  const dotsEnable = document.getElementById('sh-dots-enable');
+  if (dotsEnable) {
+    dotsEnable.addEventListener('change', () => {
+      params.dotsEnabled = !!dotsEnable.checked;
     });
   }
 }
@@ -319,5 +477,15 @@ function bindRange(id, valueId, onInput) {
   };
   input.addEventListener('input', apply);
   apply();
+}
+
+function hexToRgb01(hexValue) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hexValue || '');
+  if (!m) return [1.0, 1.0, 1.0];
+  return [
+    parseInt(m[1], 16) / 255,
+    parseInt(m[2], 16) / 255,
+    parseInt(m[3], 16) / 255
+  ];
 }
 
