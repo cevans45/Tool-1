@@ -621,7 +621,8 @@ body.is-preview .app {
 body.is-preview #sketch-container,
 body.is-preview #particle-canvas,
 body.is-preview #orbit-canvas,
-body.is-preview #shader-canvas {
+body.is-preview #shader-canvas,
+body.is-preview #stigil-canvas {
     width: 100vw;
     height: 100vh;
     display: flex;

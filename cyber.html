@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber stigilism — OVRT</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+</head>
+<body>
+    <div class="site-shell">
+        <header class="tool-header">
+            <a href="index.html" class="back-link">← Back to OVRT</a>
+            <span class="tool-title">Cyber stigilism generator</span>
+        </header>
+        <div class="app" aria-label="Cyber stigilism generator">
+            <div id="stigil-canvas"></div>
+            <aside class="control-panel">
+                <header class="panel-header">
+                    <h2>Controls</h2>
+                </header>
+                <div class="panel-body">
+                    <details class="control-window" open>
+                        <summary>Core</summary>
+                        <section class="control-section">
+                            <div class="control-row">
+                                <label for="cs-seed">Seed</label>
+                                <input type="number" id="cs-seed" min="0" max="999999999" value="0" step="1">
+                            </div>
+                            <div class="control-row">
+                                <label>Seed action</label>
+                                <button type="button" id="cs-random-seed" class="panel-button">Random seed</button>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-grid">Grid</label>
+                                <input type="range" id="cs-grid" min="80" max="260" value="170" step="2">
+                                <span class="param-value" id="val-cs-grid">170</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-curves">Curves</label>
+                                <input type="range" id="cs-curves" min="2" max="16" value="7" step="1">
+                                <span class="param-value" id="val-cs-curves">7</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-samples">Samples</label>
+                                <input type="range" id="cs-samples" min="30" max="220" value="110" step="5">
+                                <span class="param-value" id="val-cs-samples">110</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-influence">Influence</label>
+                                <input type="range" id="cs-influence" min="4" max="48" value="16" step="1">
+                                <span class="param-value" id="val-cs-influence">16</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-threshold">Threshold</label>
+                                <input type="range" id="cs-threshold" min="10" max="90" value="44" step="1">
+                                <span class="param-value" id="val-cs-threshold">0.44</span>
+                            </div>
+                        </section>
+                    </details>
+
+                    <details class="control-window" open>
+                        <summary>Structure</summary>
+                        <section class="control-section">
+                            <div class="control-row">
+                                <label for="cs-mirror-x">Mirror X</label>
+                                <input type="checkbox" id="cs-mirror-x" checked>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-mirror-y">Mirror Y</label>
+                                <input type="checkbox" id="cs-mirror-y">
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-prune">Prune passes</label>
+                                <input type="range" id="cs-prune" min="0" max="24" value="10" step="1">
+                                <span class="param-value" id="val-cs-prune">10</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-branch">Branch chance</label>
+                                <input type="range" id="cs-branch" min="0" max="100" value="26" step="1">
+                                <span class="param-value" id="val-cs-branch">26%</span>
+                            </div>
+                        </section>
+                    </details>
+
+                    <details class="control-window">
+                        <summary>Smoothing</summary>
+                        <section class="control-section">
+                            <div class="control-row">
+                                <label for="cs-blurs">Blur passes</label>
+                                <input type="range" id="cs-blurs" min="0" max="200" value="70" step="1">
+                                <span class="param-value" id="val-cs-blurs">70</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-blur-strength">Blur strength</label>
+                                <input type="range" id="cs-blur-strength" min="0" max="100" value="18" step="1">
+                                <span class="param-value" id="val-cs-blur-strength">0.18</span>
+                            </div>
+                        </section>
+                    </details>
+
+                    <details class="control-window">
+                        <summary>Style</summary>
+                        <section class="control-section">
+                            <div class="control-row">
+                                <label for="cs-stroke">Stroke</label>
+                                <input type="range" id="cs-stroke" min="1" max="12" value="3" step="1">
+                                <span class="param-value" id="val-cs-stroke">3</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-taper">Taper</label>
+                                <input type="range" id="cs-taper" min="0" max="100" value="40" step="1">
+                                <span class="param-value" id="val-cs-taper">0.40</span>
+                            </div>
+                            <div class="control-row color-row">
+                                <label for="cs-bg">Background</label>
+                                <input type="color" id="cs-bg" value="#e7e7e7">
+                            </div>
+                            <div class="control-row color-row">
+                                <label for="cs-ink">Ink</label>
+                                <input type="color" id="cs-ink" value="#000000">
+                            </div>
+                            <div class="control-row">
+                                <label>Generate</label>
+                                <button type="button" id="cs-regenerate" class="panel-button">Regenerate</button>
+                            </div>
+                        </section>
+                    </details>
+                </div>
+            </aside>
+        </div>
+    </div>
+    <script src="page-transition.js"></script>
+    <script src="cyber.js"></script>
+</body>
+</html>
