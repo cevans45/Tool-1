@@ -106,16 +106,20 @@
                         <summary>Style</summary>
                         <section class="control-section">
                             <div class="control-row">
+                                <label for="cs-stroke-enabled">Stroke on</label>
+                                <input type="checkbox" id="cs-stroke-enabled" checked>
+                            </div>
+                            <div class="control-row" id="row-cs-stroke">
                                 <label for="cs-stroke">Stroke</label>
                                 <input type="range" id="cs-stroke" min="1" max="12" value="6" step="1">
                                 <span class="param-value" id="val-cs-stroke">6</span>
                             </div>
-                            <div class="control-row">
+                            <div class="control-row" id="row-cs-taper">
                                 <label for="cs-taper">Taper</label>
                                 <input type="range" id="cs-taper" min="0" max="100" value="68" step="1">
                                 <span class="param-value" id="val-cs-taper">0.68</span>
                             </div>
-                            <div class="control-row">
+                            <div class="control-row" id="row-cs-fill">
                                 <label for="cs-fill">Space fill</label>
                                 <input type="range" id="cs-fill" min="0" max="100" value="72" step="1">
                                 <span class="param-value" id="val-cs-fill">0.72</span>

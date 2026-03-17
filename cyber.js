@@ -26,6 +26,7 @@ const params = {
   strokeW: 6,
   taper: 0.68,
   fillAmount: 0.72,
+  strokeEnabled: true,
   drawMode: true,
   mirrorX: true,
   mirrorY: true,
@@ -293,6 +294,7 @@ function draw() {
 }
 
 function drawPaths() {
+  if (!params.strokeEnabled) return;
   const ink = color(params.ink);
   stroke(ink);
   const cx = width * 0.5;
@@ -743,6 +745,21 @@ function bindControls() {
       requestUpdate(true);
     });
   };
+  const updateStrokeUI = () => {
+    const enabled = !!params.strokeEnabled;
+    const strokeEl = byId('cs-stroke');
+    const taperEl = byId('cs-taper');
+    const fillEl = byId('cs-fill');
+    const rowStroke = byId('row-cs-stroke');
+    const rowTaper = byId('row-cs-taper');
+    const rowFill = byId('row-cs-fill');
+    if (strokeEl) strokeEl.disabled = !enabled;
+    if (taperEl) taperEl.disabled = !enabled;
+    if (fillEl) fillEl.disabled = !enabled;
+    if (rowStroke) rowStroke.classList.toggle('control-row--disabled', !enabled);
+    if (rowTaper) rowTaper.classList.toggle('control-row--disabled', !enabled);
+    if (rowFill) rowFill.classList.toggle('control-row--disabled', !enabled);
+  };
 
   const seedEl = byId('cs-seed');
   if (seedEl) {
@@ -835,6 +852,13 @@ function bindControls() {
     params.fillAmount = parseInt(v, 10) / 100;
     return params.fillAmount.toFixed(2);
   });
+  bindCheck('cs-stroke-enabled', (checked) => { params.strokeEnabled = checked; });
+  const strokeEnabledEl = byId('cs-stroke-enabled');
+  if (strokeEnabledEl) {
+    strokeEnabledEl.checked = params.strokeEnabled;
+    strokeEnabledEl.addEventListener('change', updateStrokeUI);
+  }
+  updateStrokeUI();
 
   bindCheck('cs-mirror-x', (checked) => { params.mirrorX = checked; });
   bindCheck('cs-mirror-y', (checked) => { params.mirrorY = checked; });
