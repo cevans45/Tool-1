@@ -143,8 +143,11 @@ const frag = `
     mass = clamp(mass / 2.8, 0.0, 1.0);
 
     // Two grain bands: structural grain in the field + screen-space film grain.
-    float fieldGrain = (hash21(floor((p + 2.0) * 90.0) + u_seed * 0.13) - 0.5) * u_grain * u_use_grain;
-    float filmGrain = (hash21(gl_FragCoord.xy * 0.5 + vec2(u_time * 120.0, u_seed * 17.0)) - 0.5) * u_grain * u_use_grain;
+    float gA = hash21(floor(p * 220.0 + vec2(u_seed * 0.13, u_time * 35.0)));
+    float gB = hash21(floor(p * 420.0 + vec2(u_time * 60.0, u_seed * 0.31)));
+    float gC = hash21(floor(gl_FragCoord.xy * 0.75 + vec2(u_seed * 0.07, u_time * 90.0)));
+    float fieldGrain = ((gA * 0.55 + gB * 0.45) - 0.5) * u_grain * 1.8 * u_use_grain;
+    float filmGrain = (gC - 0.5) * u_grain * 1.4 * u_use_grain;
 
     // Dot/cell modulation integrated into the same texture field.
     vec2 cellUv = fract((w + 2.0 + vec2(u_cell_shift)) * u_cell_density) - 0.5;
@@ -152,7 +155,7 @@ const frag = `
     float cellRadius = 0.42 * (0.6 + 0.4 * sin(t + r * 4.0));
     float cell = smoothstep(cellRadius, max(0.0, cellRadius - u_cell_softness), cellDist);
 
-    float mixV = mass * 0.9 + weave * u_weave + star * u_star + ring * u_ring + fieldGrain * 0.35 + cell * u_cellularity * u_use_dots;
+    float mixV = mass * 1.25 + weave * (u_weave * 0.55) + star * u_star + ring * u_ring + fieldGrain * 0.45 + cell * u_cellularity * u_use_dots;
 
     vec3 colA = palette(t * 0.08 + r * 0.65 + u_seed * 0.01);
     vec3 colB = palette(0.35 + a * 0.20 - t * 0.04 + u_seed * 0.02);
@@ -161,7 +164,7 @@ const frag = `
     mixV = pow(clamp(mixV, 0.0, 1.6), u_contrast);
     float vignette = smoothstep(u_vignette, 0.15, r);
     color *= (0.22 + 1.25 * mixV) * vignette * u_brightness;
-    color += vec3(filmGrain * 0.28);
+    color += vec3(filmGrain * 0.9);
 
     float luma = dot(color, vec3(0.299, 0.587, 0.114));
     color = mix(vec3(luma), color, u_saturation);
@@ -414,8 +417,6 @@ function bindControls() {
   const useDots = document.getElementById('sh-use-dots');
   const syncTextureMode = () => {
     if (useGrain && useDots) {
-      if (!useGrain.checked && !useDots.checked) useGrain.checked = true;
-      if (useGrain.checked && useDots.checked) useDots.checked = false;
       params.useGrain = !!useGrain.checked;
       params.useDots = !!useDots.checked;
     }
