@@ -12,6 +12,7 @@ let blurs = 0;
 let drawBuffer;
 let drawPoints = [];
 let isDrawing = false;
+let undoStack = [];
 
 const params = {
   seed: 0,
@@ -508,9 +509,22 @@ function reRenderSketch() {
 
 function clearDrawBuffer() {
   drawPoints = [];
+  undoStack = [];
   isDrawing = false;
   drawBuffer.clear();
   redraw();
+}
+
+function undo() {
+  if (undoStack.length === 0) return;
+  const prevLen = undoStack.pop();
+  drawPoints.length = prevLen;
+  if (drawPoints.length > 0) {
+    reRenderSketch();
+  } else {
+    drawBuffer.clear();
+    redraw();
+  }
 }
 
 function localPointDensity(v) {
@@ -770,6 +784,7 @@ function drawGrainTexture(sourcePaths) {
 function mousePressed() {
   if (!params.drawMode) return;
   if (!isInsideCanvas(mouseX, mouseY)) return;
+  undoStack.push(drawPoints.length);
   isDrawing = true;
   const noiseScale = params.strokeW * 0.8;
   const nx = (Math.random() - 0.5) * noiseScale;
@@ -810,6 +825,11 @@ function exportPng() {
 }
 
 function keyPressed() {
+  if ((keyIsDown(91) || keyIsDown(93) || keyIsDown(17)) && (key === 'z' || key === 'Z')) {
+    undo();
+    return false;
+  }
+
   if (key === '1') {
     params.drawOperation = 'ink';
   } else if (key === '2') {
@@ -1037,9 +1057,15 @@ function bindControls() {
   bindRange('cs-sketch-reach', 'val-cs-sketch-reach', (v) => { params.sketchReach = parseInt(v, 10); return String(params.sketchReach); });
 
   const bg = byId('cs-bg');
-  if (bg) bg.addEventListener('input', () => { params.bg = bg.value; redraw(); });
+  if (bg) {
+    bg.addEventListener('input', () => { params.bg = bg.value; requestUpdate(false); });
+    bg.addEventListener('change', () => requestUpdate(true));
+  }
   const ink = byId('cs-ink');
-  if (ink) ink.addEventListener('input', () => { params.ink = ink.value; redraw(); });
+  if (ink) {
+    ink.addEventListener('input', () => { params.ink = ink.value; requestUpdate(false); });
+    ink.addEventListener('change', () => requestUpdate(true));
+  }
 
   const texColor = byId('cs-texture-color');
   if (texColor) {
@@ -1054,8 +1080,9 @@ function bindControls() {
     bgSketch.addEventListener('input', () => {
       params.bg = bgSketch.value;
       if (bg) bg.value = bgSketch.value;
-      redraw();
+      requestUpdate(false);
     });
+    bgSketch.addEventListener('change', () => requestUpdate(true));
   }
   const inkSketch = byId('cs-ink-sketch');
   if (inkSketch) {
@@ -1063,7 +1090,8 @@ function bindControls() {
     inkSketch.addEventListener('input', () => {
       params.ink = inkSketch.value;
       if (ink) ink.value = inkSketch.value;
-      redraw();
+      requestUpdate(false);
     });
+    inkSketch.addEventListener('change', () => requestUpdate(true));
   }
 }
