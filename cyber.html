@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cyber stigilism — OVRT</title>
+    <title>Cyber sigilism — OVRT</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
 </head>
@@ -11,10 +11,10 @@
     <div class="site-shell">
         <header class="tool-header">
             <a href="index.html" class="back-link">← Back to OVRT</a>
-            <span class="tool-title">Cyber stigilism generator</span>
+            <span class="tool-title">Cyber sigilism generator</span>
         </header>
-        <div class="app" aria-label="Cyber stigilism generator">
-            <div id="stigil-canvas"></div>
+        <div class="app" aria-label="Cyber sigilism generator">
+            <div id="sigil-canvas"></div>
             <aside class="control-panel">
                 <div class="mode-switch" id="cs-main-mode" style="margin:0;">
                     <button type="button" id="cs-mode-sketch" class="panel-button is-active">Sketch</button>
@@ -77,7 +77,7 @@
                             </div>
                             <div class="control-row color-row">
                                 <label for="cs-bg-sketch">Background</label>
-                                <input type="color" id="cs-bg-sketch" value="#e7e7e7">
+                                <input type="color" id="cs-bg-sketch" value="#ffffff">
                             </div>
                             <div class="control-row color-row">
                                 <label for="cs-ink-sketch">Ink</label>
@@ -177,7 +177,7 @@
                             </div>
                             <div class="control-row color-row">
                                 <label for="cs-bg">Background</label>
-                                <input type="color" id="cs-bg" value="#e7e7e7">
+                                <input type="color" id="cs-bg" value="#ffffff">
                             </div>
                             <div class="control-row color-row">
                                 <label for="cs-ink">Ink</label>
@@ -198,6 +198,10 @@
                                     <option value="dots">Dots</option>
                                     <option value="pixel">Pixel</option>
                                 </select>
+                            </div>
+                            <div class="control-row color-row" id="row-cs-texture-color">
+                                <label for="cs-texture-color">Effect color</label>
+                                <input type="color" id="cs-texture-color" value="#000000">
                             </div>
                             <div class="control-row" id="row-cs-texture-strength">
                                 <label for="cs-texture-strength">Effect strength</label>

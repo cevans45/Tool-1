@@ -37,8 +37,9 @@ const params = {
   drawOperation: 'ink',
   mirrorX: true,
   mirrorY: false,
-  bg: '#e7e7e7',
+  bg: '#ffffff',
   ink: '#000000',
+  textureColor: '#000000',
   sketchRoughness: 4,
   sketchDensity: 6,
   sketchReach: 70
@@ -57,7 +58,7 @@ function setup() {
   }
 
   const canvas = createCanvas(calcWidth(), calcHeight());
-  canvas.parent('stigil-canvas');
+  canvas.parent('sigil-canvas');
   pixelDensity(displayDensity());
   noFill();
   strokeCap(ROUND);
@@ -372,8 +373,8 @@ function scratchLine(ctx, x1, y1, x2, y2, d, mirror) {
   const roughness = params.sketchRoughness;
   const jitter = roughness + (finalThickness * 0.8);
   const passes = params.sketchDensity;
-  const w = drawBuffer.width;
-  const h = drawBuffer.height;
+  const w = width;
+  const h = height;
   const isSmooth = roughness === 0;
 
   if (params.drawOperation === 'ink') {
@@ -700,7 +701,7 @@ function drawEdgesTexture(mode) {
   const s = constrain(params.textureSize, 0, 1);
   const o = constrain(params.textureOpacity, 0, 1);
   const j = constrain(params.textureJitter, 0, 1);
-  const baseInk = color(params.ink);
+  const baseInk = color(params.textureColor);
   const alpha = map(k * o, 0, 1, 20, 255);
   if (mode === 'dots' || mode === 'pixel') {
     noStroke();
@@ -746,7 +747,7 @@ function drawGrainTexture(sourcePaths) {
   const s = constrain(params.textureSize, 0, 1);
   const o = constrain(params.textureOpacity, 0, 1);
   const jt = constrain(params.textureJitter, 0, 1);
-  const baseInk = color(params.ink);
+  const baseInk = color(params.textureColor);
   stroke(red(baseInk), green(baseInk), blue(baseInk), map(k * o, 0, 1, 8, 135));
   strokeWeight(map(s, 0, 1, 0.8, 2.2));
   const stride = max(1, floor(map(d, 0, 1, 4, 1)));
@@ -805,7 +806,7 @@ function hash01(a, b, c) {
 }
 
 function exportPng() {
-  saveCanvas('cyber_stigilism', 'png');
+  saveCanvas('cyber_sigilism', 'png');
 }
 
 function keyPressed() {
@@ -889,6 +890,7 @@ function bindControls() {
 
   const updateTextureModeUI = () => {
     const mode = params.textureMode;
+    const rowColor = byId('row-cs-texture-color');
     const rowStrength = byId('row-cs-texture-strength');
     const rowDensity = byId('row-cs-texture-density');
     const rowSize = byId('row-cs-texture-size');
@@ -896,12 +898,12 @@ function bindControls() {
     const rowJitter = byId('row-cs-texture-jitter');
     const setRow = (row, visible) => { if (row) row.style.display = visible ? 'flex' : 'none'; };
     if (mode === 'none') {
-      setRow(rowStrength, false); setRow(rowDensity, false); setRow(rowSize, false);
-      setRow(rowOpacity, false); setRow(rowJitter, false);
+      setRow(rowColor, false); setRow(rowStrength, false); setRow(rowDensity, false);
+      setRow(rowSize, false); setRow(rowOpacity, false); setRow(rowJitter, false);
       return;
     }
-    setRow(rowStrength, true); setRow(rowDensity, true); setRow(rowSize, true);
-    setRow(rowOpacity, true); setRow(rowJitter, true);
+    setRow(rowColor, true); setRow(rowStrength, true); setRow(rowDensity, true);
+    setRow(rowSize, true); setRow(rowOpacity, true); setRow(rowJitter, true);
     if (mode === 'grid') setRow(rowJitter, false);
   };
 
@@ -1038,6 +1040,13 @@ function bindControls() {
   if (bg) bg.addEventListener('input', () => { params.bg = bg.value; redraw(); });
   const ink = byId('cs-ink');
   if (ink) ink.addEventListener('input', () => { params.ink = ink.value; redraw(); });
+
+  const texColor = byId('cs-texture-color');
+  if (texColor) {
+    texColor.value = params.textureColor;
+    texColor.addEventListener('input', () => { params.textureColor = texColor.value; requestUpdate(false); });
+    texColor.addEventListener('change', () => requestUpdate(true));
+  }
 
   const bgSketch = byId('cs-bg-sketch');
   if (bgSketch) {

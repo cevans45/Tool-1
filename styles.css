@@ -89,7 +89,7 @@ body.is-leaving {
     align-items: center;
     padding: 12px 18px;
     border-bottom: 1px solid #111;
-    background: #f6f6f4;
+    background: #fff;
 }
 
 .back-link {
@@ -214,6 +214,7 @@ body.is-leaving {
     justify-content: space-between;
     gap: 24px;
     padding: 24px 32px 32px;
+    background: #fff;
 }
 
 .app-hidden {
@@ -221,14 +222,14 @@ body.is-leaving {
 }
 
 #sketch-container,
-#stigil-canvas {
+#sigil-canvas {
     flex-shrink: 0;
     border-radius: 0;
     overflow: hidden;
     box-shadow: none;
 }
 
-#stigil-canvas {
+#sigil-canvas {
     cursor: crosshair;
 }
 
@@ -714,7 +715,7 @@ body.is-preview #sketch-container,
 body.is-preview #particle-canvas,
 body.is-preview #orbit-canvas,
 body.is-preview #shader-canvas,
-body.is-preview #stigil-canvas {
+body.is-preview #sigil-canvas {
     width: 100vw;
     height: 100vh;
     display: flex;
