@@ -200,7 +200,8 @@
 
         const state = {
             gridSize: parseInt(gridSizeEl.value, 10),
-            showGrid: !!showGridEl.checked,
+            // Start with the grid visible so it's always clear how to edit.
+            showGrid: true,
 
             // Selected target.
             selTile: { r: 0, c: 0 },
@@ -681,8 +682,8 @@
 
                 // Quadrant border + internal microgrid.
                 if (state.showGrid) {
-                    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-                    ctx.lineWidth = 1.25;
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 2;
                     ctx.strokeRect(0, 0, qSize, qSize);
 
                     // Microgrid is 2x2 within the quadrant.
@@ -714,8 +715,8 @@
                     drawShapeInCell(shape, cellX, cellY, cellSize);
 
                     if (state.showGrid) {
-                        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = '#000000';
+                        ctx.lineWidth = 1.8;
                         ctx.strokeRect(cellX, cellY, cellSize, cellSize);
                     }
 
@@ -783,8 +784,8 @@
                 ctx.fillRect(0, 0, qSize, qSize);
 
                 if (state.showGrid) {
-                    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
-                    ctx.lineWidth = 1.25;
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 2;
                     ctx.strokeRect(0, 0, qSize, qSize);
 
                     ctx.beginPath();
@@ -812,8 +813,8 @@
                     drawShapeInCell(shape, cellX, cellY, cellSize);
 
                     if (state.showGrid) {
-                        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = '#000000';
+                        ctx.lineWidth = 1.8;
                         ctx.strokeRect(cellX, cellY, cellSize, cellSize);
                     }
 
@@ -1023,6 +1024,8 @@
         updateTemplateSlotUI();
         initGrid(false);
         resize();
+        // Sync showGrid once canvas exists.
+        state.showGrid = showGridEl ? !!showGridEl.checked : true;
         setUiTabIfNeeded();
         setSelectedUIFromModel();
         render();
