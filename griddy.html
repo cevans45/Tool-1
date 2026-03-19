@@ -681,8 +681,8 @@
 
                 // Quadrant border + internal microgrid.
                 if (state.showGrid) {
-                    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+                    ctx.lineWidth = 1.25;
                     ctx.strokeRect(0, 0, qSize, qSize);
 
                     // Microgrid is 2x2 within the quadrant.
@@ -712,6 +712,12 @@
                     const cellY = cellRow * cellSize;
                     const shape = q.cells[cell];
                     drawShapeInCell(shape, cellX, cellY, cellSize);
+
+                    if (state.showGrid) {
+                        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(cellX, cellY, cellSize, cellSize);
+                    }
 
                     if (state.showGrid && isSelectedTile && qi === state.selQuadrant && cell === state.selCell) {
                         ctx.strokeStyle = 'rgba(255,0,0,0.8)';
@@ -777,8 +783,8 @@
                 ctx.fillRect(0, 0, qSize, qSize);
 
                 if (state.showGrid) {
-                    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+                    ctx.lineWidth = 1.25;
                     ctx.strokeRect(0, 0, qSize, qSize);
 
                     ctx.beginPath();
@@ -804,6 +810,12 @@
                     const cellY = cellRow * cellSize;
                     const shape = q.cells[cell];
                     drawShapeInCell(shape, cellX, cellY, cellSize);
+
+                    if (state.showGrid) {
+                        ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+                        ctx.lineWidth = 1;
+                        ctx.strokeRect(cellX, cellY, cellSize, cellSize);
+                    }
 
                     if (tileSelected && qi === state.selQuadrant && cell === state.selCell) {
                         ctx.strokeStyle = 'rgba(255,0,0,0.85)';
