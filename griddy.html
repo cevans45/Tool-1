@@ -28,14 +28,12 @@
                     <div class="info-content">
                         <h3>How to use</h3>
                         <dl>
-                            <dt>Grid</dt>
-                            <dd>Change the tile grid size (4x4 to 20x20).</dd>
-                            <dt>Tiles + Quadrants</dt>
-                            <dd>Click inside a tile to select a quadrant and micro-cell. Place shapes in the micro-cells.</dd>
+                            <dt>Click</dt>
+                            <dd>Click a micro-cell inside a quadrant to place/edit a shape.</dd>
+                            <dt>Quadrants</dt>
+                            <dd>Each tile has 4 quadrants (TL/TR/BL/BR). Each quadrant has a 2x2 (4) micro-cells.</dd>
                             <dt>Templates</dt>
-                            <dd>Save the selected quadrant to a slot and apply it to other quadrants.</dd>
-                            <dt>Rotation</dt>
-                            <dd>Rotate the selected tile and the selected quadrant.</dd>
+                            <dd>Save the selected quadrant to a slot and Apply it elsewhere.</dd>
                         </dl>
                         <button type="button" class="info-close" id="info-close">Close</button>
                     </div>
@@ -88,7 +86,7 @@
                                 <label for="g-shape-type">Shape</label>
                                 <select id="g-shape-type" class="select-input">
                                     <option value="line" selected>Line</option>
-                                    <option value="curve">Curve</option>
+                                    <option value="curve">Curved line</option>
                                     <option value="circle">Circle</option>
                                     <option value="triangle">Triangle</option>
                                 </select>
@@ -132,31 +130,16 @@
     </div>
 
     <style>
-        .app[aria-label="Griddy"] {
-            /* Give the stage a stable height so hit-testing matches rendering. */
-            height: calc(100vh - 56px);
-            min-height: calc(100vh - 56px);
-            align-items: stretch;
-            padding: 0;
-            gap: 0;
-        }
-
         #griddy-stage {
             flex: 1;
             min-width: 0;
-            height: 100%;
-            position: relative;
+            min-height: 70vh;
         }
         #griddy-canvas {
             width: 100%;
             height: 100%;
             display: block;
             touch-action: none;
-        }
-
-        /* Make checkbox look consistent in this tool (we reuse site styles for checkboxes only partially). */
-        #g-show-grid, #g-shape-rounded {
-            transform: translateY(1px);
         }
     </style>
 
@@ -177,14 +160,12 @@
 
         const gridSizeEl = el('g-grid-size');
         const gridSizeVal = el('val-g-grid-size');
-
         const showGridEl = el('g-show-grid');
 
         const tileRotEl = el('g-tile-rot');
         const tileRotVal = el('val-g-tile-rot');
         const qRotEl = el('g-q-rot');
         const qRotVal = el('val-g-q-rot');
-
         const qBgEl = el('g-q-bg');
 
         const qButtons = [el('g-q0'), el('g-q1'), el('g-q2'), el('g-q3')];
@@ -200,41 +181,33 @@
 
         const state = {
             gridSize: parseInt(gridSizeEl.value, 10),
-            // Start with the grid visible so it's always clear how to edit.
             showGrid: true,
+            tiles: [],
 
-            // Selected target.
             selTile: { r: 0, c: 0 },
-            selQuadrant: 0, // 0 TL, 1 TR, 2 BL, 3 BR
-            selCell: 0, // 0..3 within the quadrant (2x2)
+            selQuadrant: 0,
+            selCell: 0,
 
-            // Per-instance editable values (drives UI).
-            tileRot: 0,
-            qRot: 0,
-            qBg: '#ffffff',
-
-            shapeType: shapeTypeEl.value,
-            shapeRounded: false,
-            shapeColor: shapeColorEl.value,
-
-            // Templates: each is a quadrant pattern.
             templates: [],
 
-            // Tiles: N*N.
-            tiles: []
+            // Drag values for UI editing (loaded from the selected cell).
+            shapeType: shapeTypeEl.value,
+            shapeRounded: false,
+            shapeColor: shapeColorEl.value
         };
 
-        const CELL_COUNT_PER_QUADRANT = 4; // quadrant microgrid is 2x2
+        const CELL_COUNT_PER_QUADRANT = 4; // 2x2 micro-cells
 
-        function emptyShape() {
-            return null;
+        function cloneShape(s) {
+            if (!s) return null;
+            return { type: s.type, rounded: !!s.rounded, color: s.color };
         }
 
         function makeEmptyQuadrant() {
             return {
                 rot: 0,
                 bg: '#ffffff',
-                cells: [emptyShape(), emptyShape(), emptyShape(), emptyShape()] // micro-cells
+                cells: [null, null, null, null]
             };
         }
 
@@ -245,234 +218,228 @@
             };
         }
 
-        function deepCopyShape(s) {
-            if (!s) return null;
-            return { type: s.type, rounded: !!s.rounded, color: s.color };
-        }
-
         function deepCopyQuadrant(q) {
             return {
                 rot: q.rot,
                 bg: q.bg,
-                cells: q.cells.map(deepCopyShape)
+                cells: q.cells.map(cloneShape)
             };
         }
 
-        function setSelectedUIFromModel() {
-            const tile = state.tiles[state.selTile.r * state.gridSize + state.selTile.c];
-            const q = tile.quadrants[state.selQuadrant];
-            state.tileRot = tile.rot;
-            state.qRot = q.rot;
-            state.qBg = q.bg;
-
-            tileRotEl.value = String(state.tileRot);
-            tileRotVal.textContent = String(state.tileRot);
-            qRotEl.value = String(state.qRot);
-            qRotVal.textContent = String(state.qRot);
-            qBgEl.value = state.qBg;
-
-            for (let i = 0; i < 4; i++) {
-                qButtons[i].classList.toggle('is-active', i === state.selQuadrant);
-            }
-
-            // If the selected cell has a shape, mirror its properties into the UI.
-            const shape = q.cells[state.selCell];
-            if (shape) {
-                shapeTypeEl.value = shape.type;
-                shapeRoundedEl.checked = !!shape.rounded;
-                shapeColorEl.value = shape.color;
-                state.shapeType = shape.type;
-                state.shapeRounded = !!shape.rounded;
-                state.shapeColor = shape.color;
-            }
-        }
-
-        function getSelectedQuadrant() {
-            const tile = state.tiles[state.selTile.r * state.gridSize + state.selTile.c];
-            return tile.quadrants[state.selQuadrant];
-        }
-
-        function setSelectedCellShape(shape) {
-            const q = getSelectedQuadrant();
-            q.cells[state.selCell] = shape ? deepCopyShape(shape) : null;
-        }
-
-        function clearSelectedCell() {
-            setSelectedCellShape(null);
-            render();
-        }
-
-        function clamp(v, min, max) {
-            return Math.max(min, Math.min(max, v));
-        }
-
-        function rotatePoint(x, y, angleRad) {
-            const s = Math.sin(angleRad);
-            const c = Math.cos(angleRad);
-            return { x: x * c - y * s, y: x * s + y * c };
-        }
-
-        function angleFromDeg(d) {
-            return (d % 360) * Math.PI / 180;
-        }
-
-        function initTemplates() {
-            const preset = [];
-
-            function makeTemplate({ rot, bg, cells }) {
-                return {
-                    rot: rot ?? 0,
-                    bg: bg ?? '#ffffff',
-                    cells: cells ?? [null, null, null, null].map(deepCopyShape)
-                };
-            }
-
-            // 0: diagonal lines in all cells.
-            preset.push(makeTemplate({
-                rot: 0,
-                bg: '#ffffff',
-                cells: [
-                    { type: 'line', rounded: true, color: '#000000' },
-                    { type: 'line', rounded: false, color: '#000000' },
-                    { type: 'line', rounded: false, color: '#000000' },
-                    { type: 'line', rounded: true, color: '#000000' }
-                ]
-            }));
-
-            // 1: corner triangles.
-            preset.push(makeTemplate({
-                rot: 90,
-                bg: '#f2f2ee',
-                cells: [
-                    { type: 'triangle', rounded: true, color: '#000000' },
-                    { type: 'triangle', rounded: false, color: '#000000' },
-                    { type: 'triangle', rounded: false, color: '#000000' },
-                    { type: 'triangle', rounded: true, color: '#000000' }
-                ]
-            }));
-
-            // 2: circles on two corners.
-            preset.push(makeTemplate({
-                rot: 0,
-                bg: '#ffffff',
-                cells: [
-                    { type: 'circle', rounded: true, color: '#111111' },
-                    null,
-                    null,
-                    { type: 'circle', rounded: false, color: '#111111' }
-                ]
-            }));
-
-            // 3: mixed curve + sprinkle lines.
-            preset.push(makeTemplate({
-                rot: 270,
-                bg: '#ffffff',
-                cells: [
-                    { type: 'curve', rounded: true, color: '#000000' },
-                    { type: 'curve', rounded: false, color: '#000000' },
-                    { type: 'line', rounded: true, color: '#000000' },
-                    { type: 'line', rounded: false, color: '#000000' }
-                ]
-            }));
-
-            // 4: bold background with lines.
-            preset.push(makeTemplate({
-                rot: 180,
-                bg: '#000000',
-                cells: [
-                    { type: 'line', rounded: false, color: '#ffffff' },
-                    { type: 'curve', rounded: true, color: '#ffffff' },
-                    { type: 'line', rounded: false, color: '#ffffff' },
-                    { type: 'curve', rounded: true, color: '#ffffff' }
-                ]
-            }));
-
-            // 5..9: variations.
-            preset.push(makeTemplate({
-                rot: 0,
-                bg: '#f2f2ee',
-                cells: [
-                    { type: 'circle', rounded: false, color: '#000000' },
-                    { type: 'line', rounded: true, color: '#000000' },
-                    { type: 'line', rounded: true, color: '#000000' },
-                    { type: 'circle', rounded: false, color: '#000000' }
-                ]
-            }));
-            preset.push(makeTemplate({
-                rot: 90,
-                bg: '#ffffff',
-                cells: [
-                    { type: 'triangle', rounded: false, color: '#000000' },
-                    { type: 'curve', rounded: true, color: '#000000' },
-                    { type: 'curve', rounded: true, color: '#000000' },
-                    { type: 'triangle', rounded: false, color: '#000000' }
-                ]
-            }));
-            preset.push(makeTemplate({
-                rot: 270,
-                bg: '#f2f2ee',
-                cells: [
-                    { type: 'line', rounded: false, color: '#000000' },
-                    null,
-                    { type: 'line', rounded: true, color: '#000000' },
-                    { type: 'triangle', rounded: true, color: '#000000' }
-                ]
-            }));
-            preset.push(makeTemplate({
-                rot: 180,
-                bg: '#ffffff',
-                cells: [
-                    null,
-                    { type: 'circle', rounded: true, color: '#000000' },
-                    { type: 'triangle', rounded: true, color: '#000000' },
-                    { type: 'curve', rounded: false, color: '#000000' }
-                ]
-            }));
-            preset.push(makeTemplate({
-                rot: 0,
-                bg: '#ffffff',
-                cells: [
-                    { type: 'curve', rounded: false, color: '#000000' },
-                    { type: 'line', rounded: false, color: '#000000' },
-                    { type: 'triangle', rounded: true, color: '#000000' },
-                    { type: 'circle', rounded: false, color: '#000000' }
-                ]
-            }));
-
-            // Ensure exactly 10.
-            while (preset.length < 10) preset.push(makeTemplate({}));
-            state.templates = preset.slice(0, 10);
-        }
-
-        function initGrid(keepExisting = true) {
-            const oldTiles = state.tiles;
-            const oldN = Math.max(0, Math.round(Math.sqrt(oldTiles.length)) || 0);
-
+        function initGrid() {
             state.tiles = [];
             for (let r = 0; r < state.gridSize; r++) {
                 for (let c = 0; c < state.gridSize; c++) {
                     state.tiles.push(makeEmptyTile());
                 }
             }
+            state.selTile.r = clamp(state.selTile.r, 0, state.gridSize - 1);
+            state.selTile.c = clamp(state.selTile.c, 0, state.gridSize - 1);
+        }
 
-            if (keepExisting && oldN > 0) {
-                const minN = Math.min(oldN, state.gridSize);
-                for (let r = 0; r < minN; r++) {
-                    for (let c = 0; c < minN; c++) {
-                        const oldTile = oldTiles[r * oldN + c];
-                        if (!oldTile) continue;
-                        const tile = state.tiles[r * state.gridSize + c];
-                        tile.rot = oldTile.rot;
-                        for (let qi = 0; qi < 4; qi++) {
-                            tile.quadrants[qi] = deepCopyQuadrant(oldTile.quadrants[qi]);
-                        }
-                    }
+        function clamp(v, min, max) {
+            return Math.max(min, Math.min(max, v));
+        }
+
+        function angleFromDeg(d) {
+            return (d % 360) * Math.PI / 180;
+        }
+
+        function rotatePoint(x, y, rad) {
+            const s = Math.sin(rad);
+            const c = Math.cos(rad);
+            return { x: x * c - y * s, y: x * s + y * c };
+        }
+
+        function getSelectedTile() {
+            return state.tiles[state.selTile.r * state.gridSize + state.selTile.c];
+        }
+
+        function getSelectedQuadrant() {
+            return getSelectedTile().quadrants[state.selQuadrant];
+        }
+
+        function setSelectedUIFromCell() {
+            const q = getSelectedQuadrant();
+            const shape = q.cells[state.selCell];
+            if (shape) {
+                state.shapeType = shape.type;
+                state.shapeRounded = !!shape.rounded;
+                state.shapeColor = shape.color;
+            }
+            shapeTypeEl.value = state.shapeType;
+            shapeRoundedEl.checked = !!state.shapeRounded;
+            shapeColorEl.value = state.shapeColor;
+
+            const tile = getSelectedTile();
+            tileRotEl.value = String(tile.rot);
+            tileRotVal.textContent = String(tile.rot);
+
+            updateSelectionButtons();
+            qRotEl.value = String(getSelectedQuadrant().rot);
+            qRotVal.textContent = String(getSelectedQuadrant().rot);
+            qBgEl.value = getSelectedQuadrant().bg;
+        }
+
+        function updateSelectionButtons() {
+            for (let i = 0; i < 4; i++) {
+                qButtons[i].classList.toggle('is-active', i === state.selQuadrant);
+            }
+        }
+
+        function drawRoundedTriangle(points, radius) {
+            // Simple rounded triangle: inset edges and use quadratic curves at corners.
+            // points: [top, right, left] (counterclockwise-ish).
+            if (points.length !== 3) return;
+            const r = Math.max(0, radius);
+            const [p0, p1, p2] = points;
+
+            const v01 = { x: p0.x - p1.x, y: p0.y - p1.y };
+            const v12 = { x: p1.x - p2.x, y: p1.y - p2.y };
+            const v20 = { x: p2.x - p0.x, y: p2.y - p0.y };
+
+            const len01 = Math.hypot(v01.x, v01.y) || 1;
+            const len12 = Math.hypot(v12.x, v12.y) || 1;
+            const len20 = Math.hypot(v20.x, v20.y) || 1;
+
+            const t01 = Math.min(r / len01, 0.45) * len01;
+            const t12 = Math.min(r / len12, 0.45) * len12;
+            const t20 = Math.min(r / len20, 0.45) * len20;
+
+            const a01 = { x: p1.x + (v01.x / len01) * t01, y: p1.y + (v01.y / len01) * t01 };
+            const a12 = { x: p1.x + (v12.x / len12) * t12, y: p1.y + (v12.y / len12) * t12 };
+            const b12 = { x: p2.x + (v12.x / len12) * (Math.min(r / len12, 0.45) * len12), y: p2.y + (v12.y / len12) * (Math.min(r / len12, 0.45) * len12) };
+
+            // For simplicity in this tool, fall back to normal fill if rounding math gets weird.
+            ctx.beginPath();
+            ctx.moveTo(p0.x, p0.y);
+            ctx.lineTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function drawShape(shape, x, y, size) {
+            if (!shape) return;
+            ctx.save();
+            ctx.translate(x + size / 2, y + size / 2);
+
+            const pad = size * 0.18;
+            const left = -size / 2 + pad;
+            const right = size / 2 - pad;
+            const top = -size / 2 + pad;
+            const bottom = size / 2 - pad;
+
+            const strokeW = Math.max(1.6, size * 0.12);
+            ctx.strokeStyle = shape.color;
+            ctx.fillStyle = shape.color;
+
+            if (shape.type === 'line') {
+                ctx.lineWidth = strokeW;
+                ctx.lineCap = shape.rounded ? 'round' : 'square';
+                ctx.lineJoin = shape.rounded ? 'round' : 'bevel';
+                ctx.beginPath();
+                ctx.moveTo(left, bottom);
+                ctx.lineTo(right, top);
+                ctx.stroke();
+            } else if (shape.type === 'curve') {
+                ctx.lineWidth = strokeW;
+                ctx.lineCap = shape.rounded ? 'round' : 'square';
+                ctx.lineJoin = shape.rounded ? 'round' : 'bevel';
+                ctx.beginPath();
+                ctx.moveTo(left, bottom);
+                const mx = 0;
+                const my = shape.rounded ? (top + bottom) / 2 - size * 0.07 : (top + bottom) / 2 - size * 0.12;
+                ctx.quadraticCurveTo(mx, my, right, top);
+                ctx.stroke();
+            } else if (shape.type === 'circle') {
+                const r = size * (shape.rounded ? 0.26 : 0.22);
+                ctx.beginPath();
+                ctx.arc(0, 0, r, 0, Math.PI * 2);
+                ctx.fill();
+            } else if (shape.type === 'triangle') {
+                const topPt = { x: 0, y: top };
+                const leftPt = { x: left, y: bottom };
+                const rightPt = { x: right, y: bottom };
+                if (shape.rounded) {
+                    ctx.beginPath();
+                    ctx.moveTo(topPt.x, topPt.y);
+                    ctx.lineTo(rightPt.x, rightPt.y);
+                    ctx.lineTo(leftPt.x, leftPt.y);
+                    ctx.closePath();
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(topPt.x, topPt.y);
+                    ctx.lineTo(rightPt.x, rightPt.y);
+                    ctx.lineTo(leftPt.x, leftPt.y);
+                    ctx.closePath();
+                    ctx.fill();
                 }
             }
 
-            // Clamp selection.
-            state.selTile.r = clamp(state.selTile.r, 0, state.gridSize - 1);
-            state.selTile.c = clamp(state.selTile.c, 0, state.gridSize - 1);
+            ctx.restore();
+        }
+
+        function ensureDefaultsTemplates() {
+            const templates = [];
+            function t({ rot = 0, bg = '#ffffff', cells = [null, null, null, null] }) {
+                return {
+                    rot: rot,
+                    bg: bg,
+                    cells: cells.map(cloneShape)
+                };
+            }
+
+            templates.push(t({
+                rot: 0,
+                bg: '#ffffff',
+                cells: [
+                    { type: 'line', rounded: true, color: '#000000' },
+                    { type: 'line', rounded: false, color: '#000000' },
+                    null,
+                    { type: 'line', rounded: true, color: '#000000' }
+                ]
+            }));
+
+            templates.push(t({
+                rot: 90,
+                bg: '#f2f2ee',
+                cells: [
+                    { type: 'triangle', rounded: true, color: '#000000' },
+                    null,
+                    null,
+                    { type: 'triangle', rounded: false, color: '#000000' }
+                ]
+            }));
+
+            templates.push(t({
+                rot: 0,
+                bg: '#ffffff',
+                cells: [
+                    { type: 'circle', rounded: false, color: '#111111' },
+                    null,
+                    null,
+                    { type: 'circle', rounded: true, color: '#111111' }
+                ]
+            }));
+
+            templates.push(t({
+                rot: 270,
+                bg: '#ffffff',
+                cells: [
+                    { type: 'curve', rounded: true, color: '#000000' },
+                    { type: 'curve', rounded: false, color: '#000000' },
+                    null,
+                    { type: 'line', rounded: false, color: '#000000' }
+                ]
+            }));
+
+            while (templates.length < 10) {
+                templates.push(t({}));
+            }
+
+            state.templates = templates.slice(0, 10);
         }
 
         function updateTemplateSlotUI() {
@@ -498,163 +465,125 @@
 
         function applyTemplateToSelectedQuadrant() {
             const slot = getTemplateSlotIndex();
-            const q = getSelectedQuadrant();
             const src = state.templates[slot];
             if (!src) return;
+            const q = getSelectedQuadrant();
             q.rot = src.rot;
             q.bg = src.bg;
-            q.cells = src.cells.map(deepCopyShape);
-            setSelectedUIFromModel();
+            q.cells = src.cells.map(cloneShape);
+            setSelectedUIFromCell();
             render();
         }
 
-        function getCanvasCSSSize() {
+        function getCanvasSizeCSS() {
             const stage = document.getElementById('griddy-stage');
-            const rect = (stage || canvas.parentElement).getBoundingClientRect();
-            const cw = (stage && stage.clientWidth) ? stage.clientWidth : rect.width;
-            const ch = (stage && stage.clientHeight) ? stage.clientHeight : rect.height;
-            return {
-                w: cw,
-                h: ch
-            };
+            const rect = stage ? stage.getBoundingClientRect() : canvas.getBoundingClientRect();
+            let w = rect.width;
+            let h = rect.height;
+            if (!Number.isFinite(w) || w < 20) w = Math.floor(window.innerWidth * 0.65);
+            if (!Number.isFinite(h) || h < 20) h = Math.floor(window.innerHeight * 0.65);
+            return { w, h };
         }
 
+        let dpr = 1;
+
         function resize() {
-            const { w, h } = getCanvasCSSSize();
-            const dpr = Math.max(1, window.devicePixelRatio || 1);
-            let wCss = w;
-            let hCss = h;
-
-            // If layout hasn't settled yet, fall back so the canvas is drawable.
-            if (!Number.isFinite(wCss) || wCss < 20) wCss = Math.floor(window.innerWidth * 0.65);
-            if (!Number.isFinite(hCss) || hCss < 20) hCss = Math.floor(window.innerHeight * 0.65);
-
-            canvas.width = Math.floor(wCss * dpr);
-            canvas.height = Math.floor(hCss * dpr);
-            canvas.style.width = `${wCss}px`;
-            canvas.style.height = `${hCss}px`;
+            const { w, h } = getCanvasSizeCSS();
+            dpr = Math.max(1, window.devicePixelRatio || 1);
+            canvas.width = Math.floor(w * dpr);
+            canvas.height = Math.floor(h * dpr);
+            canvas.style.width = `${w}px`;
+            canvas.style.height = `${h}px`;
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
 
-        function drawRoundedPolygon(points, radius) {
-            // Basic rounded polygon: rounds corners by offsetting edges with arcs.
-            // `points` should be closed and ordered.
-            if (points.length < 3) return;
-            const r = Math.max(0, radius);
-            ctx.beginPath();
-            for (let i = 0; i < points.length; i++) {
-                const p0 = points[(i - 1 + points.length) % points.length];
-                const p1 = points[i];
-                const p2 = points[(i + 1) % points.length];
-
-                // Vectors.
-                const v1x = p0.x - p1.x;
-                const v1y = p0.y - p1.y;
-                const v2x = p2.x - p1.x;
-                const v2y = p2.y - p1.y;
-
-                const len1 = Math.hypot(v1x, v1y) || 1;
-                const len2 = Math.hypot(v2x, v2y) || 1;
-
-                const t1 = r / len1;
-                const t2 = r / len2;
-
-                const a1x = p1.x + v1x * t1;
-                const a1y = p1.y + v1y * t1;
-                const a2x = p1.x + v2x * t2;
-                const a2y = p1.y + v2y * t2;
-
-                // First corner uses moveTo.
-                if (i === 0) ctx.moveTo(a1x, a1y);
-                else ctx.lineTo(a1x, a1y);
-
-                // Arc between directions.
-                ctx.quadraticCurveTo(p1.x, p1.y, a2x, a2y);
-            }
-            ctx.closePath();
-        }
-
-        function drawShapeInCell(shape, cellX, cellY, cellSize) {
-            if (!shape) return;
-
-            const cx = cellX + cellSize / 2;
-            const cy = cellY + cellSize / 2;
-            const pad = cellSize * 0.16;
-            const x0 = cellX + pad;
-            const y0 = cellY + pad;
-            const x1 = cellX + cellSize - pad;
-            const y1 = cellY + cellSize - pad;
-
-            ctx.strokeStyle = shape.color;
-            ctx.fillStyle = shape.color;
-            const strokeW = Math.max(1.4, cellSize * 0.08);
-
-            if (shape.type === 'line') {
-                ctx.lineWidth = strokeW;
-                ctx.lineCap = shape.rounded ? 'round' : 'square';
-                ctx.lineJoin = shape.rounded ? 'round' : 'bevel';
-                // Diagonal-ish line.
-                ctx.beginPath();
-                ctx.moveTo(x0, y1);
-                ctx.lineTo(x1, y0);
-                ctx.stroke();
-            } else if (shape.type === 'curve') {
-                ctx.lineWidth = strokeW;
-                ctx.lineCap = shape.rounded ? 'round' : 'square';
-                ctx.lineJoin = shape.rounded ? 'round' : 'bevel';
-                ctx.beginPath();
-                ctx.moveTo(x0, y1);
-                const mx = (x0 + x1) / 2;
-                const my = shape.rounded ? (y0 + y1) / 2 - cellSize * 0.18 : (y0 + y1) / 2 - cellSize * 0.28;
-                ctx.quadraticCurveTo(mx, my, x1, y0);
-                ctx.stroke();
-            } else if (shape.type === 'circle') {
-                const r = cellSize * (shape.rounded ? 0.26 : 0.22);
-                ctx.beginPath();
-                ctx.arc(cx, cy, r, 0, Math.PI * 2);
-                ctx.fill();
-            } else if (shape.type === 'triangle') {
-                ctx.lineWidth = 0;
-                const top = { x: cx, y: y0 };
-                const left = { x: x0, y: y1 };
-                const right = { x: x1, y: y1 };
-                if (shape.rounded) {
-                    const points = [
-                        { x: top.x, y: top.y },
-                        { x: right.x, y: right.y },
-                        { x: left.x, y: left.y }
-                    ];
-                    drawRoundedPolygon(points, cellSize * 0.08);
-                    ctx.fill();
-                } else {
-                    ctx.beginPath();
-                    ctx.moveTo(top.x, top.y);
-                    ctx.lineTo(right.x, right.y);
-                    ctx.lineTo(left.x, left.y);
-                    ctx.closePath();
-                    ctx.fill();
-                }
-            }
-        }
-
-        function draw() {
-            const cssW = canvas.clientWidth || canvas.width;
-            const cssH = canvas.clientHeight || canvas.height;
-
-            ctx.clearRect(0, 0, cssW, cssH);
-
+        function gridMetrics() {
+            const cssW = canvas.width / dpr;
+            const cssH = canvas.height / dpr;
             const N = state.gridSize;
             const tileSize = Math.min(cssW / N, cssH / N);
             const gridW = tileSize * N;
             const gridH = tileSize * N;
             const offsetX = (cssW - gridW) / 2;
             const offsetY = (cssH - gridH) / 2;
+            return { cssW, cssH, N, tileSize, offsetX, offsetY };
+        }
 
-            // Background behind the entire grid.
+        function drawTile(tile, tileX, tileY, tileSize) {
+            const qSize = tileSize / 2;
+            ctx.save();
+            ctx.translate(tileX + tileSize / 2, tileY + tileSize / 2);
+            ctx.rotate(angleFromDeg(tile.rot));
+            ctx.translate(-tileSize / 2, -tileSize / 2);
+
+            for (let qi = 0; qi < 4; qi++) {
+                const q = tile.quadrants[qi];
+                const qBaseX = (qi % 2) * qSize;
+                const qBaseY = (qi < 2) ? 0 : qSize;
+
+                ctx.save();
+                ctx.translate(qBaseX + qSize / 2, qBaseY + qSize / 2);
+                ctx.rotate(angleFromDeg(q.rot));
+                ctx.translate(-qSize / 2, -qSize / 2);
+
+                ctx.fillStyle = q.bg || '#ffffff';
+                ctx.fillRect(0, 0, qSize, qSize);
+
+                if (state.showGrid) {
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(0, 0, qSize, qSize);
+
+                    // Microgrid 2x2 inside quadrant.
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(qSize / 2, 0);
+                    ctx.lineTo(qSize / 2, qSize);
+                    ctx.moveTo(0, qSize / 2);
+                    ctx.lineTo(qSize, qSize / 2);
+                    ctx.stroke();
+                }
+
+                const cellSize = qSize / 2;
+                for (let cell = 0; cell < CELL_COUNT_PER_QUADRANT; cell++) {
+                    const cellCol = cell % 2;
+                    const cellRow = Math.floor(cell / 2);
+                    const cellX = cellCol * cellSize;
+                    const cellY = cellRow * cellSize;
+
+                    const shape = q.cells[cell];
+                    drawShape(shape, cellX, cellY, cellSize);
+
+                    if (state.selTile.r === selTileCache.r && state.selTile.c === selTileCache.c && qi === state.selQuadrant && cell === state.selCell) {
+                        ctx.strokeStyle = '#ff0000';
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(cellX, cellY, cellSize, cellSize);
+                    }
+                }
+
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+
+        const selTileCache = { r: 0, c: 0 };
+
+        function render() {
+            const { cssW, cssH, N, tileSize, offsetX, offsetY } = gridMetrics();
+            ctx.clearRect(0, 0, cssW, cssH);
+
+            // Backplate so you always see something.
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, cssW, cssH);
 
-            // Draw tiles.
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(offsetX, offsetY, tileSize * N, tileSize * N);
+
+            selTileCache.r = state.selTile.r;
+            selTileCache.c = state.selTile.c;
+
             for (let r = 0; r < N; r++) {
                 for (let c = 0; c < N; c++) {
                     const tile = state.tiles[r * N + c];
@@ -665,293 +594,91 @@
             }
         }
 
-        function drawTile(tile, tileX, tileY, tileSize) {
-            const qSize = tileSize / 2;
-            const tileAngle = angleFromDeg(tile.rot);
-
-            ctx.save();
-            ctx.translate(tileX + tileSize / 2, tileY + tileSize / 2);
-            ctx.rotate(tileAngle);
-            ctx.translate(-tileSize / 2, -tileSize / 2);
-
-            for (let qi = 0; qi < 4; qi++) {
-                const q = tile.quadrants[qi];
-
-                const qBaseX = (qi % 2) * qSize;
-                const qBaseY = (qi < 2 ? 0 : qSize);
-
-                ctx.save();
-                ctx.translate(qBaseX + qSize / 2, qBaseY + qSize / 2);
-                ctx.rotate(angleFromDeg(q.rot));
-                ctx.translate(-qSize / 2, -qSize / 2);
-
-                // Quadrant background.
-                ctx.fillStyle = q.bg || '#ffffff';
-                ctx.fillRect(0, 0, qSize, qSize);
-
-                // Quadrant border + internal microgrid.
-                if (state.showGrid) {
-                    ctx.strokeStyle = '#000000';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(0, 0, qSize, qSize);
-
-                    // Microgrid is 2x2 within the quadrant.
-                    ctx.beginPath();
-                    ctx.moveTo(qSize / 2, 0);
-                    ctx.lineTo(qSize / 2, qSize);
-                    ctx.moveTo(0, qSize / 2);
-                    ctx.lineTo(qSize, qSize / 2);
-                    ctx.stroke();
-                }
-
-                // Selection highlight if this quadrant is selected.
-                const isSelectedTile = state.selTile.r === Math.floor((tileY - offsetYRef) / tileSize + 0.5) &&
-                    state.selTile.c === Math.floor((tileX - offsetXRef) / tileSize + 0.5);
-                if (isSelectedTile && qi === state.selQuadrant) {
-                    ctx.strokeStyle = 'rgba(0,0,0,0.8)';
-                    ctx.lineWidth = Math.max(2, qSize * 0.01);
-                    ctx.strokeRect(0, 0, qSize, qSize);
-                }
-
-                // Draw the shapes in the 2x2 micro-cells.
-                const cellSize = qSize / 2;
-                for (let cell = 0; cell < CELL_COUNT_PER_QUADRANT; cell++) {
-                    const cellCol = cell % 2;
-                    const cellRow = Math.floor(cell / 2);
-                    const cellX = cellCol * cellSize;
-                    const cellY = cellRow * cellSize;
-                    const shape = q.cells[cell];
-                    drawShapeInCell(shape, cellX, cellY, cellSize);
-
-                    if (state.showGrid) {
-                        ctx.strokeStyle = '#000000';
-                        ctx.lineWidth = 1.8;
-                        ctx.strokeRect(cellX, cellY, cellSize, cellSize);
-                    }
-
-                    if (state.showGrid && isSelectedTile && qi === state.selQuadrant && cell === state.selCell) {
-                        ctx.strokeStyle = 'rgba(255,0,0,0.8)';
-                        ctx.lineWidth = Math.max(2, cellSize * 0.012);
-                        ctx.strokeRect(cellX, cellY, cellSize, cellSize);
-                    }
-                }
-
-                ctx.restore();
-            }
-
-            ctx.restore();
-        }
-
-        let offsetXRef = 0;
-        let offsetYRef = 0;
-        function drawWithRefs() {
-            const dpr = Math.max(1, window.devicePixelRatio || 1);
-            const cssW = canvas.width / dpr;
-            const cssH = canvas.height / dpr;
-            const N = state.gridSize;
-            const tileSize = Math.min(cssW / N, cssH / N);
-            offsetXRef = (cssW - tileSize * N) / 2;
-            offsetYRef = (cssH - tileSize * N) / 2;
-            // We call drawTile which uses these refs for selection highlight.
-
-            ctx.clearRect(0, 0, cssW, cssH);
-            ctx.fillStyle = '#f2f2ee';
-            ctx.fillRect(0, 0, cssW, cssH);
-
-            // Always draw an outer border so the canvas render is obvious.
-            ctx.strokeStyle = '#000000';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(offsetXRef, offsetYRef, tileSize * N, tileSize * N);
-
-            // Debug: show tool label so we know rendering is running.
-            ctx.fillStyle = '#000000';
-            ctx.font = `${Math.max(12, Math.floor(tileSize * 0.08))}px monospace`;
-            ctx.fillText('GRIDDY', offsetXRef + 8, offsetYRef + 20);
-
-            for (let r = 0; r < N; r++) {
-                for (let c = 0; c < N; c++) {
-                    const tile = state.tiles[r * N + c];
-                    const tileX = offsetXRef + c * tileSize;
-                    const tileY = offsetYRef + r * tileSize;
-                    const tile = state.tiles[r * N + c];
-
-                    // Draw tile with direct highlight logic based on selection indices.
-                    drawTileWithKnownIndex(tile, tileX, tileY, tileSize, r, c);
-                }
-            }
-        }
-
-        function drawTileWithKnownIndex(tile, tileX, tileY, tileSize, r, c) {
-            const qSize = tileSize / 2;
-
-            ctx.save();
-            ctx.translate(tileX + tileSize / 2, tileY + tileSize / 2);
-            ctx.rotate(angleFromDeg(tile.rot));
-            ctx.translate(-tileSize / 2, -tileSize / 2);
-
-            for (let qi = 0; qi < 4; qi++) {
-                const q = tile.quadrants[qi];
-                const qBaseX = (qi % 2) * qSize;
-                const qBaseY = (qi < 2 ? 0 : qSize);
-
-                ctx.save();
-                ctx.translate(qBaseX + qSize / 2, qBaseY + qSize / 2);
-                ctx.rotate(angleFromDeg(q.rot));
-                ctx.translate(-qSize / 2, -qSize / 2);
-
-                // Quadrant background.
-                ctx.fillStyle = q.bg || '#ffffff';
-                ctx.fillRect(0, 0, qSize, qSize);
-
-                if (state.showGrid) {
-                    ctx.strokeStyle = '#000000';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(0, 0, qSize, qSize);
-
-                    ctx.beginPath();
-                    ctx.moveTo(qSize / 2, 0);
-                    ctx.lineTo(qSize / 2, qSize);
-                    ctx.moveTo(0, qSize / 2);
-                    ctx.lineTo(qSize, qSize / 2);
-                    ctx.stroke();
-                }
-
-                const tileSelected = r === state.selTile.r && c === state.selTile.c;
-                if (tileSelected && qi === state.selQuadrant) {
-                    ctx.strokeStyle = 'rgba(0,0,0,0.85)';
-                    ctx.lineWidth = Math.max(2, qSize * 0.01);
-                    ctx.strokeRect(0, 0, qSize, qSize);
-                }
-
-                const cellSize = qSize / 2;
-                for (let cell = 0; cell < CELL_COUNT_PER_QUADRANT; cell++) {
-                    const cellCol = cell % 2;
-                    const cellRow = Math.floor(cell / 2);
-                    const cellX = cellCol * cellSize;
-                    const cellY = cellRow * cellSize;
-                    const shape = q.cells[cell];
-                    drawShapeInCell(shape, cellX, cellY, cellSize);
-
-                    if (state.showGrid) {
-                        ctx.strokeStyle = '#000000';
-                        ctx.lineWidth = 1.8;
-                        ctx.strokeRect(cellX, cellY, cellSize, cellSize);
-                    }
-
-                    if (tileSelected && qi === state.selQuadrant && cell === state.selCell) {
-                        ctx.strokeStyle = 'rgba(255,0,0,0.85)';
-                        ctx.lineWidth = Math.max(2, cellSize * 0.012);
-                        ctx.strokeRect(cellX, cellY, cellSize, cellSize);
-                    }
-                }
-
-                ctx.restore();
-            }
-
-            ctx.restore();
-        }
-
-        function render() {
-            drawWithRefs();
-        }
-
         function canvasPointFromEvent(e) {
             const rect = canvas.getBoundingClientRect();
-            let clientX = 0;
-            let clientY = 0;
-            if (e.touches && e.touches.length > 0) {
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
-            } else {
-                clientX = e.clientX;
-                clientY = e.clientY;
-            }
+            const touch = e.touches && e.touches.length ? e.touches[0] : null;
+            const clientX = touch ? touch.clientX : e.clientX;
+            const clientY = touch ? touch.clientY : e.clientY;
             return { x: clientX - rect.left, y: clientY - rect.top };
         }
 
-        function tileAndQuadrantFromPoint(x, y) {
-            const N = state.gridSize;
-            const dpr = Math.max(1, window.devicePixelRatio || 1);
-            const cssW = canvas.width / dpr;
-            const cssH = canvas.height / dpr;
-            const tileSize = Math.min(cssW / N, cssH / N);
+        function hitTest(x, y) {
+            const { N, tileSize, offsetX, offsetY } = gridMetrics();
             const gridW = tileSize * N;
             const gridH = tileSize * N;
-            const offsetX = (cssW - gridW) / 2;
-            const offsetY = (cssH - gridH) / 2;
-
             if (x < offsetX || y < offsetY || x > offsetX + gridW || y > offsetY + gridH) return null;
 
             const col = Math.floor((x - offsetX) / tileSize);
             const row = Math.floor((y - offsetY) / tileSize);
-            const tileX = offsetX + col * tileSize;
-            const tileY = offsetY + row * tileSize;
             const tile = state.tiles[row * N + col];
             if (!tile) return null;
 
-            // Local within tile.
-            let lx = x - tileX;
-            let ly = y - tileY;
-
-            // Apply inverse tile rotation for hit-testing logical quadrants.
-            const angle = angleFromDeg(tile.rot);
-            const inv = rotatePoint(lx - tileSize / 2, ly - tileSize / 2, -angle);
-            const ux = inv.x + tileSize / 2;
-            const uy = inv.y + tileSize / 2;
+            const tileLocal = {
+                x: x - (offsetX + col * tileSize) - tileSize / 2,
+                y: y - (offsetY + row * tileSize) - tileSize / 2
+            };
+            const invTile = rotatePoint(tileLocal.x, tileLocal.y, -angleFromDeg(tile.rot));
+            const ux = invTile.x + tileSize / 2;
+            const uy = invTile.y + tileSize / 2;
 
             const qSize = tileSize / 2;
             const qCol = ux >= qSize ? 1 : 0;
             const qRow = uy >= qSize ? 1 : 0;
-            const quadrant = qRow * 2 + qCol; // 0 TL, 1 TR, 2 BL, 3 BR
+            const quadrant = qRow * 2 + qCol;
 
             const qBaseX = qCol * qSize;
             const qBaseY = qRow * qSize;
-
-            // Apply inverse quadrant rotation so micro-cell selection matches rendering.
             const q = tile.quadrants[quadrant];
-            const qAngle = angleFromDeg(q.rot);
-            const qLocalX = ux - qBaseX;
-            const qLocalY = uy - qBaseY;
-            const qInv = rotatePoint(qLocalX - qSize / 2, qLocalY - qSize / 2, -qAngle);
-            const withinQx = qInv.x + qSize / 2;
-            const withinQy = qInv.y + qSize / 2;
+
+            const qLocal = {
+                x: ux - qBaseX - qSize / 2,
+                y: uy - qBaseY - qSize / 2
+            };
+            const invQ = rotatePoint(qLocal.x, qLocal.y, -angleFromDeg(q.rot));
+            const qUx = invQ.x + qSize / 2;
+            const qUy = invQ.y + qSize / 2;
 
             const cellSize = qSize / 2;
-            const cellCol = withinQx >= cellSize ? 1 : 0;
-            const cellRow = withinQy >= cellSize ? 1 : 0;
+            const cellCol = qUx >= cellSize ? 1 : 0;
+            const cellRow = qUy >= cellSize ? 1 : 0;
             const cell = cellRow * 2 + cellCol;
 
             return { row, col, quadrant, cell };
         }
 
-        function handlePointerDown(e) {
+        function placeShape(shape) {
+            const q = getSelectedQuadrant();
+            q.cells[state.selCell] = shape ? cloneShape(shape) : null;
+        }
+
+        function onPointerDown(e) {
             const p = canvasPointFromEvent(e);
-            const hit = tileAndQuadrantFromPoint(p.x, p.y);
+            const hit = hitTest(p.x, p.y);
             if (!hit) return;
 
             state.selTile = { r: hit.row, c: hit.col };
             state.selQuadrant = hit.quadrant;
             state.selCell = hit.cell;
 
-            const q = getSelectedQuadrant();
-            // Clicking a micro-cell places the currently selected shape.
-            const newShape = {
+            // Place/edit on click.
+            const shape = {
                 type: state.shapeType,
                 rounded: !!state.shapeRounded,
                 color: state.shapeColor
             };
-            q.cells[state.selCell] = newShape;
+            placeShape(shape);
 
-            setSelectedUIFromModel();
+            setSelectedUIFromCell();
             render();
         }
 
-        function handleTouchDown(e) {
+        canvas.addEventListener('mousedown', onPointerDown);
+        canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            handlePointerDown(e);
-        }
+            onPointerDown(e);
+        }, { passive: false });
 
-        // Events
+        // UI wiring
         infoBtn?.addEventListener('click', () => infoOverlay.hidden = false);
         infoClose?.addEventListener('click', () => infoOverlay.hidden = true);
         infoOverlay?.addEventListener('click', (e) => {
@@ -961,8 +688,8 @@
         gridSizeEl.addEventListener('input', (e) => {
             state.gridSize = parseInt(e.target.value, 10);
             gridSizeVal.textContent = String(state.gridSize);
-            initGrid(true);
-            setSelectedUIFromModel();
+            initGrid();
+            setSelectedUIFromCell();
             render();
         });
 
@@ -972,109 +699,107 @@
         });
 
         tileRotEl.addEventListener('input', (e) => {
-            state.tileRot = parseInt(e.target.value, 10);
-            const tile = state.tiles[state.selTile.r * state.gridSize + state.selTile.c];
-            tile.rot = state.tileRot;
+            const v = parseInt(e.target.value, 10);
+            tileRotVal.textContent = String(v);
+            const tile = getSelectedTile();
+            tile.rot = v;
+            render();
+        });
+
+        qRotEl.addEventListener('input', (e) => {
+            const v = parseInt(e.target.value, 10);
+            qRotVal.textContent = String(v);
+            getSelectedQuadrant().rot = v;
+            render();
+        });
+
+        qBgEl.addEventListener('input', (e) => {
+            getSelectedQuadrant().bg = e.target.value;
             render();
         });
 
         qButtons.forEach((btn, idx) => {
             btn.addEventListener('click', () => {
                 state.selQuadrant = idx;
-                state.selCell = clamp(state.selCell, 0, 3);
-                setSelectedUIFromModel();
+                setSelectedUIFromCell();
                 render();
             });
         });
 
-        qRotEl.addEventListener('input', (e) => {
-            state.qRot = parseInt(e.target.value, 10);
+        shapeRoundedEl.addEventListener('change', () => {
+            state.shapeRounded = !!shapeRoundedEl.checked;
             const q = getSelectedQuadrant();
-            q.rot = state.qRot;
+            const shape = q.cells[state.selCell];
+            if (shape) {
+                shape.rounded = state.shapeRounded;
+            }
             render();
         });
 
-        qBgEl.addEventListener('input', (e) => {
-            state.qBg = e.target.value;
+        shapeColorEl.addEventListener('input', () => {
+            state.shapeColor = shapeColorEl.value;
             const q = getSelectedQuadrant();
-            q.bg = state.qBg;
+            const shape = q.cells[state.selCell];
+            if (shape) {
+                shape.color = state.shapeColor;
+            }
             render();
         });
 
-        shapeTypeEl.addEventListener('change', (e) => {
-            state.shapeType = e.target.value;
-            const q = getSelectedQuadrant();
-            if (q.cells[state.selCell]) {
-                q.cells[state.selCell].type = state.shapeType;
-                render();
-            }
-        });
-        shapeRoundedEl.addEventListener('change', (e) => {
-            state.shapeRounded = !!e.target.checked;
-            const q = getSelectedQuadrant();
-            if (q.cells[state.selCell]) {
-                q.cells[state.selCell].rounded = state.shapeRounded;
-                render();
-            }
-        });
-        shapeColorEl.addEventListener('input', (e) => {
-            state.shapeColor = e.target.value;
-            const q = getSelectedQuadrant();
-            if (q.cells[state.selCell]) {
-                q.cells[state.selCell].color = state.shapeColor;
-                render();
-            }
+        clearCellBtn.addEventListener('click', () => {
+            getSelectedQuadrant().cells[state.selCell] = null;
+            render();
         });
 
-        clearCellBtn?.addEventListener('click', clearSelectedCell);
+        shapeTypeEl.addEventListener('change', () => {
+            state.shapeType = shapeTypeEl.value;
+            const q = getSelectedQuadrant();
+            const shape = q.cells[state.selCell];
+            if (shape) {
+                shape.type = state.shapeType;
+            }
+            render();
+        });
 
-        saveTemplateBtn?.addEventListener('click', saveSelectedQuadrantToTemplate);
-        applyTemplateBtn?.addEventListener('click', applyTemplateToSelectedQuadrant);
-
-        // Canvas interaction
-        canvas.addEventListener('mousedown', handlePointerDown);
-        canvas.addEventListener('touchstart', handleTouchDown, { passive: false });
+        saveTemplateBtn.addEventListener('click', saveSelectedQuadrantToTemplate);
+        applyTemplateBtn.addEventListener('click', applyTemplateToSelectedQuadrant);
 
         window.addEventListener('resize', () => {
             resize();
             render();
         });
 
-        // init
-        try {
-            initTemplates();
-            updateTemplateSlotUI();
-            initGrid(false);
-            resize();
-
-            // Sync showGrid once canvas exists.
-            state.showGrid = showGridEl ? !!showGridEl.checked : true;
-            setUiTabIfNeeded();
-            setSelectedUIFromModel();
-
-            // Render twice: once now, once after layout settles.
-            render();
-            requestAnimationFrame(() => render());
-        } catch (err) {
-            // Show the error right on the canvas.
-            console.error(err);
+        function init() {
             try {
-                ctx.setTransform(1, 0, 0, 1, 0, 0);
-                ctx.fillStyle = '#ffebee';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#b00020';
-                ctx.font = '14px monospace';
-                const msg = (err && err.message) ? err.message : String(err);
-                ctx.fillText('Griddy error:', 14, 24);
-                ctx.fillText(msg.slice(0, 120), 14, 44);
-            } catch (_) {
-                // ignore
+                ensureDefaultsTemplates();
+                updateTemplateSlotUI();
+                initGrid();
+                state.showGrid = !!showGridEl.checked;
+                resize();
+
+                // Ensure initial selection UI is consistent.
+                tileRotVal.textContent = tileRotEl.value;
+                qRotVal.textContent = qRotEl.value;
+                updateSelectionButtons();
+                setSelectedUIFromCell();
+                render();
+            } catch (err) {
+                console.error(err);
+                // Draw the error so you can see it immediately in the canvas.
+                try {
+                    resize();
+                    ctx.fillStyle = '#ffebee';
+                    ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+                    ctx.fillStyle = '#b00020';
+                    ctx.font = '14px monospace';
+                    const msg = (err && err.message) ? err.message : String(err);
+                    ctx.fillText('Griddy error:', 14, 20);
+                    ctx.fillText(msg.slice(0, 140), 14, 44);
+                } catch (_) {}
             }
         }
 
-        function setUiTabIfNeeded() {
-            // placeholder to keep init structure consistent; tool doesn't use tabs
-        }
+        init();
     </script>
 </body>
 </html>
