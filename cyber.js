@@ -376,14 +376,9 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   const baseThickness = (params.strokeW + (widthAdd || 0));
   const tm = thicknessMul == null ? 1 : thicknessMul;
   const taperFactor = 0.2 + 0.8 * (tm * tm); // endpoint taper -> thickness
-  // Make sketch "reach" affect thickness of the connection itself.
-  // When points are close (small d) the connection is thick; when they are
-  // near the reach limit (d ~ reach) the connection thins out so max reach
-  // doesn't turn into a blob.
-  const distMul = params.drawMode
-    ? lerp(1, 0.22, constrain(d / max(1, params.sketchReach), 0, 1))
-    : 1;
-  const finalThickness = baseThickness * taperFactor * distMul;
+  // `reach` should control ACTIVITY between points (which connections exist),
+  // not thickness. Thickness is controlled by `strokeW` + endpoint taper.
+  const finalThickness = baseThickness * taperFactor;
 
   const roughness = max(0, params.sketchRoughness);
   const rough01 = constrain(roughness / 20, 0, 1);
@@ -650,18 +645,17 @@ function buildSketchConnections() {
   const dynamicConnect = params.sketchReach;
   const taper = constrain(params.sketchTaper / 100, 0, 1);
   for (const seg of segments) {
-    for (let i = 0; i < seg.length; i++) {
+    // Match the reference behavior: connect mostly *adjacent* points.
+    // This makes `reach` visibly control whether the stroke becomes
+    // continuous (high reach) or dashed/broken (low reach).
+    for (let i = 1; i < seg.length; i++) {
+      const prev = seg[i - 1];
       const p = seg[i];
+      const d = Math.hypot(p.x - prev.x, p.y - prev.y);
+      if (d >= dynamicConnect) continue;
       const t = seg.length > 1 ? (i / (seg.length - 1)) : 0;
       const tm = 1 - taper * t;
-      const lookback = Math.max(0, i - 249);
-      for (let j = lookback; j < i; j++) {
-        const prev = seg[j];
-        const d = Math.hypot(p.x - prev.x, p.y - prev.y);
-        if (d < dynamicConnect) {
-          all.push({ px: prev.x, py: prev.y, x: p.x, y: p.y, d, tm });
-        }
-      }
+      all.push({ px: prev.x, py: prev.y, x: p.x, y: p.y, d, tm });
     }
   }
   return all;
