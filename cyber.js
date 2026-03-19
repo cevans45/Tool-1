@@ -129,19 +129,26 @@ function regenerate() {
 
   const sp = constrain(params.spread / 100, 0.1, 1.5);
   const halfW = width * 0.5;
-  const margin = height * 0.1;
+  const margin = height * 0.08;
+  const curve01ForAngle = constrain(params.curveAmt / 100, 0, 1);
 
   const halfPaths = [];
   for (let i = 0; i < params.curveCount; i++) {
     const yCenter = random(margin, height - margin);
 
-    // More varied directions and lengths, still mostly on the right half
-    const angle = random(-HALF_PI * 0.85, HALF_PI * 0.85);
-    const reachBase = max(40, params.genReach);
-    const reach = random(reachBase * 0.7, reachBase * 1.5) * (0.6 + 0.4 * sp);
+    // Make the mirrored pair "sweep" much farther across the canvas.
+    // This prevents the output from staying overly centered/small.
+    const maxAng01 = lerp(0.18, 0.48, curve01ForAngle); // fraction of HALF_PI
+    const angle = random(-HALF_PI * maxAng01, HALF_PI * maxAng01);
 
-    const startX = halfW + random(-20, 40);
-    const startY = yCenter + random(-height * 0.06, height * 0.06);
+    // Map UI reach into a width-relative distance.
+    const reachBase = map(constrain(params.genReach, 60, 220), 60, 220, width * 0.18, width * 0.46);
+    const reachScale = 0.7 + 0.6 * sp;
+    const reach = random(reachBase * 0.7, reachBase * 1.15) * reachScale;
+
+    // Start further to the right so the mirrored output spans more of the width.
+    const startX = halfW + random(width * 0.02, width * 0.26);
+    const startY = yCenter + random(-height * 0.08, height * 0.08);
     const endX = startX + cos(angle) * reach;
     const endY = startY + sin(angle) * reach;
 
