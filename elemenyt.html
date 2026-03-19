@@ -214,7 +214,10 @@
             canvas.width = w;
             canvas.height = h;
             ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, w, h);
+            // Paint background so the output filter never has to reason about
+            // an empty/fully-transparent canvas.
+            ctx.fillStyle = state.bg;
+            ctx.fillRect(0, 0, w, h);
             document.body.style.backgroundColor = state.bg;
             if (state.mirrorEnabled) drawGuideline();
         }
@@ -385,16 +388,39 @@
             state.points.push({ x, y });
             const startIndex = Math.max(0, state.points.length - 250);
 
-            for (let i = startIndex; i < state.points.length - 1; i++) {
-                const prev = state.points[i];
-                const p = state.points[state.points.length - 1];
-                if (!prev || !p) continue;
+            const p = state.points[state.points.length - 1];
+            const dynamicConnect = CONFIG.connectDistance + state.brushSize;
 
+            // Always connect from the last non-null point so drawing is stable
+            // even if the cursor jumps far between mouse events.
+            let last = state.points.length - 2;
+            while (last >= 0 && state.points[last] == null) last--;
+            if (last >= 0 && p) {
+                const prev = state.points[last];
                 const dx = p.x - prev.x;
                 const dy = p.y - prev.y;
                 const dist = Math.hypot(dx, dy);
+                const steps = Math.max(1, Math.ceil(dist / Math.max(1, dynamicConnect)));
+                let sx = prev.x;
+                let sy = prev.y;
+                for (let s = 1; s <= steps; s++) {
+                    const t = s / steps;
+                    const tx = prev.x + dx * t;
+                    const ty = prev.y + dy * t;
+                    const segDist = Math.hypot(tx - sx, ty - sy);
+                    scratchLine(sx, sy, tx, ty, segDist);
+                    sx = tx;
+                    sy = ty;
+                }
+            }
 
-                const dynamicConnect = CONFIG.connectDistance + state.brushSize;
+            // Extra connections to previous points (keeps the "mycelium" feel).
+            for (let i = startIndex; i < state.points.length - 1; i++) {
+                const prev = state.points[i];
+                if (!prev || !p) continue;
+                const dx = p.x - prev.x;
+                const dy = p.y - prev.y;
+                const dist = Math.hypot(dx, dy);
                 if (dist < dynamicConnect) scratchLine(prev.x, prev.y, p.x, p.y, dist);
             }
         }
