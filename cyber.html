@@ -7,8 +7,8 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
     <style>
-        /* Match the reference "Mycelium Mirror" jagged edge filter */
-        #sigil-canvas canvas {
+        /* Apply jagged filter only in generate mode for usability while sketching */
+        .sigil-filter-on #sigil-canvas canvas {
             -webkit-filter: url(#jagged-edge);
             filter: url(#jagged-edge);
         }

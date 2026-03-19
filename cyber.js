@@ -35,7 +35,7 @@ const params = {
   influenceRadius: 20,
   blurStrength: 0.18,
   strokeW: 3,
-  drawMode: false,
+  drawMode: true,
   drawOperation: 'ink',
   mirrorX: true,
   mirrorY: false,
@@ -1220,6 +1220,12 @@ function bindControls() {
     if (mode === 'grid') setRow(rowJitter, false);
   };
 
+  const updateFilterModeUI = () => {
+    const cls = 'sigil-filter-on';
+    if (params.drawMode) document.body.classList.remove(cls);
+    else document.body.classList.add(cls);
+  };
+
   const updateModeUI = () => {
     const isSketch = params.drawMode;
     const sketchCore = byId('section-sketch-core');
@@ -1230,6 +1236,7 @@ function bindControls() {
     if (structure) structure.style.display = isSketch ? 'none' : '';
     if (sketchBtn) sketchBtn.classList.toggle('is-active', isSketch);
     if (genBtn) genBtn.classList.toggle('is-active', !isSketch);
+    updateFilterModeUI();
   };
 
   const setDrawMode = (sketch) => {
