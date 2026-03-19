@@ -533,23 +533,19 @@ function drawWithOutlineFill(ctx, conns, doMirror) {
   params.drawOperation = savedOp;
 }
 
-function buildGenerateWebbing(pathList) {
-  if (!params.genWebbingEnabled) return [];
-  const reach = max(10, params.genReach);
-  const amount = constrain(params.genWebbing / 100, 0, 1);
-  if (amount <= 0) return [];
+function buildWebbingFromConnections(conns, reach, amount, maxLinksBase) {
+  const amt = constrain(amount, 0, 1);
+  if (amt <= 0 || !conns || conns.length < 2) return [];
 
   const points = [];
-  const stride = max(2, floor(map(amount, 0, 1, 18, 4)));
-  for (const path of pathList) {
-    for (let i = 0; i < path.length; i += stride) {
-      const p = path[i];
-      points.push({ x: p.x, y: p.y });
-    }
+  const stride = max(1, floor(map(amt, 0, 1, 16, 4)));
+  for (let i = 0; i < conns.length; i += stride) {
+    const c = conns[i];
+    points.push({ x: (c.px + c.x) * 0.5, y: (c.py + c.y) * 0.5 });
   }
   if (points.length < 4) return [];
 
-  const cell = reach;
+  const cell = max(6, reach);
   const buckets = new Map();
   for (let i = 0; i < points.length; i++) {
     const p = points[i];
@@ -561,7 +557,7 @@ function buildGenerateWebbing(pathList) {
   }
 
   const out = [];
-  const maxLinks = floor(map(amount, 0, 1, 0, 140));
+  const maxLinks = floor(map(amt, 0, 1, 0, maxLinksBase));
   let made = 0;
   for (let i = 0; i < points.length; i++) {
     if (made >= maxLinks) break;
@@ -571,7 +567,6 @@ function buildGenerateWebbing(pathList) {
     const seed = (Math.round(p.x * 7) * 374761 + Math.round(p.y * 7) * 668265 + (params.seed | 0)) | 0;
     const rng = makeRng(seed);
 
-    // Try a few candidate neighbor points nearby.
     for (let tries = 0; tries < 3; tries++) {
       const dxCell = floor(rng() * 3) - 1;
       const dyCell = floor(rng() * 3) - 1;
@@ -588,6 +583,13 @@ function buildGenerateWebbing(pathList) {
     }
   }
   return out;
+}
+
+function buildGenerateWebbing(conns) {
+  if (!params.genWebbingEnabled) return [];
+  const reach = max(10, params.genReach);
+  const amount = constrain(params.genWebbing / 100, 0, 1);
+  return buildWebbingFromConnections(conns, reach, amount, 140);
 }
 
 function addDrawPoint(x, y) {
@@ -639,7 +641,7 @@ function renderPathsToBuffer(pathList) {
   const ctx = drawBuffer.drawingContext;
   const savedOp = params.drawOperation;
   const conns = pathsToConnections(pathList);
-  const web = buildGenerateWebbing(pathList);
+  const web = buildGenerateWebbing(conns);
   const full = web.length ? conns.concat(web) : conns;
   drawWithOutlineFill(ctx, full, false);
   params.drawOperation = savedOp;
@@ -651,7 +653,7 @@ function renderPathsToBufferFromHalf(halfPaths) {
   const savedOp = params.drawOperation;
 
   const conns = pathsToConnections(halfPaths);
-  const web = buildGenerateWebbing(halfPaths);
+  const web = buildGenerateWebbing(conns);
   let base = web.length ? conns.concat(web) : conns;
 
   const genBranches = params.branchEnabledGen
@@ -721,53 +723,8 @@ function buildSketchWebbing(baseConns) {
   if (!params.sketchWebbingEnabled) return [];
   const amount = constrain(params.sketchWebbing / 100, 0, 1);
   if (amount <= 0 || baseConns.length < 4) return [];
-
   const reach = max(10, params.sketchReach);
-  const points = [];
-  const stride = max(2, floor(map(amount, 0, 1, 12, 3)));
-  for (let i = 0; i < baseConns.length; i += stride) {
-    const c = baseConns[i];
-    points.push({ x: (c.px + c.x) * 0.5, y: (c.py + c.y) * 0.5 });
-  }
-  if (points.length < 4) return [];
-
-  const cell = reach;
-  const buckets = new Map();
-  for (let i = 0; i < points.length; i++) {
-    const p = points[i];
-    const ix = floor(p.x / cell);
-    const iy = floor(p.y / cell);
-    const key = `${ix},${iy}`;
-    if (!buckets.has(key)) buckets.set(key, []);
-    buckets.get(key).push(i);
-  }
-
-  const out = [];
-  const maxLinks = floor(map(amount, 0, 1, 0, 100));
-  let made = 0;
-  for (let i = 0; i < points.length; i++) {
-    if (made >= maxLinks) break;
-    const p = points[i];
-    const ix = floor(p.x / cell);
-    const iy = floor(p.y / cell);
-    const seed = (Math.round(p.x * 7) * 374761 + Math.round(p.y * 7) * 668265 + (params.seed | 0)) | 0;
-    const rng = makeRng(seed);
-    for (let tries = 0; tries < 3; tries++) {
-      const dxCell = floor(rng() * 3) - 1;
-      const dyCell = floor(rng() * 3) - 1;
-      const cand = buckets.get(`${ix + dxCell},${iy + dyCell}`);
-      if (!cand || cand.length === 0) continue;
-      const j = cand[floor(rng() * cand.length)];
-      if (j === i) continue;
-      const q = points[j];
-      const d = Math.hypot(q.x - p.x, q.y - p.y);
-      if (d < 6 || d > reach) continue;
-      out.push({ px: p.x, py: p.y, x: q.x, y: q.y, d, tm: 1 });
-      made++;
-      break;
-    }
-  }
-  return out;
+  return buildWebbingFromConnections(baseConns, reach, amount, 100);
 }
 
 function reRenderSketch() {
