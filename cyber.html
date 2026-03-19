@@ -46,8 +46,8 @@
 
                             <div class="control-row" id="row-cs-sketch-reach">
                                 <label for="cs-sketch-reach">Reach</label>
-                                <input type="range" id="cs-sketch-reach" min="10" max="200" value="70" step="5">
-                                <span class="param-value" id="val-cs-sketch-reach">70</span>
+                                <input type="range" id="cs-sketch-reach" min="10" max="50" value="35" step="5">
+                                <span class="param-value" id="val-cs-sketch-reach">35</span>
                             </div>
 
                             <div class="control-row" style="gap:6px;">
@@ -75,6 +75,30 @@
                                 <input type="range" id="cs-sketch-density" min="1" max="16" value="6" step="1">
                                 <span class="param-value" id="val-cs-sketch-density">6</span>
                             </div>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="cs-fill-enabled" checked>
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Fill</span>
+                            </label>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="cs-outline-enabled">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Outline</span>
+                            </label>
+
+                            <div class="control-row" id="row-cs-outline-width" style="display:none;">
+                                <label for="cs-outline-width">Outline width</label>
+                                <input type="range" id="cs-outline-width" min="1" max="8" value="2" step="1">
+                                <span class="param-value" id="val-cs-outline-width">2</span>
+                            </div>
+
+                            <div class="control-row color-row" id="row-cs-outline-color" style="display:none;">
+                                <label for="cs-outline-color">Outline color</label>
+                                <input type="color" id="cs-outline-color" value="#888888">
+                            </div>
+
                             <div class="control-row color-row">
                                 <label for="cs-bg-sketch">Background</label>
                                 <input type="color" id="cs-bg-sketch" value="#ffffff">
@@ -87,7 +111,7 @@
                     </details>
 
                     <details class="control-window" id="section-structure" open>
-                        <summary>Structure</summary>
+                        <summary>Generate</summary>
                         <section class="control-section">
                             <div class="control-row" style="gap:6px; margin-bottom:12px;">
                                 <button type="button" id="cs-regenerate" class="panel-button" style="flex:1;">Regenerate</button>
@@ -110,78 +134,18 @@
                             </div>
                             <div class="control-row">
                                 <label for="cs-curves">Curves</label>
-                                <input type="range" id="cs-curves" min="2" max="16" value="7" step="1">
-                                <span class="param-value" id="val-cs-curves">7</span>
+                                <input type="range" id="cs-curves" min="2" max="12" value="5" step="1">
+                                <span class="param-value" id="val-cs-curves">5</span>
                             </div>
                             <div class="control-row">
-                                <label for="cs-samples">Samples</label>
-                                <input type="range" id="cs-samples" min="30" max="220" value="110" step="5">
-                                <span class="param-value" id="val-cs-samples">110</span>
+                                <label for="cs-spread">Spread</label>
+                                <input type="range" id="cs-spread" min="10" max="100" value="50" step="5">
+                                <span class="param-value" id="val-cs-spread">50</span>
                             </div>
                             <div class="control-row">
-                                <label for="cs-influence">Influence</label>
-                                <input type="range" id="cs-influence" min="4" max="48" value="20" step="1">
-                                <span class="param-value" id="val-cs-influence">20</span>
-                            </div>
-                            <div class="control-row">
-                                <label for="cs-threshold">Threshold</label>
-                                <input type="range" id="cs-threshold" min="10" max="90" value="44" step="1">
-                                <span class="param-value" id="val-cs-threshold">0.44</span>
-                            </div>
-                            <div class="control-row">
-                                <label for="cs-prune">Prune passes</label>
-                                <input type="range" id="cs-prune" min="0" max="24" value="7" step="1">
-                                <span class="param-value" id="val-cs-prune">7</span>
-                            </div>
-                            <div class="control-row">
-                                <label for="cs-branch">Branch chance</label>
-                                <input type="range" id="cs-branch" min="0" max="100" value="35" step="1">
-                                <span class="param-value" id="val-cs-branch">35%</span>
-                            </div>
-                        </section>
-                    </details>
-
-                    <details class="control-window" id="section-smoothing">
-                        <summary>Smoothing</summary>
-                        <section class="control-section">
-                            <div class="control-row">
-                                <label for="cs-blurs">Blur passes</label>
-                                <input type="range" id="cs-blurs" min="0" max="200" value="62" step="1">
-                                <span class="param-value" id="val-cs-blurs">62</span>
-                            </div>
-                            <div class="control-row">
-                                <label for="cs-blur-strength">Blur strength</label>
-                                <input type="range" id="cs-blur-strength" min="0" max="100" value="18" step="1">
-                                <span class="param-value" id="val-cs-blur-strength">0.18</span>
-                            </div>
-                        </section>
-                    </details>
-
-                    <details class="control-window" id="section-style">
-                        <summary>Style</summary>
-                        <section class="control-section">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="cs-stroke-enabled" checked>
-                                <span class="toggle-box"></span>
-                                <span class="cb-label">Stroke on</span>
-                            </label>
-                            <div class="control-row" id="row-cs-taper">
-                                <label for="cs-taper">Taper</label>
-                                <input type="range" id="cs-taper" min="0" max="100" value="68" step="1">
-                                <span class="param-value" id="val-cs-taper">0.68</span>
-                            </div>
-                            <div class="control-row" id="row-cs-fill">
-                                <label for="cs-fill">Space fill</label>
-                                <input type="range" id="cs-fill" min="0" max="100" value="72" step="1">
-                                <span class="param-value" id="val-cs-fill">0.72</span>
-                            </div>
-                            <div class="control-row color-row">
-                                <label for="cs-bg">Background</label>
-                                <input type="color" id="cs-bg" value="#ffffff">
-                            </div>
-                            <div class="control-row color-row">
-                                <label for="cs-ink">Ink</label>
-                                <input type="color" id="cs-ink" value="#000000">
+                                <label for="cs-branching">Branching</label>
+                                <input type="range" id="cs-branching" min="0" max="100" value="30" step="5">
+                                <span class="param-value" id="val-cs-branching">30</span>
                             </div>
                         </section>
                     </details>

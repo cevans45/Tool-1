@@ -22,18 +22,12 @@ const params = {
   textureSize: 0.56,
   textureOpacity: 0.82,
   textureJitter: 0.22,
-  curveCount: 7,
-  curveSamples: 110,
+  curveCount: 5,
+  spread: 50,
+  branching: 30,
   influenceRadius: 20,
-  threshold: 0.44,
-  blurPasses: 62,
   blurStrength: 0.18,
-  prunePasses: 7,
-  branchChance: 0.35,
   strokeW: 2,
-  taper: 0.68,
-  fillAmount: 0.72,
-  strokeEnabled: true,
   drawMode: true,
   drawOperation: 'ink',
   mirrorX: true,
@@ -41,9 +35,13 @@ const params = {
   bg: '#ffffff',
   ink: '#000000',
   textureColor: '#000000',
+  fillEnabled: true,
+  outlineEnabled: false,
+  outlineColor: '#888888',
+  outlineWidth: 2,
   sketchRoughness: 4,
   sketchDensity: 6,
-  sketchReach: 70
+  sketchReach: 35
 };
 
 function setup() {
@@ -53,7 +51,6 @@ function setup() {
     params.textureDensity = 0.60;
     params.textureOpacity = 0.70;
     params.curveCount = 5;
-    params.blurPasses = 28;
     params.strokeW = 3;
     params.drawMode = false;
   }
@@ -67,6 +64,13 @@ function setup() {
 
   drawBuffer = createGraphics(width, height);
   drawBuffer.pixelDensity(displayDensity());
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+      e.preventDefault();
+      undo();
+    }
+  });
 
   bindControls();
   if (!params.seed) randomizeSeed();
@@ -106,50 +110,68 @@ function randomizeSeed() {
   if (seedEl) seedEl.value = String(params.seed);
 }
 
+/* ===== GENERATE MODE ===== */
+
 function regenerate() {
-  if (params.drawMode) {
-    redraw();
-    return;
-  }
+  if (params.drawMode) { redraw(); return; }
 
   randomSeed(int(params.seed));
   noiseSeed(int(params.seed));
   paths = [];
   curveHash = new Map();
 
-  const basePaths = [];
-  const m = params.influenceRadius * 2.0;
+  const sp = constrain(params.spread / 100, 0.1, 1);
+  const halfW = width * 0.5;
+  const margin = height * 0.12;
+
+  const halfPaths = [];
   for (let i = 0; i < params.curveCount; i++) {
-    const side = random() < 0.5 ? -1 : 1;
-    const cx = width * 0.5 + side * random(width * 0.06, width * 0.26);
-    const x1 = constrain(cx + side * random(-40, 80), m, width - m);
-    const y1 = random(height * 0.22, height * 0.72);
-    const x2 = constrain(cx + side * random(-80, 120), m, width - m);
-    const y2 = random(height * 0.1, height * 0.85);
-    const x3 = constrain(cx + side * random(-120, 120), m, width - m);
-    const y3 = random(height * 0.12, height * 0.88);
-    const x4 = constrain(cx + side * random(-50, 100), m, width - m);
-    const y4 = random(height * 0.2, height * 0.9);
+    const yCenter = params.curveCount === 1
+      ? height * 0.5
+      : map(i, 0, params.curveCount - 1, margin, height - margin);
+
+    const startX = halfW + random(2, 12);
+    const endX = halfW + random(width * sp * 0.06, width * sp * 0.3);
+    const startY = yCenter + random(-height * 0.04, height * 0.04);
+    const endY = yCenter + random(-height * sp * 0.22, height * sp * 0.22);
+
+    const cx1 = lerp(startX, endX, 0.33) + random(-18, 18) * sp;
+    const cy1 = lerp(startY, endY, 0.33) + random(-28, 28) * sp;
+    const cx2 = lerp(startX, endX, 0.66) + random(-18, 18) * sp;
+    const cy2 = lerp(startY, endY, 0.66) + random(-28, 28) * sp;
 
     const path = [];
-    for (let s = 0; s <= params.curveSamples; s++) {
-      const t = s / params.curveSamples;
+    const steps = 80;
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
       path.push(createVector(
-        bezierPoint(x1, x2, x3, x4, t),
-        bezierPoint(y1, y2, y3, y4, t)
+        bezierPoint(startX, cx1, cx2, endX, t),
+        bezierPoint(startY, cy1, cy2, endY, t)
       ));
     }
-    basePaths.push(path);
+    halfPaths.push(path);
   }
 
-  for (const path of basePaths) {
+  if (params.branching > 0) addBranchesToList(halfPaths);
+
+  const warped = halfPaths.map(p => warpPath(p));
+
+  for (let pass = 0; pass < 25; pass++) {
+    for (const path of warped) {
+      if (path.length < 4) continue;
+      for (let i = 1; i < path.length - 1; i++) {
+        const prev = path[i - 1], cur = path[i], nxt = path[i + 1];
+        cur.x += ((prev.x + nxt.x) * 0.5 - cur.x) * 0.25;
+        cur.y += ((prev.y + nxt.y) * 0.5 - cur.y) * 0.25;
+      }
+    }
+  }
+
+  for (const path of warped) {
     const mirrored = createMirroredPaths(path);
-    for (const p of mirrored) paths.push(warpPath(p));
+    for (const p of mirrored) paths.push(p);
   }
 
-  addBranches();
-  smoothPaths();
-  prunePaths();
   renderPathsToBuffer(paths);
   buildCurveHashFromPaths(paths);
   redraw();
@@ -168,7 +190,6 @@ function createMirroredPaths(path) {
         t.mx ? width - p.x : p.x,
         t.my ? height - p.y : p.y
       );
-      if (p.sw != null) q.sw = p.sw;
       return q;
     }));
   }
@@ -177,7 +198,7 @@ function createMirroredPaths(path) {
 
 function warpPath(path) {
   const warped = [];
-  const amp = params.influenceRadius * 0.55;
+  const amp = 14;
   for (let i = 0; i < path.length; i++) {
     const p = path[i];
     const prev = path[max(0, i - 1)];
@@ -186,93 +207,40 @@ function warpPath(path) {
     if (tan.magSq() < 1e-4) tan.set(1, 0);
     tan.normalize();
     const normal = createVector(-tan.y, tan.x);
-
-    const nx = params.mirrorX ? min(p.x, width - p.x) : p.x;
-    const ny = params.mirrorY ? min(p.y, height - p.y) : p.y;
-    const n = noise(nx * 0.01, ny * 0.01, params.seed * 0.00001);
-    const spine = params.mirrorX ? (width * 0.5 - p.x) * 0.015 : 0;
-    const w = (n - 0.5) * 2 * amp + spine;
-    const tangentSkew = (noise(nx * 0.015, ny * 0.015, 90 + params.seed * 0.00002) - 0.5) * params.influenceRadius * 0.18;
-    warped.push(createVector(
-      p.x + normal.x * w + tan.x * tangentSkew,
-      p.y + normal.y * w + tan.y * tangentSkew
-    ));
+    const n = noise(p.x * 0.012, p.y * 0.012, params.seed * 0.00001);
+    const w = (n - 0.5) * 2 * amp;
+    warped.push(createVector(p.x + normal.x * w, p.y + normal.y * w));
   }
   return warped;
 }
 
-function addBranches() {
-  const base = paths.slice();
-  const branchProb = params.branchChance * 0.34;
+function addBranchesToList(pathList) {
+  const branchProb = (params.branching / 100) * 0.25;
+  const base = pathList.slice();
   for (const path of base) {
-    const step = max(5, floor(path.length / 11));
+    const step = max(5, floor(path.length / 7));
     for (let i = step; i < path.length - step; i += step) {
       if (random() > branchProb) continue;
+      const root = path[i];
       const a = path[i - 1];
       const b = path[i + 1];
-      const root = path[i];
       const tan = p5.Vector.sub(b, a);
       if (tan.magSq() < 1e-4) continue;
       tan.normalize();
       const normal = createVector(-tan.y, tan.x).mult(random() < 0.5 ? -1 : 1);
-
-      const len = params.influenceRadius * random(0.8, 2.4);
-      const segs = floor(random(5, 13));
+      const len = random(18, 60);
+      const segs = floor(random(4, 9));
       const branch = [root.copy()];
       for (let s = 1; s <= segs; s++) {
         const t = s / segs;
-        const bend = (noise((root.x + s * 7) * 0.02, (root.y + s * 7) * 0.02, params.seed * 0.00003) - 0.5) * 2;
-        const p = createVector(
-          root.x + normal.x * len * t + tan.x * len * 0.23 * bend * t,
-          root.y + normal.y * len * t + tan.y * len * 0.23 * bend * t
-        );
-        branch.push(p);
+        branch.push(createVector(
+          root.x + normal.x * len * t + tan.x * random(-5, 5) * t,
+          root.y + normal.y * len * t + tan.y * random(-5, 5) * t
+        ));
       }
-      for (const mirrored of createMirroredPaths(branch)) {
-        paths.push(mirrored);
-      }
+      pathList.push(branch);
     }
   }
-}
-
-function smoothPaths() {
-  const passes = min(200, params.blurPasses);
-  const strength = constrain(params.blurStrength, 0, 1) * 0.55;
-  for (let pass = 0; pass < passes; pass++) {
-    for (let p = 0; p < paths.length; p++) {
-      const path = paths[p];
-      if (path.length < 4) continue;
-      const next = [path[0].copy()];
-      for (let i = 1; i < path.length - 1; i++) {
-        const prev = path[i - 1];
-        const cur = path[i];
-        const nxt = path[i + 1];
-        const avg = createVector((prev.x + nxt.x) * 0.5, (prev.y + nxt.y) * 0.5);
-        const v = p5.Vector.lerp(cur, avg, strength);
-        next.push(v);
-      }
-      next.push(path[path.length - 1].copy());
-      paths[p] = next;
-    }
-  }
-}
-
-function prunePaths() {
-  const keep = [];
-  const pruneN = constrain(params.prunePasses / 24, 0, 1);
-  const keepChance = 1 - pruneN * 0.55;
-  const minLen = max(4, floor(map(pruneN, 0, 1, 3, 11)));
-
-  for (const path of paths) {
-    if (path.length <= minLen) continue;
-    if (path.length >= params.curveSamples * 0.8 || random() < keepChance) {
-      const trim = floor(random(0, map(pruneN, 0, 1, 0, 5)));
-      const start = min(trim, path.length - 2);
-      const end = max(start + 2, path.length - trim);
-      keep.push(path.slice(start, end));
-    }
-  }
-  paths = keep;
 }
 
 function buildCurveHashFromPaths(sourcePaths) {
@@ -289,25 +257,6 @@ function buildCurveHashFromPaths(sourcePaths) {
       curveHash.get(key).push(p);
     }
   }
-}
-
-function pointNearPaths(v) {
-  const cell = max(6, params.influenceRadius * 0.9);
-  const ix = floor(v.x / cell);
-  const iy = floor(v.y / cell);
-  let minD = 1e9;
-  for (let yy = -2; yy <= 2; yy++) {
-    for (let xx = -2; xx <= 2; xx++) {
-      const bucket = curveHash.get(`${ix + xx},${iy + yy}`);
-      if (!bucket) continue;
-      for (const p of bucket) {
-        const d = dist(v.x, v.y, p.x, p.y);
-        if (d < minD) minD = d;
-      }
-    }
-  }
-  if (minD > params.influenceRadius * 1.6) return 0;
-  return constrain(1 - minD / (params.influenceRadius * 1.6), 0, 1);
 }
 
 /* ===== PATH EXTRACTION FROM SKETCH ===== */
@@ -365,23 +314,42 @@ function drawGuideline() {
   redraw();
 }
 
+/* ===== DETERMINISTIC PRNG ===== */
+
+function makeRng(seed) {
+  let s = seed | 0 || 1;
+  return function() {
+    s ^= s << 13;
+    s ^= s >> 17;
+    s ^= s << 5;
+    return ((s >>> 0) % 100000) / 100000;
+  };
+}
+
 /* ===== MYCELIUM SCRATCH-LINE DRAWING ENGINE ===== */
 
-function scratchLine(ctx, x1, y1, x2, y2, d, mirror) {
+function scratchLine(ctx, x1, y1, x2, y2, d, mirror, colorOverride, widthAdd) {
   const reach = mirror ? params.sketchReach : Math.max(params.sketchReach, 100);
   const distFactor = Math.max(0.2, (reach - d) / 10);
-  const finalThickness = params.strokeW * distFactor;
+  const finalThickness = params.strokeW * distFactor + (widthAdd || 0);
   const roughness = params.sketchRoughness;
-  const jitter = roughness + (finalThickness * 0.8);
+  const roughFactor = Math.min(roughness / 20, 1);
+  const jitter = roughFactor * roughFactor * (6 + finalThickness * 0.8);
   const passes = params.sketchDensity;
   const w = width;
   const h = height;
-  const isSmooth = roughness === 0;
+  const useRound = roughFactor < 0.25;
+  const skipChance = roughFactor * roughFactor * 0.15;
 
+  const seed = (Math.round(x1 * 73) * 374761 + Math.round(y1 * 73) * 668265 +
+                Math.round(x2 * 73) * 214748 + Math.round(y2 * 73) * 110351) | 0;
+  const rng = makeRng(seed);
+
+  const drawColor = colorOverride || params.ink;
   if (params.drawOperation === 'ink') {
     ctx.globalCompositeOperation = 'source-over';
-    ctx.strokeStyle = params.ink;
-    ctx.fillStyle = params.ink;
+    ctx.strokeStyle = drawColor;
+    ctx.fillStyle = drawColor;
   } else {
     ctx.globalCompositeOperation = 'destination-out';
     ctx.strokeStyle = 'rgba(0,0,0,1)';
@@ -389,19 +357,19 @@ function scratchLine(ctx, x1, y1, x2, y2, d, mirror) {
   }
 
   for (let i = 0; i < passes; i++) {
-    const jx1 = isSmooth ? 0 : (Math.random() - 0.5) * jitter;
-    const jy1 = isSmooth ? 0 : (Math.random() - 0.5) * jitter;
-    const jx2 = isSmooth ? 0 : (Math.random() - 0.5) * jitter;
-    const jy2 = isSmooth ? 0 : (Math.random() - 0.5) * jitter;
+    const jx1 = (rng() - 0.5) * jitter;
+    const jy1 = (rng() - 0.5) * jitter;
+    const jx2 = (rng() - 0.5) * jitter;
+    const jy2 = (rng() - 0.5) * jitter;
 
-    if (isSmooth || Math.random() > 0.15) {
+    if (rng() > skipChance) {
       const px1 = x1 + jx1, py1 = y1 + jy1;
       const px2 = x2 + jx2, py2 = y2 + jy2;
 
       ctx.beginPath();
       ctx.lineWidth = finalThickness;
-      ctx.lineCap = isSmooth ? 'round' : 'square';
-      ctx.lineJoin = isSmooth ? 'round' : 'bevel';
+      ctx.lineCap = useRound ? 'round' : 'square';
+      ctx.lineJoin = useRound ? 'round' : 'bevel';
       ctx.moveTo(px1, py1);
       ctx.lineTo(px2, py2);
 
@@ -427,26 +395,35 @@ function scratchLine(ctx, x1, y1, x2, y2, d, mirror) {
   ctx.globalCompositeOperation = 'source-over';
 }
 
+function drawConnections(ctx, connections, mirror, colorOverride, widthAdd) {
+  for (const c of connections) {
+    scratchLine(ctx, c.px, c.py, c.x, c.y, c.d, mirror, colorOverride, widthAdd);
+  }
+}
+
 function addDrawPoint(x, y) {
   const p = { x, y };
   drawPoints.push(p);
 
   const ctx = drawBuffer.drawingContext;
   const startIndex = Math.max(0, drawPoints.length - 250);
+  const dynamicConnect = params.sketchReach + params.strokeW;
 
+  const conns = [];
   for (let i = startIndex; i < drawPoints.length - 1; i++) {
     const prev = drawPoints[i];
     if (!prev) continue;
-
     const dx = p.x - prev.x;
     const dy = p.y - prev.y;
     const d = Math.hypot(dx, dy);
-    const dynamicConnect = params.sketchReach + params.strokeW;
-
     if (d < dynamicConnect) {
-      scratchLine(ctx, prev.x, prev.y, p.x, p.y, d, true);
+      conns.push({ px: prev.x, py: prev.y, x: p.x, y: p.y, d });
     }
   }
+
+  const ow = params.outlineWidth * 2;
+  if (params.outlineEnabled) drawConnections(ctx, conns, true, params.outlineColor, ow);
+  if (params.fillEnabled) drawConnections(ctx, conns, true, null, 0);
 }
 
 function renderPathsToBuffer(pathList) {
@@ -455,25 +432,34 @@ function renderPathsToBuffer(pathList) {
   const savedOp = params.drawOperation;
   params.drawOperation = 'ink';
 
-  for (const path of pathList) {
-    if (path.length < 2) continue;
-    for (let i = 1; i < path.length; i++) {
-      const a = path[i - 1];
-      const b = path[i];
-      const d = Math.hypot(b.x - a.x, b.y - a.y);
-      scratchLine(ctx, a.x, a.y, b.x, b.y, d, false);
+  const ow = params.outlineWidth * 2;
+
+  if (params.outlineEnabled) {
+    for (const path of pathList) {
+      if (path.length < 2) continue;
+      for (let i = 1; i < path.length; i++) {
+        const a = path[i - 1], b = path[i];
+        const d = Math.hypot(b.x - a.x, b.y - a.y);
+        scratchLine(ctx, a.x, a.y, b.x, b.y, d, false, params.outlineColor, ow);
+      }
+    }
+  }
+
+  if (params.fillEnabled) {
+    for (const path of pathList) {
+      if (path.length < 2) continue;
+      for (let i = 1; i < path.length; i++) {
+        const a = path[i - 1], b = path[i];
+        const d = Math.hypot(b.x - a.x, b.y - a.y);
+        scratchLine(ctx, a.x, a.y, b.x, b.y, d, false, null, 0);
+      }
     }
   }
 
   params.drawOperation = savedOp;
 }
 
-function reRenderSketch() {
-  drawBuffer.clear();
-  const ctx = drawBuffer.drawingContext;
-  const savedOp = params.drawOperation;
-  params.drawOperation = 'ink';
-
+function buildSketchConnections() {
   const segments = [];
   let current = [];
   for (const p of drawPoints) {
@@ -486,22 +472,34 @@ function reRenderSketch() {
   }
   if (current.length > 0) segments.push(current);
 
+  const all = [];
+  const dynamicConnect = params.sketchReach + params.strokeW;
   for (const seg of segments) {
     for (let i = 0; i < seg.length; i++) {
       const p = seg[i];
       const lookback = Math.max(0, i - 249);
       for (let j = lookback; j < i; j++) {
         const prev = seg[j];
-        const dx = p.x - prev.x;
-        const dy = p.y - prev.y;
-        const d = Math.hypot(dx, dy);
-        const dynamicConnect = params.sketchReach + params.strokeW;
+        const d = Math.hypot(p.x - prev.x, p.y - prev.y);
         if (d < dynamicConnect) {
-          scratchLine(ctx, prev.x, prev.y, p.x, p.y, d, true);
+          all.push({ px: prev.x, py: prev.y, x: p.x, y: p.y, d });
         }
       }
     }
   }
+  return all;
+}
+
+function reRenderSketch() {
+  drawBuffer.clear();
+  const ctx = drawBuffer.drawingContext;
+  const savedOp = params.drawOperation;
+  params.drawOperation = 'ink';
+
+  const conns = buildSketchConnections();
+  const ow = params.outlineWidth * 2;
+  if (params.outlineEnabled) drawConnections(ctx, conns, true, params.outlineColor, ow);
+  if (params.fillEnabled) drawConnections(ctx, conns, true, null, 0);
 
   params.drawOperation = savedOp;
   redraw();
@@ -547,7 +545,7 @@ function localPointDensity(v) {
   return constrain(count / 24, 0, 1);
 }
 
-/* ===== TEXTURE EFFECTS (generated mode) ===== */
+/* ===== TEXTURE EFFECTS ===== */
 
 function drawTextureOnPaths(sourcePaths) {
   if (params.textureMode === 'none' || params.textureStrength <= 0) return;
@@ -825,11 +823,6 @@ function exportPng() {
 }
 
 function keyPressed() {
-  if ((keyIsDown(91) || keyIsDown(93) || keyIsDown(17)) && (key === 'z' || key === 'Z')) {
-    undo();
-    return false;
-  }
-
   if (key === '1') {
     params.drawOperation = 'ink';
   } else if (key === '2') {
@@ -927,30 +920,14 @@ function bindControls() {
     if (mode === 'grid') setRow(rowJitter, false);
   };
 
-  const updateStrokeUI = () => {
-    const enabled = !!params.strokeEnabled;
-    const taperEl = byId('cs-taper');
-    const fillEl = byId('cs-fill');
-    const rowTaper = byId('row-cs-taper');
-    const rowFill = byId('row-cs-fill');
-    if (taperEl) taperEl.disabled = !enabled;
-    if (fillEl) fillEl.disabled = !enabled;
-    if (rowTaper) rowTaper.classList.toggle('control-row--disabled', !enabled);
-    if (rowFill) rowFill.classList.toggle('control-row--disabled', !enabled);
-  };
-
   const updateModeUI = () => {
     const isSketch = params.drawMode;
     const sketchCore = byId('section-sketch-core');
     const structure = byId('section-structure');
-    const smoothing = byId('section-smoothing');
-    const style = byId('section-style');
     const sketchBtn = byId('cs-mode-sketch');
     const genBtn = byId('cs-mode-generate');
     if (sketchCore) sketchCore.style.display = isSketch ? '' : 'none';
     if (structure) structure.style.display = isSketch ? 'none' : '';
-    if (smoothing) smoothing.style.display = isSketch ? 'none' : '';
-    if (style) style.style.display = isSketch ? 'none' : '';
     if (sketchBtn) sketchBtn.classList.toggle('is-active', isSketch);
     if (genBtn) genBtn.classList.toggle('is-active', !isSketch);
   };
@@ -1025,24 +1002,9 @@ function bindControls() {
   updateTextureModeUI();
 
   bindRange('cs-curves', 'val-cs-curves', (v) => { params.curveCount = parseInt(v, 10); return String(params.curveCount); });
-  bindRange('cs-samples', 'val-cs-samples', (v) => { params.curveSamples = parseInt(v, 10); return String(params.curveSamples); });
-  bindRange('cs-influence', 'val-cs-influence', (v) => { params.influenceRadius = parseInt(v, 10); return String(params.influenceRadius); });
-  bindRange('cs-threshold', 'val-cs-threshold', (v) => { params.threshold = parseInt(v, 10) / 100; return params.threshold.toFixed(2); });
-  bindRange('cs-prune', 'val-cs-prune', (v) => { params.prunePasses = parseInt(v, 10); return String(params.prunePasses); });
-  bindRange('cs-branch', 'val-cs-branch', (v) => { params.branchChance = parseInt(v, 10) / 100; return `${v}%`; });
-  bindRange('cs-blurs', 'val-cs-blurs', (v) => { params.blurPasses = parseInt(v, 10); return String(params.blurPasses); });
-  bindRange('cs-blur-strength', 'val-cs-blur-strength', (v) => { params.blurStrength = parseInt(v, 10) / 100; return params.blurStrength.toFixed(2); });
+  bindRange('cs-spread', 'val-cs-spread', (v) => { params.spread = parseInt(v, 10); return String(params.spread); });
+  bindRange('cs-branching', 'val-cs-branching', (v) => { params.branching = parseInt(v, 10); return String(params.branching); });
   bindRange('cs-stroke', 'val-cs-stroke', (v) => { params.strokeW = parseInt(v, 10); return String(params.strokeW); });
-  bindRange('cs-taper', 'val-cs-taper', (v) => { params.taper = parseInt(v, 10) / 100; return params.taper.toFixed(2); });
-  bindRange('cs-fill', 'val-cs-fill', (v) => { params.fillAmount = parseInt(v, 10) / 100; return params.fillAmount.toFixed(2); });
-
-  bindCheck('cs-stroke-enabled', (checked) => { params.strokeEnabled = checked; });
-  const strokeEnabledEl = byId('cs-stroke-enabled');
-  if (strokeEnabledEl) {
-    strokeEnabledEl.checked = params.strokeEnabled;
-    strokeEnabledEl.addEventListener('change', updateStrokeUI);
-  }
-  updateStrokeUI();
 
   bindCheck('cs-mirror-x', (checked) => {
     params.mirrorX = checked;
@@ -1055,6 +1017,30 @@ function bindControls() {
   bindRange('cs-sketch-roughness', 'val-cs-sketch-roughness', (v) => { params.sketchRoughness = parseInt(v, 10); return String(params.sketchRoughness); });
   bindRange('cs-sketch-density', 'val-cs-sketch-density', (v) => { params.sketchDensity = parseInt(v, 10); return String(params.sketchDensity); });
   bindRange('cs-sketch-reach', 'val-cs-sketch-reach', (v) => { params.sketchReach = parseInt(v, 10); return String(params.sketchReach); });
+
+  const updateOutlineUI = () => {
+    const rowWidth = byId('row-cs-outline-width');
+    const rowColor = byId('row-cs-outline-color');
+    const show = params.outlineEnabled;
+    if (rowWidth) rowWidth.style.display = show ? 'flex' : 'none';
+    if (rowColor) rowColor.style.display = show ? 'flex' : 'none';
+  };
+
+  bindCheck('cs-fill-enabled', (checked) => { params.fillEnabled = checked; });
+  bindCheck('cs-outline-enabled', (checked) => {
+    params.outlineEnabled = checked;
+    updateOutlineUI();
+  });
+  updateOutlineUI();
+
+  bindRange('cs-outline-width', 'val-cs-outline-width', (v) => { params.outlineWidth = parseInt(v, 10); return String(params.outlineWidth); });
+
+  const outlineColorEl = byId('cs-outline-color');
+  if (outlineColorEl) {
+    outlineColorEl.value = params.outlineColor;
+    outlineColorEl.addEventListener('input', () => { params.outlineColor = outlineColorEl.value; requestUpdate(false); });
+    outlineColorEl.addEventListener('change', () => requestUpdate(true));
+  }
 
   const bg = byId('cs-bg');
   if (bg) {
