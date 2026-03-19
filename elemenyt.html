@@ -53,7 +53,6 @@
                                 <div class="mode-switch" style="width:100%; margin:0;">
                                     <button type="button" id="el-tab-sketch" class="panel-button is-active">Sketch</button>
                                     <button type="button" id="el-tab-generate" class="panel-button">Generate</button>
-                                    <button type="button" id="el-tab-animate" class="panel-button">Animate</button>
                                 </div>
                             </div>
 
@@ -65,22 +64,6 @@
                                 <label for="el-generate-time">Draw time</label>
                                 <input type="range" id="el-generate-time" min="0" max="100" value="55" step="1">
                                 <span class="param-value" id="val-el-generate-time">55</span>
-                            </div>
-
-                            <div class="control-row" id="el-animate-row" style="gap:6px; margin-top:0; display:none;">
-                                <button type="button" id="el-animate-toggle" class="panel-button" style="flex:1;">Start animation</button>
-                            </div>
-
-                            <div class="control-row" id="el-animate-density-row" style="gap:10px; margin-top:0; display:none;">
-                                <label for="el-animate-density">Particles</label>
-                                <input type="range" id="el-animate-density" min="8" max="220" value="70" step="1">
-                                <span class="param-value" id="val-el-animate-density">70</span>
-                            </div>
-
-                            <div class="control-row" id="el-animate-speed-row" style="gap:10px; margin-top:0; display:none;">
-                                <label for="el-animate-speed">Speed</label>
-                                <input type="range" id="el-animate-speed" min="10" max="260" value="90" step="1">
-                                <span class="param-value" id="val-el-animate-speed">90</span>
                             </div>
 
                             <div class="control-row" id="el-mode-row" style="margin-bottom:12px;">
@@ -243,20 +226,11 @@
         const mirrorEl = el('el-mirror');
         const tabSketchBtn = el('el-tab-sketch');
         const tabGenerateBtn = el('el-tab-generate');
-        const tabAnimateBtn = el('el-tab-animate');
         const generateRow = el('el-generate-row');
         const generateBtn = el('el-generate');
         const genTimeRow = el('el-generate-time-row');
         const genTimeEl = el('el-generate-time');
         const genTimeVal = el('val-el-generate-time');
-        const animateRow = el('el-animate-row');
-        const animateToggleBtn = el('el-animate-toggle');
-        const animateDensityRow = el('el-animate-density-row');
-        const animateDensityEl = el('el-animate-density');
-        const animateDensityVal = el('val-el-animate-density');
-        const animateSpeedRow = el('el-animate-speed-row');
-        const animateSpeedEl = el('el-animate-speed');
-        const animateSpeedVal = el('val-el-animate-speed');
         const modeRowEl = el('el-mode-row');
         const strokeEl = el('el-stroke');
         const strokeVal = el('val-el-stroke');
@@ -277,11 +251,8 @@
             brushSize: 6,
             marker: 'line', // line|sprinkle|grid|grain
 
-            uiTab: 'sketch', // 'sketch' | 'generate' | 'animate'
+            uiTab: 'sketch', // 'sketch' | 'generate'
             generateTime: 55,
-            animateEnabled: false,
-            animateDensity: 70,
-            animateSpeed: 90,
 
             fillEnabled: false,
             inkColor: '#000000',
@@ -293,15 +264,6 @@
             points: [],
 
             undoStack: [], // { snapCanvas, pointsLen }
-        };
-
-        const anim = {
-            baseCanvas: null,
-            segments: [],
-            totalLen: 0,
-            particles: [],
-            lastTs: 0,
-            rafId: 0
         };
 
         const CONFIG = {
@@ -321,149 +283,13 @@
             if (tab !== 'sketch') state.isDrawing = false;
             tabSketchBtn?.classList.toggle('is-active', tab === 'sketch');
             tabGenerateBtn?.classList.toggle('is-active', tab === 'generate');
-            tabAnimateBtn?.classList.toggle('is-active', tab === 'animate');
             if (generateRow) generateRow.style.display = tab === 'generate' ? 'flex' : 'none';
             if (genTimeRow) genTimeRow.style.display = tab === 'generate' ? 'flex' : 'none';
-            if (animateRow) animateRow.style.display = tab === 'animate' ? 'flex' : 'none';
-            if (animateDensityRow) animateDensityRow.style.display = tab === 'animate' ? 'flex' : 'none';
-            if (animateSpeedRow) animateSpeedRow.style.display = tab === 'animate' ? 'flex' : 'none';
 
             // Mode controls are only for Sketch. Generate always draws.
             if (modeRowEl) modeRowEl.style.display = tab === 'sketch' ? '' : 'none';
             if (tab === 'generate') setMode('ink');
             else setMode(state.sketchMode);
-
-            if (tab === 'animate') {
-                syncAnimationSource();
-            } else {
-                stopAnimation();
-            }
-        }
-
-        function captureBaseCanvas() {
-            const snap = document.createElement('canvas');
-            snap.width = canvas.width;
-            snap.height = canvas.height;
-            const sctx = snap.getContext('2d');
-            sctx.drawImage(canvas, 0, 0);
-            anim.baseCanvas = snap;
-        }
-
-        function buildSegmentsFromPoints() {
-            const segments = [];
-            for (let i = 1; i < state.points.length; i++) {
-                const a = state.points[i - 1];
-                const b = state.points[i];
-                if (!a || !b) continue;
-                const dx = b.x - a.x;
-                const dy = b.y - a.y;
-                const len = Math.hypot(dx, dy);
-                if (len < 0.5) continue;
-                segments.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, len });
-                if (state.mirrorEnabled) {
-                    const mx1 = cssWidth - a.x;
-                    const mx2 = cssWidth - b.x;
-                    segments.push({ x1: mx1, y1: a.y, x2: mx2, y2: b.y, len });
-                }
-            }
-            anim.segments = segments;
-            anim.totalLen = segments.reduce((sum, s) => sum + s.len, 0);
-        }
-
-        function rebuildParticles() {
-            const count = clamp(state.animateDensity, 1, 300);
-            anim.particles = [];
-            if (anim.totalLen <= 0 || anim.segments.length === 0) return;
-            for (let i = 0; i < count; i++) {
-                anim.particles.push({
-                    d: Math.random() * anim.totalLen,
-                    r: 0.9 + Math.random() * 1.6
-                });
-            }
-        }
-
-        function syncAnimationSource() {
-            captureBaseCanvas();
-            buildSegmentsFromPoints();
-            rebuildParticles();
-            if (state.uiTab === 'animate') drawAnimationFrame();
-        }
-
-        function particlePosAtDistance(d) {
-            if (anim.totalLen <= 0 || anim.segments.length === 0) return null;
-            let t = d % anim.totalLen;
-            if (t < 0) t += anim.totalLen;
-            for (let i = 0; i < anim.segments.length; i++) {
-                const s = anim.segments[i];
-                if (t <= s.len) {
-                    const u = s.len > 0 ? t / s.len : 0;
-                    return {
-                        x: s.x1 + (s.x2 - s.x1) * u,
-                        y: s.y1 + (s.y2 - s.y1) * u
-                    };
-                }
-                t -= s.len;
-            }
-            const last = anim.segments[anim.segments.length - 1];
-            return { x: last.x2, y: last.y2 };
-        }
-
-        function drawAnimationFrame() {
-            // Draw base snapshot first.
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (anim.baseCanvas) {
-                ctx.drawImage(anim.baseCanvas, 0, 0);
-            }
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-            if (!anim.particles.length || anim.totalLen <= 0) return;
-
-            const glowColor = state.fillEnabled ? state.fillColor : state.inkColor;
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = glowColor;
-            for (let i = 0; i < anim.particles.length; i++) {
-                const p = anim.particles[i];
-                const pos = particlePosAtDistance(p.d);
-                if (!pos) continue;
-                ctx.beginPath();
-                ctx.arc(pos.x, pos.y, p.r, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-
-        function animateTick(ts) {
-            if (!state.animateEnabled || state.uiTab !== 'animate') return;
-            if (!anim.lastTs) anim.lastTs = ts;
-            const dt = Math.max(0.001, (ts - anim.lastTs) / 1000);
-            anim.lastTs = ts;
-
-            const pxPerSec = state.animateSpeed; // slider directly maps speed
-            for (let i = 0; i < anim.particles.length; i++) {
-                anim.particles[i].d += pxPerSec * dt * (0.7 + Math.random() * 0.6);
-            }
-            drawAnimationFrame();
-            anim.rafId = requestAnimationFrame(animateTick);
-        }
-
-        function startAnimation() {
-            if (state.animateEnabled) return;
-            state.animateEnabled = true;
-            anim.lastTs = 0;
-            if (!anim.baseCanvas) syncAnimationSource();
-            animateToggleBtn.textContent = 'Stop animation';
-            anim.rafId = requestAnimationFrame(animateTick);
-        }
-
-        function stopAnimation() {
-            state.animateEnabled = false;
-            if (anim.rafId) cancelAnimationFrame(anim.rafId);
-            anim.rafId = 0;
-            anim.lastTs = 0;
-            if (animateToggleBtn) animateToggleBtn.textContent = 'Start animation';
-            if (state.uiTab !== 'animate') return;
-            // restore base when stopping in animate tab
-            drawAnimationFrame();
         }
 
         function currentInkColor() {
@@ -548,7 +374,6 @@
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            syncAnimationSource();
         }
 
         function pushUndoSnapshot() {
@@ -570,7 +395,6 @@
             ctx.drawImage(rec.snapCanvas, 0, 0);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             state.points.length = rec.pointsLen;
-            syncAnimationSource();
         }
 
         function getEventClientXY(e) {
@@ -882,7 +706,6 @@
             state.isDrawing = false;
             // Only mark stroke breaks when in sketch mode.
             if (state.uiTab === 'sketch') state.points.push(null);
-            syncAnimationSource();
         }
 
         function drawMove(e) {
@@ -901,7 +724,6 @@
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            syncAnimationSource();
         }
 
         function generateRandomDrawing() {
@@ -990,7 +812,6 @@
                 x = nx;
                 y = ny;
             }
-            syncAnimationSource();
         }
 
         function exportWithFilter() {
@@ -1076,15 +897,7 @@
 
         tabSketchBtn?.addEventListener('click', () => setUiTab('sketch'));
         tabGenerateBtn?.addEventListener('click', () => setUiTab('generate'));
-        tabAnimateBtn?.addEventListener('click', () => setUiTab('animate'));
         generateBtn?.addEventListener('click', generateRandomDrawing);
-        animateToggleBtn?.addEventListener('click', () => {
-            if (state.animateEnabled) stopAnimation();
-            else {
-                syncAnimationSource();
-                startAnimation();
-            }
-        });
 
         strokeEl?.addEventListener('input', (e) => {
             state.brushSize = parseInt(e.target.value, 10);
@@ -1120,18 +933,6 @@
         genTimeEl?.addEventListener('input', (e) => {
             state.generateTime = parseInt(e.target.value, 10);
             genTimeVal.textContent = String(state.generateTime);
-        });
-
-        animateDensityEl?.addEventListener('input', (e) => {
-            state.animateDensity = parseInt(e.target.value, 10);
-            animateDensityVal.textContent = String(state.animateDensity);
-            rebuildParticles();
-            if (state.uiTab === 'animate') drawAnimationFrame();
-        });
-
-        animateSpeedEl?.addEventListener('input', (e) => {
-            state.animateSpeed = parseInt(e.target.value, 10);
-            animateSpeedVal.textContent = String(state.animateSpeed);
         });
 
         clearBtn?.addEventListener('click', clearAll);
