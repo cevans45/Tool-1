@@ -134,9 +134,9 @@
         /* Scope layout fixes to Elemenyt only. */
         .app[aria-label="Elemenyt mirror"] {
             justify-content: center;
-            /* Make the sketch area a bit taller by reducing padding. */
-            min-height: 100vh;
-            padding: 16px 24px 16px;
+            /* Make the sketch area taller (more vertical space). */
+            min-height: calc(100vh - 52px);
+            padding: 12px 16px 12px;
         }
 
         #sketch-container canvas {
@@ -153,6 +153,24 @@
             height: 100%;
             min-width: 0;
             align-self: stretch;
+        }
+
+        /* Wider sliders: widen the control panel + shrink the label column. */
+        .app[aria-label="Elemenyt mirror"] .control-panel {
+            width: 280px;
+        }
+
+        .app[aria-label="Elemenyt mirror"] .control-row {
+            gap: 8px;
+        }
+
+        .app[aria-label="Elemenyt mirror"] .control-row label {
+            flex: 0 0 90px;
+        }
+
+        /* Taller canvas: remove the default panel-body max-height cap. */
+        .app[aria-label="Elemenyt mirror"] .panel-body {
+            max-height: none;
         }
 
         /* Only apply the jagged outline filter when we are NOT in Fill mode. */
