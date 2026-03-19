@@ -140,7 +140,7 @@
             touch-action: none;
         }
 
-        #sketch-container.el-outline-filter {
+        #sketch-container {
             -webkit-filter: url(#jagged-edge);
             filter: url(#jagged-edge);
         }
@@ -209,25 +209,26 @@
         }
 
         function updateFilterEnabled() {
+            // Fill ON = solid strokes, no SVG filter.
+            // Fill OFF = jagged-edge outline filter active.
             const container = document.getElementById('sketch-container');
-            if (state.fillEnabled) container.classList.remove('el-outline-filter');
-            else container.classList.add('el-outline-filter');
+            if (state.fillEnabled) {
+                container.style.filter = 'none';
+                container.style.webkitFilter = 'none';
+            } else {
+                container.style.filter = '';
+                container.style.webkitFilter = '';
+            }
         }
 
         function updateFilter() {
             const dilate = document.getElementById('jagged-dilate');
             dilate?.setAttribute('radius', String(state.outlineRadius));
 
-            // Color outline using the chosen ink/fill color
             const flood = document.getElementById('jagged-flood');
             flood?.setAttribute('flood-color', currentInkColor());
 
-            // Force filter geometry refresh in outline mode.
-            if (!state.fillEnabled) {
-                const container = document.getElementById('sketch-container');
-                container.classList.remove('el-outline-filter');
-                requestAnimationFrame(() => container.classList.add('el-outline-filter'));
-            }
+            updateFilterEnabled();
         }
 
         function drawGuideline() {
