@@ -6,9 +6,29 @@
     <title>Cyber sigilism — OVRT</title>
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+    <style>
+        /* Match the reference "Mycelium Mirror" jagged edge filter */
+        #sigil-canvas {
+            -webkit-filter: url(#jagged-edge);
+            filter: url(#jagged-edge);
+        }
+    </style>
 </head>
 <body>
     <div class="site-shell">
+        <svg width="0" height="0" style="position:absolute">
+            <defs>
+                <filter id="jagged-edge" color-interpolation-filters="sRGB">
+                    <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
+                    <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40"
+                        result="solidBlob" />
+                    <feMorphology operator="dilate" radius="1.0" in="solidBlob" result="fatBlob" />
+                    <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
+                    <feFlood flood-color="#000000" result="color" />
+                    <feComposite in="color" in2="outline" operator="in" />
+                </filter>
+            </defs>
+        </svg>
         <header class="tool-header">
             <a href="index.html" class="back-link">← Back to OVRT</a>
             <span class="tool-title">Cyber sigilism generator</span>
@@ -80,21 +100,21 @@
                             </div>
 
                             <label class="checkbox-label">
-                                <input type="checkbox" id="cs-fill-enabled" checked>
+                                <input type="checkbox" id="cs-fill-enabled">
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Fill</span>
                             </label>
 
                             <label class="checkbox-label">
-                                <input type="checkbox" id="cs-outline-enabled">
+                                <input type="checkbox" id="cs-outline-enabled" checked>
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Outline</span>
                             </label>
 
                             <div class="control-row" id="row-cs-outline-width" style="display:none;">
                                 <label for="cs-outline-width">Outline width</label>
-                                <input type="range" id="cs-outline-width" min="1" max="8" value="2" step="1">
-                                <span class="param-value" id="val-cs-outline-width">2</span>
+                                <input type="range" id="cs-outline-width" min="1" max="8" value="1" step="1">
+                                <span class="param-value" id="val-cs-outline-width">1</span>
                             </div>
 
                             <div class="control-row color-row" id="row-cs-outline-color" style="display:none;">

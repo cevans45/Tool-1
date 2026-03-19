@@ -42,10 +42,10 @@ const params = {
   bg: '#ffffff',
   ink: '#000000',
   textureColor: '#000000',
-  fillEnabled: true,
-  outlineEnabled: false,
+  fillEnabled: false,
+  outlineEnabled: true,
   outlineColor: '#888888',
-  outlineWidth: 2,
+  outlineWidth: 1,
   strokeStyle: 'line',
   sketchRoughness: 4,
   sketchReach: 50
@@ -429,6 +429,9 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
     ctx.lineJoin = 'bevel';
 
     const jitter = baseJitter + finalThickness * jitterMultiplier;
+    const isSprinkle = params.strokeStyle === 'sprinkle';
+    const dx = x2 - x1;
+    const dy = y2 - y1;
 
     for (let i = 0; i < passes; i++) {
       const jx1 = (rng() - 0.5) * jitter;
@@ -439,11 +442,25 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
       // "glitch holes": skip the segment with probability = holeChance.
       if (rng() <= holeChance) continue;
 
-      ctx.beginPath();
-      ctx.lineWidth = finalThickness;
-      ctx.moveTo(x1 + jx1 * signX, y1 + jy1 * signY);
-      ctx.lineTo(x2 + jx2 * signX, y2 + jy2 * signY);
-      ctx.stroke();
+      if (!isSprinkle) {
+        ctx.beginPath();
+        ctx.lineWidth = finalThickness;
+        ctx.moveTo(x1 + jx1 * signX, y1 + jy1 * signY);
+        ctx.lineTo(x2 + jx2 * signX, y2 + jy2 * signY);
+        ctx.stroke();
+      } else {
+        // Sprinkle: drop a tiny "ink bead" along the connection,
+        // using the same jitter + holes logic as line mode.
+        const t = rng();
+        const jx = jx1 + (jx2 - jx1) * t;
+        const jy = jy1 + (jy2 - jy1) * t;
+        const px = (x1 + dx * t) + jx * signX;
+        const py = (y1 + dy * t) + jy * signY;
+        const r = Math.max(0.5, finalThickness * lerp(0.18, 0.45, rng()));
+        ctx.beginPath();
+        ctx.arc(px, py, r * 0.5, 0, 6.2832);
+        ctx.fill();
+      }
     }
 
     ctx.globalCompositeOperation = 'source-over';
