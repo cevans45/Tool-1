@@ -592,18 +592,24 @@ function drawWithOutlineFill(ctx, conns, doMirror) {
   const savedStrokeStyle = params.strokeStyle;
 
   const full = doMirror ? mirrorConnections(conns) : conns;
-  // For uniform outlines, do not taper the stroke along connections during the
-  // outline/cut passes. Tapering (`tm`) makes the remaining ring thickness
-  // inconsistent across the silhouette.
+  const isOutlineOnly = params.outlineEnabled && !params.fillEnabled;
+
+  // Outline-only should be produced by the SVG `jagged-edge` filter, not by
+  // our destination-out cut (which tends to create uneven ring thickness).
+  // So for Outline-only, we draw a solid, uniform blob.
   const outlineConns = params.outlineEnabled ? full.map((c) => ({ ...c, tm: 1 })) : full;
 
   if (params.outlineEnabled) {
-    // Keep outline pass geometrically consistent: no roughness jitter/sprinkle.
+    // Keep outline pass geometrically consistent.
     params.sketchRoughness = 0;
     params.strokeStyle = 'line';
+
     params.drawOperation = 'ink';
     drawConnections(ctx, outlineConns, params.outlineColor, ow);
-    if (!params.fillEnabled) {
+
+    // Only cut when Fill is enabled/disabled in the "ink+cut" style.
+    // For Outline-only, skip the cut and let the SVG filter handle the outline.
+    if (!isOutlineOnly && !params.fillEnabled) {
       params.drawOperation = 'cut';
       drawConnections(ctx, outlineConns, null, 0);
     }
@@ -770,6 +776,7 @@ function renderPathsToBufferFromHalf(halfPaths) {
   const conns = pathsToConnections(halfPaths);
   const mirrored = mirrorConnections(conns);
   const outlineConns = mirrored.map((c) => ({ ...c, tm: 1 }));
+  const isOutlineOnly = params.outlineEnabled && !params.fillEnabled;
 
   const ow = params.outlineWidth * 2;
   if (params.outlineEnabled) {
@@ -777,7 +784,7 @@ function renderPathsToBufferFromHalf(halfPaths) {
     params.strokeStyle = 'line';
     params.drawOperation = 'ink';
     drawConnections(ctx, outlineConns, params.outlineColor, ow);
-    if (!params.fillEnabled) {
+    if (!isOutlineOnly) {
       params.drawOperation = 'cut';
       drawConnections(ctx, outlineConns, null, 0);
     }
