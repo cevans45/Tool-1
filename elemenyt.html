@@ -122,8 +122,7 @@
                             </div>
 
                             <div class="shortcuts">
-                                <span>[1]</span> DRAW &nbsp; <span>[2]</span> ERASE<br>
-                                <span>[M]</span> MIRROR &nbsp; <span>[SPACE]</span> CLEAR &nbsp; <span>[S]</span> EXPORT<br>
+                                <span>[SPACE]</span> CLEAR<br>
                                 <span>[⌘Z]</span> UNDO
                             </div>
                         </section>
@@ -948,19 +947,9 @@
             }
 
             // DRAW/ERASE controls only exist on the Sketch tab.
-            if (state.uiTab === 'generate') {
-                // ignore [1] and [2] in generate mode
-            } else if (e.key === '1') {
-                setMode('ink');
-            } else if (e.key === '2') {
-                setMode('cut');
-            }
-            else if (e.key.toLowerCase() === 'm') setMirror(!state.mirrorEnabled);
             else if (e.code === 'Space') {
                 e.preventDefault();
                 clearAll();
-            } else if (e.key.toLowerCase() === 's') {
-                exportWithFilter();
             }
         });
 
