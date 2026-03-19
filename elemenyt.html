@@ -60,6 +60,12 @@
                                 <button type="button" id="el-generate" class="panel-button" style="flex:1;">Generate</button>
                             </div>
 
+                            <div class="control-row" id="el-generate-time-row" style="gap:10px; margin-top:0; display:none;">
+                                <label for="el-generate-time">Draw time</label>
+                                <input type="range" id="el-generate-time" min="0" max="100" value="55" step="1">
+                                <span class="param-value" id="val-el-generate-time">55</span>
+                            </div>
+
                             <div class="control-row" id="el-mode-row" style="margin-bottom:12px;">
                                 <div class="mode-switch" style="width:100%; margin:0;">
                                     <button type="button" id="el-mode-ink" class="panel-button is-active">DRAW (+)</button>
@@ -222,6 +228,9 @@
         const tabGenerateBtn = el('el-tab-generate');
         const generateRow = el('el-generate-row');
         const generateBtn = el('el-generate');
+        const genTimeRow = el('el-generate-time-row');
+        const genTimeEl = el('el-generate-time');
+        const genTimeVal = el('val-el-generate-time');
         const modeRowEl = el('el-mode-row');
         const strokeEl = el('el-stroke');
         const strokeVal = el('val-el-stroke');
@@ -243,6 +252,7 @@
             marker: 'line', // line|sprinkle|grid
 
             uiTab: 'sketch', // 'sketch' | 'generate'
+            generateTime: 55,
 
             fillEnabled: false,
             inkColor: '#000000',
@@ -274,6 +284,7 @@
             tabSketchBtn?.classList.toggle('is-active', tab === 'sketch');
             tabGenerateBtn?.classList.toggle('is-active', tab === 'generate');
             if (generateRow) generateRow.style.display = tab === 'generate' ? 'flex' : 'none';
+            if (genTimeRow) genTimeRow.style.display = tab === 'generate' ? 'flex' : 'none';
 
             // Mode controls are only for Sketch. Generate always draws.
             if (modeRowEl) modeRowEl.style.display = tab === 'generate' ? 'none' : '';
@@ -707,7 +718,15 @@
             const h = cssHeight;
             const margin = Math.max(18, state.brushSize * 2.2);
 
-            const steps = clamp(Math.floor((w * h) / 9000), 240, 1600);
+            const tN = clamp(state.generateTime / 100, 0, 1); // 0 = fast, 1 = slow
+            const dynamicConnect = CONFIG.connectDistance + state.brushSize;
+
+            const baseSteps = (w * h) / 9000;
+            const steps = clamp(Math.floor(baseSteps * (0.55 + tN * 1.25)), 240, 2200);
+
+            // Slower time => denser points => stickier/thicker lines.
+            const stepLenScale = 1.9 - tN * 1.25;
+            const penUpChance = 0.08 - tN * 0.06; // slow => fewer lift-offs
 
             let x = margin + Math.random() * (w - margin * 2);
             let y = margin + Math.random() * (h - margin * 2);
@@ -718,7 +737,7 @@
 
             for (let i = 0; i < steps; i++) {
                 // Lift pen sometimes and restart elsewhere.
-                if (Math.random() < 0.05) {
+                if (Math.random() < penUpChance) {
                     state.points.push(null);
                     x = margin + Math.random() * (w - margin * 2);
                     y = margin + Math.random() * (h - margin * 2);
@@ -729,7 +748,12 @@
 
                 // Smooth random walk.
                 angle += (Math.random() - 0.5) * 1.1;
-                const stepLen = (10 + Math.random() * 28) * (0.6 + state.brushSize / 14);
+                let stepLen = (10 + Math.random() * 28) * (0.6 + state.brushSize / 14) * stepLenScale;
+
+                // Keep spacing within magnetic connect distance so drawing stays visible.
+                const maxStepLen = dynamicConnect * 0.85;
+                const minStepLen = Math.min(8, maxStepLen * 0.35);
+                stepLen = clamp(stepLen, minStepLen, maxStepLen);
 
                 const nx = clamp(x + Math.cos(angle) * stepLen, margin, w - margin);
                 const ny = clamp(y + Math.sin(angle) * stepLen, margin, h - margin);
@@ -866,6 +890,11 @@
             state.outlineRadius = parseFloat(e.target.value);
             outlineVal.textContent = state.outlineRadius.toFixed(2);
             updateFilter();
+        });
+
+        genTimeEl?.addEventListener('input', (e) => {
+            state.generateTime = parseInt(e.target.value, 10);
+            genTimeVal.textContent = String(state.generateTime);
         });
 
         clearBtn?.addEventListener('click', clearAll);
