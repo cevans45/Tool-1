@@ -76,12 +76,18 @@
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-mirror" checked>
                                 <span class="toggle-box"></span>
-                                <span class="cb-label">Mirror</span>
+                                <span class="cb-label">Mirror left-right</span>
+                            </label>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-mirror-y">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Mirror top-bottom</span>
                             </label>
 
                             <div class="control-row">
                                 <label for="el-stroke">Stroke size</label>
-                                <input type="range" id="el-stroke" min="1" max="24" value="6" step="1">
+                                <input type="range" id="el-stroke" min="0.2" max="24" value="6" step="0.1">
                                 <span class="param-value" id="val-el-stroke">6</span>
                             </div>
 
@@ -224,6 +230,7 @@
         const btnInk = el('el-mode-ink');
         const btnCut = el('el-mode-cut');
         const mirrorEl = el('el-mirror');
+        const mirrorYEl = el('el-mirror-y');
         const tabSketchBtn = el('el-tab-sketch');
         const tabGenerateBtn = el('el-tab-generate');
         const generateRow = el('el-generate-row');
@@ -247,7 +254,8 @@
             // Modes match reference: positive = ink, negative = cut
             mode: 'ink', // 'ink' | 'cut'
             sketchMode: 'ink', // what Sketch tab uses (draw/erase)
-            mirrorEnabled: true,
+            mirrorEnabled: true,   // left-right
+            mirrorYEnabled: false, // top-bottom
             brushSize: 6,
             marker: 'line', // line|sprinkle|grid|grain
 
@@ -276,6 +284,31 @@
 
         function clamp(v, min, max) {
             return Math.max(min, Math.min(max, v));
+        }
+
+        function mirroredPoints(x, y) {
+            const out = [{ x, y }];
+            if (state.mirrorEnabled) out.push({ x: cssWidth - x, y });
+            if (state.mirrorYEnabled) out.push({ x, y: cssHeight - y });
+            if (state.mirrorEnabled && state.mirrorYEnabled) {
+                out.push({ x: cssWidth - x, y: cssHeight - y });
+            }
+            return out;
+        }
+
+        function mirroredLines(x1, y1, x2, y2) {
+            const out = [{ x1, y1, x2, y2 }];
+            if (state.mirrorEnabled) out.push({ x1: cssWidth - x1, y1, x2: cssWidth - x2, y2 });
+            if (state.mirrorYEnabled) out.push({ x1, y1: cssHeight - y1, x2, y2: cssHeight - y2 });
+            if (state.mirrorEnabled && state.mirrorYEnabled) {
+                out.push({
+                    x1: cssWidth - x1,
+                    y1: cssHeight - y1,
+                    x2: cssWidth - x2,
+                    y2: cssHeight - y2
+                });
+            }
+            return out;
         }
 
         function setUiTab(tab) {
@@ -376,6 +409,14 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
 
+        function setMirrorY(enabled) {
+            state.mirrorYEnabled = enabled;
+            mirrorYEl.checked = enabled;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
         function pushUndoSnapshot() {
             // snapshot exact pixels for reliable undo
             const snap = document.createElement('canvas');
@@ -445,14 +486,11 @@
                         const py = cy + (Math.random() - 0.5) * noiseScale;
 
                         const r = Math.max(0.8, finalThickness * (0.18 + Math.random() * 0.45)) * 0.5;
-                        ctx.beginPath();
-                        ctx.arc(px, py, r, 0, Math.PI * 2);
-                        ctx.fill();
-
-                        if (state.mirrorEnabled) {
-                            const mx = cssWidth - px;
+                        const pts = mirroredPoints(px, py);
+                        for (let pi = 0; pi < pts.length; pi++) {
+                            const mp = pts[pi];
                             ctx.beginPath();
-                            ctx.arc(mx, py, r, 0, Math.PI * 2);
+                            ctx.arc(mp.x, mp.y, r, 0, Math.PI * 2);
                             ctx.fill();
                         }
                     }
@@ -482,14 +520,11 @@
                         const py = cy + alongJit + ny * normJit;
 
                         const r = Math.max(0.6, finalThickness * (0.08 + Math.random() * 0.18)) * 0.5;
-                        ctx.beginPath();
-                        ctx.arc(px, py, r, 0, Math.PI * 2);
-                        ctx.fill();
-
-                        if (state.mirrorEnabled) {
-                            const mx = cssWidth - px;
+                        const pts = mirroredPoints(px, py);
+                        for (let pi = 0; pi < pts.length; pi++) {
+                            const mp = pts[pi];
                             ctx.beginPath();
-                            ctx.arc(mx, py, r, 0, Math.PI * 2);
+                            ctx.arc(mp.x, mp.y, r, 0, Math.PI * 2);
                             ctx.fill();
                         }
                     }
@@ -524,11 +559,10 @@
                         const gy = Math.round(py / gridSize) * gridSize;
 
                         const s = Math.max(0.9, finalThickness * (0.35 + Math.random() * 0.35));
-                        ctx.fillRect(gx - s / 2, gy - s / 2, s, s);
-
-                        if (state.mirrorEnabled) {
-                            const mx = cssWidth - gx;
-                            ctx.fillRect(mx - s / 2, gy - s / 2, s, s);
+                        const pts = mirroredPoints(gx, gy);
+                        for (let pi = 0; pi < pts.length; pi++) {
+                            const mp = pts[pi];
+                            ctx.fillRect(mp.x - s / 2, mp.y - s / 2, s, s);
                         }
                     }
                 }
@@ -582,16 +616,13 @@
                         const bx = x1 + dx * tB + jxB;
                         const by = y1 + dy * tB + jyB;
 
-                        ctx.lineWidth = finalThickness;
-                        ctx.beginPath();
-                        ctx.moveTo(ax, ay);
-                        ctx.lineTo(bx, by);
-                        ctx.stroke();
-
-                        if (state.mirrorEnabled) {
+                        const lines = mirroredLines(ax, ay, bx, by);
+                        for (let li = 0; li < lines.length; li++) {
+                            const ml = lines[li];
+                            ctx.lineWidth = finalThickness;
                             ctx.beginPath();
-                            ctx.moveTo(cssWidth - ax, ay);
-                            ctx.lineTo(cssWidth - bx, by);
+                            ctx.moveTo(ml.x1, ml.y1);
+                            ctx.lineTo(ml.x2, ml.y2);
                             ctx.stroke();
                         }
                     }
@@ -622,16 +653,13 @@
                         const bx = px + nx * len * 0.5;
                         const by = py + ny * len * 0.5;
 
-                        ctx.lineWidth = finalThickness * 0.9;
-                        ctx.beginPath();
-                        ctx.moveTo(ax, ay);
-                        ctx.lineTo(bx, by);
-                        ctx.stroke();
-
-                        if (state.mirrorEnabled) {
+                        const lines = mirroredLines(ax, ay, bx, by);
+                        for (let li = 0; li < lines.length; li++) {
+                            const ml = lines[li];
+                            ctx.lineWidth = finalThickness * 0.9;
                             ctx.beginPath();
-                            ctx.moveTo(cssWidth - ax, ay);
-                            ctx.lineTo(cssWidth - bx, by);
+                            ctx.moveTo(ml.x1, ml.y1);
+                            ctx.lineTo(ml.x2, ml.y2);
                             ctx.stroke();
                         }
                     }
@@ -652,16 +680,13 @@
                 const px1 = x1 + jx1, py1 = y1 + jy1;
                 const px2 = x2 + jx2, py2 = y2 + jy2;
 
+                const lines = mirroredLines(px1, py1, px2, py2);
                 ctx.lineWidth = finalThickness;
                 ctx.beginPath();
-                ctx.moveTo(px1, py1);
-                ctx.lineTo(px2, py2);
-
-                if (state.mirrorEnabled) {
-                    const mx1 = cssWidth - px1;
-                    const mx2 = cssWidth - px2;
-                    ctx.moveTo(mx1, py1);
-                    ctx.lineTo(mx2, py2);
+                for (let li = 0; li < lines.length; li++) {
+                    const ml = lines[li];
+                    ctx.moveTo(ml.x1, ml.y1);
+                    ctx.lineTo(ml.x2, ml.y2);
                 }
 
                 ctx.stroke();
@@ -894,14 +919,15 @@
             setMode('cut');
         });
         mirrorEl?.addEventListener('change', () => setMirror(mirrorEl.checked));
+        mirrorYEl?.addEventListener('change', () => setMirrorY(mirrorYEl.checked));
 
         tabSketchBtn?.addEventListener('click', () => setUiTab('sketch'));
         tabGenerateBtn?.addEventListener('click', () => setUiTab('generate'));
         generateBtn?.addEventListener('click', generateRandomDrawing);
 
         strokeEl?.addEventListener('input', (e) => {
-            state.brushSize = parseInt(e.target.value, 10);
-            strokeVal.textContent = String(state.brushSize);
+            state.brushSize = parseFloat(e.target.value);
+            strokeVal.textContent = state.brushSize < 1 ? state.brushSize.toFixed(1) : String(Math.round(state.brushSize * 10) / 10);
         });
 
         markerEl?.addEventListener('change', (e) => {
