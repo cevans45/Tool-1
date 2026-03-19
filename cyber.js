@@ -313,7 +313,10 @@ function getDrawnPathSegments() {
 /* ===== DRAW LOOP ===== */
 
 function draw() {
-  background(params.bg);
+  // In Generate mode we apply an SVG filter; make the canvas background transparent
+  // so the filter doesn't "outline" the white background.
+  if (params.drawMode) background(params.bg);
+  else clear();
   image(drawBuffer, 0, 0);
 
   const activePaths = params.drawMode ? getDrawnPathSegments() : paths;
