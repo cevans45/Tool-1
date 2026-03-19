@@ -27,7 +27,6 @@ const params = {
   curveAmt: 55,
   genReach: 120,
   genTaper: 65,
-  strokeTaper: 35,
   sketchTaper: 25,
   genWebbingEnabled: false,
   genWebbing: 45,
@@ -375,19 +374,16 @@ function mirrorConnections(conns) {
 }
 
 function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessMul) {
-  const reach = params.drawMode ? params.sketchReach : params.genReach;
-  const taperByDistance = constrain(params.strokeTaper / 100, 0, 1);
-  const distMul = lerp(1, constrain(1 - d / max(1, reach), 0.25, 1), taperByDistance);
-  const baseThickness = (params.strokeW + (widthAdd || 0)) * distMul;
+  const baseThickness = (params.strokeW + (widthAdd || 0));
   const tm = thicknessMul == null ? 1 : thicknessMul;
   const taperFactor = 0.2 + 0.8 * (tm * tm); // stronger size taper toward endpoints
   const finalThickness = baseThickness * taperFactor;
-  const roughness = params.sketchRoughness;
-  // Roughness now only affects texture, not stroke size
-  const jitter = roughness * 0.9;
-  const passes = params.sketchDensity;
+  const roughness = max(0, params.sketchRoughness);
+  // Roughness now only affects texture / gaps, not size
+  const jitter = 0.6 + roughness * 0.7;
+  const passes = floor(lerp(params.sketchDensity + 2, max(1, params.sketchDensity - 2), min(roughness / 12, 1)));
   const useRound = roughness <= 2;
-  const skipChance = roughness > 3 ? Math.min((roughness - 3) / 50, 0.18) : 0;
+  const skipChance = min(roughness / 18, 0.55);
 
   const seed = (Math.round(x1 * 73) * 374761 + Math.round(y1 * 73) * 668265 +
                 Math.round(x2 * 73) * 214748 + Math.round(y2 * 73) * 110351) | 0;
@@ -1242,7 +1238,6 @@ function bindControls() {
   });
   bindRange('cs-sketch-webbing', 'val-cs-sketch-webbing', (v) => { params.sketchWebbing = parseInt(v, 10); return String(params.sketchWebbing); });
   updateSketchWebbingUI();
-  bindRange('cs-stroke-taper', 'val-cs-stroke-taper', (v) => { params.strokeTaper = parseInt(v, 10); return String(params.strokeTaper); });
   updateGenBranchUI();
 
   const updateOutlineUI = () => {
