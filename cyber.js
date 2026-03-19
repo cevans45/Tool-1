@@ -27,7 +27,7 @@ const params = {
   curveAmt: 55,
   genReach: 120,
   genTaper: 65,
-  sketchTaper: 25,
+  // sketchTaper removed (sketch pad matches reference behavior)
   genWebbingEnabled: false,
   genWebbing: 45,
   sketchWebbingEnabled: false,
@@ -373,25 +373,102 @@ function mirrorConnections(conns) {
 }
 
 function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessMul) {
+  // Sketch pad must match the provided "Mycelium Mirror" sauce.
+  if (params.drawMode) {
+    const brushSize = params.strokeW + (widthAdd || 0);
+    const tm = thicknessMul == null ? 1 : thicknessMul;
+
+    const connectDistance = params.sketchReach;
+    const distFactor = max(0.2, (connectDistance - d) / 10);
+    const finalThickness = brushSize * distFactor * tm;
+
+    const roughness = max(0, params.sketchRoughness);
+    const rough01 = constrain(roughness / 20, 0, 1);
+
+    // Map UI roughness so: 0 => smooth, max => sharp etched edges.
+    const CONFIG = {
+      baseJitter: 4,
+      jitterMultiplier: 0.8,
+      passes: 6,
+      holeChance: 0.15
+    };
+
+    const baseJitter = CONFIG.baseJitter * rough01;
+    const jitterMultiplier = CONFIG.jitterMultiplier * rough01;
+    const passes = rough01 === 0 ? 1 : CONFIG.passes;
+    const holeChance = CONFIG.holeChance * rough01;
+
+    // Canonicalize RNG coordinates for perfect mirrored symmetry.
+    const w = width, h = height;
+    const cx1 = params.mirrorX ? Math.min(x1, w - x1) : x1;
+    const cx2 = params.mirrorX ? Math.min(x2, w - x2) : x2;
+    const cy1 = params.mirrorY ? Math.min(y1, h - y1) : y1;
+    const cy2 = params.mirrorY ? Math.min(y2, h - y2) : y2;
+
+    const seed = (Math.round(cx1 * 73) * 374761 + Math.round(cy1 * 73) * 668265 +
+      Math.round(cx2 * 73) * 214748 + Math.round(cy2 * 73) * 110351) | 0;
+    const rng = makeRng(seed);
+
+    // When drawing mirrored geometry via `mirrorConnections`, the reflection
+    // must also flip the direction of x/y jitter. This makes it a true 1:1 mirror.
+    const signX = params.mirrorX ? (x1 > w - x1 ? -1 : 1) : 1;
+    const signY = params.mirrorY ? (y1 > h - y1 ? -1 : 1) : 1;
+
+    const drawColor = colorOverride || params.ink;
+    if (params.drawOperation === 'ink') {
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = drawColor;
+      ctx.fillStyle = drawColor;
+    } else {
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.strokeStyle = 'rgba(0,0,0,1)';
+      ctx.fillStyle = 'rgba(0,0,0,1)';
+    }
+
+    ctx.lineCap = 'square';
+    ctx.lineJoin = 'bevel';
+
+    const jitter = baseJitter + finalThickness * jitterMultiplier;
+
+    for (let i = 0; i < passes; i++) {
+      const jx1 = (rng() - 0.5) * jitter;
+      const jy1 = (rng() - 0.5) * jitter;
+      const jx2 = (rng() - 0.5) * jitter;
+      const jy2 = (rng() - 0.5) * jitter;
+
+      // "glitch holes": skip the segment with probability = holeChance.
+      if (rng() <= holeChance) continue;
+
+      ctx.beginPath();
+      ctx.lineWidth = finalThickness;
+      ctx.moveTo(x1 + jx1 * signX, y1 + jy1 * signY);
+      ctx.lineTo(x2 + jx2 * signX, y2 + jy2 * signY);
+      ctx.stroke();
+    }
+
+    ctx.globalCompositeOperation = 'source-over';
+    return;
+  }
+
+  // GENERATE mode keeps the current deterministic "engine" behavior.
   const baseThickness = (params.strokeW + (widthAdd || 0));
   const tm = thicknessMul == null ? 1 : thicknessMul;
-  const taperFactor = 0.2 + 0.8 * (tm * tm); // endpoint taper -> thickness
-  // `reach` should control ACTIVITY between points (which connections exist),
-  // not thickness. Thickness is controlled by `strokeW` + endpoint taper.
+  const taperFactor = 0.2 + 0.8 * (tm * tm);
   const finalThickness = baseThickness * taperFactor;
 
   const roughness = max(0, params.sketchRoughness);
   const rough01 = constrain(roughness / 20, 0, 1);
-
-  // Roughness-only passes: 0 = smooth (single draw), max rough = sharper
-  // etched look (more passes + holes) without fuzzy blobs.
   const passes = rough01 === 0 ? 1 : max(2, Math.round(lerp(3, 7, rough01)));
-
-  // Hole/skip chance: 0 at smooth, up to ~0.22 at max rough.
   const skipChance = Math.pow(rough01, 1.35) * 0.22;
 
-  const seed = (Math.round(x1 * 73) * 374761 + Math.round(y1 * 73) * 668265 +
-                Math.round(x2 * 73) * 214748 + Math.round(y2 * 73) * 110351) | 0;
+  const w = width, h = height;
+  const cx1 = params.mirrorX ? Math.min(x1, w - x1) : x1;
+  const cx2 = params.mirrorX ? Math.min(x2, w - x2) : x2;
+  const cy1 = params.mirrorY ? Math.min(y1, h - y1) : y1;
+  const cy2 = params.mirrorY ? Math.min(y2, h - y2) : y2;
+
+  const seed = (Math.round(cx1 * 73) * 374761 + Math.round(cy1 * 73) * 668265 +
+    Math.round(cx2 * 73) * 214748 + Math.round(cy2 * 73) * 110351) | 0;
   const rng = makeRng(seed);
 
   const dx = x2 - x1;
@@ -402,11 +479,12 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   const nx = -ty;
   const ny = tx;
 
-  // Jitter amplitude drives roughness "edge bite" (not thickness).
   const baseJitter = 1.7;
   const jitterMultiplier = 0.45;
-  // Clamp jitter so large strokes don't turn into bubbly ink.
   const jitter = rough01 * constrain(baseJitter + finalThickness * jitterMultiplier, 0, 6);
+
+  const signX = params.mirrorX ? (x1 > w - x1 ? -1 : 1) : 1;
+  const signY = params.mirrorY ? (y1 > h - y1 ? -1 : 1) : 1;
 
   const drawColor = colorOverride || params.ink;
   if (params.drawOperation === 'ink') {
@@ -449,8 +527,8 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
 
       ctx.beginPath();
       ctx.lineWidth = finalThickness;
-      ctx.moveTo(x1 + jx1, y1 + jy1);
-      ctx.lineTo(x2 + jx2, y2 + jy2);
+      ctx.moveTo(x1 + jx1 * signX, y1 + jy1 * signY);
+      ctx.lineTo(x2 + jx2 * signX, y2 + jy2 * signY);
       ctx.stroke();
     }
   }
@@ -642,20 +720,22 @@ function buildSketchConnections() {
   if (current.length > 0) segments.push(current);
 
   const all = [];
-  const dynamicConnect = params.sketchReach;
-  const taper = constrain(params.sketchTaper / 100, 0, 1);
+  const connectDistance = params.sketchReach;
+  // Match reference: dynamicConnect = connectDistance + brushSize
+  const brushSize = params.strokeW;
+  const dynamicConnect = connectDistance + brushSize;
   for (const seg of segments) {
-    // Match the reference behavior: connect mostly *adjacent* points.
-    // This makes `reach` visibly control whether the stroke becomes
-    // continuous (high reach) or dashed/broken (low reach).
-    for (let i = 1; i < seg.length; i++) {
-      const prev = seg[i - 1];
+    const start = Math.max(0, seg.length - 250);
+    for (let i = start; i < seg.length; i++) {
       const p = seg[i];
-      const d = Math.hypot(p.x - prev.x, p.y - prev.y);
-      if (d >= dynamicConnect) continue;
-      const t = seg.length > 1 ? (i / (seg.length - 1)) : 0;
-      const tm = 1 - taper * t;
-      all.push({ px: prev.x, py: prev.y, x: p.x, y: p.y, d, tm });
+      for (let j = start; j < i; j++) {
+        const prev = seg[j];
+        const d = Math.hypot(p.x - prev.x, p.y - prev.y);
+        if (d < dynamicConnect) {
+          // Reference has no endpoint taper factor; keep thicknessMul = 1.
+          all.push({ px: prev.x, py: prev.y, x: p.x, y: p.y, d, tm: 1 });
+        }
+      }
     }
   }
   return all;
@@ -1244,7 +1324,6 @@ function bindControls() {
 
   bindRange('cs-sketch-roughness', 'val-cs-sketch-roughness', (v) => { params.sketchRoughness = parseInt(v, 10); return String(params.sketchRoughness); });
   bindRange('cs-sketch-reach', 'val-cs-sketch-reach', (v) => { params.sketchReach = parseInt(v, 10); return String(params.sketchReach); });
-  bindRange('cs-sketch-taper', 'val-cs-sketch-taper', (v) => { params.sketchTaper = parseInt(v, 10); return String(params.sketchTaper); });
   updateGenBranchUI();
 
   const updateOutlineUI = () => {
