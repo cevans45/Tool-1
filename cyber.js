@@ -24,7 +24,14 @@ const params = {
   textureJitter: 0.22,
   curveCount: 5,
   spread: 50,
+  branchEnabledGen: true,
   branching: 30,
+  branchReachGen: 48,
+  branchCountGen: 2,
+  sketchBranchEnabled: false,
+  sketchBranching: 25,
+  sketchBranchReach: 22,
+  sketchBranchCount: 2,
   influenceRadius: 20,
   blurStrength: 0.18,
   strokeW: 2,
@@ -156,7 +163,7 @@ function regenerate() {
     halfPaths.push(path);
   }
 
-  if (params.branching > 0) addBranchesToList(halfPaths);
+  if (params.branchEnabledGen && params.branching > 0) addBranchesToList(halfPaths);
 
   const warped = halfPaths.map(p => warpPath(p));
 
@@ -219,7 +226,7 @@ function warpPath(path) {
 }
 
 function addBranchesToList(pathList) {
-  const branchProb = (params.branching / 100) * 0.25;
+  const branchProb = (params.branching / 100) * 0.35;
   const base = pathList.slice();
   for (const path of base) {
     const step = max(5, floor(path.length / 7));
@@ -232,17 +239,21 @@ function addBranchesToList(pathList) {
       if (tan.magSq() < 1e-4) continue;
       tan.normalize();
       const normal = createVector(-tan.y, tan.x).mult(random() < 0.5 ? -1 : 1);
-      const len = random(18, 60);
-      const segs = floor(random(4, 9));
-      const branch = [root.copy()];
-      for (let s = 1; s <= segs; s++) {
-        const t = s / segs;
-        branch.push(createVector(
-          root.x + normal.x * len * t + tan.x * random(-5, 5) * t,
-          root.y + normal.y * len * t + tan.y * random(-5, 5) * t
-        ));
+      const baseLen = max(6, params.branchReachGen);
+      const count = max(0, floor(params.branchCountGen));
+      for (let bi = 0; bi < count; bi++) {
+        const len = baseLen * random(0.6, 1.25);
+        const segs = floor(random(3, 7));
+        const branch = [root.copy()];
+        for (let s = 1; s <= segs; s++) {
+          const t = s / segs;
+          branch.push(createVector(
+            root.x + normal.x * len * t + tan.x * random(-6, 6) * t,
+            root.y + normal.y * len * t + tan.y * random(-6, 6) * t
+          ));
+        }
+        pathList.push(branch);
       }
-      pathList.push(branch);
     }
   }
 }
@@ -404,22 +415,60 @@ function drawConnections(ctx, connections, mirror, colorOverride, widthAdd) {
   }
 }
 
+function addBranchStubs(connections, reachPx, count, amount01) {
+  if (!connections || connections.length === 0) return [];
+  const out = [];
+  const branchCount = max(0, floor(count));
+  if (branchCount === 0) return out;
+
+  for (const c of connections) {
+    const seed = (Math.round(c.px * 29) * 374761 + Math.round(c.py * 29) * 668265 +
+                  Math.round(c.x * 29) * 214748 + Math.round(c.y * 29) * 110351) | 0;
+    const rng = makeRng(seed);
+    if (rng() > amount01) continue;
+
+    const mx = (c.px + c.x) * 0.5;
+    const my = (c.py + c.y) * 0.5;
+    const dx = c.x - c.px;
+    const dy = c.y - c.py;
+    const mag = Math.hypot(dx, dy) || 1;
+    const nx = -dy / mag;
+    const ny = dx / mag;
+
+    for (let i = 0; i < branchCount; i++) {
+      const dir = rng() < 0.5 ? -1 : 1;
+      const len = reachPx * (0.55 + 0.65 * rng());
+      const bx = mx + nx * dir * len + (rng() - 0.5) * reachPx * 0.25;
+      const by = my + ny * dir * len + (rng() - 0.5) * reachPx * 0.25;
+      const d = Math.hypot(bx - mx, by - my);
+      out.push({ px: mx, py: my, x: bx, y: by, d });
+    }
+  }
+  return out;
+}
+
 function drawWithOutlineFill(ctx, conns, mirror) {
   const ow = params.outlineWidth * 2;
   const savedOp = params.drawOperation;
 
+  const sketchBranches = params.sketchBranchEnabled
+    ? addBranchStubs(conns, params.sketchBranchReach, params.sketchBranchCount, params.sketchBranching / 100)
+    : [];
+
+  const full = sketchBranches.length ? conns.concat(sketchBranches) : conns;
+
   if (params.outlineEnabled) {
     params.drawOperation = 'ink';
-    drawConnections(ctx, conns, mirror, params.outlineColor, ow);
+    drawConnections(ctx, full, mirror, params.outlineColor, ow);
     if (!params.fillEnabled) {
       params.drawOperation = 'cut';
-      drawConnections(ctx, conns, mirror, null, 0);
+      drawConnections(ctx, full, mirror, null, 0);
     }
   }
 
   if (params.fillEnabled) {
     params.drawOperation = 'ink';
-    drawConnections(ctx, conns, mirror, null, 0);
+    drawConnections(ctx, full, mirror, null, 0);
   }
 
   params.drawOperation = savedOp;
@@ -765,22 +814,49 @@ function drawGrainTexture(sourcePaths) {
   const s = constrain(params.textureSize, 0, 1);
   const o = constrain(params.textureOpacity, 0, 1);
   const jt = constrain(params.textureJitter, 0, 1);
-  const baseInk = color(params.textureColor);
-  stroke(red(baseInk), green(baseInk), blue(baseInk), map(k * o, 0, 1, 8, 135));
-  strokeWeight(map(s, 0, 1, 0.8, 2.2));
-  const stride = max(1, floor(map(d, 0, 1, 4, 1)));
-  const spread = map(jt, 0, 1, 0.9, 4.8);
+  const ctx = drawingContext;
+  const base = color(params.textureColor);
+  const alpha = map(k * o, 0, 1, 10, 120);
+  const stride = max(1, floor(map(d, 0, 1, 6, 1)));
+  const spread = map(jt, 0, 1, 0.9, 6.5);
+  const px = map(s, 0, 1, 0.8, 2.2);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'source-over';
+
   for (const path of sourcePaths) {
     for (let i = 0; i < path.length; i += stride) {
       const p = path[i];
-      const samples = floor(map(k * d, 0, 1, 1, 8));
+      const seed = (Math.round(p.x * 7) * 374761 + Math.round(p.y * 7) * 668265 + (params.seed | 0)) | 0;
+      const rng = makeRng(seed);
+
+      const samples = floor(map(k * d, 0, 1, 1, 10));
       for (let j = 0; j < samples; j++) {
-        const ox = random(-spread, spread);
-        const oy = random(-spread, spread);
-        point(p.x + ox, p.y + oy);
+        const ox = (rng() - 0.5) * spread * 2;
+        const oy = (rng() - 0.5) * spread * 2;
+
+        const uvxA = (p.x + ox) * 0.017;
+        const uvyA = (p.y + oy) * 0.017;
+        const uvxB = (p.x + ox) * 0.021;
+        const uvyB = (p.y + oy) * 0.021;
+        const uvxC = (p.x + ox) * 0.013;
+        const uvyC = (p.y + oy) * 0.013;
+
+        const grainR = (hash01(uvxA, uvyA, params.seed * 0.001) - 0.5) * 2;
+        const grainG = (hash01(uvxB, uvyB, params.seed * 0.001 + 7.1) - 0.5) * 2;
+        const grainB = (hash01(uvxC, uvyC, params.seed * 0.001 + 3.7) - 0.5) * 2;
+
+        const rr = constrain(red(base) + grainR * 255 * 0.06, 0, 255);
+        const gg = constrain(green(base) + grainG * 255 * 0.06, 0, 255);
+        const bb = constrain(blue(base) + grainB * 255 * 0.06, 0, 255);
+
+        ctx.fillStyle = `rgba(${rr.toFixed(0)},${gg.toFixed(0)},${bb.toFixed(0)},${(alpha / 255).toFixed(3)})`;
+        ctx.fillRect(p.x + ox, p.y + oy, px, px);
       }
     }
   }
+
+  ctx.restore();
 }
 
 /* ===== MOUSE / TOUCH HANDLERS ===== */
@@ -1009,7 +1085,10 @@ function bindControls() {
 
   bindRange('cs-curves', 'val-cs-curves', (v) => { params.curveCount = parseInt(v, 10); return String(params.curveCount); });
   bindRange('cs-spread', 'val-cs-spread', (v) => { params.spread = parseInt(v, 10); return String(params.spread); });
+  bindCheck('cs-branch-enabled-gen', (checked) => { params.branchEnabledGen = checked; });
   bindRange('cs-branching', 'val-cs-branching', (v) => { params.branching = parseInt(v, 10); return String(params.branching); });
+  bindRange('cs-branch-reach-gen', 'val-cs-branch-reach-gen', (v) => { params.branchReachGen = parseInt(v, 10); return String(params.branchReachGen); });
+  bindRange('cs-branch-count-gen', 'val-cs-branch-count-gen', (v) => { params.branchCountGen = parseInt(v, 10); return String(params.branchCountGen); });
 
   bindRange('cs-stroke', 'val-cs-stroke', (v) => {
     params.strokeW = parseInt(v, 10);
@@ -1037,6 +1116,10 @@ function bindControls() {
   bindRange('cs-sketch-roughness', 'val-cs-sketch-roughness', (v) => { params.sketchRoughness = parseInt(v, 10); return String(params.sketchRoughness); });
   bindRange('cs-sketch-density', 'val-cs-sketch-density', (v) => { params.sketchDensity = parseInt(v, 10); return String(params.sketchDensity); });
   bindRange('cs-sketch-reach', 'val-cs-sketch-reach', (v) => { params.sketchReach = parseInt(v, 10); return String(params.sketchReach); });
+  bindCheck('cs-branch-enabled-sketch', (checked) => { params.sketchBranchEnabled = checked; });
+  bindRange('cs-branching-sketch', 'val-cs-branching-sketch', (v) => { params.sketchBranching = parseInt(v, 10); return String(params.sketchBranching); });
+  bindRange('cs-branch-reach-sketch', 'val-cs-branch-reach-sketch', (v) => { params.sketchBranchReach = parseInt(v, 10); return String(params.sketchBranchReach); });
+  bindRange('cs-branch-count-sketch', 'val-cs-branch-count-sketch', (v) => { params.sketchBranchCount = parseInt(v, 10); return String(params.sketchBranchCount); });
 
   const updateOutlineUI = () => {
     const rowWidth = byId('row-cs-outline-width');
