@@ -73,9 +73,7 @@
                                 <select id="el-marker" class="select-input">
                                     <option value="line" selected>Line</option>
                                     <option value="sprinkle">Sprinkle</option>
-                                    <option value="spray">Spray</option>
-                                    <option value="dash">Dash</option>
-                                    <option value="hatch">Hatch</option>
+                                    <option value="grid">Grid</option>
                                 </select>
                             </div>
 
@@ -201,7 +199,7 @@
             mode: 'ink', // 'ink' | 'cut'
             mirrorEnabled: true,
             brushSize: 6,
-            marker: 'line', // line|sprinkle|spray|dash|hatch
+            marker: 'line', // line|sprinkle|grid
 
             fillEnabled: false,
             inkColor: '#000000',
@@ -383,6 +381,44 @@
                         }
                     }
                 }
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            if (state.marker === 'grid') {
+                // Grid/lattice texture "around" the stroke path.
+                // We quantize points to a grid and draw small squares.
+                const gridSize = Math.max(4, Math.floor(state.brushSize * 1.2));
+                const step = Math.max(2, Math.floor(gridSize * 0.5));
+                const length = segLen;
+                const samples = Math.max(2, Math.floor(length / step));
+
+                for (let pass = 0; pass < CONFIG.passes; pass++) {
+                    for (let i = 0; i < samples; i++) {
+                        if (Math.random() < CONFIG.holeChance * 0.8) continue;
+                        const t = samples <= 1 ? 0.5 : i / (samples - 1);
+                        const cx = x1 + dx * t;
+                        const cy = y1 + dy * t;
+
+                        const jx = (Math.random() - 0.5) * jitter * 0.9;
+                        const jy = (Math.random() - 0.5) * jitter * 0.9;
+                        const px = cx + jx;
+                        const py = cy + jy;
+
+                        // Snap to grid.
+                        const gx = Math.round(px / gridSize) * gridSize;
+                        const gy = Math.round(py / gridSize) * gridSize;
+
+                        const s = Math.max(0.9, finalThickness * (0.35 + Math.random() * 0.35));
+                        ctx.fillRect(gx - s / 2, gy - s / 2, s, s);
+
+                        if (state.mirrorEnabled) {
+                            const mx = cssWidth - gx;
+                            ctx.fillRect(mx - s / 2, gy - s / 2, s, s);
+                        }
+                    }
+                }
+
                 ctx.globalCompositeOperation = 'source-over';
                 return;
             }
