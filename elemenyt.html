@@ -33,7 +33,7 @@
                             <dt>DRAW / ERASE</dt>
                             <dd>DRAW draws; ERASE erases using destination-out.</dd>
                             <dt>Marker</dt>
-                            <dd>Line = jagged segments. Sprinkle/Spray/Dash/Hatch = alternate scratch textures.</dd>
+                            <dd>Line = jagged segments. Sprinkle/Grid/Grain = alternate scratch textures.</dd>
                             <dt>Fill</dt>
                             <dd>If ON, uses “Fill color” for ink + outline coloring.</dd>
                             <dt>Outline thickness</dt>
@@ -91,6 +91,7 @@
                                     <option value="line" selected>Line</option>
                                     <option value="sprinkle">Sprinkle</option>
                                     <option value="grid">Grid</option>
+                                    <option value="grain">Grain</option>
                                 </select>
                             </div>
 
@@ -249,7 +250,7 @@
             sketchMode: 'ink', // what Sketch tab uses (draw/erase)
             mirrorEnabled: true,
             brushSize: 6,
-            marker: 'line', // line|sprinkle|grid
+            marker: 'line', // line|sprinkle|grid|grain
 
             uiTab: 'sketch', // 'sketch' | 'generate'
             generateTime: 55,
@@ -457,6 +458,44 @@
                         }
                     }
                 }
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            if (state.marker === 'grain') {
+                // Dense micro-scratches / dust clustered around the path.
+                const nx = -dy / segLen;
+                const ny = dx / segLen;
+                const dotCount = Math.max(12, Math.floor(segLen / 6));
+
+                for (let pass = 0; pass < CONFIG.passes; pass++) {
+                    for (let d = 0; d < dotCount; d++) {
+                        if (Math.random() < CONFIG.holeChance * 0.55) continue;
+
+                        const t = Math.random();
+                        const cx = x1 + dx * t;
+                        const cy = y1 + dy * t;
+
+                        // Jitter mostly in the normal direction for "scrape along the stroke".
+                        const alongJit = (Math.random() - 0.5) * jitter * 0.55;
+                        const normJit = (Math.random() - 0.5) * jitter * 1.1;
+                        const px = cx + alongJit + nx * normJit;
+                        const py = cy + alongJit + ny * normJit;
+
+                        const r = Math.max(0.6, finalThickness * (0.08 + Math.random() * 0.18)) * 0.5;
+                        ctx.beginPath();
+                        ctx.arc(px, py, r, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        if (state.mirrorEnabled) {
+                            const mx = cssWidth - px;
+                            ctx.beginPath();
+                            ctx.arc(mx, py, r, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+
                 ctx.globalCompositeOperation = 'source-over';
                 return;
             }
