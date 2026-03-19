@@ -38,11 +38,7 @@
                                 <span class="cb-label">Mirror</span>
                             </label>
 
-                            <div class="control-row">
-                                <label for="cs-stroke">Size</label>
-                                <input type="range" id="cs-stroke" min="1" max="12" value="2" step="1">
-                                <span class="param-value" id="val-cs-stroke">2</span>
-                            </div>
+                            <!-- Size moved to Style -->
 
                             <div class="control-row" id="row-cs-sketch-reach">
                                 <label for="cs-sketch-reach">Reach</label>
@@ -87,6 +83,11 @@
                     <details class="control-window" id="section-sketch-style" open>
                         <summary>Style</summary>
                         <section class="control-section">
+                            <div class="control-row">
+                                <label for="cs-stroke">Size</label>
+                                <input type="range" id="cs-stroke" min="1" max="12" value="2" step="1">
+                                <span class="param-value" id="val-cs-stroke">2</span>
+                            </div>
                             <div class="control-row">
                                 <label for="cs-sketch-roughness">Roughness</label>
                                 <input type="range" id="cs-sketch-roughness" min="0" max="20" value="4" step="1">
@@ -160,9 +161,24 @@
                                 <span class="param-value" id="val-cs-curves">5</span>
                             </div>
                             <div class="control-row">
+                                <label for="cs-curve-amt">Curve</label>
+                                <input type="range" id="cs-curve-amt" min="0" max="100" value="55" step="5">
+                                <span class="param-value" id="val-cs-curve-amt">55</span>
+                            </div>
+                            <div class="control-row">
                                 <label for="cs-spread">Spread</label>
                                 <input type="range" id="cs-spread" min="10" max="100" value="50" step="5">
                                 <span class="param-value" id="val-cs-spread">50</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-gen-reach">Reach</label>
+                                <input type="range" id="cs-gen-reach" min="60" max="220" value="120" step="5">
+                                <span class="param-value" id="val-cs-gen-reach">120</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="cs-gen-taper">Taper</label>
+                                <input type="range" id="cs-gen-taper" min="0" max="100" value="65" step="5">
+                                <span class="param-value" id="val-cs-gen-taper">65</span>
                             </div>
                             <div class="control-row">
                                 <label for="cs-branching">Branching</label>
@@ -184,11 +200,7 @@
                                 <input type="range" id="cs-branch-count-gen" min="0" max="6" value="2" step="1">
                                 <span class="param-value" id="val-cs-branch-count-gen">2</span>
                             </div>
-                            <div class="control-row">
-                                <label for="cs-stroke-gen">Size</label>
-                                <input type="range" id="cs-stroke-gen" min="1" max="12" value="2" step="1">
-                                <span class="param-value" id="val-cs-stroke-gen">2</span>
-                            </div>
+                            <!-- Size moved to Style -->
                         </section>
                     </details>
 

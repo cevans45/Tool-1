@@ -24,6 +24,9 @@ const params = {
   textureJitter: 0.22,
   curveCount: 5,
   spread: 50,
+  curveAmt: 55,
+  genReach: 120,
+  genTaper: 65,
   branchEnabledGen: true,
   branching: 30,
   branchReachGen: 48,
@@ -145,7 +148,7 @@ function regenerate() {
     const endX = startX + cos(angle) * reach;
     const endY = startY + sin(angle) * reach;
 
-    const curveAmt = sp * 60;
+    const curveAmt = (params.curveAmt / 100) * (18 + 140 * sp);
     const cx1 = lerp(startX, endX, 0.33) + random(-curveAmt, curveAmt);
     const cy1 = lerp(startY, endY, 0.33) + random(-curveAmt, curveAmt);
     const cx2 = lerp(startX, endX, 0.66) + random(-curveAmt, curveAmt);
@@ -241,15 +244,18 @@ function addBranchesToList(pathList) {
       const normal = createVector(-tan.y, tan.x).mult(random() < 0.5 ? -1 : 1);
       const baseLen = max(6, params.branchReachGen);
       const count = max(0, floor(params.branchCountGen));
+      // Always spawn `count` branches when a branch event happens.
       for (let bi = 0; bi < count; bi++) {
-        const len = baseLen * random(0.6, 1.25);
+        const len = baseLen * random(0.65, 1.35);
         const segs = floor(random(3, 7));
         const branch = [root.copy()];
         for (let s = 1; s <= segs; s++) {
           const t = s / segs;
+          // Curved branch: add a bend that increases toward the tip.
+          const bend = (noise((root.x + s * 13) * 0.03, (root.y + s * 13) * 0.03, params.seed * 0.00003) - 0.5) * 2;
           branch.push(createVector(
-            root.x + normal.x * len * t + tan.x * random(-6, 6) * t,
-            root.y + normal.y * len * t + tan.y * random(-6, 6) * t
+            root.x + normal.x * len * t + tan.x * (bend * 14) * t,
+            root.y + normal.y * len * t + tan.y * (bend * 14) * t
           ));
         }
         pathList.push(branch);
@@ -343,10 +349,10 @@ function makeRng(seed) {
 
 /* ===== MYCELIUM SCRATCH-LINE DRAWING ENGINE ===== */
 
-function scratchLine(ctx, x1, y1, x2, y2, d, mirror, colorOverride, widthAdd) {
-  const reach = mirror ? params.sketchReach : Math.max(params.sketchReach, 100);
+function scratchLine(ctx, x1, y1, x2, y2, d, mirror, colorOverride, widthAdd, thicknessMul) {
+  const reach = mirror ? params.sketchReach : params.genReach;
   const distFactor = Math.max(0.2, (reach - d) / 10);
-  const finalThickness = params.strokeW * distFactor + (widthAdd || 0);
+  const finalThickness = (params.strokeW * distFactor + (widthAdd || 0)) * (thicknessMul == null ? 1 : thicknessMul);
   const roughness = params.sketchRoughness;
   const jitter = roughness * 0.8 + roughness * finalThickness * 0.15;
   const passes = params.sketchDensity;
@@ -411,7 +417,7 @@ function scratchLine(ctx, x1, y1, x2, y2, d, mirror, colorOverride, widthAdd) {
 
 function drawConnections(ctx, connections, mirror, colorOverride, widthAdd) {
   for (const c of connections) {
-    scratchLine(ctx, c.px, c.py, c.x, c.y, c.d, mirror, colorOverride, widthAdd);
+    scratchLine(ctx, c.px, c.py, c.x, c.y, c.d, mirror, colorOverride, widthAdd, c.tm);
   }
 }
 
@@ -497,14 +503,17 @@ function addDrawPoint(x, y) {
   drawWithOutlineFill(ctx, conns, true);
 }
 
-function pathsToConnections(pathList, mirror) {
+function pathsToConnections(pathList) {
   const conns = [];
   for (const path of pathList) {
     if (path.length < 2) continue;
     for (let i = 1; i < path.length; i++) {
       const a = path[i - 1], b = path[i];
       const d = Math.hypot(b.x - a.x, b.y - a.y);
-      conns.push({ px: a.x, py: a.y, x: b.x, y: b.y, d });
+      const t = i / (path.length - 1);
+      const taper = constrain(params.genTaper / 100, 0, 1);
+      const tm = 1 - taper * t;
+      conns.push({ px: a.x, py: a.y, x: b.x, y: b.y, d, tm });
     }
   }
   return conns;
@@ -514,7 +523,7 @@ function renderPathsToBuffer(pathList) {
   drawBuffer.clear();
   const ctx = drawBuffer.drawingContext;
   const savedOp = params.drawOperation;
-  const conns = pathsToConnections(pathList, false);
+  const conns = pathsToConnections(pathList);
   drawWithOutlineFill(ctx, conns, false);
   params.drawOperation = savedOp;
 }
@@ -1084,7 +1093,10 @@ function bindControls() {
   updateTextureModeUI();
 
   bindRange('cs-curves', 'val-cs-curves', (v) => { params.curveCount = parseInt(v, 10); return String(params.curveCount); });
+  bindRange('cs-curve-amt', 'val-cs-curve-amt', (v) => { params.curveAmt = parseInt(v, 10); return String(params.curveAmt); });
   bindRange('cs-spread', 'val-cs-spread', (v) => { params.spread = parseInt(v, 10); return String(params.spread); });
+  bindRange('cs-gen-reach', 'val-cs-gen-reach', (v) => { params.genReach = parseInt(v, 10); return String(params.genReach); });
+  bindRange('cs-gen-taper', 'val-cs-gen-taper', (v) => { params.genTaper = parseInt(v, 10); return String(params.genTaper); });
   bindCheck('cs-branch-enabled-gen', (checked) => { params.branchEnabledGen = checked; });
   bindRange('cs-branching', 'val-cs-branching', (v) => { params.branching = parseInt(v, 10); return String(params.branching); });
   bindRange('cs-branch-reach-gen', 'val-cs-branch-reach-gen', (v) => { params.branchReachGen = parseInt(v, 10); return String(params.branchReachGen); });
