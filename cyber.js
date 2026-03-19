@@ -1218,7 +1218,7 @@ function bindControls() {
   });
   updateOutlineUI();
 
-  const updateSketchBranchUI = () => {
+  function updateSketchBranchUI() {
     const show = !!params.sketchBranchEnabled;
     const rowAmt = byId('row-cs-branching-sketch');
     const rowReach = byId('row-cs-branch-reach-sketch');
@@ -1226,7 +1226,7 @@ function bindControls() {
     if (rowAmt) rowAmt.style.display = show ? 'flex' : 'none';
     if (rowReach) rowReach.style.display = show ? 'flex' : 'none';
     if (rowCount) rowCount.style.display = show ? 'flex' : 'none';
-  };
+  }
 
   bindRange('cs-outline-width', 'val-cs-outline-width', (v) => { params.outlineWidth = parseInt(v, 10); return String(params.outlineWidth); });
 
