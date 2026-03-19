@@ -30,8 +30,8 @@
                     <div class="info-content">
                         <h3>What each control does</h3>
                         <dl>
-                            <dt>INK / CUT</dt>
-                            <dd>INK draws; CUT erases using destination-out.</dd>
+                            <dt>DRAW / ERASE</dt>
+                            <dd>DRAW draws; ERASE erases using destination-out.</dd>
                             <dt>Marker</dt>
                             <dd>Line = jagged segments. Sprinkle/Spray/Dash/Hatch = alternate scratch textures.</dd>
                             <dt>Fill</dt>
@@ -60,10 +60,10 @@
                                 <button type="button" id="el-generate" class="panel-button" style="flex:1;">Generate</button>
                             </div>
 
-                            <div class="control-row" style="margin-bottom:12px;">
+                            <div class="control-row" id="el-mode-row" style="margin-bottom:12px;">
                                 <div class="mode-switch" style="width:100%; margin:0;">
-                                    <button type="button" id="el-mode-ink" class="panel-button is-active">INK (+)</button>
-                                    <button type="button" id="el-mode-cut" class="panel-button">CUT (−)</button>
+                                    <button type="button" id="el-mode-ink" class="panel-button is-active">DRAW (+)</button>
+                                    <button type="button" id="el-mode-cut" class="panel-button">ERASE (−)</button>
                                 </div>
                             </div>
 
@@ -115,7 +115,7 @@
                             </div>
 
                             <div class="shortcuts">
-                                <span>[1]</span> INK &nbsp; <span>[2]</span> CUT<br>
+                                <span>[1]</span> DRAW &nbsp; <span>[2]</span> ERASE<br>
                                 <span>[M]</span> MIRROR &nbsp; <span>[SPACE]</span> CLEAR &nbsp; <span>[S]</span> EXPORT<br>
                                 <span>[⌘Z]</span> UNDO
                             </div>
@@ -222,6 +222,7 @@
         const tabGenerateBtn = el('el-tab-generate');
         const generateRow = el('el-generate-row');
         const generateBtn = el('el-generate');
+        const modeRowEl = el('el-mode-row');
         const strokeEl = el('el-stroke');
         const strokeVal = el('val-el-stroke');
         const markerEl = el('el-marker');
@@ -236,6 +237,7 @@
         const state = {
             // Modes match reference: positive = ink, negative = cut
             mode: 'ink', // 'ink' | 'cut'
+            sketchMode: 'ink', // what Sketch tab uses (draw/erase)
             mirrorEnabled: true,
             brushSize: 6,
             marker: 'line', // line|sprinkle|grid
@@ -272,6 +274,11 @@
             tabSketchBtn?.classList.toggle('is-active', tab === 'sketch');
             tabGenerateBtn?.classList.toggle('is-active', tab === 'generate');
             if (generateRow) generateRow.style.display = tab === 'generate' ? 'flex' : 'none';
+
+            // Mode controls are only for Sketch. Generate always draws.
+            if (modeRowEl) modeRowEl.style.display = tab === 'generate' ? 'none' : '';
+            if (tab === 'generate') setMode('ink');
+            else setMode(state.sketchMode);
         }
 
         function currentInkColor() {
@@ -674,6 +681,10 @@
             // Generate a single random "hand-like" drawing.
             // Uses the current INK/CUT mode, marker, brush size, colors, and mirror.
             // Ensure current filter + canvas dimensions are correct.
+            // Generate always draws (no erase mode on this tab).
+            setMode('ink');
+            state.sketchMode = 'ink';
+
             updateFilter();
 
             // Snapshot what the user currently has so UNDO can restore it.
@@ -812,8 +823,14 @@
             if (e.target === infoOverlay) infoOverlay.hidden = true;
         });
 
-        btnInk?.addEventListener('click', () => setMode('ink'));
-        btnCut?.addEventListener('click', () => setMode('cut'));
+        btnInk?.addEventListener('click', () => {
+            state.sketchMode = 'ink';
+            setMode('ink');
+        });
+        btnCut?.addEventListener('click', () => {
+            state.sketchMode = 'cut';
+            setMode('cut');
+        });
         mirrorEl?.addEventListener('change', () => setMirror(mirrorEl.checked));
 
         tabSketchBtn?.addEventListener('click', () => setUiTab('sketch'));
@@ -862,8 +879,14 @@
                 return;
             }
 
-            if (e.key === '1') setMode('ink');
-            else if (e.key === '2') setMode('cut');
+            // DRAW/ERASE controls only exist on the Sketch tab.
+            if (state.uiTab === 'generate') {
+                // ignore [1] and [2] in generate mode
+            } else if (e.key === '1') {
+                setMode('ink');
+            } else if (e.key === '2') {
+                setMode('cut');
+            }
             else if (e.key.toLowerCase() === 'm') setMirror(!state.mirrorEnabled);
             else if (e.code === 'Space') {
                 e.preventDefault();
