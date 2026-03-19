@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Elemenyt — OVRT</title>
     <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
     <div class="site-shell">
         <header class="tool-header">
@@ -29,13 +31,15 @@
                         <h3>What each control does</h3>
                         <dl>
                             <dt>INK / CUT</dt>
-                            <dd>INK draws solid; CUT erases using destination-out.</dd>
+                            <dd>INK draws; CUT erases using destination-out.</dd>
                             <dt>Marker</dt>
-                            <dd>Line = jagged scratch segments. Sprinkle = ink beads along the segment.</dd>
+                            <dd>Line = jagged segments. Sprinkle/Spray/Dash/Hatch = alternate scratch textures.</dd>
                             <dt>Fill</dt>
-                            <dd>When enabled, Line marker draws filled thick quads.</dd>
-                            <dt>Colors</dt>
-                            <dd>Ink and Fill colors affect how INK renders; CUT ignores color.</dd>
+                            <dd>If ON, uses “Fill color” for ink + outline coloring.</dd>
+                            <dt>Outline thickness</dt>
+                            <dd>Controls the jagged-edge filter dilation radius.</dd>
+                            <dt>Undo</dt>
+                            <dd>Cmd/Ctrl+Z undoes the last stroke.</dd>
                         </dl>
                         <button type="button" class="info-close" id="info-close">Close</button>
                     </div>
@@ -65,12 +69,6 @@
                             </div>
 
                             <div class="control-row">
-                                <label for="el-outline">Outline thickness</label>
-                                <input type="range" id="el-outline" min="0.2" max="3.0" value="1.0" step="0.05">
-                                <span class="param-value" id="val-el-outline">1.00</span>
-                            </div>
-
-                            <div class="control-row">
                                 <label for="el-marker">Marker</label>
                                 <select id="el-marker" class="select-input">
                                     <option value="line" selected>Line</option>
@@ -82,17 +80,13 @@
                             </div>
 
                             <label class="checkbox-label">
-                                <input type="checkbox" id="el-fill-enabled" checked>
+                                <input type="checkbox" id="el-fill-enabled">
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Fill</span>
                             </label>
 
                             <div class="control-row color-row">
-                                <label for="el-bg">Background</label>
-                                <input type="color" id="el-bg" value="#ffffff">
-                            </div>
-                            <div class="control-row color-row">
-                                <label for="el-ink-color">Ink</label>
+                                <label for="el-ink-color">Ink color</label>
                                 <input type="color" id="el-ink-color" value="#000000">
                             </div>
                             <div class="control-row color-row">
@@ -100,14 +94,21 @@
                                 <input type="color" id="el-fill-color" value="#000000">
                             </div>
 
-                            <div class="control-row" style="gap:6px;">
+                            <div class="control-row">
+                                <label for="el-outline">Outline thickness</label>
+                                <input type="range" id="el-outline" min="0.2" max="3.0" value="1.0" step="0.05">
+                                <span class="param-value" id="val-el-outline">1.00</span>
+                            </div>
+
+                            <div class="control-row" style="gap:6px; margin-top:8px;">
                                 <button type="button" id="el-clear" class="panel-button">Clear</button>
                                 <button type="button" id="el-export" class="panel-button">Export PNG</button>
                             </div>
 
                             <div class="shortcuts">
                                 <span>[1]</span> INK &nbsp; <span>[2]</span> CUT<br>
-                                <span>[M]</span> MIRROR &nbsp; <span>[SPACE]</span> CLEAR &nbsp; <span>[S]</span> EXPORT
+                                <span>[M]</span> MIRROR &nbsp; <span>[SPACE]</span> CLEAR &nbsp; <span>[S]</span> EXPORT<br>
+                                <span>[⌘Z]</span> UNDO
                             </div>
                         </section>
                     </details>
@@ -116,174 +117,124 @@
         </div>
     </div>
 
+    <!-- SVG filter used for the outline look -->
     <svg width="0" height="0" style="position:absolute">
         <defs>
             <filter id="jagged-edge" color-interpolation-filters="sRGB">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
-                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40" result="solidBlob" />
+                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40"
+                    result="solidBlob" />
                 <feMorphology id="jagged-dilate" operator="dilate" radius="1.0" in="solidBlob" result="fatBlob" />
                 <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
-                <!-- Colorize the outline using the SourceGraphic's pixels -->
-                <feComposite in="SourceGraphic" in2="outline" operator="in" />
+                <feFlood id="jagged-flood" flood-color="#000000" result="color" />
+                <feComposite in="color" in2="outline" operator="in" />
             </filter>
         </defs>
     </svg>
 
     <style>
-        /* Match the site aesthetic: filter the actual canvas */
-        #sketch-container {
-            flex: 1;
-            width: 100%;
-            height: 100%;
-        }
-
         #sketch-container canvas {
             width: 100%;
             height: 100%;
+            display: block;
             touch-action: none;
         }
 
-        /* Only enable jagged-outline filter when Fill is OFF */
-        #sketch-container.el-outline-filter canvas {
+        #sketch-container.el-outline-filter {
             -webkit-filter: url(#jagged-edge);
             filter: url(#jagged-edge);
         }
     </style>
 
+    <script src="page-transition.js"></script>
     <script>
+        if (new URLSearchParams(window.location.search).get('preview') === '1') {
+            document.body.classList.add('is-preview');
+        }
+
         const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
         const el = (id) => document.getElementById(id);
 
-        const elModeInk = el('el-mode-ink');
-        const elModeCut = el('el-mode-cut');
-        const elMirror = el('el-mirror');
-        const elStroke = el('el-stroke');
-        const elStrokeVal = el('val-el-stroke');
-        const elOutline = el('el-outline');
-        const elOutlineVal = el('val-el-outline');
-        const elMarker = el('el-marker');
-        const elFillEnabled = el('el-fill-enabled');
-        const elBg = el('el-bg');
-        const elInkColor = el('el-ink-color');
-        const elFillColor = el('el-fill-color');
-        const elClear = el('el-clear');
-        const elExport = el('el-export');
-
-        // Overlay UI
         const infoBtn = el('info-btn');
         const infoOverlay = el('info-overlay');
         const infoClose = el('info-close');
 
-        // Preview mode: match other tools (hide header + panel, fill screen)
-        if (new URLSearchParams(window.location.search).get('preview') === '1') {
-            document.body.classList.add('is-preview');
-        }
+        const btnInk = el('el-mode-ink');
+        const btnCut = el('el-mode-cut');
+        const mirrorEl = el('el-mirror');
+        const strokeEl = el('el-stroke');
+        const strokeVal = el('val-el-stroke');
+        const markerEl = el('el-marker');
+        const fillEnabledEl = el('el-fill-enabled');
+        const inkColorEl = el('el-ink-color');
+        const fillColorEl = el('el-fill-color');
+        const outlineEl = el('el-outline');
+        const outlineVal = el('val-el-outline');
+        const clearBtn = el('el-clear');
+        const exportBtn = el('el-export');
+
+        const state = {
+            // Modes match reference: positive = ink, negative = cut
+            mode: 'ink', // 'ink' | 'cut'
+            mirrorEnabled: true,
+            brushSize: 6,
+            marker: 'line', // line|sprinkle|spray|dash|hatch
+
+            fillEnabled: false,
+            inkColor: '#000000',
+            fillColor: '#000000',
+
+            outlineRadius: 1.0,
+
+            isDrawing: false,
+            points: [],
+
+            undoStack: [], // { snapCanvas, pointsLen }
+        };
 
         const CONFIG = {
             connectDistance: 70,
             baseJitter: 4,
             jitterMultiplier: 0.8,
-            passes: 6
+            passes: 6,
+            holeChance: 0.15
         };
 
-        const state = {
-            mode: 'ink', // 'ink' | 'cut'
-            brushSize: 6,
-            isDrawing: false,
-            mirrorEnabled: true,
-            marker: 'line', // 'line' | 'sprinkle'
-            outlineRadius: 1.0,
-            fillEnabled: true,
-            bg: '#ffffff',
-            inkColor: '#000000',
-            fillColor: '#000000',
-            // Store points so changing params can optionally be replayed later.
-            // (For now, strokes keep their original pixels; we only apply params to new strokes.)
-            points: []
-        };
+        function currentInkColor() {
+            // In outline mode (Fill OFF) we use inkColor as the stroke color.
+            // In fill mode (Fill ON) we use fillColor as the stroke color.
+            return state.fillEnabled ? state.fillColor : state.inkColor;
+        }
 
-        function applyOutlineRadius() {
-            const node = document.getElementById('jagged-dilate');
-            if (!node) return;
-            node.setAttribute('radius', String(state.outlineRadius));
-            // Force a filter re-apply so the updated radius becomes visible.
-            const container = el('sketch-container');
-            if (container.classList.contains('el-outline-filter')) {
+        function updateFilterEnabled() {
+            const container = document.getElementById('sketch-container');
+            if (state.fillEnabled) container.classList.remove('el-outline-filter');
+            else container.classList.add('el-outline-filter');
+        }
+
+        function updateFilter() {
+            const dilate = document.getElementById('jagged-dilate');
+            dilate?.setAttribute('radius', String(state.outlineRadius));
+
+            // Color outline using the chosen ink/fill color
+            const flood = document.getElementById('jagged-flood');
+            flood?.setAttribute('flood-color', currentInkColor());
+
+            // Force filter geometry refresh in outline mode.
+            if (!state.fillEnabled) {
+                const container = document.getElementById('sketch-container');
                 container.classList.remove('el-outline-filter');
                 requestAnimationFrame(() => container.classList.add('el-outline-filter'));
             }
         }
 
-        function updateFilterMode() {
-            const container = el('sketch-container');
-            if (state.fillEnabled) container.classList.remove('el-outline-filter');
-            else container.classList.add('el-outline-filter');
-        }
-
-        const UNDO_LIMIT = 20;
-        const undoStack = [];
-
-        function pushUndoSnapshot() {
-            const snap = document.createElement('canvas');
-            snap.width = canvas.width;
-            snap.height = canvas.height;
-            const sctx = snap.getContext('2d');
-            sctx.drawImage(canvas, 0, 0);
-            undoStack.push(snap);
-            if (undoStack.length > UNDO_LIMIT) undoStack.shift();
-        }
-
-        function undo() {
-            if (undoStack.length === 0) return;
-            const snap = undoStack.pop();
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.drawImage(snap, 0, 0);
-        }
-
-        function setMode(mode) {
-            state.mode = mode;
-            elModeInk.classList.toggle('is-active', mode === 'ink');
-            elModeCut.classList.toggle('is-active', mode === 'cut');
-        }
-
-        function setMirror(enabled) {
-            state.mirrorEnabled = enabled;
-            elMirror.checked = enabled;
-            // Guideline is drawn into the canvas during resize/clear.
-        }
-
-        function resize() {
-            const container = el('sketch-container');
-            const rect = container.getBoundingClientRect();
-            let w = Math.floor(rect.width);
-            let h = Math.floor(rect.height);
-
-            // If layout hasn't settled yet, client rects can be 0.
-            // Fallback to viewport so the canvas is always drawable.
-            if (w < 2) w = Math.floor(window.innerWidth);
-            if (h < 2) h = Math.floor(window.innerHeight);
-
-            canvas.width = w;
-            canvas.height = h;
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            // Keep the canvas itself transparent so the SVG filter only processes
-            // the strokes/ink we draw (not the background).
-            ctx.clearRect(0, 0, w, h);
-            container.style.backgroundColor = state.bg;
-            document.body.style.backgroundColor = state.bg;
-            if (state.mirrorEnabled) drawGuideline();
-        }
-
-        window.addEventListener('resize', resize);
-
         function drawGuideline() {
-            // Only show guideline on desktop-ish widths
-            if (window.innerWidth <= 720) return;
+            if (window.innerWidth <= 720) return; // hide on mobile
             ctx.save();
             ctx.setLineDash([10, 10]);
-            ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.moveTo(canvas.width / 2, 0);
@@ -292,184 +243,159 @@
             ctx.restore();
         }
 
-        function getEventCoords(e) {
-            if (e.touches && e.touches.length > 0) {
-                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-            }
+        function resize() {
+            const container = document.getElementById('sketch-container');
+            const rect = container.getBoundingClientRect();
+            let w = Math.floor(rect.width);
+            let h = Math.floor(rect.height);
+
+            if (w < 2) w = Math.floor(window.innerWidth);
+            if (h < 2) h = Math.floor(window.innerHeight);
+
+            canvas.width = w;
+            canvas.height = h;
+            ctx.clearRect(0, 0, w, h);
+            // Background is the browser white; the filter is on the container.
+            // We clear the canvas so CUT/UNDO behaves predictably.
+            updateFilter();
+            updateFilterEnabled();
+            if (state.mirrorEnabled) drawGuideline();
+        }
+
+        window.addEventListener('resize', () => requestAnimationFrame(resize));
+
+        function setMode(mode) {
+            state.mode = mode;
+            btnInk.classList.toggle('is-active', mode === 'ink');
+            btnCut.classList.toggle('is-active', mode === 'cut');
+        }
+
+        function setMirror(enabled) {
+            state.mirrorEnabled = enabled;
+            mirrorEl.checked = enabled;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (state.mirrorEnabled) drawGuideline();
+        }
+
+        function pushUndoSnapshot() {
+            // snapshot exact pixels for reliable undo
+            const snap = document.createElement('canvas');
+            snap.width = canvas.width;
+            snap.height = canvas.height;
+            const sctx = snap.getContext('2d');
+            sctx.drawImage(canvas, 0, 0);
+            state.undoStack.push({ snapCanvas: snap, pointsLen: state.points.length });
+            if (state.undoStack.length > 30) state.undoStack.shift();
+        }
+
+        function undo() {
+            if (state.undoStack.length === 0) return;
+            const rec = state.undoStack.pop();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(rec.snapCanvas, 0, 0);
+            state.points.length = rec.pointsLen;
+        }
+
+        function getEventClientXY(e) {
+            if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
             return { x: e.clientX, y: e.clientY };
         }
 
         function canvasCoordsFromEvent(e) {
             const rect = canvas.getBoundingClientRect();
-            const c = getEventCoords(e);
+            const c = getEventClientXY(e);
             const sx = canvas.width / (rect.width || 1);
             const sy = canvas.height / (rect.height || 1);
             return {
                 x: (c.x - rect.left) * sx,
-                y: (c.y - rect.top) * sy
+                y: (c.y - rect.top) * sy,
             };
         }
 
-        function strokeQuad(x1, y1, x2, y2, thickness, color, operation) {
-            const dx = x2 - x1;
-            const dy = y2 - y1;
-            const len = Math.hypot(dx, dy);
-            if (len < 0.001) {
-                ctx.beginPath();
-                ctx.arc(x1, y1, thickness * 0.5, 0, Math.PI * 2);
-                ctx.fill();
-                return;
-            }
-            const nx = -dy / len;
-            const ny = dx / len;
-            const half = thickness * 0.5;
-
-            const p1x = x1 + nx * half;
-            const p1y = y1 + ny * half;
-            const p2x = x1 - nx * half;
-            const p2y = y1 - ny * half;
-            const p3x = x2 - nx * half;
-            const p3y = y2 - ny * half;
-            const p4x = x2 + nx * half;
-            const p4y = y2 + ny * half;
-
-            ctx.globalCompositeOperation = operation;
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.moveTo(p1x, p1y);
-            ctx.lineTo(p4x, p4y);
-            ctx.lineTo(p3x, p3y);
-            ctx.lineTo(p2x, p2y);
-            ctx.closePath();
-            ctx.fill();
-        }
-
         function scratchLine(x1, y1, x2, y2, dist) {
-            // Distance factor: thicker near the connection, tapering down as points are farther apart.
-            // (This is what creates the "mycelium" scratch density.)
+            // Thickness logic from your reference
             const distFactor = Math.max(0.2, (CONFIG.connectDistance - dist) / 10);
             const finalThickness = state.brushSize * distFactor;
             const jitter = CONFIG.baseJitter + (finalThickness * CONFIG.jitterMultiplier);
 
-            const signOp = state.mode === 'ink' ? 'source-over' : 'destination-out';
-            const drawInk = state.mode === 'ink' ? state.inkColor : '#000000';
-            const drawFill = state.mode === 'ink' ? state.fillColor : '#000000';
+            const isInk = state.mode === 'ink';
+            ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
+            ctx.strokeStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+            ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
 
-            const marker = state.marker;
+            // Ensure stroke style uses correct geometry
+            ctx.lineCap = 'square';
+            ctx.lineJoin = 'bevel';
 
             const dx = x2 - x1;
             const dy = y2 - y1;
             const segLen = Math.hypot(dx, dy) || 1;
 
-            // Sprinkle marker: bead drops along the segment.
-            if (marker === 'sprinkle') {
-                ctx.globalCompositeOperation = signOp;
-                const noiseScale = jitter * 0.7;
-
+            // Marker behaviours
+            if (state.marker === 'sprinkle') {
+                // Bead-drops along the segment
                 const dotCount = Math.max(2, Math.floor(segLen / 14));
                 for (let i = 0; i < CONFIG.passes; i++) {
                     for (let d = 0; d < dotCount; d++) {
-                        if (Math.random() < 0.15) continue; // sparse holes
+                        if (Math.random() < CONFIG.holeChance) continue;
                         const t = Math.random();
                         const cx = x1 + dx * t;
                         const cy = y1 + dy * t;
+                        const noiseScale = jitter * 0.7;
                         const px = cx + (Math.random() - 0.5) * noiseScale;
                         const py = cy + (Math.random() - 0.5) * noiseScale;
-                        const r = Math.max(0.8, finalThickness * (0.18 + Math.random() * 0.45));
 
-                        if (state.fillEnabled) {
-                            ctx.fillStyle = drawFill;
-                            ctx.beginPath();
-                            ctx.arc(px, py, r * 0.5, 0, Math.PI * 2);
-                            ctx.fill();
-                        } else {
-                            ctx.strokeStyle = drawInk;
-                            ctx.lineWidth = Math.max(0.6, r * 0.35);
-                            ctx.lineCap = 'square';
-                            ctx.beginPath();
-                            ctx.arc(px, py, r * 0.5, 0, Math.PI * 2);
-                            ctx.stroke();
-                        }
+                        const r = Math.max(0.8, finalThickness * (0.18 + Math.random() * 0.45)) * 0.5;
+                        ctx.beginPath();
+                        ctx.arc(px, py, r, 0, Math.PI * 2);
+                        ctx.fill();
 
                         if (state.mirrorEnabled) {
                             const mx = canvas.width - px;
-                            if (state.fillEnabled) {
-                                ctx.beginPath();
-                                ctx.arc(mx, py, r * 0.5, 0, Math.PI * 2);
-                                ctx.fill();
-                            } else {
-                                ctx.beginPath();
-                                ctx.arc(mx, py, r * 0.5, 0, Math.PI * 2);
-                                ctx.stroke();
-                            }
+                            ctx.beginPath();
+                            ctx.arc(mx, py, r, 0, Math.PI * 2);
+                            ctx.fill();
                         }
                     }
                 }
-
                 ctx.globalCompositeOperation = 'source-over';
                 return;
             }
 
-            // Spray marker: denser puff of beads around the segment.
-            if (marker === 'spray') {
-                ctx.globalCompositeOperation = signOp;
-                const noiseScale = jitter * 1.1;
-                const dotCount = Math.max(10, Math.floor(segLen / 6));
-
+            if (state.marker === 'spray') {
+                const dotCount = Math.max(8, Math.floor(segLen / 6));
                 for (let i = 0; i < CONFIG.passes; i++) {
                     for (let d = 0; d < dotCount; d++) {
-                        if (Math.random() < 0.05) continue; // almost filled spray
+                        if (Math.random() < 0.7) continue;
                         const t = Math.random();
                         const cx = x1 + dx * t;
                         const cy = y1 + dy * t;
+                        const noiseScale = jitter * 1.1;
                         const px = cx + (Math.random() - 0.5) * noiseScale;
                         const py = cy + (Math.random() - 0.5) * noiseScale;
-                        const r = Math.max(0.6, finalThickness * (0.12 + Math.random() * 0.32));
-
-                        if (state.fillEnabled) {
-                            ctx.fillStyle = drawFill;
-                            ctx.beginPath();
-                            ctx.arc(px, py, r * 0.55, 0, Math.PI * 2);
-                            ctx.fill();
-                        } else {
-                            ctx.strokeStyle = drawInk;
-                            ctx.lineWidth = Math.max(0.6, r * 0.35);
-                            ctx.beginPath();
-                            ctx.arc(px, py, r * 0.55, 0, Math.PI * 2);
-                            ctx.stroke();
-                        }
-
+                        const r = Math.max(0.6, finalThickness * (0.12 + Math.random() * 0.32)) * 0.55;
+                        ctx.beginPath();
+                        ctx.arc(px, py, r, 0, Math.PI * 2);
+                        ctx.fill();
                         if (state.mirrorEnabled) {
                             const mx = canvas.width - px;
-                            if (state.fillEnabled) {
-                                ctx.beginPath();
-                                ctx.arc(mx, py, r * 0.55, 0, Math.PI * 2);
-                                ctx.fill();
-                            } else {
-                                ctx.beginPath();
-                                ctx.arc(mx, py, r * 0.55, 0, Math.PI * 2);
-                                ctx.stroke();
-                            }
+                            ctx.beginPath();
+                            ctx.arc(mx, py, r, 0, Math.PI * 2);
+                            ctx.fill();
                         }
                     }
                 }
-
                 ctx.globalCompositeOperation = 'source-over';
                 return;
             }
 
-            // Dash marker: short jittered segments with gaps.
-            if (marker === 'dash') {
-                ctx.lineCap = 'square';
-                ctx.lineJoin = 'bevel';
+            if (state.marker === 'dash') {
                 const dashCount = Math.max(3, Math.floor(segLen / 10));
-                const gapBias = state.fillEnabled ? 0.22 : 0.18;
-
                 for (let pass = 0; pass < CONFIG.passes; pass++) {
                     for (let k = 0; k < dashCount; k++) {
                         const tA = k / dashCount;
                         const tB = (k + 1) / dashCount;
-                        if (Math.random() < gapBias) continue;
+                        if (Math.random() < 0.25) continue;
 
                         const jxA = (Math.random() - 0.5) * jitter;
                         const jyA = (Math.random() - 0.5) * jitter;
@@ -481,48 +407,35 @@
                         const bx = x1 + dx * tB + jxB;
                         const by = y1 + dy * tB + jyB;
 
-                        if (state.fillEnabled) {
-                            strokeQuad(ax, ay, bx, by, finalThickness, drawFill, signOp);
-                            if (state.mirrorEnabled) {
-                                strokeQuad(canvas.width - ax, ay, canvas.width - bx, by, finalThickness, drawFill, signOp);
-                            }
-                        } else {
-                            ctx.globalCompositeOperation = signOp;
-                            ctx.strokeStyle = drawInk;
-                            ctx.lineWidth = finalThickness;
+                        ctx.lineWidth = finalThickness;
+                        ctx.beginPath();
+                        ctx.moveTo(ax, ay);
+                        ctx.lineTo(bx, by);
+                        ctx.stroke();
+
+                        if (state.mirrorEnabled) {
                             ctx.beginPath();
-                            ctx.moveTo(ax, ay);
-                            ctx.lineTo(bx, by);
+                            ctx.moveTo(canvas.width - ax, ay);
+                            ctx.lineTo(canvas.width - bx, by);
                             ctx.stroke();
-                            if (state.mirrorEnabled) {
-                                ctx.beginPath();
-                                ctx.moveTo(canvas.width - ax, ay);
-                                ctx.lineTo(canvas.width - bx, by);
-                                ctx.stroke();
-                            }
                         }
                     }
                 }
-
                 ctx.globalCompositeOperation = 'source-over';
                 return;
             }
 
-            // Hatch marker: perpendicular scratch strokes sampled along the segment.
-            if (marker === 'hatch') {
-                ctx.globalCompositeOperation = signOp;
+            if (state.marker === 'hatch') {
                 const nx = -dy / segLen;
                 const ny = dx / segLen;
                 const sampleCount = Math.max(3, Math.floor(segLen / 18));
                 const hatchLen = finalThickness * 2.2;
-
                 for (let pass = 0; pass < CONFIG.passes; pass++) {
                     for (let s = 0; s < sampleCount; s++) {
-                        if (Math.random() < 0.08) continue;
+                        if (Math.random() < 0.1) continue;
                         const t = s / Math.max(1, sampleCount - 1);
                         const cx = x1 + dx * t;
                         const cy = y1 + dy * t;
-
                         const jx = (Math.random() - 0.5) * jitter;
                         const jy = (Math.random() - 0.5) * jitter;
                         const px = cx + jx;
@@ -534,186 +447,118 @@
                         const bx = px + nx * len * 0.5;
                         const by = py + ny * len * 0.5;
 
-                        if (state.fillEnabled) {
-                            strokeQuad(ax, ay, bx, by, finalThickness * 0.9, drawFill, signOp);
-                            if (state.mirrorEnabled) {
-                                strokeQuad(canvas.width - ax, ay, canvas.width - bx, by, finalThickness * 0.9, drawFill, signOp);
-                            }
-                        } else {
-                            ctx.strokeStyle = drawInk;
-                            ctx.lineWidth = finalThickness * 0.9;
+                        ctx.lineWidth = finalThickness * 0.9;
+                        ctx.beginPath();
+                        ctx.moveTo(ax, ay);
+                        ctx.lineTo(bx, by);
+                        ctx.stroke();
+
+                        if (state.mirrorEnabled) {
                             ctx.beginPath();
-                            ctx.moveTo(ax, ay);
-                            ctx.lineTo(bx, by);
+                            ctx.moveTo(canvas.width - ax, ay);
+                            ctx.lineTo(canvas.width - bx, by);
                             ctx.stroke();
-                            if (state.mirrorEnabled) {
-                                ctx.beginPath();
-                                ctx.moveTo(canvas.width - ax, ay);
-                                ctx.lineTo(canvas.width - bx, by);
-                                ctx.stroke();
-                            }
                         }
                     }
                 }
-
                 ctx.globalCompositeOperation = 'source-over';
                 return;
             }
 
-            // Line marker: scratchy thick quads when Fill is enabled, otherwise stroke-only.
+            // Default: line marker (exactly like reference)
             for (let i = 0; i < CONFIG.passes; i++) {
-                const jx1 = (Math.random() - 0.5) * jitter;
-                const jy1 = (Math.random() - 0.5) * jitter;
-                const jx2 = (Math.random() - 0.5) * jitter;
-                const jy2 = (Math.random() - 0.5) * jitter;
+                let jx1 = (Math.random() - 0.5) * jitter;
+                let jy1 = (Math.random() - 0.5) * jitter;
+                let jx2 = (Math.random() - 0.5) * jitter;
+                let jy2 = (Math.random() - 0.5) * jitter;
 
-                // Randomly skip for "glitch holes"
-                if (Math.random() <= 0.15) continue;
+                if (Math.random() <= CONFIG.holeChance) continue;
 
-                const px1 = x1 + jx1;
-                const py1 = y1 + jy1;
-                const px2 = x2 + jx2;
-                const py2 = y2 + jy2;
+                const px1 = x1 + jx1, py1 = y1 + jy1;
+                const px2 = x2 + jx2, py2 = y2 + jy2;
 
-                if (state.fillEnabled) {
-                    // Filled quad is the core of the jagged-edge "outline from solid" effect.
-                    strokeQuad(px1, py1, px2, py2, finalThickness, drawFill, signOp);
-                    if (state.mirrorEnabled) {
-                        strokeQuad(canvas.width - px1, py1, canvas.width - px2, py2, finalThickness, drawFill, signOp);
-                    }
-                } else {
-                    ctx.globalCompositeOperation = signOp;
-                    ctx.strokeStyle = drawInk;
-                    ctx.lineWidth = finalThickness;
-                    ctx.lineCap = 'square';
-                    ctx.lineJoin = 'bevel';
-                    ctx.beginPath();
-                    ctx.moveTo(px1, py1);
-                    ctx.lineTo(px2, py2);
-                    ctx.stroke();
-                    if (state.mirrorEnabled) {
-                        ctx.beginPath();
-                        ctx.moveTo(canvas.width - px1, py1);
-                        ctx.lineTo(canvas.width - px2, py2);
-                        ctx.stroke();
-                    }
+                ctx.lineWidth = finalThickness;
+                ctx.beginPath();
+                ctx.moveTo(px1, py1);
+                ctx.lineTo(px2, py2);
+
+                if (state.mirrorEnabled) {
+                    const mx1 = canvas.width - px1;
+                    const mx2 = canvas.width - px2;
+                    ctx.moveTo(mx1, py1);
+                    ctx.lineTo(mx2, py2);
                 }
+
+                ctx.stroke();
             }
 
             ctx.globalCompositeOperation = 'source-over';
         }
 
         function addPoint(x, y) {
-            state.points.push({ x, y });
+            const p = { x, y };
+            state.points.push(p);
             const startIndex = Math.max(0, state.points.length - 250);
 
-            const p = state.points[state.points.length - 1];
-            const dynamicConnect = CONFIG.connectDistance + state.brushSize;
-
-            // Always connect from the last non-null point so drawing is stable
-            // even if the cursor jumps far between mouse events.
-            let last = state.points.length - 2;
-            while (last >= 0 && state.points[last] == null) last--;
-            if (last >= 0 && p) {
-                const prev = state.points[last];
-                const dx = p.x - prev.x;
-                const dy = p.y - prev.y;
-                const dist = Math.hypot(dx, dy);
-                const steps = Math.max(1, Math.ceil(dist / Math.max(1, dynamicConnect)));
-                let sx = prev.x;
-                let sy = prev.y;
-                for (let s = 1; s <= steps; s++) {
-                    const t = s / steps;
-                    const tx = prev.x + dx * t;
-                    const ty = prev.y + dy * t;
-                    const segDist = Math.hypot(tx - sx, ty - sy);
-                    scratchLine(sx, sy, tx, ty, segDist);
-                    sx = tx;
-                    sy = ty;
-                }
-            }
-
-            // Extra connections to previous points (keeps the "mycelium" feel).
             for (let i = startIndex; i < state.points.length - 1; i++) {
                 const prev = state.points[i];
                 if (!prev || !p) continue;
+
                 const dx = p.x - prev.x;
                 const dy = p.y - prev.y;
                 const dist = Math.hypot(dx, dy);
-                if (dist < dynamicConnect) scratchLine(prev.x, prev.y, p.x, p.y, dist);
+
+                // DynamicConnect from reference
+                let dynamicConnect = CONFIG.connectDistance + (state.brushSize);
+
+                if (dist < dynamicConnect) {
+                    scratchLine(prev.x, prev.y, p.x, p.y, dist);
+                }
             }
         }
 
-        function clearAll() {
-            state.points = [];
-            undoStack.length = 0;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (state.mirrorEnabled) drawGuideline();
-        }
-
         function startDrawing(e) {
-            pushUndoSnapshot();
             state.isDrawing = true;
+            pushUndoSnapshot();
+
             const p = canvasCoordsFromEvent(e);
             addPoint(p.x, p.y);
         }
 
         function stopDrawing() {
+            if (!state.isDrawing) return;
             state.isDrawing = false;
             state.points.push(null);
         }
 
-        function onMove(e) {
+        function drawMove(e) {
             if (!state.isDrawing) return;
             const p = canvasCoordsFromEvent(e);
-            const noiseScale = state.brushSize * 0.8;
-            const nx = (Math.random() - 0.5) * noiseScale;
-            const ny = (Math.random() - 0.5) * noiseScale;
-            addPoint(p.x + nx, p.y + ny);
+            let noiseScale = state.brushSize * 0.8;
+            let noiseX = (Math.random() - 0.5) * noiseScale;
+            let noiseY = (Math.random() - 0.5) * noiseScale;
+            addPoint(p.x + noiseX, p.y + noiseY);
         }
 
-        // Mouse events
-        canvas.addEventListener('mousedown', (e) => startDrawing(e));
-        canvas.addEventListener('mousemove', (e) => onMove(e));
-        window.addEventListener('mouseup', stopDrawing);
-        window.addEventListener('blur', stopDrawing);
-
-        // Touch events
-        canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            pushUndoSnapshot();
-            const p = canvasCoordsFromEvent(e);
-            state.isDrawing = true;
-            addPoint(p.x, p.y);
-        }, { passive: false });
-
-        canvas.addEventListener('touchmove', (e) => {
-            e.preventDefault();
-            if (!state.isDrawing) return;
-            const p = canvasCoordsFromEvent(e);
-            const noiseScale = state.brushSize * 0.8;
-            const nx = (Math.random() - 0.5) * noiseScale;
-            const ny = (Math.random() - 0.5) * noiseScale;
-            addPoint(p.x + nx, p.y + ny);
-        }, { passive: false });
-
-        canvas.addEventListener('touchend', stopDrawing);
-        canvas.addEventListener('touchcancel', stopDrawing);
+        function clearAll() {
+            state.points = [];
+            state.undoStack = [];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (state.mirrorEnabled) drawGuideline();
+        }
 
         function exportWithFilter() {
-            // Apply the jagged-edge SVG filter at export time.
-            // (Canvas CSS filter doesn't always export as expected.)
             const outCanvas = document.createElement('canvas');
             outCanvas.width = canvas.width;
             outCanvas.height = canvas.height;
             const outCtx = outCanvas.getContext('2d');
-
-            // Always include background in the exported PNG.
-            outCtx.fillStyle = state.bg;
+            outCtx.fillStyle = '#ffffff';
             outCtx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // Export should mirror what you see:
+            // Fill ON = solid strokes (no SVG jagged filter)
+            // Fill OFF = outline look (apply SVG jagged filter)
             if (state.fillEnabled) {
-                // Solid fill mode: no SVG outline filter.
                 outCtx.drawImage(canvas, 0, 0);
                 const link = document.createElement('a');
                 link.download = 'elemenyt_mirror.png';
@@ -722,74 +567,103 @@
                 return;
             }
 
-            // Outline mode: filter the strokes-only layer, then composite over background.
-            const filteredCanvas = document.createElement('canvas');
-            filteredCanvas.width = canvas.width;
-            filteredCanvas.height = canvas.height;
-            const fctx = filteredCanvas.getContext('2d');
-            fctx.filter = 'url(#jagged-edge)';
-            fctx.drawImage(canvas, 0, 0);
+            // Outline mode: filter the painted strokes
+            const strokeCanvas = document.createElement('canvas');
+            strokeCanvas.width = canvas.width;
+            strokeCanvas.height = canvas.height;
+            const sctx = strokeCanvas.getContext('2d');
+            sctx.drawImage(canvas, 0, 0);
 
-            outCtx.drawImage(filteredCanvas, 0, 0);
+            const filterCanvas = document.createElement('canvas');
+            filterCanvas.width = canvas.width;
+            filterCanvas.height = canvas.height;
+            const fctx = filterCanvas.getContext('2d');
+
+            fctx.filter = 'url(#jagged-edge)';
+            fctx.drawImage(strokeCanvas, 0, 0);
+
+            outCtx.drawImage(filterCanvas, 0, 0);
+
             const link = document.createElement('a');
             link.download = 'elemenyt_mirror.png';
             link.href = outCanvas.toDataURL('image/png');
             link.click();
         }
 
-        // ----- UI BINDINGS -----
-        infoBtn?.addEventListener('click', () => {
-            infoOverlay.hidden = false;
-        });
-        infoClose?.addEventListener('click', () => {
-            infoOverlay.hidden = true;
-        });
+        // Mouse + touch
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', drawMove);
+        window.addEventListener('mouseup', stopDrawing);
+        window.addEventListener('blur', stopDrawing);
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches && e.touches[0];
+            if (!touch) return;
+            startDrawing(e);
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            drawMove(e);
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchcancel', stopDrawing);
+
+        // UI wiring
+        infoBtn?.addEventListener('click', () => infoOverlay.hidden = false);
+        infoClose?.addEventListener('click', () => infoOverlay.hidden = true);
         infoOverlay?.addEventListener('click', (e) => {
             if (e.target === infoOverlay) infoOverlay.hidden = true;
         });
 
-        elModeInk?.addEventListener('click', () => setMode('ink'));
-        elModeCut?.addEventListener('click', () => setMode('cut'));
-        elMirror?.addEventListener('change', () => setMirror(elMirror.checked));
+        btnInk?.addEventListener('click', () => setMode('ink'));
+        btnCut?.addEventListener('click', () => setMode('cut'));
+        mirrorEl?.addEventListener('change', () => setMirror(mirrorEl.checked));
 
-        elStroke?.addEventListener('input', (e) => {
+        strokeEl?.addEventListener('input', (e) => {
             state.brushSize = parseInt(e.target.value, 10);
-            elStrokeVal.textContent = String(state.brushSize);
+            strokeVal.textContent = String(state.brushSize);
         });
 
-        elOutline?.addEventListener('input', (e) => {
-            state.outlineRadius = parseFloat(e.target.value);
-            elOutlineVal.textContent = state.outlineRadius.toFixed(2);
-            applyOutlineRadius();
-        });
-
-        elMarker?.addEventListener('change', (e) => {
+        markerEl?.addEventListener('change', (e) => {
             state.marker = e.target.value;
         });
 
-        elFillEnabled?.addEventListener('change', (e) => {
+        fillEnabledEl?.addEventListener('change', (e) => {
             state.fillEnabled = e.target.checked;
-            updateFilterMode();
-            // If we're switching into outline mode, make sure the filter uses the latest radius.
-            applyOutlineRadius();
+            updateFilterEnabled();
+            updateFilter();
         });
 
-        elBg?.addEventListener('input', (e) => {
-            state.bg = e.target.value;
-            document.body.style.backgroundColor = state.bg;
+        inkColorEl?.addEventListener('input', (e) => {
+            state.inkColor = e.target.value;
+            if (!state.fillEnabled) updateFilter();
         });
-        elInkColor?.addEventListener('input', (e) => { state.inkColor = e.target.value; });
-        elFillColor?.addEventListener('input', (e) => { state.fillColor = e.target.value; });
 
-        elClear?.addEventListener('click', () => clearAll());
-        elExport?.addEventListener('click', () => exportWithFilter());
+        fillColorEl?.addEventListener('input', (e) => {
+            state.fillColor = e.target.value;
+            if (state.fillEnabled) updateFilter();
+        });
+
+        outlineEl?.addEventListener('input', (e) => {
+            state.outlineRadius = parseFloat(e.target.value);
+            outlineVal.textContent = state.outlineRadius.toFixed(2);
+            updateFilter();
+        });
+
+        clearBtn?.addEventListener('click', clearAll);
+        exportBtn?.addEventListener('click', exportWithFilter);
 
         window.addEventListener('keydown', (e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key && e.key.toLowerCase() === 'z') {
+            const key = (e.key || '').toLowerCase();
+            if ((e.metaKey || e.ctrlKey) && key === 'z') {
                 e.preventDefault();
                 undo();
                 return;
             }
+
             if (e.key === '1') setMode('ink');
             else if (e.key === '2') setMode('cut');
             else if (e.key.toLowerCase() === 'm') setMirror(!state.mirrorEnabled);
@@ -801,18 +675,13 @@
             }
         });
 
-        applyOutlineRadius();
-        updateFilterMode();
-
-        // Resize after layout settles so the canvas gets real dimensions.
+        // init
+        setMode('ink');
+        updateFilter();
+        updateFilterEnabled();
         resize();
-        requestAnimationFrame(() => {
-            resize();
-            if (state.mirrorEnabled) drawGuideline();
-        });
     </script>
-
-    <script src="page-transition.js"></script>
 </body>
+
 </html>
 
