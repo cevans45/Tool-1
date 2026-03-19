@@ -47,11 +47,21 @@
                             </div>
 
                             <label class="checkbox-label">
+                                <input type="checkbox" id="cs-webbing-enabled-sketch">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Webbing</span>
+                            </label>
+                            <div class="control-row" id="row-cs-sketch-webbing" style="display:none;">
+                                <label for="cs-sketch-webbing">Web amount</label>
+                                <input type="range" id="cs-sketch-webbing" min="0" max="100" value="40" step="5">
+                                <span class="param-value" id="val-cs-sketch-webbing">40</span>
+                            </div>
+
+                            <label class="checkbox-label">
                                 <input type="checkbox" id="cs-branch-enabled-sketch">
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Branches</span>
                             </label>
-
                             <div class="control-row" id="row-cs-branching-sketch" style="display:none;">
                                 <label for="cs-branching-sketch">Branch amt</label>
                                 <input type="range" id="cs-branching-sketch" min="0" max="100" value="25" step="5">
@@ -158,6 +168,12 @@
                                 <button type="button" id="cs-random-seed" class="panel-button" style="flex:1;">Random</button>
                                 <button type="button" id="cs-export-gen" class="panel-button">Export</button>
                             </div>
+
+                            <div class="control-row">
+                                <label for="cs-seed">Seed</label>
+                                <input type="number" id="cs-seed" min="0" max="999999999" value="0" step="1">
+                            </div>
+
                             <label class="checkbox-label">
                                 <input type="checkbox" id="cs-mirror-x-gen" checked>
                                 <span class="toggle-box"></span>
@@ -168,10 +184,7 @@
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Mirror Y</span>
                             </label>
-                            <div class="control-row">
-                                <label for="cs-seed">Seed</label>
-                                <input type="number" id="cs-seed" min="0" max="999999999" value="0" step="1">
-                            </div>
+
                             <div class="control-row">
                                 <label for="cs-curves">Curves</label>
                                 <input type="range" id="cs-curves" min="2" max="12" value="5" step="1">
@@ -193,25 +206,32 @@
                                 <span class="param-value" id="val-cs-gen-reach">120</span>
                             </div>
                             <div class="control-row">
-                                <label for="cs-gen-webbing">Webbing</label>
-                                <input type="range" id="cs-gen-webbing" min="0" max="100" value="45" step="5">
-                                <span class="param-value" id="val-cs-gen-webbing">45</span>
-                            </div>
-                            <div class="control-row">
                                 <label for="cs-gen-taper">Taper</label>
                                 <input type="range" id="cs-gen-taper" min="0" max="100" value="65" step="5">
                                 <span class="param-value" id="val-cs-gen-taper">65</span>
                             </div>
-                            <div class="control-row">
-                                <label for="cs-branching">Branching</label>
-                                <input type="range" id="cs-branching" min="0" max="100" value="30" step="5">
-                                <span class="param-value" id="val-cs-branching">30</span>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="cs-webbing-enabled-gen" checked>
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Webbing</span>
+                            </label>
+                            <div class="control-row" id="row-cs-gen-webbing">
+                                <label for="cs-gen-webbing">Web amount</label>
+                                <input type="range" id="cs-gen-webbing" min="0" max="100" value="45" step="5">
+                                <span class="param-value" id="val-cs-gen-webbing">45</span>
                             </div>
+
                             <label class="checkbox-label">
                                 <input type="checkbox" id="cs-branch-enabled-gen" checked>
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Branches</span>
                             </label>
+                            <div class="control-row" id="row-cs-branching">
+                                <label for="cs-branching">Branch amt</label>
+                                <input type="range" id="cs-branching" min="0" max="100" value="30" step="5">
+                                <span class="param-value" id="val-cs-branching">30</span>
+                            </div>
                             <div class="control-row" id="row-cs-branch-reach-gen" style="display:none;">
                                 <label for="cs-branch-reach-gen">Branch reach</label>
                                 <input type="range" id="cs-branch-reach-gen" min="8" max="160" value="48" step="2">
@@ -227,7 +247,6 @@
                                 <input type="range" id="cs-branch-curve-gen" min="0" max="100" value="50" step="5">
                                 <span class="param-value" id="val-cs-branch-curve-gen">50</span>
                             </div>
-                            <!-- Size moved to Style -->
                         </section>
                     </details>
 
