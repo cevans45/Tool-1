@@ -379,15 +379,25 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   const taperFactor = 0.2 + 0.8 * (tm * tm); // stronger size taper toward endpoints
   const finalThickness = baseThickness * taperFactor;
   const roughness = max(0, params.sketchRoughness);
-  // Roughness now only affects texture / gaps, not size
-  const jitter = 0.6 + roughness * 0.7;
-  const passes = floor(lerp(params.sketchDensity + 2, max(1, params.sketchDensity - 2), min(roughness / 12, 1)));
-  const useRound = roughness <= 2;
-  const skipChance = min(roughness / 18, 0.55);
+  const rough01 = constrain(roughness / 20, 0, 1);
+  // Roughness should "erode" edges, not inflate the stroke footprint.
+  // Size is controlled by `finalThickness` only; roughness affects local sub-segment offsets + gaps.
+  const passes = max(1, Math.floor(params.sketchDensity));
+  const skipChance = rough01 * 0.55;
 
   const seed = (Math.round(x1 * 73) * 374761 + Math.round(y1 * 73) * 668265 +
                 Math.round(x2 * 73) * 214748 + Math.round(y2 * 73) * 110351) | 0;
   const rng = makeRng(seed);
+
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const segLen = Math.hypot(dx, dy) || 1;
+  const tx = dx / segLen;
+  const ty = dy / segLen;
+  const nx = -ty;
+  const ny = tx;
+  const edgeJitter = (0.25 + 0.95 * rough01) * (finalThickness * 0.55 + 1.0);
+  const subSegs = 2 + Math.floor(rough01 * 10);
 
   const drawColor = colorOverride || params.ink;
   if (params.drawOperation === 'ink') {
@@ -401,38 +411,54 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   }
 
   if (params.strokeStyle === 'sprinkle') {
-    const count = max(1, floor(passes * 0.6));
-    for (let i = 0; i < count; i++) {
+    const dots = max(2, Math.floor(lerp(passes * 0.6, passes * 1.8, rough01)));
+    const dotSkip = clamp01(skipChance * 0.6);
+    for (let i = 0; i < dots; i++) {
       const t = rng();
-      const px = x1 + (x2 - x1) * t + (rng() - 0.5) * jitter * 1.5;
-      const py = y1 + (y2 - y1) * t + (rng() - 0.5) * jitter * 1.5;
-      const sz = finalThickness * (0.3 + rng() * 0.7);
-      if (rng() > skipChance) {
-        ctx.beginPath();
-        ctx.arc(px, py, sz * 0.5, 0, 6.2832);
-        ctx.fill();
-      }
+      // Position along segment + small normal offset
+      const cx = x1 + dx * t;
+      const cy = y1 + dy * t;
+      const off = (rng() - 0.5) * edgeJitter;
+      const px = cx + nx * off + tx * (rng() - 0.5) * edgeJitter * 0.12;
+      const py = cy + ny * off + ty * (rng() - 0.5) * edgeJitter * 0.12;
+      const sz = finalThickness * (0.18 + rng() * 0.42);
+      if (rng() < dotSkip) continue;
+      ctx.beginPath();
+      ctx.arc(px, py, sz * 0.5, 0, 6.2832);
+      ctx.fill();
     }
   } else {
-    for (let i = 0; i < passes; i++) {
-      const jx1 = (rng() - 0.5) * jitter;
-      const jy1 = (rng() - 0.5) * jitter;
-      const jx2 = (rng() - 0.5) * jitter;
-      const jy2 = (rng() - 0.5) * jitter;
+    for (let p = 0; p < passes; p++) {
+      // Draw a jagged polyline by offsetting each micro-segment independently.
+      for (let s = 0; s < subSegs; s++) {
+        if (rng() < skipChance) continue;
+        const tA = s / subSegs;
+        const tB = (s + 1) / subSegs;
 
-      if (rng() > skipChance) {
+        const ax = x1 + dx * tA;
+        const ay = y1 + dy * tA;
+        const bx = x1 + dx * tB;
+        const by = y1 + dy * tB;
+
+        const offA = (rng() - 0.5) * edgeJitter;
+        const offB = (rng() - 0.5) * edgeJitter;
+
         ctx.beginPath();
         ctx.lineWidth = finalThickness;
-        ctx.lineCap = useRound ? 'round' : 'square';
-        ctx.lineJoin = useRound ? 'round' : 'bevel';
-        ctx.moveTo(x1 + jx1, y1 + jy1);
-        ctx.lineTo(x2 + jx2, y2 + jy2);
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.moveTo(ax + nx * offA, ay + ny * offA);
+        ctx.lineTo(bx + nx * offB, by + ny * offB);
         ctx.stroke();
       }
     }
   }
 
   ctx.globalCompositeOperation = 'source-over';
+}
+
+function clamp01(v) {
+  return constrain(v, 0, 1);
 }
 
 function drawConnections(ctx, connections, colorOverride, widthAdd) {
