@@ -34,6 +34,7 @@ const params = {
   branching: 30,
   branchReachGen: 48,
   branchCountGen: 2,
+  branchCurveGen: 50,
   sketchBranchEnabled: false,
   sketchBranching: 25,
   sketchBranchReach: 22,
@@ -140,19 +141,19 @@ function regenerate() {
 
   const halfPaths = [];
   for (let i = 0; i < params.curveCount; i++) {
-    const yCenter = params.curveCount === 1
-      ? height * 0.5
-      : map(i, 0, params.curveCount - 1, margin, height - margin);
+    const yCenter = random(margin, height - margin);
 
-    const angle = random(-HALF_PI * 0.7, HALF_PI * 0.7);
-    const reach = random(width * sp * 0.12, width * sp * 0.48);
+    // More varied directions and lengths, still mostly on the right half
+    const angle = random(-HALF_PI * 0.85, HALF_PI * 0.85);
+    const reachBase = max(40, params.genReach);
+    const reach = random(reachBase * 0.7, reachBase * 1.5) * (0.6 + 0.4 * sp);
 
-    const startX = halfW + random(2, 10);
-    const startY = yCenter + random(-height * 0.05, height * 0.05);
+    const startX = halfW + random(-20, 40);
+    const startY = yCenter + random(-height * 0.06, height * 0.06);
     const endX = startX + cos(angle) * reach;
     const endY = startY + sin(angle) * reach;
 
-    const curveAmt = (params.curveAmt / 100) * (18 + 140 * sp);
+    const curveAmt = (params.curveAmt / 100) * (22 + 160 * sp);
     const cx1 = lerp(startX, endX, 0.33) + random(-curveAmt, curveAmt);
     const cy1 = lerp(startY, endY, 0.33) + random(-curveAmt, curveAmt);
     const cx2 = lerp(startX, endX, 0.66) + random(-curveAmt, curveAmt);
@@ -170,7 +171,7 @@ function regenerate() {
     halfPaths.push(path);
   }
 
-  if (params.branchEnabledGen && params.branching > 0) addBranchesToList(halfPaths);
+  // Path-level branches removed; generate branches are now added at connection level
 
   const warped = halfPaths.map(p => warpPath(p));
 
@@ -377,7 +378,8 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   const distMul = lerp(1, constrain(1 - d / max(1, reach), 0.25, 1), taperByDistance);
   const finalThickness = (params.strokeW + (widthAdd || 0)) * distMul * (thicknessMul == null ? 1 : thicknessMul);
   const roughness = params.sketchRoughness;
-  const jitter = roughness * 0.8 + roughness * finalThickness * 0.15;
+  // Roughness now only affects texture, not stroke size
+  const jitter = roughness * 0.9;
   const passes = params.sketchDensity;
   const useRound = roughness <= 2;
   const skipChance = roughness > 3 ? Math.min((roughness - 3) / 50, 0.18) : 0;
@@ -444,11 +446,18 @@ function addBranchStubs(connections, reachPx, count, amount01) {
   const branchCount = max(0, floor(count));
   if (branchCount === 0) return out;
 
+  // Softer probability so low slider values don't explode with branches
+  const amt = constrain(amount01, 0, 1);
+  const prob = amt * amt; // ease-in curve
+
+  // Branch curvature for generate mode
+  const curve01 = params.drawMode ? 0 : constrain((params.branchCurveGen || 0) / 100, 0, 1);
+
   for (const c of connections) {
     const seed = (Math.round(c.px * 29) * 374761 + Math.round(c.py * 29) * 668265 +
                   Math.round(c.x * 29) * 214748 + Math.round(c.y * 29) * 110351) | 0;
     const rng = makeRng(seed);
-    if (rng() > amount01) continue;
+    if (rng() > prob) continue;
 
     const mx = (c.px + c.x) * 0.5;
     const my = (c.py + c.y) * 0.5;
@@ -457,12 +466,24 @@ function addBranchStubs(connections, reachPx, count, amount01) {
     const mag = Math.hypot(dx, dy) || 1;
     const nx = -dy / mag;
     const ny = dx / mag;
+    const tx = dx / mag;
+    const ty = dy / mag;
 
     for (let i = 0; i < branchCount; i++) {
       const dir = rng() < 0.5 ? -1 : 1;
       const len = reachPx * (0.55 + 0.65 * rng());
-      const bx = mx + nx * dir * len + (rng() - 0.5) * reachPx * 0.25;
-      const by = my + ny * dir * len + (rng() - 0.5) * reachPx * 0.25;
+      const baseJitter = (rng() - 0.5) * reachPx * 0.25;
+      const bendSign = rng() < 0.5 ? -1 : 1;
+      const bend = curve01 * len * 0.7 * bendSign;
+
+      const bx = mx
+        + nx * dir * len
+        + tx * bend
+        + baseJitter;
+      const by = my
+        + ny * dir * len
+        + ty * bend
+        + (rng() - 0.5) * reachPx * 0.25;
       const d = Math.hypot(bx - mx, by - my);
       out.push({ px: mx, py: my, x: bx, y: by, d });
     }
@@ -619,7 +640,12 @@ function renderPathsToBufferFromHalf(halfPaths) {
   let base = web.length ? conns.concat(web) : conns;
 
   const genBranches = params.branchEnabledGen
-    ? addBranchStubs(base, params.branchReachGen, params.branchCountGen, params.branching / 100)
+    ? addBranchStubs(
+        base,
+        params.branchReachGen,
+        params.branchCountGen,
+        Math.pow(constrain(params.branching / 100, 0, 1), 1.6)
+      )
     : [];
   if (genBranches.length) base = base.concat(genBranches);
 
@@ -1217,10 +1243,14 @@ function bindControls() {
   bindRange('cs-gen-reach', 'val-cs-gen-reach', (v) => { params.genReach = parseInt(v, 10); return String(params.genReach); });
   bindRange('cs-gen-taper', 'val-cs-gen-taper', (v) => { params.genTaper = parseInt(v, 10); return String(params.genTaper); });
   bindRange('cs-gen-webbing', 'val-cs-gen-webbing', (v) => { params.genWebbing = parseInt(v, 10); return String(params.genWebbing); });
-  bindCheck('cs-branch-enabled-gen', (checked) => { params.branchEnabledGen = checked; });
+  bindCheck('cs-branch-enabled-gen', (checked) => {
+    params.branchEnabledGen = checked;
+    updateGenBranchUI();
+  });
   bindRange('cs-branching', 'val-cs-branching', (v) => { params.branching = parseInt(v, 10); return String(params.branching); });
   bindRange('cs-branch-reach-gen', 'val-cs-branch-reach-gen', (v) => { params.branchReachGen = parseInt(v, 10); return String(params.branchReachGen); });
   bindRange('cs-branch-count-gen', 'val-cs-branch-count-gen', (v) => { params.branchCountGen = parseInt(v, 10); return String(params.branchCountGen); });
+  bindRange('cs-branch-curve-gen', 'val-cs-branch-curve-gen', (v) => { params.branchCurveGen = parseInt(v, 10); return String(params.branchCurveGen); });
 
   const strokeStyleEl = byId('cs-stroke-style');
   if (strokeStyleEl) {
@@ -1265,6 +1295,7 @@ function bindControls() {
   bindRange('cs-branch-count-sketch', 'val-cs-branch-count-sketch', (v) => { params.sketchBranchCount = parseInt(v, 10); return String(params.sketchBranchCount); });
 
   updateSketchBranchUI();
+  updateGenBranchUI();
 
   const updateOutlineUI = () => {
     const rowWidth = byId('row-cs-outline-width');
@@ -1289,6 +1320,16 @@ function bindControls() {
     if (rowAmt) rowAmt.style.display = show ? 'flex' : 'none';
     if (rowReach) rowReach.style.display = show ? 'flex' : 'none';
     if (rowCount) rowCount.style.display = show ? 'flex' : 'none';
+  }
+
+  function updateGenBranchUI() {
+    const show = !!params.branchEnabledGen;
+    const rowReach = byId('row-cs-branch-reach-gen');
+    const rowCount = byId('row-cs-branch-count-gen');
+    const rowCurve = byId('row-cs-branch-curve-gen');
+    if (rowReach) rowReach.style.display = show ? 'flex' : 'none';
+    if (rowCount) rowCount.style.display = show ? 'flex' : 'none';
+    if (rowCurve) rowCurve.style.display = show ? 'flex' : 'none';
   }
 
   bindRange('cs-outline-width', 'val-cs-outline-width', (v) => { params.outlineWidth = parseInt(v, 10); return String(params.outlineWidth); });
