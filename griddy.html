@@ -509,21 +509,30 @@
         }
 
         function getCanvasCSSSize() {
-            const parent = canvas.parentElement;
-            const rect = parent.getBoundingClientRect();
+            const stage = document.getElementById('griddy-stage');
+            const rect = (stage || canvas.parentElement).getBoundingClientRect();
+            const cw = (stage && stage.clientWidth) ? stage.clientWidth : rect.width;
+            const ch = (stage && stage.clientHeight) ? stage.clientHeight : rect.height;
             return {
-                w: rect.width,
-                h: rect.height
+                w: cw,
+                h: ch
             };
         }
 
         function resize() {
             const { w, h } = getCanvasCSSSize();
             const dpr = Math.max(1, window.devicePixelRatio || 1);
-            canvas.width = Math.floor(w * dpr);
-            canvas.height = Math.floor(h * dpr);
-            canvas.style.width = `${w}px`;
-            canvas.style.height = `${h}px`;
+            let wCss = w;
+            let hCss = h;
+
+            // If layout hasn't settled yet, fall back so the canvas is drawable.
+            if (!Number.isFinite(wCss) || wCss < 20) wCss = Math.floor(window.innerWidth * 0.65);
+            if (!Number.isFinite(hCss) || hCss < 20) hCss = Math.floor(window.innerHeight * 0.65);
+
+            canvas.width = Math.floor(wCss * dpr);
+            canvas.height = Math.floor(hCss * dpr);
+            canvas.style.width = `${wCss}px`;
+            canvas.style.height = `${hCss}px`;
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
 
@@ -1028,7 +1037,9 @@
         state.showGrid = showGridEl ? !!showGridEl.checked : true;
         setUiTabIfNeeded();
         setSelectedUIFromModel();
+        // Render twice: once now, once after layout settles.
         render();
+        requestAnimationFrame(() => render());
 
         function setUiTabIfNeeded() {
             // placeholder to keep init structure consistent; tool doesn't use tabs
