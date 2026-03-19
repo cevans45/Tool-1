@@ -385,8 +385,14 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   // Match the reference "sauce": multiple passes with jitter, but with
   // rough01=0 doing exactly one clean draw (no overdraw).
   const densityNorm = constrain(params.sketchDensity / 16, 0, 1);
-  const passes = max(1, Math.floor(lerp(1, 7, densityNorm) * (0.12 + 0.88 * rough01)));
-  const skipChance = Math.pow(rough01, 1.35) * 0.22;
+  // Passes: keep it controlled; roughness should add bite via jitter/holes,
+  // not explode the stroke into fuzzy blobs.
+  const passes = rough01 === 0
+    ? 1
+    : max(2, Math.round(lerp(4, 7, densityNorm)));
+
+  // Hole/skip chance: 0 at smooth, up to ~0.20 at max rough.
+  const skipChance = Math.pow(rough01, 1.25) * lerp(0.06, 0.20, densityNorm);
 
   const seed = (Math.round(x1 * 73) * 374761 + Math.round(y1 * 73) * 668265 +
                 Math.round(x2 * 73) * 214748 + Math.round(y2 * 73) * 110351) | 0;
@@ -401,9 +407,10 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   const ny = tx;
 
   // Jitter amplitude drives roughness "edge bite" (not thickness).
-  const baseJitter = 2.3;
-  const jitterMultiplier = 1.0;
-  const jitter = rough01 * (baseJitter + finalThickness * jitterMultiplier);
+  const baseJitter = 1.7;
+  const jitterMultiplier = 0.45;
+  // Clamp jitter so large strokes don't turn into bubbly ink.
+  const jitter = rough01 * constrain(baseJitter + finalThickness * jitterMultiplier, 0, 6);
 
   const drawColor = colorOverride || params.ink;
   if (params.drawOperation === 'ink') {
@@ -417,8 +424,10 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   }
 
   if (params.strokeStyle === 'sprinkle') {
-    const dotCount = max(1, Math.floor(lerp(2, 10, densityNorm) * (0.25 + 0.75 * rough01)));
-    const dotSkip = clamp01(Math.pow(rough01, 1.35) * 0.6);
+    const dotCount = rough01 === 0
+      ? 1
+      : max(2, Math.floor(lerp(3, 12, densityNorm) * (0.35 + 0.65 * rough01)));
+    const dotSkip = clamp01(Math.pow(rough01, 1.3) * lerp(0.12, 0.35, densityNorm));
     for (let i = 0; i < dotCount; i++) {
       const t = rng();
       const cx = x1 + dx * t;
@@ -426,7 +435,7 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
       const off = (rng() - 0.5) * jitter;
       const px = cx + nx * off;
       const py = cy + ny * off;
-      const sz = finalThickness * lerp(0.35, 0.75, rng()) * (0.35 + 0.65 * rough01);
+      const sz = finalThickness * lerp(0.28, 0.62, rng()) * (0.35 + 0.65 * rough01);
       if (rng() < dotSkip) continue;
       ctx.beginPath();
       ctx.arc(px, py, sz * 0.5, 0, 6.2832);
