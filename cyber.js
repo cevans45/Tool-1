@@ -590,10 +590,14 @@ function drawWithOutlineFill(ctx, conns, doMirror) {
   const savedOp = params.drawOperation;
 
   const full = doMirror ? mirrorConnections(conns) : conns;
+  // For uniform outlines, do not taper the stroke along connections during the
+  // outline/cut passes. Tapering (`tm`) makes the remaining ring thickness
+  // inconsistent across the silhouette.
+  const outlineConns = params.outlineEnabled ? full.map((c) => ({ ...c, tm: 1 })) : full;
 
   if (params.outlineEnabled) {
     params.drawOperation = 'ink';
-    drawConnections(ctx, full, params.outlineColor, ow);
+    drawConnections(ctx, outlineConns, params.outlineColor, ow);
     if (!params.fillEnabled) {
       params.drawOperation = 'cut';
       drawConnections(ctx, full, null, 0);
