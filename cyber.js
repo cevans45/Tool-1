@@ -377,7 +377,14 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   const baseThickness = (params.strokeW + (widthAdd || 0));
   const tm = thicknessMul == null ? 1 : thicknessMul;
   const taperFactor = 0.2 + 0.8 * (tm * tm); // endpoint taper -> thickness
-  const finalThickness = baseThickness * taperFactor;
+  // Make sketch "reach" affect thickness of the connection itself.
+  // When points are close (small d) the connection is thick; when they are
+  // near the reach limit (d ~ reach) the connection thins out so max reach
+  // doesn't turn into a blob.
+  const distMul = params.drawMode
+    ? lerp(1, 0.22, constrain(d / max(1, params.sketchReach), 0, 1))
+    : 1;
+  const finalThickness = baseThickness * taperFactor * distMul;
 
   const roughness = max(0, params.sketchRoughness);
   const rough01 = constrain(roughness / 20, 0, 1);
