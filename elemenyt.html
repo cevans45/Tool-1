@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mycelium Mirror</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #ffffff;
+            font-family: 'Courier New', Courier, monospace;
+            cursor: crosshair;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            /* FILTRO ESTREMO */
+            filter: url(#jagged-edge);
+        }
+
+        canvas {
+            display: block;
+        }
+
+        /* --- UI STYLING --- */
+        #toolbar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 200px;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #000;
+            padding: 16px;
+            z-index: 100;
+            user-select: none;
+        }
+
+        .toolbar-title {
+            font-size: 10px;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #ccc;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .toolbar-title .signature {
+            font-size: 9px;
+            color: #999;
+        }
+
+        .label {
+            font-weight: 500;
+            font-size: 9px;
+            margin-bottom: 6px;
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #555;
+        }
+
+        .mode-switch {
+            display: flex;
+            gap: 0;
+            margin-bottom: 16px;
+            border: 1px solid #000;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 8px;
+            background: #fff;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 10px;
+            text-align: center;
+            transition: all 0.15s ease;
+            letter-spacing: 0.5px;
+        }
+
+        .btn.active {
+            background: #000;
+            color: #fff;
+        }
+
+        .btn:hover:not(.active) {
+            background: #f5f5f5;
+        }
+
+        input[type=range] {
+            width: 100%;
+            margin-bottom: 4px;
+            accent-color: #000;
+            height: 1px;
+            background: #ccc;
+            appearance: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 12px;
+            height: 12px;
+            background: #000;
+            cursor: pointer;
+            border-radius: 0;
+        }
+
+        #size-display {
+            text-align: right;
+            font-size: 10px;
+            font-weight: 500;
+            margin-bottom: 16px;
+            color: #333;
+        }
+
+        .shortcuts {
+            font-size: 9px;
+            color: #555;
+            border-top: 1px solid #ddd;
+            padding-top: 12px;
+            line-height: 1.8;
+            font-weight: 400;
+            letter-spacing: 0.3px;
+        }
+
+        .shortcuts span {
+            color: #000;
+            font-weight: 500;
+        }
+
+        svg {
+            height: 0;
+            width: 0;
+            position: absolute;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+            cursor: pointer;
+            flex-direction: row-reverse;
+            justify-content: flex-end;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            display: none;
+        }
+
+        .checkbox-label .toggle-box {
+            width: 8px;
+            height: 8px;
+            border: 1px solid #000;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+        }
+
+        .checkbox-label input[type="checkbox"]:checked+.toggle-box {
+            background: #000;
+            color: #fff;
+        }
+
+        .checkbox-label .label {
+            margin-bottom: 0;
+        }
+
+        /* Mobile header - hidden on desktop */
+        #mobile-header {
+            display: none;
+        }
+
+        /* --- MOBILE RESPONSIVE --- */
+        @media (max-width: 768px) {
+            #toolbar {
+                position: fixed;
+                top: auto;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                padding: 12px 16px;
+                display: flex;
+                flex-wrap: nowrap;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                border: none;
+                border-top: 0.5px solid #000;
+                box-sizing: border-box;
+            }
+
+            /* Try to keep filter on mobile with webkit prefix */
+            #canvas-container {
+                -webkit-filter: url(#jagged-edge);
+                filter: url(#jagged-edge);
+            }
+
+            /* Show mobile header at top */
+            #mobile-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                padding: 8px 16px;
+                background: rgba(255, 255, 255, 0.95);
+                font-size: 9px;
+                font-weight: 500;
+                letter-spacing: 0.5px;
+                z-index: 100;
+            }
+
+            #mobile-header .signature {
+                color: #999;
+            }
+
+            .toolbar-title {
+                display: none;
+            }
+
+            .label {
+                font-size: 8px;
+                margin-bottom: 4px;
+            }
+
+            .mode-switch {
+                margin-bottom: 0;
+                order: 1;
+            }
+
+            .btn {
+                padding: 3px 6px;
+                font-size: 7px;
+            }
+
+            /* Size in center */
+            .size-group {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                order: 2;
+                flex: 1;
+                justify-content: center;
+            }
+
+            .size-group .label {
+                margin-bottom: 0;
+                font-size: 8px;
+            }
+
+            #size-slider {
+                width: 100px;
+            }
+
+            input[type=range]::-webkit-slider-thumb {
+                width: 8px;
+                height: 8px;
+            }
+
+            #size-display {
+                margin-bottom: 0;
+                font-size: 8px;
+            }
+
+            /* Mirror on right, box at edge */
+            .checkbox-label {
+                margin-bottom: 0;
+                gap: 4px;
+                order: 3;
+                flex-direction: row-reverse;
+            }
+
+            .checkbox-label .toggle-box {
+                width: 10px;
+                height: 10px;
+            }
+
+            .checkbox-label .label {
+                font-size: 8px;
+            }
+
+            .shortcuts {
+                display: none;
+            }
+
+            #toolbar>span.label {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Mobile Header -->
+    <div id="mobile-header">
+        <span>MYCELIUM</span>
+        <span class="signature">RV</span>
+    </div>
+
+    <div id="toolbar">
+        <div class="toolbar-title">
+            <span>MYCELIUM MIRROR</span>
+            <span class="signature">RV</span>
+        </div>
+
+        <span class="label">Mode</span>
+        <div class="mode-switch">
+            <div class="btn active" id="btn-pos" onclick="setMode('positive')">INK (+)</div>
+            <div class="btn" id="btn-neg" onclick="setMode('negative')">CUT (−)</div>
+        </div>
+
+        <label class="checkbox-label">
+            <input type="checkbox" id="mirror-checkbox" checked onchange="toggleMirror(this.checked)">
+            <span class="toggle-box"></span>
+            <span class="label">Mirror</span>
+        </label>
+
+        <div class="size-group">
+            <span class="label">Size</span>
+            <input type="range" id="size-slider" min="0.1" max="4" step="any" value="2">
+            <div id="size-display">2px</div>
+        </div>
+
+        <div class="shortcuts">
+            <span>[1]</span> INK &nbsp; <span>[2]</span> CUT<br>
+            <span>[M]</span> MIRROR<br>
+            <span>[SPACE]</span> CLEAR<br>
+            <span>[S]</span> EXPORT PNG
+        </div>
+    </div>
+
+    <svg>
+        <defs>
+            <!-- STROKE MODE: Creates outline effect -->
+            <filter id="jagged-edge" color-interpolation-filters="sRGB">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
+
+                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40"
+                    result="solidBlob" />
+
+                <feMorphology operator="dilate" radius="1.0" in="solidBlob" result="fatBlob" />
+
+                <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
+
+                <feFlood flood-color="#000000" result="color" />
+                <feComposite in="color" in2="outline" operator="in" />
+            </filter>
+
+        </defs>
+    </svg>
+
+    <div id="canvas-container">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const sizeSlider = document.getElementById('size-slider');
+        const sizeDisplay = document.getElementById('size-display');
+        const btnPos = document.getElementById('btn-pos');
+        const btnNeg = document.getElementById('btn-neg');
+
+        let width, height;
+        let points = [];
+
+        let appState = {
+            mode: 'positive',
+            brushSize: 2,
+            isDrawing: false,
+            mirrorEnabled: true
+        };
+
+        // Disegna la linea guida centrale (solo desktop)
+        function drawGuideline() {
+            // Skip on mobile
+            if (window.innerWidth <= 768) return;
+
+            ctx.save();
+            ctx.setLineDash([10, 10]);
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(width / 2, 0);
+            ctx.lineTo(width / 2, height);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        const CONFIG = {
+            connectDistance: 70, // Distanza di connessione
+            baseJitter: 4,       // Base del tremolio
+            jitterMultiplier: 0.8, // Quanto il tremolio aumenta con la dimensione
+            passes: 6            // Molti passaggi per creare "sporcizia"
+        };
+
+        function resize() {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            ctx.clearRect(0, 0, width, height);
+            if (appState.mirrorEnabled) drawGuideline();
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        // ----- UI LOGIC -----
+        function setMode(mode) {
+            appState.mode = mode;
+            if (mode === 'positive') {
+                btnPos.classList.add('active');
+                btnNeg.classList.remove('active');
+            } else {
+                btnPos.classList.remove('active');
+                btnNeg.classList.add('active');
+            }
+        }
+
+        function updateSize(val) {
+            appState.brushSize = parseFloat(val);
+            // Show max 2 decimal places
+            let displayVal = appState.brushSize % 1 === 0 ? appState.brushSize : appState.brushSize.toFixed(2);
+            sizeDisplay.textContent = displayVal + 'px';
+            sizeSlider.value = appState.brushSize;
+        }
+
+        // Toggle Mirror
+        function toggleMirror(enabled) {
+            appState.mirrorEnabled = enabled;
+            document.getElementById('mirror-checkbox').checked = enabled;
+            // Redraw guideline
+            ctx.clearRect(0, 0, width, height);
+            if (enabled) drawGuideline();
+        }
+
+
+
+        sizeSlider.addEventListener('input', (e) => updateSize(e.target.value));
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === '1') setMode('positive');
+            if (e.key === '2') setMode('negative');
+            if (e.key.toLowerCase() === 'm') toggleMirror(!appState.mirrorEnabled);
+            if (e.code === 'Space') {
+                points = [];
+                ctx.clearRect(0, 0, width, height);
+                if (appState.mirrorEnabled) drawGuideline();
+            }
+            if (e.key.toLowerCase() === 's') {
+                exportWithFilter();
+            }
+        });
+
+        // Export con filtro applicato
+        function exportWithFilter() {
+            // Crea un canvas temporaneo senza la linea guida
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            // Copia il contenuto originale
+            tempCtx.drawImage(canvas, 0, 0);
+
+            // Crea un elemento immagine temporaneo
+            const img = new Image();
+            img.onload = function () {
+                // Crea un altro canvas per applicare il filtro
+                const filterCanvas = document.createElement('canvas');
+                filterCanvas.width = width;
+                filterCanvas.height = height;
+                const filterCtx = filterCanvas.getContext('2d');
+
+                // Applica il filtro SVG corretto
+                filterCtx.filter = 'url(#jagged-edge)';
+                filterCtx.drawImage(img, 0, 0);
+
+                // Esporta
+                const link = document.createElement('a');
+                link.download = 'jagged_chaos.png';
+                link.href = filterCanvas.toDataURL('image/png');
+                link.click();
+            };
+            img.src = tempCanvas.toDataURL();
+        }
+
+        // ----- DRAWING LOGIC -----
+
+        function startDrawing(e) {
+            appState.isDrawing = true;
+            addPoint(e.clientX, e.clientY);
+        }
+
+        function stopDrawing() {
+            appState.isDrawing = false;
+            points.push(null);
+        }
+
+        function draw(e) {
+            if (!appState.isDrawing) return;
+            // Rumore extra sulla posizione del mouse per rompere le linee rette
+            let noiseScale = appState.brushSize * 0.8;
+            let noiseX = (Math.random() - 0.5) * noiseScale;
+            let noiseY = (Math.random() - 0.5) * noiseScale;
+            addPoint(e.clientX + noiseX, e.clientY + noiseY);
+        }
+
+        function scratchLine(x1, y1, x2, y2, dist) {
+
+            // Logica Spessore
+            let distFactor = Math.max(0.2, (CONFIG.connectDistance - dist) / 10);
+            let finalThickness = appState.brushSize * distFactor;
+
+            // IL SEGRETO DEL FRASTAGLIATO:
+            let jitter = CONFIG.baseJitter + (finalThickness * CONFIG.jitterMultiplier);
+
+            if (appState.mode === 'positive') {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.strokeStyle = '#000000';
+                ctx.fillStyle = '#000000';
+            } else {
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.strokeStyle = 'rgba(0,0,0,1)';
+                ctx.fillStyle = 'rgba(0,0,0,1)';
+            }
+
+            for (let i = 0; i < CONFIG.passes; i++) {
+                let jx1 = (Math.random() - 0.5) * jitter;
+                let jy1 = (Math.random() - 0.5) * jitter;
+                let jx2 = (Math.random() - 0.5) * jitter;
+                let jy2 = (Math.random() - 0.5) * jitter;
+
+                // Salta il tratto casualmente per creare buchi (effetto glitch)
+                if (Math.random() > 0.15) {
+                    let px1 = x1 + jx1, py1 = y1 + jy1;
+                    let px2 = x2 + jx2, py2 = y2 + jy2;
+
+                    ctx.beginPath();
+                    ctx.lineWidth = finalThickness;
+                    ctx.lineCap = 'square';
+                    ctx.lineJoin = 'bevel';
+                    ctx.moveTo(px1, py1);
+                    ctx.lineTo(px2, py2);
+
+                    // MIRROR
+                    if (appState.mirrorEnabled) {
+                        let mx1 = width - px1;
+                        let mx2 = width - px2;
+                        ctx.moveTo(mx1, py1);
+                        ctx.lineTo(mx2, py2);
+                    }
+                    ctx.stroke();
+                }
+            }
+
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function addPoint(x, y) {
+            const p = { x: x, y: y };
+            points.push(p);
+
+            const startIndex = Math.max(0, points.length - 250);
+
+            for (let i = startIndex; i < points.length - 1; i++) {
+                const prev = points[i];
+                if (!prev || !p) continue;
+
+                const dx = p.x - prev.x;
+                const dy = p.y - prev.y;
+                const dist = Math.hypot(dx, dy);
+
+                // Aumenta distanza connessione con pennello grande per evitare buchi non voluti
+                let dynamicConnect = CONFIG.connectDistance + (appState.brushSize);
+
+                if (dist < dynamicConnect) {
+                    scratchLine(prev.x, prev.y, p.x, p.y, dist);
+                }
+            }
+        }
+
+        // ----- ROBUST EVENT HANDLING -----
+
+        // Helper to get coordinates from mouse or touch event
+        function getEventCoords(e) {
+            if (e.touches && e.touches.length > 0) {
+                return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        // Mouse events
+        canvas.addEventListener('mousedown', (e) => {
+            startDrawing(e);
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            draw(e);
+        });
+
+        // CRITICAL FIX: Listen on WINDOW, not canvas, to catch mouseup anywhere
+        window.addEventListener('mouseup', stopDrawing);
+
+        // Safety: stop drawing if window loses focus
+        window.addEventListener('blur', stopDrawing);
+
+        // ----- TOUCH SUPPORT -----
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); // Prevent scrolling
+            const coords = getEventCoords(e);
+            appState.isDrawing = true;
+            addPoint(coords.x, coords.y);
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!appState.isDrawing) return;
+            const coords = getEventCoords(e);
+            let noiseScale = appState.brushSize * 0.8;
+            let noiseX = (Math.random() - 0.5) * noiseScale;
+            let noiseY = (Math.random() - 0.5) * noiseScale;
+            addPoint(coords.x + noiseX, coords.y + noiseY);
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchcancel', stopDrawing);
+
+    </script>
+</body>
+
+</html>
