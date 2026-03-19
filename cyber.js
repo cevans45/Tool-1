@@ -588,6 +588,8 @@ function drawConnections(ctx, connections, colorOverride, widthAdd) {
 function drawWithOutlineFill(ctx, conns, doMirror) {
   const ow = params.outlineWidth * 2;
   const savedOp = params.drawOperation;
+  const savedRoughness = params.sketchRoughness;
+  const savedStrokeStyle = params.strokeStyle;
 
   const full = doMirror ? mirrorConnections(conns) : conns;
   // For uniform outlines, do not taper the stroke along connections during the
@@ -596,20 +598,27 @@ function drawWithOutlineFill(ctx, conns, doMirror) {
   const outlineConns = params.outlineEnabled ? full.map((c) => ({ ...c, tm: 1 })) : full;
 
   if (params.outlineEnabled) {
+    // Keep outline pass geometrically consistent: no roughness jitter/sprinkle.
+    params.sketchRoughness = 0;
+    params.strokeStyle = 'line';
     params.drawOperation = 'ink';
     drawConnections(ctx, outlineConns, params.outlineColor, ow);
     if (!params.fillEnabled) {
       params.drawOperation = 'cut';
-      drawConnections(ctx, full, null, 0);
+      drawConnections(ctx, outlineConns, null, 0);
     }
   }
 
   if (params.fillEnabled) {
+    params.sketchRoughness = savedRoughness;
+    params.strokeStyle = savedStrokeStyle;
     params.drawOperation = 'ink';
     drawConnections(ctx, full, null, 0);
   }
 
   params.drawOperation = savedOp;
+  params.sketchRoughness = savedRoughness;
+  params.strokeStyle = savedStrokeStyle;
 }
 
 function buildWebbingFromConnections(conns, reach, amount, maxLinksBase) {
@@ -755,25 +764,34 @@ function renderPathsToBufferFromHalf(halfPaths) {
   drawBuffer.clear();
   const ctx = drawBuffer.drawingContext;
   const savedOp = params.drawOperation;
+  const savedRoughness = params.sketchRoughness;
+  const savedStrokeStyle = params.strokeStyle;
 
   const conns = pathsToConnections(halfPaths);
   const mirrored = mirrorConnections(conns);
+  const outlineConns = mirrored.map((c) => ({ ...c, tm: 1 }));
 
   const ow = params.outlineWidth * 2;
   if (params.outlineEnabled) {
+    params.sketchRoughness = 0;
+    params.strokeStyle = 'line';
     params.drawOperation = 'ink';
-    drawConnections(ctx, mirrored, params.outlineColor, ow);
+    drawConnections(ctx, outlineConns, params.outlineColor, ow);
     if (!params.fillEnabled) {
       params.drawOperation = 'cut';
-      drawConnections(ctx, mirrored, null, 0);
+      drawConnections(ctx, outlineConns, null, 0);
     }
   }
   if (params.fillEnabled) {
+    params.sketchRoughness = savedRoughness;
+    params.strokeStyle = savedStrokeStyle;
     params.drawOperation = 'ink';
     drawConnections(ctx, mirrored, null, 0);
   }
 
   params.drawOperation = savedOp;
+  params.sketchRoughness = savedRoughness;
+  params.strokeStyle = savedStrokeStyle;
 }
 
 function buildSketchConnections() {
