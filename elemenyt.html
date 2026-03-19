@@ -133,11 +133,14 @@
     <style>
         /* Scope layout fixes to Elemenyt only. */
         .app[aria-label="Elemenyt mirror"] {
-            justify-content: center;
-            min-height: 100vh;
+            /* Fill the remaining viewport height while leaving header space. */
+            height: calc(100vh - 56px);
+            min-height: calc(100vh - 56px);
             padding: 0;
             gap: 0;
             align-items: stretch;
+            /* Make the canvas fill the space the panel isn't covering (no centering). */
+            justify-content: flex-start;
         }
 
         #sketch-container canvas {
