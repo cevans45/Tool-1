@@ -138,7 +138,7 @@ function regenerate() {
   paths = [];
   curveHash = new Map();
 
-  const sp = constrain(params.spread / 100, 0.1, 1);
+  const sp = constrain(params.spread / 100, 0.1, 1.5);
   const halfW = width * 0.5;
   const margin = height * 0.1;
 
@@ -222,7 +222,8 @@ function createMirroredPaths(path) {
 
 function warpPath(path) {
   const warped = [];
-  const amp = 14;
+  const curveAmt01 = constrain(params.curveAmt / 100, 0, 1);
+  const amp = 10 + 26 * curveAmt01;
   for (let i = 0; i < path.length; i++) {
     const p = path[i];
     const prev = path[max(0, i - 1)];
@@ -232,7 +233,8 @@ function warpPath(path) {
     tan.normalize();
     const normal = createVector(-tan.y, tan.x);
     const n = noise(p.x * 0.012, p.y * 0.012, params.seed * 0.00001);
-    const w = (n - 0.5) * 2 * amp;
+    const swirl = noise(p.x * 0.006 + 100, p.y * 0.006 - 50, params.seed * 0.00002);
+    const w = (n - 0.5) * 2 * amp + (swirl - 0.5) * amp * 0.7;
     warped.push(createVector(p.x + normal.x * w, p.y + normal.y * w));
   }
   return warped;
@@ -379,7 +381,10 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   const reach = params.drawMode ? params.sketchReach : params.genReach;
   const taperByDistance = constrain(params.strokeTaper / 100, 0, 1);
   const distMul = lerp(1, constrain(1 - d / max(1, reach), 0.25, 1), taperByDistance);
-  const finalThickness = (params.strokeW + (widthAdd || 0)) * distMul * (thicknessMul == null ? 1 : thicknessMul);
+  const baseThickness = (params.strokeW + (widthAdd || 0)) * distMul;
+  const tm = thicknessMul == null ? 1 : thicknessMul;
+  const taperFactor = 0.2 + 0.8 * (tm * tm); // stronger size taper toward endpoints
+  const finalThickness = baseThickness * taperFactor;
   const roughness = params.sketchRoughness;
   // Roughness now only affects texture, not stroke size
   const jitter = roughness * 0.9;
