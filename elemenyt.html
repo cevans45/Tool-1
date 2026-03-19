@@ -1,606 +1,223 @@
 <!DOCTYPE html>
-<html lang="it">
-
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mycelium Mirror</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            background-color: #ffffff;
-            font-family: 'Courier New', Courier, monospace;
-            cursor: crosshair;
-        }
-
-        #canvas-container {
-            width: 100vw;
-            height: 100vh;
-            /* FILTRO ESTREMO */
-            filter: url(#jagged-edge);
-        }
-
-        canvas {
-            display: block;
-        }
-
-        /* --- UI STYLING --- */
-        #toolbar {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            width: 200px;
-            background: rgba(255, 255, 255, 0.95);
-            border: 1px solid #000;
-            padding: 16px;
-            z-index: 100;
-            user-select: none;
-        }
-
-        .toolbar-title {
-            font-size: 10px;
-            font-weight: 500;
-            letter-spacing: 0.5px;
-            margin-bottom: 16px;
-            padding-bottom: 8px;
-            border-bottom: 1px solid #ccc;
-            color: #333;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .toolbar-title .signature {
-            font-size: 9px;
-            color: #999;
-        }
-
-        .label {
-            font-weight: 500;
-            font-size: 9px;
-            margin-bottom: 6px;
-            display: block;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #555;
-        }
-
-        .mode-switch {
-            display: flex;
-            gap: 0;
-            margin-bottom: 16px;
-            border: 1px solid #000;
-        }
-
-        .btn {
-            flex: 1;
-            padding: 8px;
-            background: #fff;
-            cursor: pointer;
-            font-weight: 500;
-            font-size: 10px;
-            text-align: center;
-            transition: all 0.15s ease;
-            letter-spacing: 0.5px;
-        }
-
-        .btn.active {
-            background: #000;
-            color: #fff;
-        }
-
-        .btn:hover:not(.active) {
-            background: #f5f5f5;
-        }
-
-        input[type=range] {
-            width: 100%;
-            margin-bottom: 4px;
-            accent-color: #000;
-            height: 1px;
-            background: #ccc;
-            appearance: none;
-        }
-
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 12px;
-            height: 12px;
-            background: #000;
-            cursor: pointer;
-            border-radius: 0;
-        }
-
-        #size-display {
-            text-align: right;
-            font-size: 10px;
-            font-weight: 500;
-            margin-bottom: 16px;
-            color: #333;
-        }
-
-        .shortcuts {
-            font-size: 9px;
-            color: #555;
-            border-top: 1px solid #ddd;
-            padding-top: 12px;
-            line-height: 1.8;
-            font-weight: 400;
-            letter-spacing: 0.3px;
-        }
-
-        .shortcuts span {
-            color: #000;
-            font-weight: 500;
-        }
-
-        svg {
-            height: 0;
-            width: 0;
-            position: absolute;
-        }
-
-        .checkbox-label {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 16px;
-            cursor: pointer;
-            flex-direction: row-reverse;
-            justify-content: flex-end;
-        }
-
-        .checkbox-label input[type="checkbox"] {
-            display: none;
-        }
-
-        .checkbox-label .toggle-box {
-            width: 8px;
-            height: 8px;
-            border: 1px solid #000;
-            background: #fff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            font-weight: 700;
-        }
-
-        .checkbox-label input[type="checkbox"]:checked+.toggle-box {
-            background: #000;
-            color: #fff;
-        }
-
-        .checkbox-label .label {
-            margin-bottom: 0;
-        }
-
-        /* Mobile header - hidden on desktop */
-        #mobile-header {
-            display: none;
-        }
-
-        /* --- MOBILE RESPONSIVE --- */
-        @media (max-width: 768px) {
-            #toolbar {
-                position: fixed;
-                top: auto;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                width: 100%;
-                padding: 12px 16px;
-                display: flex;
-                flex-wrap: nowrap;
-                align-items: center;
-                justify-content: space-between;
-                gap: 8px;
-                border: none;
-                border-top: 0.5px solid #000;
-                box-sizing: border-box;
-            }
-
-            /* Try to keep filter on mobile with webkit prefix */
-            #canvas-container {
-                -webkit-filter: url(#jagged-edge);
-                filter: url(#jagged-edge);
-            }
-
-            /* Show mobile header at top */
-            #mobile-header {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                position: fixed;
-                top: 0;
-                left: 0;
-                right: 0;
-                padding: 8px 16px;
-                background: rgba(255, 255, 255, 0.95);
-                font-size: 9px;
-                font-weight: 500;
-                letter-spacing: 0.5px;
-                z-index: 100;
-            }
-
-            #mobile-header .signature {
-                color: #999;
-            }
-
-            .toolbar-title {
-                display: none;
-            }
-
-            .label {
-                font-size: 8px;
-                margin-bottom: 4px;
-            }
-
-            .mode-switch {
-                margin-bottom: 0;
-                order: 1;
-            }
-
-            .btn {
-                padding: 3px 6px;
-                font-size: 7px;
-            }
-
-            /* Size in center */
-            .size-group {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                order: 2;
-                flex: 1;
-                justify-content: center;
-            }
-
-            .size-group .label {
-                margin-bottom: 0;
-                font-size: 8px;
-            }
-
-            #size-slider {
-                width: 100px;
-            }
-
-            input[type=range]::-webkit-slider-thumb {
-                width: 8px;
-                height: 8px;
-            }
-
-            #size-display {
-                margin-bottom: 0;
-                font-size: 8px;
-            }
-
-            /* Mirror on right, box at edge */
-            .checkbox-label {
-                margin-bottom: 0;
-                gap: 4px;
-                order: 3;
-                flex-direction: row-reverse;
-            }
-
-            .checkbox-label .toggle-box {
-                width: 10px;
-                height: 10px;
-            }
-
-            .checkbox-label .label {
-                font-size: 8px;
-            }
-
-            .shortcuts {
-                display: none;
-            }
-
-            #toolbar>span.label {
-                display: none;
-            }
-        }
-    </style>
+    <title>Elemenyt — OVRT</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
-
 <body>
+    <div class="site-shell">
+        <header class="tool-header">
+            <a href="index.html" class="back-link">← Back to OVRT</a>
+            <span class="tool-title">Elemenyt mirror</span>
+        </header>
 
-    <!-- Mobile Header -->
-    <div id="mobile-header">
-        <span>MYCELIUM</span>
-        <span class="signature">RV</span>
+        <div class="app" aria-label="Elemenyt mirror">
+            <div id="sketch-container">
+                <canvas id="canvas"></canvas>
+            </div>
+
+            <aside class="control-panel">
+                <header class="panel-header">
+                    <h2>Controls</h2>
+                    <button type="button" class="info-btn" id="info-btn" aria-label="What each control does">i</button>
+                </header>
+
+                <div class="info-overlay" id="info-overlay" role="dialog" aria-label="Control descriptions" hidden>
+                    <div class="info-content">
+                        <h3>What each control does</h3>
+                        <dl>
+                            <dt>INK / CUT</dt>
+                            <dd>INK draws solid; CUT erases using destination-out.</dd>
+                            <dt>Marker</dt>
+                            <dd>Line = jagged scratch segments. Sprinkle = ink beads along the segment.</dd>
+                            <dt>Fill</dt>
+                            <dd>When enabled, Line marker draws filled thick quads.</dd>
+                            <dt>Colors</dt>
+                            <dd>Ink and Fill colors affect how INK renders; CUT ignores color.</dd>
+                        </dl>
+                        <button type="button" class="info-close" id="info-close">Close</button>
+                    </div>
+                </div>
+
+                <div class="panel-body">
+                    <details class="control-window" open>
+                        <summary>Draw</summary>
+                        <section class="control-section">
+                            <div class="control-row" style="margin-bottom:12px;">
+                                <div class="mode-switch" style="width:100%; margin:0;">
+                                    <button type="button" id="el-mode-ink" class="panel-button is-active">INK (+)</button>
+                                    <button type="button" id="el-mode-cut" class="panel-button">CUT (−)</button>
+                                </div>
+                            </div>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-mirror" checked>
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Mirror</span>
+                            </label>
+
+                            <div class="control-row">
+                                <label for="el-stroke">Stroke size</label>
+                                <input type="range" id="el-stroke" min="1" max="24" value="6" step="1">
+                                <span class="param-value" id="val-el-stroke">6</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-marker">Marker</label>
+                                <select id="el-marker" class="select-input">
+                                    <option value="line" selected>Line</option>
+                                    <option value="sprinkle">Sprinkle</option>
+                                </select>
+                            </div>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-fill-enabled" checked>
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Fill</span>
+                            </label>
+
+                            <div class="control-row color-row">
+                                <label for="el-bg">Background</label>
+                                <input type="color" id="el-bg" value="#ffffff">
+                            </div>
+                            <div class="control-row color-row">
+                                <label for="el-ink-color">Ink</label>
+                                <input type="color" id="el-ink-color" value="#000000">
+                            </div>
+                            <div class="control-row color-row">
+                                <label for="el-fill-color">Fill color</label>
+                                <input type="color" id="el-fill-color" value="#000000">
+                            </div>
+
+                            <div class="control-row" style="gap:6px;">
+                                <button type="button" id="el-clear" class="panel-button">Clear</button>
+                                <button type="button" id="el-export" class="panel-button">Export PNG</button>
+                            </div>
+
+                            <div class="shortcuts">
+                                <span>[1]</span> INK &nbsp; <span>[2]</span> CUT<br>
+                                <span>[M]</span> MIRROR &nbsp; <span>[SPACE]</span> CLEAR &nbsp; <span>[S]</span> EXPORT
+                            </div>
+                        </section>
+                    </details>
+                </div>
+            </aside>
+        </div>
     </div>
 
-    <div id="toolbar">
-        <div class="toolbar-title">
-            <span>MYCELIUM MIRROR</span>
-            <span class="signature">RV</span>
-        </div>
-
-        <span class="label">Mode</span>
-        <div class="mode-switch">
-            <div class="btn active" id="btn-pos" onclick="setMode('positive')">INK (+)</div>
-            <div class="btn" id="btn-neg" onclick="setMode('negative')">CUT (−)</div>
-        </div>
-
-        <label class="checkbox-label">
-            <input type="checkbox" id="mirror-checkbox" checked onchange="toggleMirror(this.checked)">
-            <span class="toggle-box"></span>
-            <span class="label">Mirror</span>
-        </label>
-
-        <div class="size-group">
-            <span class="label">Size</span>
-            <input type="range" id="size-slider" min="0.1" max="4" step="any" value="2">
-            <div id="size-display">2px</div>
-        </div>
-
-        <div class="shortcuts">
-            <span>[1]</span> INK &nbsp; <span>[2]</span> CUT<br>
-            <span>[M]</span> MIRROR<br>
-            <span>[SPACE]</span> CLEAR<br>
-            <span>[S]</span> EXPORT PNG
-        </div>
-    </div>
-
-    <svg>
+    <svg width="0" height="0" style="position:absolute">
         <defs>
-            <!-- STROKE MODE: Creates outline effect -->
             <filter id="jagged-edge" color-interpolation-filters="sRGB">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
-
-                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40"
-                    result="solidBlob" />
-
+                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40" result="solidBlob" />
                 <feMorphology operator="dilate" radius="1.0" in="solidBlob" result="fatBlob" />
-
                 <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
-
                 <feFlood flood-color="#000000" result="color" />
                 <feComposite in="color" in2="outline" operator="in" />
             </filter>
-
         </defs>
     </svg>
 
-    <div id="canvas-container">
-        <canvas id="canvas"></canvas>
-    </div>
+    <style>
+        /* Match the site aesthetic: filter the actual canvas */
+        #sketch-container canvas {
+            -webkit-filter: url(#jagged-edge);
+            filter: url(#jagged-edge);
+        }
+    </style>
 
     <script>
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d');
-        const sizeSlider = document.getElementById('size-slider');
-        const sizeDisplay = document.getElementById('size-display');
-        const btnPos = document.getElementById('btn-pos');
-        const btnNeg = document.getElementById('btn-neg');
 
-        let width, height;
-        let points = [];
+        const el = (id) => document.getElementById(id);
 
-        let appState = {
-            mode: 'positive',
-            brushSize: 2,
-            isDrawing: false,
-            mirrorEnabled: true
+        const elModeInk = el('el-mode-ink');
+        const elModeCut = el('el-mode-cut');
+        const elMirror = el('el-mirror');
+        const elStroke = el('el-stroke');
+        const elStrokeVal = el('val-el-stroke');
+        const elMarker = el('el-marker');
+        const elFillEnabled = el('el-fill-enabled');
+        const elBg = el('el-bg');
+        const elInkColor = el('el-ink-color');
+        const elFillColor = el('el-fill-color');
+        const elClear = el('el-clear');
+        const elExport = el('el-export');
+
+        // Overlay UI
+        const infoBtn = el('info-btn');
+        const infoOverlay = el('info-overlay');
+        const infoClose = el('info-close');
+
+        // Preview mode: match other tools (hide header + panel, fill screen)
+        if (new URLSearchParams(window.location.search).get('preview') === '1') {
+            document.body.classList.add('is-preview');
+        }
+
+        const CONFIG = {
+            connectDistance: 70,
+            baseJitter: 4,
+            jitterMultiplier: 0.8,
+            passes: 6
         };
 
-        // Disegna la linea guida centrale (solo desktop)
-        function drawGuideline() {
-            // Skip on mobile
-            if (window.innerWidth <= 768) return;
+        const state = {
+            mode: 'ink', // 'ink' | 'cut'
+            brushSize: 6,
+            isDrawing: false,
+            mirrorEnabled: true,
+            marker: 'line', // 'line' | 'sprinkle'
+            fillEnabled: true,
+            bg: '#ffffff',
+            inkColor: '#000000',
+            fillColor: '#000000',
+            // Store points so changing params can optionally be replayed later.
+            // (For now, strokes keep their original pixels; we only apply params to new strokes.)
+            points: []
+        };
 
+        function setMode(mode) {
+            state.mode = mode;
+            elModeInk.classList.toggle('is-active', mode === 'ink');
+            elModeCut.classList.toggle('is-active', mode === 'cut');
+        }
+
+        function setMirror(enabled) {
+            state.mirrorEnabled = enabled;
+            elMirror.checked = enabled;
+            // Guideline is drawn into the canvas during resize/clear.
+        }
+
+        function resize() {
+            const container = el('sketch-container');
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            canvas.width = w;
+            canvas.height = h;
+            ctx.clearRect(0, 0, w, h);
+            document.body.style.backgroundColor = state.bg;
+            if (state.mirrorEnabled) drawGuideline();
+        }
+
+        window.addEventListener('resize', resize);
+
+        function drawGuideline() {
+            // Only show guideline on desktop-ish widths
+            if (window.innerWidth <= 720) return;
             ctx.save();
             ctx.setLineDash([10, 10]);
-            ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+            ctx.strokeStyle = 'rgba(0,0,0,0.3)';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.moveTo(width / 2, 0);
-            ctx.lineTo(width / 2, height);
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
             ctx.stroke();
             ctx.restore();
         }
 
-        const CONFIG = {
-            connectDistance: 70, // Distanza di connessione
-            baseJitter: 4,       // Base del tremolio
-            jitterMultiplier: 0.8, // Quanto il tremolio aumenta con la dimensione
-            passes: 6            // Molti passaggi per creare "sporcizia"
-        };
-
-        function resize() {
-            width = window.innerWidth;
-            height = window.innerHeight;
-            canvas.width = width;
-            canvas.height = height;
-            ctx.clearRect(0, 0, width, height);
-            if (appState.mirrorEnabled) drawGuideline();
-        }
-        window.addEventListener('resize', resize);
-        resize();
-
-        // ----- UI LOGIC -----
-        function setMode(mode) {
-            appState.mode = mode;
-            if (mode === 'positive') {
-                btnPos.classList.add('active');
-                btnNeg.classList.remove('active');
-            } else {
-                btnPos.classList.remove('active');
-                btnNeg.classList.add('active');
-            }
-        }
-
-        function updateSize(val) {
-            appState.brushSize = parseFloat(val);
-            // Show max 2 decimal places
-            let displayVal = appState.brushSize % 1 === 0 ? appState.brushSize : appState.brushSize.toFixed(2);
-            sizeDisplay.textContent = displayVal + 'px';
-            sizeSlider.value = appState.brushSize;
-        }
-
-        // Toggle Mirror
-        function toggleMirror(enabled) {
-            appState.mirrorEnabled = enabled;
-            document.getElementById('mirror-checkbox').checked = enabled;
-            // Redraw guideline
-            ctx.clearRect(0, 0, width, height);
-            if (enabled) drawGuideline();
-        }
-
-
-
-        sizeSlider.addEventListener('input', (e) => updateSize(e.target.value));
-
-        window.addEventListener('keydown', (e) => {
-            if (e.key === '1') setMode('positive');
-            if (e.key === '2') setMode('negative');
-            if (e.key.toLowerCase() === 'm') toggleMirror(!appState.mirrorEnabled);
-            if (e.code === 'Space') {
-                points = [];
-                ctx.clearRect(0, 0, width, height);
-                if (appState.mirrorEnabled) drawGuideline();
-            }
-            if (e.key.toLowerCase() === 's') {
-                exportWithFilter();
-            }
-        });
-
-        // Export con filtro applicato
-        function exportWithFilter() {
-            // Crea un canvas temporaneo senza la linea guida
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = width;
-            tempCanvas.height = height;
-            const tempCtx = tempCanvas.getContext('2d');
-
-            // Copia il contenuto originale
-            tempCtx.drawImage(canvas, 0, 0);
-
-            // Crea un elemento immagine temporaneo
-            const img = new Image();
-            img.onload = function () {
-                // Crea un altro canvas per applicare il filtro
-                const filterCanvas = document.createElement('canvas');
-                filterCanvas.width = width;
-                filterCanvas.height = height;
-                const filterCtx = filterCanvas.getContext('2d');
-
-                // Applica il filtro SVG corretto
-                filterCtx.filter = 'url(#jagged-edge)';
-                filterCtx.drawImage(img, 0, 0);
-
-                // Esporta
-                const link = document.createElement('a');
-                link.download = 'jagged_chaos.png';
-                link.href = filterCanvas.toDataURL('image/png');
-                link.click();
-            };
-            img.src = tempCanvas.toDataURL();
-        }
-
-        // ----- DRAWING LOGIC -----
-
-        function startDrawing(e) {
-            appState.isDrawing = true;
-            addPoint(e.clientX, e.clientY);
-        }
-
-        function stopDrawing() {
-            appState.isDrawing = false;
-            points.push(null);
-        }
-
-        function draw(e) {
-            if (!appState.isDrawing) return;
-            // Rumore extra sulla posizione del mouse per rompere le linee rette
-            let noiseScale = appState.brushSize * 0.8;
-            let noiseX = (Math.random() - 0.5) * noiseScale;
-            let noiseY = (Math.random() - 0.5) * noiseScale;
-            addPoint(e.clientX + noiseX, e.clientY + noiseY);
-        }
-
-        function scratchLine(x1, y1, x2, y2, dist) {
-
-            // Logica Spessore
-            let distFactor = Math.max(0.2, (CONFIG.connectDistance - dist) / 10);
-            let finalThickness = appState.brushSize * distFactor;
-
-            // IL SEGRETO DEL FRASTAGLIATO:
-            let jitter = CONFIG.baseJitter + (finalThickness * CONFIG.jitterMultiplier);
-
-            if (appState.mode === 'positive') {
-                ctx.globalCompositeOperation = 'source-over';
-                ctx.strokeStyle = '#000000';
-                ctx.fillStyle = '#000000';
-            } else {
-                ctx.globalCompositeOperation = 'destination-out';
-                ctx.strokeStyle = 'rgba(0,0,0,1)';
-                ctx.fillStyle = 'rgba(0,0,0,1)';
-            }
-
-            for (let i = 0; i < CONFIG.passes; i++) {
-                let jx1 = (Math.random() - 0.5) * jitter;
-                let jy1 = (Math.random() - 0.5) * jitter;
-                let jx2 = (Math.random() - 0.5) * jitter;
-                let jy2 = (Math.random() - 0.5) * jitter;
-
-                // Salta il tratto casualmente per creare buchi (effetto glitch)
-                if (Math.random() > 0.15) {
-                    let px1 = x1 + jx1, py1 = y1 + jy1;
-                    let px2 = x2 + jx2, py2 = y2 + jy2;
-
-                    ctx.beginPath();
-                    ctx.lineWidth = finalThickness;
-                    ctx.lineCap = 'square';
-                    ctx.lineJoin = 'bevel';
-                    ctx.moveTo(px1, py1);
-                    ctx.lineTo(px2, py2);
-
-                    // MIRROR
-                    if (appState.mirrorEnabled) {
-                        let mx1 = width - px1;
-                        let mx2 = width - px2;
-                        ctx.moveTo(mx1, py1);
-                        ctx.lineTo(mx2, py2);
-                    }
-                    ctx.stroke();
-                }
-            }
-
-            ctx.globalCompositeOperation = 'source-over';
-        }
-
-        function addPoint(x, y) {
-            const p = { x: x, y: y };
-            points.push(p);
-
-            const startIndex = Math.max(0, points.length - 250);
-
-            for (let i = startIndex; i < points.length - 1; i++) {
-                const prev = points[i];
-                if (!prev || !p) continue;
-
-                const dx = p.x - prev.x;
-                const dy = p.y - prev.y;
-                const dist = Math.hypot(dx, dy);
-
-                // Aumenta distanza connessione con pennello grande per evitare buchi non voluti
-                let dynamicConnect = CONFIG.connectDistance + (appState.brushSize);
-
-                if (dist < dynamicConnect) {
-                    scratchLine(prev.x, prev.y, p.x, p.y, dist);
-                }
-            }
-        }
-
-        // ----- ROBUST EVENT HANDLING -----
-
-        // Helper to get coordinates from mouse or touch event
         function getEventCoords(e) {
             if (e.touches && e.touches.length > 0) {
                 return { x: e.touches[0].clientX, y: e.touches[0].clientY };
@@ -608,44 +225,296 @@
             return { x: e.clientX, y: e.clientY };
         }
 
+        function canvasCoordsFromEvent(e) {
+            const rect = canvas.getBoundingClientRect();
+            const c = getEventCoords(e);
+            return {
+                x: c.x - rect.left,
+                y: c.y - rect.top
+            };
+        }
+
+        function strokeQuad(x1, y1, x2, y2, thickness, color, operation) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const len = Math.hypot(dx, dy);
+            if (len < 0.001) {
+                ctx.beginPath();
+                ctx.arc(x1, y1, thickness * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                return;
+            }
+            const nx = -dy / len;
+            const ny = dx / len;
+            const half = thickness * 0.5;
+
+            const p1x = x1 + nx * half;
+            const p1y = y1 + ny * half;
+            const p2x = x1 - nx * half;
+            const p2y = y1 - ny * half;
+            const p3x = x2 - nx * half;
+            const p3y = y2 - ny * half;
+            const p4x = x2 + nx * half;
+            const p4y = y2 + ny * half;
+
+            ctx.globalCompositeOperation = operation;
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(p1x, p1y);
+            ctx.lineTo(p4x, p4y);
+            ctx.lineTo(p3x, p3y);
+            ctx.lineTo(p2x, p2y);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function scratchLine(x1, y1, x2, y2, dist) {
+            // Distance factor: thicker near the connection, tapering down as points are farther apart.
+            // (This is what creates the "mycelium" scratch density.)
+            const distFactor = Math.max(0.2, (CONFIG.connectDistance - dist) / 10);
+            const finalThickness = state.brushSize * distFactor;
+            const jitter = CONFIG.baseJitter + (finalThickness * CONFIG.jitterMultiplier);
+
+            const signOp = state.mode === 'ink' ? 'source-over' : 'destination-out';
+            const drawInk = state.mode === 'ink' ? state.inkColor : '#000000';
+            const drawFill = state.mode === 'ink' ? state.fillColor : '#000000';
+
+            const marker = state.marker;
+
+            // Sprinkle marker draws bead drops along the segment.
+            if (marker === 'sprinkle') {
+                ctx.globalCompositeOperation = signOp;
+                ctx.fillStyle = drawFill;
+
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const segLen = Math.hypot(dx, dy) || 1;
+                const dotCount = Math.max(2, Math.floor(segLen / 14));
+
+                for (let i = 0; i < CONFIG.passes; i++) {
+                    for (let d = 0; d < dotCount; d++) {
+                        if (Math.random() < 0.15) continue; // sparse holes
+                        const t = Math.random();
+                        const cx = x1 + dx * t;
+                        const cy = y1 + dy * t;
+                        const noiseScale = jitter * 0.7;
+                        const px = cx + (Math.random() - 0.5) * noiseScale;
+                        const py = cy + (Math.random() - 0.5) * noiseScale;
+                        const r = Math.max(0.8, finalThickness * (0.18 + Math.random() * 0.45));
+
+                        ctx.beginPath();
+                        ctx.arc(px, py, r * 0.5, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        if (state.mirrorEnabled) {
+                            const mx = canvas.width - px;
+                            ctx.beginPath();
+                            ctx.arc(mx, py, r * 0.5, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            // Line marker: scratchy thick quads when Fill is enabled, otherwise stroke-only.
+            for (let i = 0; i < CONFIG.passes; i++) {
+                const jx1 = (Math.random() - 0.5) * jitter;
+                const jy1 = (Math.random() - 0.5) * jitter;
+                const jx2 = (Math.random() - 0.5) * jitter;
+                const jy2 = (Math.random() - 0.5) * jitter;
+
+                // Randomly skip for "glitch holes"
+                if (Math.random() <= 0.15) continue;
+
+                const px1 = x1 + jx1;
+                const py1 = y1 + jy1;
+                const px2 = x2 + jx2;
+                const py2 = y2 + jy2;
+
+                if (state.fillEnabled) {
+                    // Filled quad is the core of the jagged-edge "outline from solid" effect.
+                    strokeQuad(px1, py1, px2, py2, finalThickness, drawFill, signOp);
+                    if (state.mirrorEnabled) {
+                        strokeQuad(canvas.width - px1, py1, canvas.width - px2, py2, finalThickness, drawFill, signOp);
+                    }
+                } else {
+                    ctx.globalCompositeOperation = signOp;
+                    ctx.strokeStyle = drawInk;
+                    ctx.lineWidth = finalThickness;
+                    ctx.lineCap = 'square';
+                    ctx.lineJoin = 'bevel';
+                    ctx.beginPath();
+                    ctx.moveTo(px1, py1);
+                    ctx.lineTo(px2, py2);
+                    ctx.stroke();
+                    if (state.mirrorEnabled) {
+                        ctx.beginPath();
+                        ctx.moveTo(canvas.width - px1, py1);
+                        ctx.lineTo(canvas.width - px2, py2);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function addPoint(x, y) {
+            state.points.push({ x, y });
+            const startIndex = Math.max(0, state.points.length - 250);
+
+            for (let i = startIndex; i < state.points.length - 1; i++) {
+                const prev = state.points[i];
+                const p = state.points[state.points.length - 1];
+                if (!prev || !p) continue;
+
+                const dx = p.x - prev.x;
+                const dy = p.y - prev.y;
+                const dist = Math.hypot(dx, dy);
+
+                const dynamicConnect = CONFIG.connectDistance + state.brushSize;
+                if (dist < dynamicConnect) scratchLine(prev.x, prev.y, p.x, p.y, dist);
+            }
+        }
+
+        function clearAll() {
+            state.points = [];
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (state.mirrorEnabled) drawGuideline();
+        }
+
+        function startDrawing(e) {
+            state.isDrawing = true;
+            const p = canvasCoordsFromEvent(e);
+            addPoint(p.x, p.y);
+        }
+
+        function stopDrawing() {
+            state.isDrawing = false;
+            state.points.push(null);
+        }
+
+        function onMove(e) {
+            if (!state.isDrawing) return;
+            const p = canvasCoordsFromEvent(e);
+            const noiseScale = state.brushSize * 0.8;
+            const nx = (Math.random() - 0.5) * noiseScale;
+            const ny = (Math.random() - 0.5) * noiseScale;
+            addPoint(p.x + nx, p.y + ny);
+        }
+
         // Mouse events
-        canvas.addEventListener('mousedown', (e) => {
-            startDrawing(e);
-        });
-
-        canvas.addEventListener('mousemove', (e) => {
-            draw(e);
-        });
-
-        // CRITICAL FIX: Listen on WINDOW, not canvas, to catch mouseup anywhere
+        canvas.addEventListener('mousedown', (e) => startDrawing(e));
+        canvas.addEventListener('mousemove', (e) => onMove(e));
         window.addEventListener('mouseup', stopDrawing);
-
-        // Safety: stop drawing if window loses focus
         window.addEventListener('blur', stopDrawing);
 
-        // ----- TOUCH SUPPORT -----
-
+        // Touch events
         canvas.addEventListener('touchstart', (e) => {
-            e.preventDefault(); // Prevent scrolling
-            const coords = getEventCoords(e);
-            appState.isDrawing = true;
-            addPoint(coords.x, coords.y);
+            e.preventDefault();
+            const p = canvasCoordsFromEvent(e);
+            state.isDrawing = true;
+            addPoint(p.x, p.y);
         }, { passive: false });
 
         canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
-            if (!appState.isDrawing) return;
-            const coords = getEventCoords(e);
-            let noiseScale = appState.brushSize * 0.8;
-            let noiseX = (Math.random() - 0.5) * noiseScale;
-            let noiseY = (Math.random() - 0.5) * noiseScale;
-            addPoint(coords.x + noiseX, coords.y + noiseY);
+            if (!state.isDrawing) return;
+            const p = canvasCoordsFromEvent(e);
+            const noiseScale = state.brushSize * 0.8;
+            const nx = (Math.random() - 0.5) * noiseScale;
+            const ny = (Math.random() - 0.5) * noiseScale;
+            addPoint(p.x + nx, p.y + ny);
         }, { passive: false });
 
         canvas.addEventListener('touchend', stopDrawing);
         canvas.addEventListener('touchcancel', stopDrawing);
 
-    </script>
-</body>
+        function exportWithFilter() {
+            // Apply the jagged-edge SVG filter at export time.
+            // (Canvas CSS filter doesn't always export as expected.)
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = canvas.width;
+            tempCanvas.height = canvas.height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(canvas, 0, 0);
 
+            const img = new Image();
+            img.onload = () => {
+                const filterCanvas = document.createElement('canvas');
+                filterCanvas.width = canvas.width;
+                filterCanvas.height = canvas.height;
+                const filterCtx = filterCanvas.getContext('2d');
+
+                filterCtx.filter = 'url(#jagged-edge)';
+                filterCtx.drawImage(img, 0, 0);
+
+                const link = document.createElement('a');
+                link.download = 'elemenyt_mirror.png';
+                link.href = filterCanvas.toDataURL('image/png');
+                link.click();
+            };
+            img.src = tempCanvas.toDataURL();
+        }
+
+        // ----- UI BINDINGS -----
+        infoBtn?.addEventListener('click', () => {
+            infoOverlay.hidden = false;
+        });
+        infoClose?.addEventListener('click', () => {
+            infoOverlay.hidden = true;
+        });
+        infoOverlay?.addEventListener('click', (e) => {
+            if (e.target === infoOverlay) infoOverlay.hidden = true;
+        });
+
+        elModeInk?.addEventListener('click', () => setMode('ink'));
+        elModeCut?.addEventListener('click', () => setMode('cut'));
+        elMirror?.addEventListener('change', () => setMirror(elMirror.checked));
+
+        elStroke?.addEventListener('input', (e) => {
+            state.brushSize = parseInt(e.target.value, 10);
+            elStrokeVal.textContent = String(state.brushSize);
+        });
+
+        elMarker?.addEventListener('change', (e) => {
+            state.marker = e.target.value;
+        });
+
+        elFillEnabled?.addEventListener('change', (e) => {
+            state.fillEnabled = e.target.checked;
+        });
+
+        elBg?.addEventListener('input', (e) => {
+            state.bg = e.target.value;
+            document.body.style.backgroundColor = state.bg;
+        });
+        elInkColor?.addEventListener('input', (e) => { state.inkColor = e.target.value; });
+        elFillColor?.addEventListener('input', (e) => { state.fillColor = e.target.value; });
+
+        elClear?.addEventListener('click', () => clearAll());
+        elExport?.addEventListener('click', () => exportWithFilter());
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === '1') setMode('ink');
+            else if (e.key === '2') setMode('cut');
+            else if (e.key.toLowerCase() === 'm') setMirror(!state.mirrorEnabled);
+            else if (e.code === 'Space') {
+                e.preventDefault();
+                clearAll();
+            } else if (e.key.toLowerCase() === 's') {
+                exportWithFilter();
+            }
+        });
+
+        resize();
+        if (state.mirrorEnabled) drawGuideline();
+    </script>
+
+    <script src="page-transition.js"></script>
+</body>
 </html>
+
