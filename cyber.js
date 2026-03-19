@@ -475,8 +475,16 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
 
   const roughness = max(0, params.sketchRoughness);
   const rough01 = constrain(roughness / 20, 0, 1);
-  const passes = rough01 === 0 ? 1 : max(2, Math.round(lerp(3, 7, rough01)));
-  const skipChance = Math.pow(rough01, 1.35) * 0.22;
+
+  // Retune generate-mode texture to be more "hand-scratched" (not smooth).
+  const CONFIG = {
+    baseJitter: 3.8,
+    jitterMultiplier: 0.85,
+    passes: 6,
+    holeChance: 0.12,
+  };
+  const passes = rough01 === 0 ? 1 : CONFIG.passes + Math.round(rough01 * 2);
+  const skipChance = rough01 === 0 ? 0 : lerp(CONFIG.holeChance * 0.2, CONFIG.holeChance * 2.2, Math.pow(rough01, 1.05));
 
   const w = width, h = height;
   const cx1 = params.mirrorX ? Math.min(x1, w - x1) : x1;
@@ -495,10 +503,11 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   const ty = dy / segLen;
   const nx = -ty;
   const ny = tx;
-
-  const baseJitter = 1.7;
-  const jitterMultiplier = 0.45;
-  const jitter = rough01 * constrain(baseJitter + finalThickness * jitterMultiplier, 0, 6);
+  const jitter = rough01 === 0 ? 0 : constrain(
+    (CONFIG.baseJitter + finalThickness * CONFIG.jitterMultiplier) * rough01,
+    0,
+    10
+  );
 
   const signX = params.mirrorX ? (x1 > w - x1 ? -1 : 1) : 1;
   const signY = params.mirrorY ? (y1 > h - y1 ? -1 : 1) : 1;
@@ -535,6 +544,8 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
     ctx.lineJoin = 'bevel';
 
     for (let p = 0; p < passes; p++) {
+      // Add small thickness variation per pass so the scratch feels less uniform.
+      const thicknessWiggle = rough01 === 0 ? 1 : lerp(0.85, 1.25, Math.pow(rng(), 0.7));
       const jx1 = (rng() - 0.5) * jitter;
       const jy1 = (rng() - 0.5) * jitter;
       const jx2 = (rng() - 0.5) * jitter;
@@ -543,7 +554,7 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
       if (rng() <= skipChance) continue;
 
       ctx.beginPath();
-      ctx.lineWidth = finalThickness;
+      ctx.lineWidth = finalThickness * thicknessWiggle;
       ctx.moveTo(x1 + jx1 * signX, y1 + jy1 * signY);
       ctx.lineTo(x2 + jx2 * signX, y2 + jy2 * signY);
       ctx.stroke();
@@ -674,18 +685,45 @@ function addBranchStubsForGenerate(connections) {
 }
 
 function pathsToConnections(pathList) {
+  // Make generate-mode connections less "mechanically smooth" by connecting
+  // variable-length jumps instead of only adjacent samples.
   const conns = [];
-  for (const path of pathList) {
+  const taper = constrain(params.genTaper / 100, 0, 1);
+  const rough01 = constrain(params.sketchRoughness / 20, 0, 1);
+  const maxJump = Math.floor(map(params.genReach, 60, 220, 2, 14));
+  const baseSeed = (params.seed | 0) ^ 0x9e3779b9;
+
+  for (let pathIdx = 0; pathIdx < pathList.length; pathIdx++) {
+    const path = pathList[pathIdx];
     if (path.length < 2) continue;
-    for (let i = 1; i < path.length; i++) {
-      const a = path[i - 1], b = path[i];
+
+    for (let startIdx = 0; startIdx < path.length - 1; startIdx++) {
+      const a = path[startIdx];
+      const defaultEnd = startIdx + 1;
+
+      // Deterministic per-segment rng.
+      const rng = makeRng((baseSeed + pathIdx * 1013 + startIdx * 10007) | 0);
+
+      // At higher roughness, bias toward longer "scratch" jumps.
+      const jumpChance = 0.12 + 0.55 * Math.pow(rough01, 0.8);
+      let endIdx = defaultEnd;
+      if (defaultEnd + 1 < path.length && rng() < jumpChance) {
+        const maxExtra = Math.min(maxJump, (path.length - 1) - defaultEnd);
+        const extra = maxExtra > 0 ? Math.floor(rng() * maxExtra) : 0;
+        endIdx = defaultEnd + extra;
+      }
+
+      // Small amount of deliberate sparsity at high roughness (human gaps).
+      if (rough01 > 0 && rng() < (0.02 + 0.06 * Math.pow(rough01, 1.1))) continue;
+
+      const b = path[endIdx];
       const d = Math.hypot(b.x - a.x, b.y - a.y);
-      const t = i / (path.length - 1);
-      const taper = constrain(params.genTaper / 100, 0, 1);
+      const t = startIdx / (path.length - 1);
       const tm = 1 - taper * t;
       conns.push({ px: a.x, py: a.y, x: b.x, y: b.y, d, tm });
     }
   }
+
   return conns;
 }
 
