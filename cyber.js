@@ -376,15 +376,17 @@ function mirrorConnections(conns) {
 function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessMul) {
   const baseThickness = (params.strokeW + (widthAdd || 0));
   const tm = thicknessMul == null ? 1 : thicknessMul;
-  const taperFactor = 0.2 + 0.8 * (tm * tm); // stronger size taper toward endpoints
+  const taperFactor = 0.2 + 0.8 * (tm * tm); // endpoint taper -> thickness
   const finalThickness = baseThickness * taperFactor;
+
   const roughness = max(0, params.sketchRoughness);
   const rough01 = constrain(roughness / 20, 0, 1);
-  // Roughness should "erode" edges, not inflate the stroke footprint.
-  // At rough01=0: no jitter + no skipping (perfectly smooth).
-  // At rough01=1: aggressive micro-jitter + skipping for sharp rough edges.
-  const passes = max(1, Math.floor(params.sketchDensity));
-  const skipChance = Math.pow(rough01, 1.15) * 0.85;
+
+  // Match the reference "sauce": multiple passes with jitter, but with
+  // rough01=0 doing exactly one clean draw (no overdraw).
+  const densityNorm = constrain(params.sketchDensity / 16, 0, 1);
+  const passes = max(1, Math.floor(lerp(1, 7, densityNorm) * (0.12 + 0.88 * rough01)));
+  const skipChance = Math.pow(rough01, 1.35) * 0.22;
 
   const seed = (Math.round(x1 * 73) * 374761 + Math.round(y1 * 73) * 668265 +
                 Math.round(x2 * 73) * 214748 + Math.round(y2 * 73) * 110351) | 0;
@@ -397,9 +399,11 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   const ty = dy / segLen;
   const nx = -ty;
   const ny = tx;
-  const edgeJitter = rough01 * (finalThickness * 1.1 + 0.8);
-  const subSegs = 1 + Math.floor(rough01 * 12);
-  const hardEdge = rough01 >= 0.7;
+
+  // Jitter amplitude drives roughness "edge bite" (not thickness).
+  const baseJitter = 2.3;
+  const jitterMultiplier = 1.0;
+  const jitter = rough01 * (baseJitter + finalThickness * jitterMultiplier);
 
   const drawColor = colorOverride || params.ink;
   if (params.drawOperation === 'ink') {
@@ -413,46 +417,38 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   }
 
   if (params.strokeStyle === 'sprinkle') {
-    const dots = max(1, Math.floor(lerp(passes * 0.25, passes * 1.6, rough01)));
-    const dotSkip = clamp01(Math.pow(rough01, 1.2) * 0.65);
-    for (let i = 0; i < dots; i++) {
+    const dotCount = max(1, Math.floor(lerp(2, 10, densityNorm) * (0.25 + 0.75 * rough01)));
+    const dotSkip = clamp01(Math.pow(rough01, 1.35) * 0.6);
+    for (let i = 0; i < dotCount; i++) {
       const t = rng();
-      // Position along segment + small normal offset
       const cx = x1 + dx * t;
       const cy = y1 + dy * t;
-      const off = (rng() - 0.5) * edgeJitter;
-      const px = cx + nx * off + tx * (rng() - 0.5) * edgeJitter * 0.12;
-      const py = cy + ny * off + ty * (rng() - 0.5) * edgeJitter * 0.12;
-      const sz = finalThickness * (0.14 + rng() * (0.18 + 0.55 * rough01));
+      const off = (rng() - 0.5) * jitter;
+      const px = cx + nx * off;
+      const py = cy + ny * off;
+      const sz = finalThickness * lerp(0.35, 0.75, rng()) * (0.35 + 0.65 * rough01);
       if (rng() < dotSkip) continue;
       ctx.beginPath();
       ctx.arc(px, py, sz * 0.5, 0, 6.2832);
       ctx.fill();
     }
   } else {
+    ctx.lineCap = 'square';
+    ctx.lineJoin = 'bevel';
+
     for (let p = 0; p < passes; p++) {
-      // Draw a jagged polyline by offsetting each micro-segment independently.
-      for (let s = 0; s < subSegs; s++) {
-        if (rng() < skipChance) continue;
-        const tA = s / subSegs;
-        const tB = (s + 1) / subSegs;
+      const jx1 = (rng() - 0.5) * jitter;
+      const jy1 = (rng() - 0.5) * jitter;
+      const jx2 = (rng() - 0.5) * jitter;
+      const jy2 = (rng() - 0.5) * jitter;
 
-        const ax = x1 + dx * tA;
-        const ay = y1 + dy * tA;
-        const bx = x1 + dx * tB;
-        const by = y1 + dy * tB;
+      if (rng() <= skipChance) continue;
 
-        const offA = (rng() - 0.5) * edgeJitter;
-        const offB = (rng() - 0.5) * edgeJitter;
-
-        ctx.beginPath();
-        ctx.lineWidth = finalThickness;
-        ctx.lineCap = hardEdge ? 'butt' : 'round';
-        ctx.lineJoin = hardEdge ? 'miter' : 'round';
-        ctx.moveTo(ax + nx * offA, ay + ny * offA);
-        ctx.lineTo(bx + nx * offB, by + ny * offB);
-        ctx.stroke();
-      }
+      ctx.beginPath();
+      ctx.lineWidth = finalThickness;
+      ctx.moveTo(x1 + jx1, y1 + jy1);
+      ctx.lineTo(x2 + jx2, y2 + jy2);
+      ctx.stroke();
     }
   }
 
