@@ -65,10 +65,19 @@
                             </div>
 
                             <div class="control-row">
+                                <label for="el-outline">Outline thickness</label>
+                                <input type="range" id="el-outline" min="0.2" max="3.0" value="1.0" step="0.05">
+                                <span class="param-value" id="val-el-outline">1.00</span>
+                            </div>
+
+                            <div class="control-row">
                                 <label for="el-marker">Marker</label>
                                 <select id="el-marker" class="select-input">
                                     <option value="line" selected>Line</option>
                                     <option value="sprinkle">Sprinkle</option>
+                                    <option value="spray">Spray</option>
+                                    <option value="dash">Dash</option>
+                                    <option value="hatch">Hatch</option>
                                 </select>
                             </div>
 
@@ -112,10 +121,10 @@
             <filter id="jagged-edge" color-interpolation-filters="sRGB">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
                 <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40" result="solidBlob" />
-                <feMorphology operator="dilate" radius="1.0" in="solidBlob" result="fatBlob" />
+                <feMorphology id="jagged-dilate" operator="dilate" radius="1.0" in="solidBlob" result="fatBlob" />
                 <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
-                <feFlood flood-color="#000000" result="color" />
-                <feComposite in="color" in2="outline" operator="in" />
+                <!-- Colorize the outline using the SourceGraphic's pixels -->
+                <feComposite in="SourceGraphic" in2="outline" operator="in" />
             </filter>
         </defs>
     </svg>
@@ -148,6 +157,8 @@
         const elMirror = el('el-mirror');
         const elStroke = el('el-stroke');
         const elStrokeVal = el('val-el-stroke');
+        const elOutline = el('el-outline');
+        const elOutlineVal = el('val-el-outline');
         const elMarker = el('el-marker');
         const elFillEnabled = el('el-fill-enabled');
         const elBg = el('el-bg');
@@ -179,6 +190,7 @@
             isDrawing: false,
             mirrorEnabled: true,
             marker: 'line', // 'line' | 'sprinkle'
+            outlineRadius: 1.0,
             fillEnabled: true,
             bg: '#ffffff',
             inkColor: '#000000',
@@ -187,6 +199,12 @@
             // (For now, strokes keep their original pixels; we only apply params to new strokes.)
             points: []
         };
+
+        function applyOutlineRadius() {
+            const node = document.getElementById('jagged-dilate');
+            if (!node) return;
+            node.setAttribute('radius', String(state.outlineRadius));
+        }
 
         function setMode(mode) {
             state.mode = mode;
@@ -214,10 +232,10 @@
             canvas.width = w;
             canvas.height = h;
             ctx.setTransform(1, 0, 0, 1, 0, 0);
-            // Paint background so the output filter never has to reason about
-            // an empty/fully-transparent canvas.
-            ctx.fillStyle = state.bg;
-            ctx.fillRect(0, 0, w, h);
+            // Keep the canvas itself transparent so the SVG filter only processes
+            // the strokes/ink we draw (not the background).
+            ctx.clearRect(0, 0, w, h);
+            container.style.backgroundColor = state.bg;
             document.body.style.backgroundColor = state.bg;
             if (state.mirrorEnabled) drawGuideline();
         }
@@ -303,36 +321,201 @@
 
             const marker = state.marker;
 
-            // Sprinkle marker draws bead drops along the segment.
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const segLen = Math.hypot(dx, dy) || 1;
+
+            // Sprinkle marker: bead drops along the segment.
             if (marker === 'sprinkle') {
                 ctx.globalCompositeOperation = signOp;
-                ctx.fillStyle = drawFill;
+                const noiseScale = jitter * 0.7;
 
-                const dx = x2 - x1;
-                const dy = y2 - y1;
-                const segLen = Math.hypot(dx, dy) || 1;
                 const dotCount = Math.max(2, Math.floor(segLen / 14));
-
                 for (let i = 0; i < CONFIG.passes; i++) {
                     for (let d = 0; d < dotCount; d++) {
                         if (Math.random() < 0.15) continue; // sparse holes
                         const t = Math.random();
                         const cx = x1 + dx * t;
                         const cy = y1 + dy * t;
-                        const noiseScale = jitter * 0.7;
                         const px = cx + (Math.random() - 0.5) * noiseScale;
                         const py = cy + (Math.random() - 0.5) * noiseScale;
                         const r = Math.max(0.8, finalThickness * (0.18 + Math.random() * 0.45));
 
-                        ctx.beginPath();
-                        ctx.arc(px, py, r * 0.5, 0, Math.PI * 2);
-                        ctx.fill();
+                        if (state.fillEnabled) {
+                            ctx.fillStyle = drawFill;
+                            ctx.beginPath();
+                            ctx.arc(px, py, r * 0.5, 0, Math.PI * 2);
+                            ctx.fill();
+                        } else {
+                            ctx.strokeStyle = drawInk;
+                            ctx.lineWidth = Math.max(0.6, r * 0.35);
+                            ctx.lineCap = 'square';
+                            ctx.beginPath();
+                            ctx.arc(px, py, r * 0.5, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
 
                         if (state.mirrorEnabled) {
                             const mx = canvas.width - px;
+                            if (state.fillEnabled) {
+                                ctx.beginPath();
+                                ctx.arc(mx, py, r * 0.5, 0, Math.PI * 2);
+                                ctx.fill();
+                            } else {
+                                ctx.beginPath();
+                                ctx.arc(mx, py, r * 0.5, 0, Math.PI * 2);
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                }
+
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            // Spray marker: denser puff of beads around the segment.
+            if (marker === 'spray') {
+                ctx.globalCompositeOperation = signOp;
+                const noiseScale = jitter * 1.1;
+                const dotCount = Math.max(10, Math.floor(segLen / 6));
+
+                for (let i = 0; i < CONFIG.passes; i++) {
+                    for (let d = 0; d < dotCount; d++) {
+                        if (Math.random() < 0.05) continue; // almost filled spray
+                        const t = Math.random();
+                        const cx = x1 + dx * t;
+                        const cy = y1 + dy * t;
+                        const px = cx + (Math.random() - 0.5) * noiseScale;
+                        const py = cy + (Math.random() - 0.5) * noiseScale;
+                        const r = Math.max(0.6, finalThickness * (0.12 + Math.random() * 0.32));
+
+                        if (state.fillEnabled) {
+                            ctx.fillStyle = drawFill;
                             ctx.beginPath();
-                            ctx.arc(mx, py, r * 0.5, 0, Math.PI * 2);
+                            ctx.arc(px, py, r * 0.55, 0, Math.PI * 2);
                             ctx.fill();
+                        } else {
+                            ctx.strokeStyle = drawInk;
+                            ctx.lineWidth = Math.max(0.6, r * 0.35);
+                            ctx.beginPath();
+                            ctx.arc(px, py, r * 0.55, 0, Math.PI * 2);
+                            ctx.stroke();
+                        }
+
+                        if (state.mirrorEnabled) {
+                            const mx = canvas.width - px;
+                            if (state.fillEnabled) {
+                                ctx.beginPath();
+                                ctx.arc(mx, py, r * 0.55, 0, Math.PI * 2);
+                                ctx.fill();
+                            } else {
+                                ctx.beginPath();
+                                ctx.arc(mx, py, r * 0.55, 0, Math.PI * 2);
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                }
+
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            // Dash marker: short jittered segments with gaps.
+            if (marker === 'dash') {
+                ctx.lineCap = 'square';
+                ctx.lineJoin = 'bevel';
+                const dashCount = Math.max(3, Math.floor(segLen / 10));
+                const gapBias = state.fillEnabled ? 0.22 : 0.18;
+
+                for (let pass = 0; pass < CONFIG.passes; pass++) {
+                    for (let k = 0; k < dashCount; k++) {
+                        const tA = k / dashCount;
+                        const tB = (k + 1) / dashCount;
+                        if (Math.random() < gapBias) continue;
+
+                        const jxA = (Math.random() - 0.5) * jitter;
+                        const jyA = (Math.random() - 0.5) * jitter;
+                        const jxB = (Math.random() - 0.5) * jitter;
+                        const jyB = (Math.random() - 0.5) * jitter;
+
+                        const ax = x1 + dx * tA + jxA;
+                        const ay = y1 + dy * tA + jyA;
+                        const bx = x1 + dx * tB + jxB;
+                        const by = y1 + dy * tB + jyB;
+
+                        if (state.fillEnabled) {
+                            strokeQuad(ax, ay, bx, by, finalThickness, drawFill, signOp);
+                            if (state.mirrorEnabled) {
+                                strokeQuad(canvas.width - ax, ay, canvas.width - bx, by, finalThickness, drawFill, signOp);
+                            }
+                        } else {
+                            ctx.globalCompositeOperation = signOp;
+                            ctx.strokeStyle = drawInk;
+                            ctx.lineWidth = finalThickness;
+                            ctx.beginPath();
+                            ctx.moveTo(ax, ay);
+                            ctx.lineTo(bx, by);
+                            ctx.stroke();
+                            if (state.mirrorEnabled) {
+                                ctx.beginPath();
+                                ctx.moveTo(canvas.width - ax, ay);
+                                ctx.lineTo(canvas.width - bx, by);
+                                ctx.stroke();
+                            }
+                        }
+                    }
+                }
+
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            // Hatch marker: perpendicular scratch strokes sampled along the segment.
+            if (marker === 'hatch') {
+                ctx.globalCompositeOperation = signOp;
+                const nx = -dy / segLen;
+                const ny = dx / segLen;
+                const sampleCount = Math.max(3, Math.floor(segLen / 18));
+                const hatchLen = finalThickness * 2.2;
+
+                for (let pass = 0; pass < CONFIG.passes; pass++) {
+                    for (let s = 0; s < sampleCount; s++) {
+                        if (Math.random() < 0.08) continue;
+                        const t = s / Math.max(1, sampleCount - 1);
+                        const cx = x1 + dx * t;
+                        const cy = y1 + dy * t;
+
+                        const jx = (Math.random() - 0.5) * jitter;
+                        const jy = (Math.random() - 0.5) * jitter;
+                        const px = cx + jx;
+                        const py = cy + jy;
+
+                        const len = hatchLen * (0.7 + Math.random() * 0.8);
+                        const ax = px - nx * len * 0.5;
+                        const ay = py - ny * len * 0.5;
+                        const bx = px + nx * len * 0.5;
+                        const by = py + ny * len * 0.5;
+
+                        if (state.fillEnabled) {
+                            strokeQuad(ax, ay, bx, by, finalThickness * 0.9, drawFill, signOp);
+                            if (state.mirrorEnabled) {
+                                strokeQuad(canvas.width - ax, ay, canvas.width - bx, by, finalThickness * 0.9, drawFill, signOp);
+                            }
+                        } else {
+                            ctx.strokeStyle = drawInk;
+                            ctx.lineWidth = finalThickness * 0.9;
+                            ctx.beginPath();
+                            ctx.moveTo(ax, ay);
+                            ctx.lineTo(bx, by);
+                            ctx.stroke();
+                            if (state.mirrorEnabled) {
+                                ctx.beginPath();
+                                ctx.moveTo(canvas.width - ax, ay);
+                                ctx.lineTo(canvas.width - bx, by);
+                                ctx.stroke();
+                            }
                         }
                     }
                 }
@@ -494,6 +677,10 @@
                 filterCanvas.height = canvas.height;
                 const filterCtx = filterCanvas.getContext('2d');
 
+                // Background first (unfiltered), then apply the SVG filter when drawing strokes.
+                filterCtx.fillStyle = state.bg;
+                filterCtx.fillRect(0, 0, canvas.width, canvas.height);
+
                 filterCtx.filter = 'url(#jagged-edge)';
                 filterCtx.drawImage(img, 0, 0);
 
@@ -525,6 +712,12 @@
             elStrokeVal.textContent = String(state.brushSize);
         });
 
+        elOutline?.addEventListener('input', (e) => {
+            state.outlineRadius = parseFloat(e.target.value);
+            elOutlineVal.textContent = state.outlineRadius.toFixed(2);
+            applyOutlineRadius();
+        });
+
         elMarker?.addEventListener('change', (e) => {
             state.marker = e.target.value;
         });
@@ -554,6 +747,8 @@
                 exportWithFilter();
             }
         });
+
+        applyOutlineRadius();
 
         // Resize after layout settles so the canvas gets real dimensions.
         resize();
