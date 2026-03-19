@@ -138,11 +138,15 @@
         }
 
         #sketch-container canvas {
-            -webkit-filter: url(#jagged-edge);
-            filter: url(#jagged-edge);
             width: 100%;
             height: 100%;
             touch-action: none;
+        }
+
+        /* Only enable jagged-outline filter when Fill is OFF */
+        #sketch-container.el-outline-filter canvas {
+            -webkit-filter: url(#jagged-edge);
+            filter: url(#jagged-edge);
         }
     </style>
 
@@ -204,6 +208,38 @@
             const node = document.getElementById('jagged-dilate');
             if (!node) return;
             node.setAttribute('radius', String(state.outlineRadius));
+            // Force a filter re-apply so the updated radius becomes visible.
+            const container = el('sketch-container');
+            if (container.classList.contains('el-outline-filter')) {
+                container.classList.remove('el-outline-filter');
+                requestAnimationFrame(() => container.classList.add('el-outline-filter'));
+            }
+        }
+
+        function updateFilterMode() {
+            const container = el('sketch-container');
+            if (state.fillEnabled) container.classList.remove('el-outline-filter');
+            else container.classList.add('el-outline-filter');
+        }
+
+        const UNDO_LIMIT = 20;
+        const undoStack = [];
+
+        function pushUndoSnapshot() {
+            const snap = document.createElement('canvas');
+            snap.width = canvas.width;
+            snap.height = canvas.height;
+            const sctx = snap.getContext('2d');
+            sctx.drawImage(canvas, 0, 0);
+            undoStack.push(snap);
+            if (undoStack.length > UNDO_LIMIT) undoStack.shift();
+        }
+
+        function undo() {
+            if (undoStack.length === 0) return;
+            const snap = undoStack.pop();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(snap, 0, 0);
         }
 
         function setMode(mode) {
@@ -610,11 +646,13 @@
 
         function clearAll() {
             state.points = [];
+            undoStack.length = 0;
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             if (state.mirrorEnabled) drawGuideline();
         }
 
         function startDrawing(e) {
+            pushUndoSnapshot();
             state.isDrawing = true;
             const p = canvasCoordsFromEvent(e);
             addPoint(p.x, p.y);
@@ -643,6 +681,7 @@
         // Touch events
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
+            pushUndoSnapshot();
             const p = canvasCoordsFromEvent(e);
             state.isDrawing = true;
             addPoint(p.x, p.y);
@@ -664,32 +703,38 @@
         function exportWithFilter() {
             // Apply the jagged-edge SVG filter at export time.
             // (Canvas CSS filter doesn't always export as expected.)
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = canvas.width;
-            tempCanvas.height = canvas.height;
-            const tempCtx = tempCanvas.getContext('2d');
-            tempCtx.drawImage(canvas, 0, 0);
+            const outCanvas = document.createElement('canvas');
+            outCanvas.width = canvas.width;
+            outCanvas.height = canvas.height;
+            const outCtx = outCanvas.getContext('2d');
 
-            const img = new Image();
-            img.onload = () => {
-                const filterCanvas = document.createElement('canvas');
-                filterCanvas.width = canvas.width;
-                filterCanvas.height = canvas.height;
-                const filterCtx = filterCanvas.getContext('2d');
+            // Always include background in the exported PNG.
+            outCtx.fillStyle = state.bg;
+            outCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // Background first (unfiltered), then apply the SVG filter when drawing strokes.
-                filterCtx.fillStyle = state.bg;
-                filterCtx.fillRect(0, 0, canvas.width, canvas.height);
-
-                filterCtx.filter = 'url(#jagged-edge)';
-                filterCtx.drawImage(img, 0, 0);
-
+            if (state.fillEnabled) {
+                // Solid fill mode: no SVG outline filter.
+                outCtx.drawImage(canvas, 0, 0);
                 const link = document.createElement('a');
                 link.download = 'elemenyt_mirror.png';
-                link.href = filterCanvas.toDataURL('image/png');
+                link.href = outCanvas.toDataURL('image/png');
                 link.click();
-            };
-            img.src = tempCanvas.toDataURL();
+                return;
+            }
+
+            // Outline mode: filter the strokes-only layer, then composite over background.
+            const filteredCanvas = document.createElement('canvas');
+            filteredCanvas.width = canvas.width;
+            filteredCanvas.height = canvas.height;
+            const fctx = filteredCanvas.getContext('2d');
+            fctx.filter = 'url(#jagged-edge)';
+            fctx.drawImage(canvas, 0, 0);
+
+            outCtx.drawImage(filteredCanvas, 0, 0);
+            const link = document.createElement('a');
+            link.download = 'elemenyt_mirror.png';
+            link.href = outCanvas.toDataURL('image/png');
+            link.click();
         }
 
         // ----- UI BINDINGS -----
@@ -724,6 +769,9 @@
 
         elFillEnabled?.addEventListener('change', (e) => {
             state.fillEnabled = e.target.checked;
+            updateFilterMode();
+            // If we're switching into outline mode, make sure the filter uses the latest radius.
+            applyOutlineRadius();
         });
 
         elBg?.addEventListener('input', (e) => {
@@ -737,6 +785,11 @@
         elExport?.addEventListener('click', () => exportWithFilter());
 
         window.addEventListener('keydown', (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key && e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                undo();
+                return;
+            }
             if (e.key === '1') setMode('ink');
             else if (e.key === '2') setMode('cut');
             else if (e.key.toLowerCase() === 'm') setMirror(!state.mirrorEnabled);
@@ -749,6 +802,7 @@
         });
 
         applyOutlineRadius();
+        updateFilterMode();
 
         // Resize after layout settles so the canvas gets real dimensions.
         resize();
