@@ -52,6 +52,7 @@ const params = {
   outlineEnabled: false,
   outlineColor: '#888888',
   outlineWidth: 2,
+  strokeStyle: 'line',
   sketchRoughness: 4,
   sketchDensity: 6,
   sketchReach: 50
@@ -184,12 +185,14 @@ function regenerate() {
     }
   }
 
-  for (const path of warped) {
+  const halfPathsFinal = warped;
+  paths = [];
+  for (const path of halfPathsFinal) {
     const mirrored = createMirroredPaths(path);
     for (const p of mirrored) paths.push(p);
   }
 
-  renderPathsToBuffer(paths);
+  renderPathsToBufferFromHalf(halfPathsFinal);
   buildCurveHashFromPaths(paths);
   redraw();
 }
@@ -352,16 +355,30 @@ function makeRng(seed) {
 
 /* ===== MYCELIUM SCRATCH-LINE DRAWING ENGINE ===== */
 
-function scratchLine(ctx, x1, y1, x2, y2, d, mirror, colorOverride, widthAdd, thicknessMul) {
-  const reach = mirror ? params.sketchReach : params.genReach;
+function mirrorConnections(conns) {
+  if (!params.mirrorX && !params.mirrorY) return conns;
+  const out = conns.slice();
+  const w = width, h = height;
+  if (params.mirrorX) {
+    for (const c of conns) out.push({ px: w - c.px, py: c.py, x: w - c.x, y: c.y, d: c.d, tm: c.tm });
+  }
+  if (params.mirrorY) {
+    for (const c of conns) out.push({ px: c.px, py: h - c.py, x: c.x, y: h - c.y, d: c.d, tm: c.tm });
+  }
+  if (params.mirrorX && params.mirrorY) {
+    for (const c of conns) out.push({ px: w - c.px, py: h - c.py, x: w - c.x, y: h - c.y, d: c.d, tm: c.tm });
+  }
+  return out;
+}
+
+function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessMul) {
+  const reach = params.drawMode ? params.sketchReach : params.genReach;
   const taperByDistance = constrain(params.strokeTaper / 100, 0, 1);
   const distMul = lerp(1, constrain(1 - d / max(1, reach), 0.25, 1), taperByDistance);
   const finalThickness = (params.strokeW + (widthAdd || 0)) * distMul * (thicknessMul == null ? 1 : thicknessMul);
   const roughness = params.sketchRoughness;
   const jitter = roughness * 0.8 + roughness * finalThickness * 0.15;
   const passes = params.sketchDensity;
-  const w = width;
-  const h = height;
   const useRound = roughness <= 2;
   const skipChance = roughness > 3 ? Math.min((roughness - 3) / 50, 0.18) : 0;
 
@@ -380,48 +397,44 @@ function scratchLine(ctx, x1, y1, x2, y2, d, mirror, colorOverride, widthAdd, th
     ctx.fillStyle = 'rgba(0,0,0,1)';
   }
 
-  for (let i = 0; i < passes; i++) {
-    const jx1 = (rng() - 0.5) * jitter;
-    const jy1 = (rng() - 0.5) * jitter;
-    const jx2 = (rng() - 0.5) * jitter;
-    const jy2 = (rng() - 0.5) * jitter;
-
-    if (rng() > skipChance) {
-      const px1 = x1 + jx1, py1 = y1 + jy1;
-      const px2 = x2 + jx2, py2 = y2 + jy2;
-
-      ctx.beginPath();
-      ctx.lineWidth = finalThickness;
-      ctx.lineCap = useRound ? 'round' : 'square';
-      ctx.lineJoin = useRound ? 'round' : 'bevel';
-      ctx.moveTo(px1, py1);
-      ctx.lineTo(px2, py2);
-
-      if (mirror) {
-        if (params.mirrorX) {
-          ctx.moveTo(w - px1, py1);
-          ctx.lineTo(w - px2, py2);
-        }
-        if (params.mirrorY) {
-          ctx.moveTo(px1, h - py1);
-          ctx.lineTo(px2, h - py2);
-        }
-        if (params.mirrorX && params.mirrorY) {
-          ctx.moveTo(w - px1, h - py1);
-          ctx.lineTo(w - px2, h - py2);
-        }
+  if (params.strokeStyle === 'sprinkle') {
+    const count = max(1, floor(passes * 0.6));
+    for (let i = 0; i < count; i++) {
+      const t = rng();
+      const px = x1 + (x2 - x1) * t + (rng() - 0.5) * jitter * 1.5;
+      const py = y1 + (y2 - y1) * t + (rng() - 0.5) * jitter * 1.5;
+      const sz = finalThickness * (0.3 + rng() * 0.7);
+      if (rng() > skipChance) {
+        ctx.beginPath();
+        ctx.arc(px, py, sz * 0.5, 0, 6.2832);
+        ctx.fill();
       }
+    }
+  } else {
+    for (let i = 0; i < passes; i++) {
+      const jx1 = (rng() - 0.5) * jitter;
+      const jy1 = (rng() - 0.5) * jitter;
+      const jx2 = (rng() - 0.5) * jitter;
+      const jy2 = (rng() - 0.5) * jitter;
 
-      ctx.stroke();
+      if (rng() > skipChance) {
+        ctx.beginPath();
+        ctx.lineWidth = finalThickness;
+        ctx.lineCap = useRound ? 'round' : 'square';
+        ctx.lineJoin = useRound ? 'round' : 'bevel';
+        ctx.moveTo(x1 + jx1, y1 + jy1);
+        ctx.lineTo(x2 + jx2, y2 + jy2);
+        ctx.stroke();
+      }
     }
   }
 
   ctx.globalCompositeOperation = 'source-over';
 }
 
-function drawConnections(ctx, connections, mirror, colorOverride, widthAdd) {
+function drawConnections(ctx, connections, colorOverride, widthAdd) {
   for (const c of connections) {
-    scratchLine(ctx, c.px, c.py, c.x, c.y, c.d, mirror, colorOverride, widthAdd, c.tm);
+    scratchLine(ctx, c.px, c.py, c.x, c.y, c.d, colorOverride, widthAdd, c.tm);
   }
 }
 
@@ -457,28 +470,29 @@ function addBranchStubs(connections, reachPx, count, amount01) {
   return out;
 }
 
-function drawWithOutlineFill(ctx, conns, mirror) {
+function drawWithOutlineFill(ctx, conns, doMirror) {
   const ow = params.outlineWidth * 2;
   const savedOp = params.drawOperation;
 
-  const sketchBranches = params.sketchBranchEnabled
+  const branches = (params.drawMode && params.sketchBranchEnabled)
     ? addBranchStubs(conns, params.sketchBranchReach, params.sketchBranchCount, params.sketchBranching / 100)
     : [];
 
-  const full = sketchBranches.length ? conns.concat(sketchBranches) : conns;
+  const base = branches.length ? conns.concat(branches) : conns;
+  const full = doMirror ? mirrorConnections(base) : base;
 
   if (params.outlineEnabled) {
     params.drawOperation = 'ink';
-    drawConnections(ctx, full, mirror, params.outlineColor, ow);
+    drawConnections(ctx, full, params.outlineColor, ow);
     if (!params.fillEnabled) {
       params.drawOperation = 'cut';
-      drawConnections(ctx, full, mirror, null, 0);
+      drawConnections(ctx, full, null, 0);
     }
   }
 
   if (params.fillEnabled) {
     params.drawOperation = 'ink';
-    drawConnections(ctx, full, mirror, null, 0);
+    drawConnections(ctx, full, null, 0);
   }
 
   params.drawOperation = savedOp;
@@ -563,6 +577,11 @@ function addDrawPoint(x, y) {
   drawWithOutlineFill(ctx, conns, true);
 }
 
+function addBranchStubsForGenerate(connections) {
+  if (!params.branchEnabledGen) return [];
+  return addBranchStubs(connections, params.branchReachGen, params.branchCountGen, params.branching / 100);
+}
+
 function pathsToConnections(pathList) {
   const conns = [];
   for (const path of pathList) {
@@ -587,6 +606,39 @@ function renderPathsToBuffer(pathList) {
   const web = buildGenerateWebbing(pathList);
   const full = web.length ? conns.concat(web) : conns;
   drawWithOutlineFill(ctx, full, false);
+  params.drawOperation = savedOp;
+}
+
+function renderPathsToBufferFromHalf(halfPaths) {
+  drawBuffer.clear();
+  const ctx = drawBuffer.drawingContext;
+  const savedOp = params.drawOperation;
+
+  const conns = pathsToConnections(halfPaths);
+  const web = buildGenerateWebbing(halfPaths);
+  let base = web.length ? conns.concat(web) : conns;
+
+  const genBranches = params.branchEnabledGen
+    ? addBranchStubs(base, params.branchReachGen, params.branchCountGen, params.branching / 100)
+    : [];
+  if (genBranches.length) base = base.concat(genBranches);
+
+  const mirrored = mirrorConnections(base);
+
+  const ow = params.outlineWidth * 2;
+  if (params.outlineEnabled) {
+    params.drawOperation = 'ink';
+    drawConnections(ctx, mirrored, params.outlineColor, ow);
+    if (!params.fillEnabled) {
+      params.drawOperation = 'cut';
+      drawConnections(ctx, mirrored, null, 0);
+    }
+  }
+  if (params.fillEnabled) {
+    params.drawOperation = 'ink';
+    drawConnections(ctx, mirrored, null, 0);
+  }
+
   params.drawOperation = savedOp;
 }
 
@@ -631,6 +683,8 @@ function reRenderSketch() {
   const conns = buildSketchConnections();
   drawWithOutlineFill(ctx, conns, true);
   params.drawOperation = savedOp;
+
+  buildCurveHashFromPaths(getDrawnPathSegments());
   redraw();
 }
 
@@ -1167,6 +1221,15 @@ function bindControls() {
   bindRange('cs-branching', 'val-cs-branching', (v) => { params.branching = parseInt(v, 10); return String(params.branching); });
   bindRange('cs-branch-reach-gen', 'val-cs-branch-reach-gen', (v) => { params.branchReachGen = parseInt(v, 10); return String(params.branchReachGen); });
   bindRange('cs-branch-count-gen', 'val-cs-branch-count-gen', (v) => { params.branchCountGen = parseInt(v, 10); return String(params.branchCountGen); });
+
+  const strokeStyleEl = byId('cs-stroke-style');
+  if (strokeStyleEl) {
+    strokeStyleEl.value = params.strokeStyle;
+    strokeStyleEl.addEventListener('change', () => {
+      params.strokeStyle = strokeStyleEl.value;
+      requestUpdate(true);
+    });
+  }
 
   bindRange('cs-stroke', 'val-cs-stroke', (v) => {
     params.strokeW = parseInt(v, 10);
