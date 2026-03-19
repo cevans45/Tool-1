@@ -172,6 +172,9 @@
 
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        let cssWidth = 1;
+        let cssHeight = 1;
+        let dpr = 1;
 
         const el = (id) => document.getElementById(id);
 
@@ -232,8 +235,12 @@
             const container = document.getElementById('sketch-container');
             if (state.fillEnabled) {
                 container.removeAttribute('data-outline');
+                container.style.filter = 'none';
+                container.style.webkitFilter = 'none';
             } else {
                 container.setAttribute('data-outline', 'true');
+                container.style.filter = '';
+                container.style.webkitFilter = '';
             }
         }
 
@@ -255,20 +262,28 @@
         function resize() {
             const container = document.getElementById('sketch-container');
             const rect = container.getBoundingClientRect();
-            let w = Math.floor(rect.width);
-            let h = Math.floor(rect.height);
+            const wCss = Math.max(1, rect.width);
+            const hCss = Math.max(1, rect.height);
+            cssWidth = wCss;
+            cssHeight = hCss;
 
-            if (w < 2) w = Math.floor(window.innerWidth);
-            if (h < 2) h = Math.floor(window.innerHeight);
+            dpr = Math.max(1, window.devicePixelRatio || 1);
 
-            canvas.width = w;
-            canvas.height = h;
-            ctx.clearRect(0, 0, w, h);
+            canvas.style.width = `${wCss}px`;
+            canvas.style.height = `${hCss}px`;
+            canvas.width = Math.floor(wCss * dpr);
+            canvas.height = Math.floor(hCss * dpr);
+
+            // Clear in device pixel space.
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw in CSS pixel space.
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             // Background is the browser white; the filter is on the container.
             // We clear the canvas so CUT/UNDO behaves predictably.
             updateFilter();
             updateFilterEnabled();
-            if (state.mirrorEnabled) drawGuideline();
         }
 
         window.addEventListener('resize', () => requestAnimationFrame(resize));
@@ -282,8 +297,9 @@
         function setMirror(enabled) {
             state.mirrorEnabled = enabled;
             mirrorEl.checked = enabled;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (state.mirrorEnabled) drawGuideline();
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
 
         function pushUndoSnapshot() {
@@ -300,8 +316,10 @@
         function undo() {
             if (state.undoStack.length === 0) return;
             const rec = state.undoStack.pop();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.drawImage(rec.snapCanvas, 0, 0);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             state.points.length = rec.pointsLen;
         }
 
@@ -313,11 +331,9 @@
         function canvasCoordsFromEvent(e) {
             const rect = canvas.getBoundingClientRect();
             const c = getEventClientXY(e);
-            const sx = canvas.width / (rect.width || 1);
-            const sy = canvas.height / (rect.height || 1);
             return {
-                x: (c.x - rect.left) * sx,
-                y: (c.y - rect.top) * sy,
+                x: (c.x - rect.left),
+                y: (c.y - rect.top),
             };
         }
 
@@ -360,7 +376,7 @@
                         ctx.fill();
 
                         if (state.mirrorEnabled) {
-                            const mx = canvas.width - px;
+                            const mx = cssWidth - px;
                             ctx.beginPath();
                             ctx.arc(mx, py, r, 0, Math.PI * 2);
                             ctx.fill();
@@ -387,7 +403,7 @@
                         ctx.arc(px, py, r, 0, Math.PI * 2);
                         ctx.fill();
                         if (state.mirrorEnabled) {
-                            const mx = canvas.width - px;
+                            const mx = cssWidth - px;
                             ctx.beginPath();
                             ctx.arc(mx, py, r, 0, Math.PI * 2);
                             ctx.fill();
@@ -424,8 +440,8 @@
 
                         if (state.mirrorEnabled) {
                             ctx.beginPath();
-                            ctx.moveTo(canvas.width - ax, ay);
-                            ctx.lineTo(canvas.width - bx, by);
+                            ctx.moveTo(cssWidth - ax, ay);
+                            ctx.lineTo(cssWidth - bx, by);
                             ctx.stroke();
                         }
                     }
@@ -464,8 +480,8 @@
 
                         if (state.mirrorEnabled) {
                             ctx.beginPath();
-                            ctx.moveTo(canvas.width - ax, ay);
-                            ctx.lineTo(canvas.width - bx, by);
+                            ctx.moveTo(cssWidth - ax, ay);
+                            ctx.lineTo(cssWidth - bx, by);
                             ctx.stroke();
                         }
                     }
@@ -492,8 +508,8 @@
                 ctx.lineTo(px2, py2);
 
                 if (state.mirrorEnabled) {
-                    const mx1 = canvas.width - px1;
-                    const mx2 = canvas.width - px2;
+                    const mx1 = cssWidth - px1;
+                    const mx2 = cssWidth - px2;
                     ctx.moveTo(mx1, py1);
                     ctx.lineTo(mx2, py2);
                 }
@@ -552,8 +568,9 @@
         function clearAll() {
             state.points = [];
             state.undoStack = [];
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (state.mirrorEnabled) drawGuideline();
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
 
         function exportWithFilter() {
