@@ -23,7 +23,7 @@ const params = {
   textureOpacity: 0.82,
   textureJitter: 0.22,
   curveCount: 5,
-  spread: 50,
+    spread: 180,
   curveAmt: 55,
   genReach: 120,
   genTaper: 65,
@@ -127,7 +127,8 @@ function regenerate() {
   paths = [];
   curveHash = new Map();
 
-  const sp = constrain(params.spread / 100, 0.1, 1.5);
+  // Spread can go higher than 150; keep it from clamping too early.
+  const sp = constrain(params.spread / 100, 0.1, 2.2);
   const halfW = width * 0.5;
   const margin = height * 0.08;
   const curve01ForAngle = constrain(params.curveAmt / 100, 0, 1);
