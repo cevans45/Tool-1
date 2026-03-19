@@ -1041,17 +1041,36 @@
         });
 
         // init
-        initTemplates();
-        updateTemplateSlotUI();
-        initGrid(false);
-        resize();
-        // Sync showGrid once canvas exists.
-        state.showGrid = showGridEl ? !!showGridEl.checked : true;
-        setUiTabIfNeeded();
-        setSelectedUIFromModel();
-        // Render twice: once now, once after layout settles.
-        render();
-        requestAnimationFrame(() => render());
+        try {
+            initTemplates();
+            updateTemplateSlotUI();
+            initGrid(false);
+            resize();
+
+            // Sync showGrid once canvas exists.
+            state.showGrid = showGridEl ? !!showGridEl.checked : true;
+            setUiTabIfNeeded();
+            setSelectedUIFromModel();
+
+            // Render twice: once now, once after layout settles.
+            render();
+            requestAnimationFrame(() => render());
+        } catch (err) {
+            // Show the error right on the canvas.
+            console.error(err);
+            try {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.fillStyle = '#ffebee';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#b00020';
+                ctx.font = '14px monospace';
+                const msg = (err && err.message) ? err.message : String(err);
+                ctx.fillText('Griddy error:', 14, 24);
+                ctx.fillText(msg.slice(0, 120), 14, 44);
+            } catch (_) {
+                // ignore
+            }
+        }
 
         function setUiTabIfNeeded() {
             // placeholder to keep init structure consistent; tool doesn't use tabs
