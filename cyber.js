@@ -156,7 +156,11 @@ function regenerate() {
     const endX = startX + cos(angle) * reach;
     const endY = startY + sin(angle) * reach;
 
-    const curveAmt = (params.curveAmt / 100) * (22 + 160 * sp);
+    // Always some base curvature, slider only adds extra
+    const curve01 = constrain(params.curveAmt / 100, 0, 1);
+    const baseCurve = 18 + 90 * sp;
+    const extraCurve = 80 * sp * curve01;
+    const curveAmt = baseCurve + extraCurve;
     const cx1 = lerp(startX, endX, 0.33) + random(-curveAmt, curveAmt);
     const cy1 = lerp(startY, endY, 0.33) + random(-curveAmt, curveAmt);
     const cx2 = lerp(startX, endX, 0.66) + random(-curveAmt, curveAmt);
@@ -223,7 +227,9 @@ function createMirroredPaths(path) {
 function warpPath(path) {
   const warped = [];
   const curveAmt01 = constrain(params.curveAmt / 100, 0, 1);
-  const amp = 10 + 26 * curveAmt01;
+  const baseAmp = 12;
+  const extraAmp = 26 * curveAmt01;
+  const amp = baseAmp + extraAmp;
   for (let i = 0; i < path.length; i++) {
     const p = path[i];
     const prev = path[max(0, i - 1)];
