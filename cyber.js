@@ -381,9 +381,10 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   const roughness = max(0, params.sketchRoughness);
   const rough01 = constrain(roughness / 20, 0, 1);
   // Roughness should "erode" edges, not inflate the stroke footprint.
-  // Size is controlled by `finalThickness` only; roughness affects local sub-segment offsets + gaps.
+  // At rough01=0: no jitter + no skipping (perfectly smooth).
+  // At rough01=1: aggressive micro-jitter + skipping for sharp rough edges.
   const passes = max(1, Math.floor(params.sketchDensity));
-  const skipChance = rough01 * 0.55;
+  const skipChance = Math.pow(rough01, 1.15) * 0.85;
 
   const seed = (Math.round(x1 * 73) * 374761 + Math.round(y1 * 73) * 668265 +
                 Math.round(x2 * 73) * 214748 + Math.round(y2 * 73) * 110351) | 0;
@@ -396,8 +397,9 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   const ty = dy / segLen;
   const nx = -ty;
   const ny = tx;
-  const edgeJitter = (0.25 + 0.95 * rough01) * (finalThickness * 0.55 + 1.0);
-  const subSegs = 2 + Math.floor(rough01 * 10);
+  const edgeJitter = rough01 * (finalThickness * 1.1 + 0.8);
+  const subSegs = 1 + Math.floor(rough01 * 12);
+  const hardEdge = rough01 >= 0.7;
 
   const drawColor = colorOverride || params.ink;
   if (params.drawOperation === 'ink') {
@@ -411,8 +413,8 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   }
 
   if (params.strokeStyle === 'sprinkle') {
-    const dots = max(2, Math.floor(lerp(passes * 0.6, passes * 1.8, rough01)));
-    const dotSkip = clamp01(skipChance * 0.6);
+    const dots = max(1, Math.floor(lerp(passes * 0.25, passes * 1.6, rough01)));
+    const dotSkip = clamp01(Math.pow(rough01, 1.2) * 0.65);
     for (let i = 0; i < dots; i++) {
       const t = rng();
       // Position along segment + small normal offset
@@ -421,7 +423,7 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
       const off = (rng() - 0.5) * edgeJitter;
       const px = cx + nx * off + tx * (rng() - 0.5) * edgeJitter * 0.12;
       const py = cy + ny * off + ty * (rng() - 0.5) * edgeJitter * 0.12;
-      const sz = finalThickness * (0.18 + rng() * 0.42);
+      const sz = finalThickness * (0.14 + rng() * (0.18 + 0.55 * rough01));
       if (rng() < dotSkip) continue;
       ctx.beginPath();
       ctx.arc(px, py, sz * 0.5, 0, 6.2832);
@@ -445,8 +447,8 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
 
         ctx.beginPath();
         ctx.lineWidth = finalThickness;
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
+        ctx.lineCap = hardEdge ? 'butt' : 'round';
+        ctx.lineJoin = hardEdge ? 'miter' : 'round';
         ctx.moveTo(ax + nx * offA, ay + ny * offA);
         ctx.lineTo(bx + nx * offB, by + ny * offB);
         ctx.stroke();
@@ -598,9 +600,7 @@ function renderPathsToBuffer(pathList) {
   const ctx = drawBuffer.drawingContext;
   const savedOp = params.drawOperation;
   const conns = pathsToConnections(pathList);
-  const web = buildGenerateWebbing(conns);
-  const full = web.length ? conns.concat(web) : conns;
-  drawWithOutlineFill(ctx, full, false);
+  drawWithOutlineFill(ctx, conns, false);
   params.drawOperation = savedOp;
 }
 
@@ -610,9 +610,7 @@ function renderPathsToBufferFromHalf(halfPaths) {
   const savedOp = params.drawOperation;
 
   const conns = pathsToConnections(halfPaths);
-  const web = buildGenerateWebbing(conns);
-  const base = web.length ? conns.concat(web) : conns;
-  const mirrored = mirrorConnections(base);
+  const mirrored = mirrorConnections(conns);
 
   const ow = params.outlineWidth * 2;
   if (params.outlineEnabled) {
@@ -678,9 +676,7 @@ function reRenderSketch() {
   const ctx = drawBuffer.drawingContext;
   const savedOp = params.drawOperation;
   const conns = buildSketchConnections();
-  const web = buildSketchWebbing(conns);
-  const full = web.length ? conns.concat(web) : conns;
-  drawWithOutlineFill(ctx, full, true);
+  drawWithOutlineFill(ctx, conns, true);
   params.drawOperation = savedOp;
 
   buildCurveHashFromPaths(getDrawnPathSegments());
@@ -1215,12 +1211,6 @@ function bindControls() {
   bindRange('cs-spread', 'val-cs-spread', (v) => { params.spread = parseInt(v, 10); return String(params.spread); });
   bindRange('cs-gen-reach', 'val-cs-gen-reach', (v) => { params.genReach = parseInt(v, 10); return String(params.genReach); });
   bindRange('cs-gen-taper', 'val-cs-gen-taper', (v) => { params.genTaper = parseInt(v, 10); return String(params.genTaper); });
-  bindCheck('cs-webbing-enabled-gen', (checked) => {
-    params.genWebbingEnabled = checked;
-    updateGenWebbingUI();
-  });
-  bindRange('cs-gen-webbing', 'val-cs-gen-webbing', (v) => { params.genWebbing = parseInt(v, 10); return String(params.genWebbing); });
-  updateGenWebbingUI();
 
   const strokeStyleEl = byId('cs-stroke-style');
   if (strokeStyleEl) {
@@ -1258,12 +1248,6 @@ function bindControls() {
   bindRange('cs-sketch-density', 'val-cs-sketch-density', (v) => { params.sketchDensity = parseInt(v, 10); return String(params.sketchDensity); });
   bindRange('cs-sketch-reach', 'val-cs-sketch-reach', (v) => { params.sketchReach = parseInt(v, 10); return String(params.sketchReach); });
   bindRange('cs-sketch-taper', 'val-cs-sketch-taper', (v) => { params.sketchTaper = parseInt(v, 10); return String(params.sketchTaper); });
-  bindCheck('cs-webbing-enabled-sketch', (checked) => {
-    params.sketchWebbingEnabled = checked;
-    updateSketchWebbingUI();
-  });
-  bindRange('cs-sketch-webbing', 'val-cs-sketch-webbing', (v) => { params.sketchWebbing = parseInt(v, 10); return String(params.sketchWebbing); });
-  updateSketchWebbingUI();
   updateGenBranchUI();
 
   const updateOutlineUI = () => {
@@ -1283,18 +1267,6 @@ function bindControls() {
 
   function updateGenBranchUI() {
     // no-op: branches removed
-  }
-
-  function updateGenWebbingUI() {
-    const show = !!params.genWebbingEnabled;
-    const row = byId('row-cs-gen-webbing');
-    if (row) row.style.display = show ? 'flex' : 'none';
-  }
-
-  function updateSketchWebbingUI() {
-    const show = !!params.sketchWebbingEnabled;
-    const row = byId('row-cs-sketch-webbing');
-    if (row) row.style.display = show ? 'flex' : 'none';
   }
 
   bindRange('cs-outline-width', 'val-cs-outline-width', (v) => { params.outlineWidth = parseInt(v, 10); return String(params.outlineWidth); });
