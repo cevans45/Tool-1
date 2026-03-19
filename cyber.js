@@ -27,6 +27,9 @@ const params = {
   curveAmt: 55,
   genReach: 120,
   genTaper: 65,
+  strokeTaper: 35,
+  sketchTaper: 25,
+  genWebbing: 45,
   branchEnabledGen: true,
   branching: 30,
   branchReachGen: 48,
@@ -351,8 +354,9 @@ function makeRng(seed) {
 
 function scratchLine(ctx, x1, y1, x2, y2, d, mirror, colorOverride, widthAdd, thicknessMul) {
   const reach = mirror ? params.sketchReach : params.genReach;
-  const distFactor = Math.max(0.2, (reach - d) / 10);
-  const finalThickness = (params.strokeW * distFactor + (widthAdd || 0)) * (thicknessMul == null ? 1 : thicknessMul);
+  const taperByDistance = constrain(params.strokeTaper / 100, 0, 1);
+  const distMul = lerp(1, constrain(1 - d / max(1, reach), 0.25, 1), taperByDistance);
+  const finalThickness = (params.strokeW + (widthAdd || 0)) * distMul * (thicknessMul == null ? 1 : thicknessMul);
   const roughness = params.sketchRoughness;
   const jitter = roughness * 0.8 + roughness * finalThickness * 0.15;
   const passes = params.sketchDensity;
@@ -480,13 +484,69 @@ function drawWithOutlineFill(ctx, conns, mirror) {
   params.drawOperation = savedOp;
 }
 
+function buildGenerateWebbing(pathList) {
+  const reach = max(10, params.genReach);
+  const amount = constrain(params.genWebbing / 100, 0, 1);
+  if (amount <= 0) return [];
+
+  const points = [];
+  const stride = max(2, floor(map(amount, 0, 1, 18, 4)));
+  for (const path of pathList) {
+    for (let i = 0; i < path.length; i += stride) {
+      const p = path[i];
+      points.push({ x: p.x, y: p.y });
+    }
+  }
+  if (points.length < 4) return [];
+
+  const cell = reach;
+  const buckets = new Map();
+  for (let i = 0; i < points.length; i++) {
+    const p = points[i];
+    const ix = floor(p.x / cell);
+    const iy = floor(p.y / cell);
+    const key = `${ix},${iy}`;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(i);
+  }
+
+  const out = [];
+  const maxLinks = floor(map(amount, 0, 1, 0, 140));
+  let made = 0;
+  for (let i = 0; i < points.length; i++) {
+    if (made >= maxLinks) break;
+    const p = points[i];
+    const ix = floor(p.x / cell);
+    const iy = floor(p.y / cell);
+    const seed = (Math.round(p.x * 7) * 374761 + Math.round(p.y * 7) * 668265 + (params.seed | 0)) | 0;
+    const rng = makeRng(seed);
+
+    // Try a few candidate neighbor points nearby.
+    for (let tries = 0; tries < 3; tries++) {
+      const dxCell = floor(rng() * 3) - 1;
+      const dyCell = floor(rng() * 3) - 1;
+      const cand = buckets.get(`${ix + dxCell},${iy + dyCell}`);
+      if (!cand || cand.length === 0) continue;
+      const j = cand[floor(rng() * cand.length)];
+      if (j === i) continue;
+      const q = points[j];
+      const d = Math.hypot(q.x - p.x, q.y - p.y);
+      if (d < 6 || d > reach) continue;
+      out.push({ px: p.x, py: p.y, x: q.x, y: q.y, d, tm: 1 });
+      made++;
+      break;
+    }
+  }
+  return out;
+}
+
 function addDrawPoint(x, y) {
   const p = { x, y };
   drawPoints.push(p);
 
   const ctx = drawBuffer.drawingContext;
   const startIndex = Math.max(0, drawPoints.length - 250);
-  const dynamicConnect = params.sketchReach + params.strokeW;
+  const dynamicConnect = params.sketchReach;
 
   const conns = [];
   for (let i = startIndex; i < drawPoints.length - 1; i++) {
@@ -496,7 +556,7 @@ function addDrawPoint(x, y) {
     const dy = p.y - prev.y;
     const d = Math.hypot(dx, dy);
     if (d < dynamicConnect) {
-      conns.push({ px: prev.x, py: prev.y, x: p.x, y: p.y, d });
+      conns.push({ px: prev.x, py: prev.y, x: p.x, y: p.y, d, tm: 1 });
     }
   }
 
@@ -524,7 +584,9 @@ function renderPathsToBuffer(pathList) {
   const ctx = drawBuffer.drawingContext;
   const savedOp = params.drawOperation;
   const conns = pathsToConnections(pathList);
-  drawWithOutlineFill(ctx, conns, false);
+  const web = buildGenerateWebbing(pathList);
+  const full = web.length ? conns.concat(web) : conns;
+  drawWithOutlineFill(ctx, full, false);
   params.drawOperation = savedOp;
 }
 
@@ -542,16 +604,19 @@ function buildSketchConnections() {
   if (current.length > 0) segments.push(current);
 
   const all = [];
-  const dynamicConnect = params.sketchReach + params.strokeW;
+  const dynamicConnect = params.sketchReach;
+  const taper = constrain(params.sketchTaper / 100, 0, 1);
   for (const seg of segments) {
     for (let i = 0; i < seg.length; i++) {
       const p = seg[i];
+      const t = seg.length > 1 ? (i / (seg.length - 1)) : 0;
+      const tm = 1 - taper * t;
       const lookback = Math.max(0, i - 249);
       for (let j = lookback; j < i; j++) {
         const prev = seg[j];
         const d = Math.hypot(p.x - prev.x, p.y - prev.y);
         if (d < dynamicConnect) {
-          all.push({ px: prev.x, py: prev.y, x: p.x, y: p.y, d });
+          all.push({ px: prev.x, py: prev.y, x: p.x, y: p.y, d, tm });
         }
       }
     }
@@ -1097,6 +1162,7 @@ function bindControls() {
   bindRange('cs-spread', 'val-cs-spread', (v) => { params.spread = parseInt(v, 10); return String(params.spread); });
   bindRange('cs-gen-reach', 'val-cs-gen-reach', (v) => { params.genReach = parseInt(v, 10); return String(params.genReach); });
   bindRange('cs-gen-taper', 'val-cs-gen-taper', (v) => { params.genTaper = parseInt(v, 10); return String(params.genTaper); });
+  bindRange('cs-gen-webbing', 'val-cs-gen-webbing', (v) => { params.genWebbing = parseInt(v, 10); return String(params.genWebbing); });
   bindCheck('cs-branch-enabled-gen', (checked) => { params.branchEnabledGen = checked; });
   bindRange('cs-branching', 'val-cs-branching', (v) => { params.branching = parseInt(v, 10); return String(params.branching); });
   bindRange('cs-branch-reach-gen', 'val-cs-branch-reach-gen', (v) => { params.branchReachGen = parseInt(v, 10); return String(params.branchReachGen); });
@@ -1128,10 +1194,14 @@ function bindControls() {
   bindRange('cs-sketch-roughness', 'val-cs-sketch-roughness', (v) => { params.sketchRoughness = parseInt(v, 10); return String(params.sketchRoughness); });
   bindRange('cs-sketch-density', 'val-cs-sketch-density', (v) => { params.sketchDensity = parseInt(v, 10); return String(params.sketchDensity); });
   bindRange('cs-sketch-reach', 'val-cs-sketch-reach', (v) => { params.sketchReach = parseInt(v, 10); return String(params.sketchReach); });
-  bindCheck('cs-branch-enabled-sketch', (checked) => { params.sketchBranchEnabled = checked; });
+  bindRange('cs-sketch-taper', 'val-cs-sketch-taper', (v) => { params.sketchTaper = parseInt(v, 10); return String(params.sketchTaper); });
+  bindRange('cs-stroke-taper', 'val-cs-stroke-taper', (v) => { params.strokeTaper = parseInt(v, 10); return String(params.strokeTaper); });
+  bindCheck('cs-branch-enabled-sketch', (checked) => { params.sketchBranchEnabled = checked; updateSketchBranchUI(); });
   bindRange('cs-branching-sketch', 'val-cs-branching-sketch', (v) => { params.sketchBranching = parseInt(v, 10); return String(params.sketchBranching); });
   bindRange('cs-branch-reach-sketch', 'val-cs-branch-reach-sketch', (v) => { params.sketchBranchReach = parseInt(v, 10); return String(params.sketchBranchReach); });
   bindRange('cs-branch-count-sketch', 'val-cs-branch-count-sketch', (v) => { params.sketchBranchCount = parseInt(v, 10); return String(params.sketchBranchCount); });
+
+  updateSketchBranchUI();
 
   const updateOutlineUI = () => {
     const rowWidth = byId('row-cs-outline-width');
@@ -1147,6 +1217,16 @@ function bindControls() {
     updateOutlineUI();
   });
   updateOutlineUI();
+
+  const updateSketchBranchUI = () => {
+    const show = !!params.sketchBranchEnabled;
+    const rowAmt = byId('row-cs-branching-sketch');
+    const rowReach = byId('row-cs-branch-reach-sketch');
+    const rowCount = byId('row-cs-branch-count-sketch');
+    if (rowAmt) rowAmt.style.display = show ? 'flex' : 'none';
+    if (rowReach) rowReach.style.display = show ? 'flex' : 'none';
+    if (rowCount) rowCount.style.display = show ? 'flex' : 'none';
+  };
 
   bindRange('cs-outline-width', 'val-cs-outline-width', (v) => { params.outlineWidth = parseInt(v, 10); return String(params.outlineWidth); });
 
