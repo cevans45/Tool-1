@@ -33,15 +33,6 @@ const params = {
   genWebbing: 45,
   sketchWebbingEnabled: false,
   sketchWebbing: 40,
-  branchEnabledGen: false,
-  branching: 30,
-  branchReachGen: 48,
-  branchCountGen: 2,
-  branchCurveGen: 50,
-  sketchBranchEnabled: false,
-  sketchBranching: 25,
-  sketchBranchReach: 22,
-  sketchBranchCount: 2,
   influenceRadius: 20,
   blurStrength: 0.18,
   strokeW: 2,
@@ -454,67 +445,11 @@ function drawConnections(ctx, connections, colorOverride, widthAdd) {
   }
 }
 
-function addBranchStubs(connections, reachPx, count, amount01) {
-  if (!connections || connections.length === 0) return [];
-  const out = [];
-  const branchCount = max(0, floor(count));
-  if (branchCount === 0) return out;
-
-  // Softer probability so low slider values don't explode with branches
-  const amt = constrain(amount01, 0, 1);
-  const prob = amt * amt; // ease-in curve
-
-  // Branch curvature for generate mode
-  const curve01 = params.drawMode ? 0 : constrain((params.branchCurveGen || 0) / 100, 0, 1);
-
-  for (const c of connections) {
-    const seed = (Math.round(c.px * 29) * 374761 + Math.round(c.py * 29) * 668265 +
-                  Math.round(c.x * 29) * 214748 + Math.round(c.y * 29) * 110351) | 0;
-    const rng = makeRng(seed);
-    if (rng() > prob) continue;
-
-    const mx = (c.px + c.x) * 0.5;
-    const my = (c.py + c.y) * 0.5;
-    const dx = c.x - c.px;
-    const dy = c.y - c.py;
-    const mag = Math.hypot(dx, dy) || 1;
-    const nx = -dy / mag;
-    const ny = dx / mag;
-    const tx = dx / mag;
-    const ty = dy / mag;
-
-    for (let i = 0; i < branchCount; i++) {
-      const dir = rng() < 0.5 ? -1 : 1;
-      const len = reachPx * (0.55 + 0.65 * rng());
-      const baseJitter = (rng() - 0.5) * reachPx * 0.25;
-      const bendSign = rng() < 0.5 ? -1 : 1;
-      const bend = curve01 * len * 0.7 * bendSign;
-
-      const bx = mx
-        + nx * dir * len
-        + tx * bend
-        + baseJitter;
-      const by = my
-        + ny * dir * len
-        + ty * bend
-        + (rng() - 0.5) * reachPx * 0.25;
-      const d = Math.hypot(bx - mx, by - my);
-      out.push({ px: mx, py: my, x: bx, y: by, d });
-    }
-  }
-  return out;
-}
-
 function drawWithOutlineFill(ctx, conns, doMirror) {
   const ow = params.outlineWidth * 2;
   const savedOp = params.drawOperation;
 
-  const branches = (params.drawMode && params.sketchBranchEnabled)
-    ? addBranchStubs(conns, params.sketchBranchReach, params.sketchBranchCount, params.sketchBranching / 100)
-    : [];
-
-  const base = branches.length ? conns.concat(branches) : conns;
-  const full = doMirror ? mirrorConnections(base) : base;
+  const full = doMirror ? mirrorConnections(conns) : conns;
 
   if (params.outlineEnabled) {
     params.drawOperation = 'ink';
@@ -654,18 +589,7 @@ function renderPathsToBufferFromHalf(halfPaths) {
 
   const conns = pathsToConnections(halfPaths);
   const web = buildGenerateWebbing(conns);
-  let base = web.length ? conns.concat(web) : conns;
-
-  const genBranches = params.branchEnabledGen
-    ? addBranchStubs(
-        base,
-        params.branchReachGen,
-        params.branchCountGen,
-        Math.pow(constrain(params.branching / 100, 0, 1), 1.6)
-      )
-    : [];
-  if (genBranches.length) base = base.concat(genBranches);
-
+  const base = web.length ? conns.concat(web) : conns;
   const mirrored = mirrorConnections(base);
 
   const ow = params.outlineWidth * 2;
@@ -1276,15 +1200,6 @@ function bindControls() {
   bindRange('cs-gen-webbing', 'val-cs-gen-webbing', (v) => { params.genWebbing = parseInt(v, 10); return String(params.genWebbing); });
   updateGenWebbingUI();
 
-  bindCheck('cs-branch-enabled-gen', (checked) => {
-    params.branchEnabledGen = checked;
-    updateGenBranchUI();
-  });
-  bindRange('cs-branching', 'val-cs-branching', (v) => { params.branching = parseInt(v, 10); return String(params.branching); });
-  bindRange('cs-branch-reach-gen', 'val-cs-branch-reach-gen', (v) => { params.branchReachGen = parseInt(v, 10); return String(params.branchReachGen); });
-  bindRange('cs-branch-count-gen', 'val-cs-branch-count-gen', (v) => { params.branchCountGen = parseInt(v, 10); return String(params.branchCountGen); });
-  bindRange('cs-branch-curve-gen', 'val-cs-branch-curve-gen', (v) => { params.branchCurveGen = parseInt(v, 10); return String(params.branchCurveGen); });
-
   const strokeStyleEl = byId('cs-stroke-style');
   if (strokeStyleEl) {
     strokeStyleEl.value = params.strokeStyle;
@@ -1328,12 +1243,6 @@ function bindControls() {
   bindRange('cs-sketch-webbing', 'val-cs-sketch-webbing', (v) => { params.sketchWebbing = parseInt(v, 10); return String(params.sketchWebbing); });
   updateSketchWebbingUI();
   bindRange('cs-stroke-taper', 'val-cs-stroke-taper', (v) => { params.strokeTaper = parseInt(v, 10); return String(params.strokeTaper); });
-  bindCheck('cs-branch-enabled-sketch', (checked) => { params.sketchBranchEnabled = checked; updateSketchBranchUI(); });
-  bindRange('cs-branching-sketch', 'val-cs-branching-sketch', (v) => { params.sketchBranching = parseInt(v, 10); return String(params.sketchBranching); });
-  bindRange('cs-branch-reach-sketch', 'val-cs-branch-reach-sketch', (v) => { params.sketchBranchReach = parseInt(v, 10); return String(params.sketchBranchReach); });
-  bindRange('cs-branch-count-sketch', 'val-cs-branch-count-sketch', (v) => { params.sketchBranchCount = parseInt(v, 10); return String(params.sketchBranchCount); });
-
-  updateSketchBranchUI();
   updateGenBranchUI();
 
   const updateOutlineUI = () => {
@@ -1351,26 +1260,8 @@ function bindControls() {
   });
   updateOutlineUI();
 
-  function updateSketchBranchUI() {
-    const show = !!params.sketchBranchEnabled;
-    const rowAmt = byId('row-cs-branching-sketch');
-    const rowReach = byId('row-cs-branch-reach-sketch');
-    const rowCount = byId('row-cs-branch-count-sketch');
-    if (rowAmt) rowAmt.style.display = show ? 'flex' : 'none';
-    if (rowReach) rowReach.style.display = show ? 'flex' : 'none';
-    if (rowCount) rowCount.style.display = show ? 'flex' : 'none';
-  }
-
   function updateGenBranchUI() {
-    const show = !!params.branchEnabledGen;
-    const rowAmt = byId('row-cs-branching');
-    const rowReach = byId('row-cs-branch-reach-gen');
-    const rowCount = byId('row-cs-branch-count-gen');
-    const rowCurve = byId('row-cs-branch-curve-gen');
-    if (rowAmt) rowAmt.style.display = show ? 'flex' : 'none';
-    if (rowReach) rowReach.style.display = show ? 'flex' : 'none';
-    if (rowCount) rowCount.style.display = show ? 'flex' : 'none';
-    if (rowCurve) rowCurve.style.display = show ? 'flex' : 'none';
+    // no-op: branches removed
   }
 
   function updateGenWebbingUI() {
