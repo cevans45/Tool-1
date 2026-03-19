@@ -134,10 +134,10 @@
         /* Scope layout fixes to Elemenyt only. */
         .app[aria-label="Elemenyt mirror"] {
             justify-content: center;
-            height: 100vh;
             min-height: 100vh;
             padding: 0;
             gap: 0;
+            align-items: stretch;
         }
 
         #sketch-container canvas {
@@ -148,26 +148,13 @@
         }
 
         #sketch-container {
-            /* Fullscreen canvas behind the controls. */
-            position: fixed;
-            inset: 0;
-            width: 100vw;
-            height: 100vh;
-            margin: 0;
-            padding: 0;
-            z-index: 0;
+            /* Fill the available viewport height without changing stacking order. */
+            flex: 1;
+            height: 100%;
+            width: 100%;
+            min-width: 0;
+            pointer-events: auto;
             background: #ffffff;
-        }
-
-        /* Keep controls on top of the fullscreen canvas. */
-        .app[aria-label="Elemenyt mirror"] .control-panel {
-            position: fixed;
-            right: 16px;
-            top: 56px;
-            bottom: 16px;
-            z-index: 2;
-            width: 280px;
-            background: rgba(255, 255, 255, 0.97);
         }
 
         /* Wider sliders: widen the control panel + shrink the label column. */
@@ -186,12 +173,6 @@
         /* Taller canvas: remove the default panel-body max-height cap. */
         .app[aria-label="Elemenyt mirror"] .panel-body {
             max-height: none;
-        }
-
-        /* Keep the header above the canvas too. */
-        header.tool-header {
-            position: relative;
-            z-index: 3;
         }
 
         /* Only apply the jagged outline filter when we are NOT in Fill mode. */
@@ -299,8 +280,13 @@
         function resize() {
             const container = document.getElementById('sketch-container');
             const rect = container.getBoundingClientRect();
-            const wCss = Math.max(1, rect.width);
-            const hCss = Math.max(1, rect.height);
+            let wCss = rect.width;
+            let hCss = rect.height;
+
+            // If layout hasn't settled yet, fall back so the canvas is still drawable.
+            if (!Number.isFinite(wCss) || wCss < 10) wCss = window.innerWidth;
+            if (!Number.isFinite(hCss) || hCss < 10) hCss = window.innerHeight;
+
             cssWidth = wCss;
             cssHeight = hCss;
 
@@ -780,6 +766,8 @@
         setMode('ink');
         updateFilter();
         updateFilterEnabled();
+        // Run immediately, and again on the next frame to catch any layout settling.
+        resize();
         requestAnimationFrame(resize);
     </script>
 </body>
