@@ -48,7 +48,6 @@ const params = {
   outlineWidth: 2,
   strokeStyle: 'line',
   sketchRoughness: 4,
-  sketchDensity: 6,
   sketchReach: 50
 };
 
@@ -389,17 +388,12 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   const roughness = max(0, params.sketchRoughness);
   const rough01 = constrain(roughness / 20, 0, 1);
 
-  // Match the reference "sauce": multiple passes with jitter, but with
-  // rough01=0 doing exactly one clean draw (no overdraw).
-  const densityNorm = constrain(params.sketchDensity / 16, 0, 1);
-  // Passes: keep it controlled; roughness should add bite via jitter/holes,
-  // not explode the stroke into fuzzy blobs.
-  const passes = rough01 === 0
-    ? 1
-    : max(2, Math.round(lerp(4, 7, densityNorm)));
+  // Roughness-only passes: 0 = smooth (single draw), max rough = sharper
+  // etched look (more passes + holes) without fuzzy blobs.
+  const passes = rough01 === 0 ? 1 : max(2, Math.round(lerp(3, 7, rough01)));
 
-  // Hole/skip chance: 0 at smooth, up to ~0.20 at max rough.
-  const skipChance = Math.pow(rough01, 1.25) * lerp(0.06, 0.20, densityNorm);
+  // Hole/skip chance: 0 at smooth, up to ~0.22 at max rough.
+  const skipChance = Math.pow(rough01, 1.35) * 0.22;
 
   const seed = (Math.round(x1 * 73) * 374761 + Math.round(y1 * 73) * 668265 +
                 Math.round(x2 * 73) * 214748 + Math.round(y2 * 73) * 110351) | 0;
@@ -431,10 +425,8 @@ function scratchLine(ctx, x1, y1, x2, y2, d, colorOverride, widthAdd, thicknessM
   }
 
   if (params.strokeStyle === 'sprinkle') {
-    const dotCount = rough01 === 0
-      ? 1
-      : max(2, Math.floor(lerp(3, 12, densityNorm) * (0.35 + 0.65 * rough01)));
-    const dotSkip = clamp01(Math.pow(rough01, 1.3) * lerp(0.12, 0.35, densityNorm));
+    const dotCount = rough01 === 0 ? 1 : max(2, Math.floor(lerp(3, 14, rough01)));
+    const dotSkip = clamp01(Math.pow(rough01, 1.35) * 0.55);
     for (let i = 0; i < dotCount; i++) {
       const t = rng();
       const cx = x1 + dx * t;
@@ -1257,7 +1249,6 @@ function bindControls() {
   bindCheck('cs-mirror-y', (checked) => { params.mirrorY = checked; });
 
   bindRange('cs-sketch-roughness', 'val-cs-sketch-roughness', (v) => { params.sketchRoughness = parseInt(v, 10); return String(params.sketchRoughness); });
-  bindRange('cs-sketch-density', 'val-cs-sketch-density', (v) => { params.sketchDensity = parseInt(v, 10); return String(params.sketchDensity); });
   bindRange('cs-sketch-reach', 'val-cs-sketch-reach', (v) => { params.sketchReach = parseInt(v, 10); return String(params.sketchReach); });
   bindRange('cs-sketch-taper', 'val-cs-sketch-taper', (v) => { params.sketchTaper = parseInt(v, 10); return String(params.sketchTaper); });
   updateGenBranchUI();
