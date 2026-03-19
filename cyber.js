@@ -41,7 +41,7 @@ const params = {
   outlineWidth: 2,
   sketchRoughness: 4,
   sketchDensity: 6,
-  sketchReach: 35
+  sketchReach: 50
 };
 
 function setup() {
@@ -122,7 +122,7 @@ function regenerate() {
 
   const sp = constrain(params.spread / 100, 0.1, 1);
   const halfW = width * 0.5;
-  const margin = height * 0.12;
+  const margin = height * 0.1;
 
   const halfPaths = [];
   for (let i = 0; i < params.curveCount; i++) {
@@ -130,15 +130,19 @@ function regenerate() {
       ? height * 0.5
       : map(i, 0, params.curveCount - 1, margin, height - margin);
 
-    const startX = halfW + random(2, 12);
-    const endX = halfW + random(width * sp * 0.06, width * sp * 0.3);
-    const startY = yCenter + random(-height * 0.04, height * 0.04);
-    const endY = yCenter + random(-height * sp * 0.22, height * sp * 0.22);
+    const angle = random(-HALF_PI * 0.7, HALF_PI * 0.7);
+    const reach = random(width * sp * 0.12, width * sp * 0.48);
 
-    const cx1 = lerp(startX, endX, 0.33) + random(-18, 18) * sp;
-    const cy1 = lerp(startY, endY, 0.33) + random(-28, 28) * sp;
-    const cx2 = lerp(startX, endX, 0.66) + random(-18, 18) * sp;
-    const cy2 = lerp(startY, endY, 0.66) + random(-28, 28) * sp;
+    const startX = halfW + random(2, 10);
+    const startY = yCenter + random(-height * 0.05, height * 0.05);
+    const endX = startX + cos(angle) * reach;
+    const endY = startY + sin(angle) * reach;
+
+    const curveAmt = sp * 60;
+    const cx1 = lerp(startX, endX, 0.33) + random(-curveAmt, curveAmt);
+    const cy1 = lerp(startY, endY, 0.33) + random(-curveAmt, curveAmt);
+    const cx2 = lerp(startX, endX, 0.66) + random(-curveAmt, curveAmt);
+    const cy2 = lerp(startY, endY, 0.66) + random(-curveAmt, curveAmt);
 
     const path = [];
     const steps = 80;
@@ -333,13 +337,12 @@ function scratchLine(ctx, x1, y1, x2, y2, d, mirror, colorOverride, widthAdd) {
   const distFactor = Math.max(0.2, (reach - d) / 10);
   const finalThickness = params.strokeW * distFactor + (widthAdd || 0);
   const roughness = params.sketchRoughness;
-  const roughFactor = Math.min(roughness / 20, 1);
-  const jitter = roughFactor * roughFactor * (6 + finalThickness * 0.8);
+  const jitter = roughness * 0.8 + roughness * finalThickness * 0.15;
   const passes = params.sketchDensity;
   const w = width;
   const h = height;
-  const useRound = roughFactor < 0.25;
-  const skipChance = roughFactor * roughFactor * 0.15;
+  const useRound = roughness <= 2;
+  const skipChance = roughness > 3 ? Math.min((roughness - 3) / 50, 0.18) : 0;
 
   const seed = (Math.round(x1 * 73) * 374761 + Math.round(y1 * 73) * 668265 +
                 Math.round(x2 * 73) * 214748 + Math.round(y2 * 73) * 110351) | 0;
@@ -401,6 +404,27 @@ function drawConnections(ctx, connections, mirror, colorOverride, widthAdd) {
   }
 }
 
+function drawWithOutlineFill(ctx, conns, mirror) {
+  const ow = params.outlineWidth * 2;
+  const savedOp = params.drawOperation;
+
+  if (params.outlineEnabled) {
+    params.drawOperation = 'ink';
+    drawConnections(ctx, conns, mirror, params.outlineColor, ow);
+    if (!params.fillEnabled) {
+      params.drawOperation = 'cut';
+      drawConnections(ctx, conns, mirror, null, 0);
+    }
+  }
+
+  if (params.fillEnabled) {
+    params.drawOperation = 'ink';
+    drawConnections(ctx, conns, mirror, null, 0);
+  }
+
+  params.drawOperation = savedOp;
+}
+
 function addDrawPoint(x, y) {
   const p = { x, y };
   drawPoints.push(p);
@@ -421,41 +445,28 @@ function addDrawPoint(x, y) {
     }
   }
 
-  const ow = params.outlineWidth * 2;
-  if (params.outlineEnabled) drawConnections(ctx, conns, true, params.outlineColor, ow);
-  if (params.fillEnabled) drawConnections(ctx, conns, true, null, 0);
+  drawWithOutlineFill(ctx, conns, true);
+}
+
+function pathsToConnections(pathList, mirror) {
+  const conns = [];
+  for (const path of pathList) {
+    if (path.length < 2) continue;
+    for (let i = 1; i < path.length; i++) {
+      const a = path[i - 1], b = path[i];
+      const d = Math.hypot(b.x - a.x, b.y - a.y);
+      conns.push({ px: a.x, py: a.y, x: b.x, y: b.y, d });
+    }
+  }
+  return conns;
 }
 
 function renderPathsToBuffer(pathList) {
   drawBuffer.clear();
   const ctx = drawBuffer.drawingContext;
   const savedOp = params.drawOperation;
-  params.drawOperation = 'ink';
-
-  const ow = params.outlineWidth * 2;
-
-  if (params.outlineEnabled) {
-    for (const path of pathList) {
-      if (path.length < 2) continue;
-      for (let i = 1; i < path.length; i++) {
-        const a = path[i - 1], b = path[i];
-        const d = Math.hypot(b.x - a.x, b.y - a.y);
-        scratchLine(ctx, a.x, a.y, b.x, b.y, d, false, params.outlineColor, ow);
-      }
-    }
-  }
-
-  if (params.fillEnabled) {
-    for (const path of pathList) {
-      if (path.length < 2) continue;
-      for (let i = 1; i < path.length; i++) {
-        const a = path[i - 1], b = path[i];
-        const d = Math.hypot(b.x - a.x, b.y - a.y);
-        scratchLine(ctx, a.x, a.y, b.x, b.y, d, false, null, 0);
-      }
-    }
-  }
-
+  const conns = pathsToConnections(pathList, false);
+  drawWithOutlineFill(ctx, conns, false);
   params.drawOperation = savedOp;
 }
 
@@ -494,13 +505,8 @@ function reRenderSketch() {
   drawBuffer.clear();
   const ctx = drawBuffer.drawingContext;
   const savedOp = params.drawOperation;
-  params.drawOperation = 'ink';
-
   const conns = buildSketchConnections();
-  const ow = params.outlineWidth * 2;
-  if (params.outlineEnabled) drawConnections(ctx, conns, true, params.outlineColor, ow);
-  if (params.fillEnabled) drawConnections(ctx, conns, true, null, 0);
-
+  drawWithOutlineFill(ctx, conns, true);
   params.drawOperation = savedOp;
   redraw();
 }
@@ -1004,7 +1010,21 @@ function bindControls() {
   bindRange('cs-curves', 'val-cs-curves', (v) => { params.curveCount = parseInt(v, 10); return String(params.curveCount); });
   bindRange('cs-spread', 'val-cs-spread', (v) => { params.spread = parseInt(v, 10); return String(params.spread); });
   bindRange('cs-branching', 'val-cs-branching', (v) => { params.branching = parseInt(v, 10); return String(params.branching); });
-  bindRange('cs-stroke', 'val-cs-stroke', (v) => { params.strokeW = parseInt(v, 10); return String(params.strokeW); });
+
+  bindRange('cs-stroke', 'val-cs-stroke', (v) => {
+    params.strokeW = parseInt(v, 10);
+    const genEl = byId('cs-stroke-gen');
+    if (genEl) genEl.value = v;
+    setValue('val-cs-stroke-gen', String(params.strokeW));
+    return String(params.strokeW);
+  });
+  bindRange('cs-stroke-gen', 'val-cs-stroke-gen', (v) => {
+    params.strokeW = parseInt(v, 10);
+    const skEl = byId('cs-stroke');
+    if (skEl) skEl.value = v;
+    setValue('val-cs-stroke', String(params.strokeW));
+    return String(params.strokeW);
+  });
 
   bindCheck('cs-mirror-x', (checked) => {
     params.mirrorX = checked;
