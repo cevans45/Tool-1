@@ -115,6 +115,10 @@
                                 <label for="el-fill-color">Fill color</label>
                                 <input type="color" id="el-fill-color" value="#000000">
                             </div>
+                            <div class="control-row color-row">
+                                <label for="el-bg-color">Background</label>
+                                <input type="color" id="el-bg-color" value="#ffffff">
+                            </div>
 
                             <div class="control-row">
                                 <label for="el-outline">Outline thickness</label>
@@ -245,6 +249,7 @@
         const fillEnabledEl = el('el-fill-enabled');
         const inkColorEl = el('el-ink-color');
         const fillColorEl = el('el-fill-color');
+        const bgColorEl = el('el-bg-color');
         const outlineEl = el('el-outline');
         const outlineVal = el('val-el-outline');
         const clearBtn = el('el-clear');
@@ -265,6 +270,7 @@
             fillEnabled: false,
             inkColor: '#000000',
             fillColor: '#000000',
+            bgColor: '#ffffff',
 
             outlineRadius: 1.0,
 
@@ -329,6 +335,11 @@
             // In outline mode (Fill OFF) we use inkColor as the stroke color.
             // In fill mode (Fill ON) we use fillColor as the stroke color.
             return state.fillEnabled ? state.fillColor : state.inkColor;
+        }
+
+        function applyBackgroundColor() {
+            const app = document.querySelector('.app[aria-label="Elemenyt mirror"]');
+            if (app) app.style.backgroundColor = state.bgColor;
         }
 
         function updateFilterEnabled() {
@@ -844,7 +855,7 @@
             outCanvas.width = canvas.width;
             outCanvas.height = canvas.height;
             const outCtx = outCanvas.getContext('2d');
-            outCtx.fillStyle = '#ffffff';
+            outCtx.fillStyle = state.bgColor;
             outCtx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Export should mirror what you see:
@@ -950,6 +961,11 @@
             if (state.fillEnabled) updateFilter();
         });
 
+        bgColorEl?.addEventListener('input', (e) => {
+            state.bgColor = e.target.value;
+            applyBackgroundColor();
+        });
+
         outlineEl?.addEventListener('input', (e) => {
             state.outlineRadius = parseFloat(e.target.value);
             outlineVal.textContent = state.outlineRadius.toFixed(2);
@@ -983,6 +999,7 @@
         setMode('ink');
         updateFilter();
         updateFilterEnabled();
+        applyBackgroundColor();
         setUiTab('sketch');
         // Run immediately, and again on the next frame to catch any layout settling.
         resize();
