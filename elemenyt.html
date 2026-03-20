@@ -87,7 +87,7 @@
 
                             <div class="control-row">
                                 <label for="el-stroke">Stroke size</label>
-                                <input type="range" id="el-stroke" min="0.2" max="24" value="6" step="0.1">
+                                <input type="range" id="el-stroke" min="0.0" max="10.0" value="6" step="0.1">
                                 <span class="param-value" id="val-el-stroke">6</span>
                             </div>
 
@@ -1164,7 +1164,7 @@
         generateBtn?.addEventListener('click', generateRandomDrawing);
 
         strokeEl?.addEventListener('input', (e) => {
-            state.brushSize = parseFloat(e.target.value);
+            state.brushSize = clamp(parseFloat(e.target.value), 0, 10);
             strokeVal.textContent = state.brushSize < 1 ? state.brushSize.toFixed(1) : String(Math.round(state.brushSize * 10) / 10);
             if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
         });
