@@ -102,6 +102,17 @@
                                 </select>
                             </div>
 
+                            <div class="control-row" style="margin-top:-4px;">
+                                <label>Effect icons</label>
+                                <div class="mode-switch" id="el-marker-icons" style="width:100%; margin:0;">
+                                    <button type="button" class="panel-button is-active" data-marker="line" title="Line">/</button>
+                                    <button type="button" class="panel-button" data-marker="sprinkle" title="Sprinkle">:</button>
+                                    <button type="button" class="panel-button" data-marker="grid" title="Grid">#</button>
+                                    <button type="button" class="panel-button" data-marker="grain" title="Grain">.</button>
+                                    <button type="button" class="panel-button" data-marker="inkblot" title="Inkblot">o</button>
+                                </div>
+                            </div>
+
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-fill-enabled">
                                 <span class="toggle-box"></span>
@@ -212,6 +223,14 @@
             -webkit-filter: url(#jagged-edge);
             filter: url(#jagged-edge);
         }
+
+        #el-marker-icons .panel-button {
+            padding: 6px 0;
+            font-size: 11px;
+            line-height: 1;
+            text-transform: none;
+            font-weight: 700;
+        }
     </style>
 
     <script src="page-transition.js"></script>
@@ -247,6 +266,7 @@
         const strokeEl = el('el-stroke');
         const strokeVal = el('val-el-stroke');
         const markerEl = el('el-marker');
+        const markerIconsWrap = el('el-marker-icons');
         const fillEnabledEl = el('el-fill-enabled');
         const inkColorEl = el('el-ink-color');
         const fillColorEl = el('el-fill-color');
@@ -330,6 +350,17 @@
             if (modeRowEl) modeRowEl.style.display = tab === 'sketch' ? '' : 'none';
             if (tab === 'generate') setMode('ink');
             else setMode(state.sketchMode);
+        }
+
+        function setMarker(marker) {
+            state.marker = marker;
+            if (markerEl) markerEl.value = marker;
+            if (!markerIconsWrap) return;
+            const buttons = markerIconsWrap.querySelectorAll('button[data-marker]');
+            for (let i = 0; i < buttons.length; i++) {
+                const btn = buttons[i];
+                btn.classList.toggle('is-active', btn.getAttribute('data-marker') === marker);
+            }
         }
 
         function currentInkColor() {
@@ -1000,7 +1031,13 @@
         });
 
         markerEl?.addEventListener('change', (e) => {
-            state.marker = e.target.value;
+            setMarker(e.target.value);
+        });
+
+        markerIconsWrap?.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-marker]');
+            if (!btn) return;
+            setMarker(btn.getAttribute('data-marker'));
         });
 
         fillEnabledEl?.addEventListener('change', (e) => {
@@ -1055,6 +1092,7 @@
 
         // init
         setMode('ink');
+        setMarker(state.marker);
         updateFilter();
         updateFilterEnabled();
         applyBackgroundColor();
