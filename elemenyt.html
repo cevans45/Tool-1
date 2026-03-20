@@ -91,6 +91,14 @@
                                 <span class="param-value" id="val-el-stroke">6</span>
                             </div>
 
+                            <div class="control-row">
+                                <label for="el-mycelium-style">Mycelium</label>
+                                <select id="el-mycelium-style" class="select-input">
+                                    <option value="mesh" selected>Mycelium (mesh)</option>
+                                    <option value="sticky">Sticky shader</option>
+                                </select>
+                            </div>
+
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-taper">
                                 <span class="toggle-box"></span>
@@ -280,6 +288,7 @@
         const outlineEl = el('el-outline');
         const outlineVal = el('val-el-outline');
         const taperEl = el('el-taper');
+        const myceliumStyleEl = el('el-mycelium-style');
         const clearBtn = el('el-clear');
         const exportBtn = el('el-export');
 
@@ -296,6 +305,7 @@
             generateTime: 55,
             generateSeed: (Math.random() * 0x7fffffff) | 0,
             taperEnabled: false,
+            myceliumStyle: 'mesh', // 'mesh' | 'sticky'
 
             fillEnabled: false,
             inkColor: '#000000',
@@ -333,6 +343,182 @@
                 s = (1664525 * s + 1013904223) >>> 0;
                 return s / 4294967296;
             };
+        }
+
+        // Sticky shader mask (ported to CPU so it can bias connection decisions).
+        const STICKY_MASK_W = 220;
+        const STICKY_MASK_H = 220;
+        const STICKY_MASK = {
+            // Cache to avoid recomputing while you drag sliders.
+            key: '',
+            data: null, // Float32Array
+        };
+
+        function stickySmoothstep(e0, e1, x) {
+            // Works like GLSL smoothstep for arbitrary edge ordering.
+            const t = (x - e0) / (e1 - e0);
+            const tt = clamp(t, 0, 1);
+            return tt * tt * (3 - 2 * tt);
+        }
+
+        function stickyMix(a, b, h) {
+            return a * (1 - h) + b * h;
+        }
+
+        function stickySmin(a, b, k) {
+            // Smooth min from your shader:
+            // h = clamp(0.5 + 0.5*(b-a)/k, 0, 1)
+            // return mix(b,a,h) - k*h*(1.-h)
+            const h = clamp(0.5 + 0.5 * (b - a) / k, 0, 1);
+            return stickyMix(b, a, h) - k * h * (1 - h);
+        }
+
+        function stickyRnd(px, py) {
+            // rnd(p) with fract(p*vec2(12.9898,78.233)) then hash-ish dot.
+            const sx = px * 12.9898;
+            const sy = py * 78.233;
+            let fx = sx - Math.floor(sx);
+            let fy = sy - Math.floor(sy);
+            // p += dot(p, p + 34.56)
+            const dot = fx * (fx + 34.56) + fy * (fy + 34.56);
+            fx += dot;
+            fy += dot;
+            // fract(p.x * p.y)
+            const v = fx * fy;
+            return v - Math.floor(v);
+        }
+
+        function stickyRot(a, vx, vy) {
+            // mat2(cos((a)-vec4(0,11,33,0))) and then uv *= mat2
+            // We emulate the vec2 * mat2 multiplication:
+            // res.x = vx*m00 + vy*m01
+            // res.y = vx*m10 + vy*m11
+            // with columns packed from the vec4.
+            const c0 = Math.cos(a);        // cos(a-0)
+            const c1 = Math.cos(a - 11.0); // cos(a-11)
+            const c2 = Math.cos(a - 33.0); // cos(a-33)
+            // columns:
+            // col0 = [c0, c1], col1 = [c2, c0]
+            const m00 = c0;
+            const m10 = c1;
+            const m01 = c2;
+            const m11 = c0;
+            return {
+                x: vx * m00 + vy * m01,
+                y: vx * m10 + vy * m11
+            };
+        }
+
+        function stickyScene(ux, uy, t, mn) {
+            // Scene from fragment shader.
+            let d = 5e5;
+            let px = ux;
+            let py = uy;
+
+            for (let i = 0; i < 3; i++) {
+                const kBaseX = t - (i + 1);
+                const kBaseY = t - (i * 10);
+                const f = stickyRnd(kBaseX, kBaseY);
+                const k = Math.floor(f * 10) / 10;
+
+                // vertical bar: abs(uv.x + k)
+                d = stickySmin(d, Math.abs(px + k), 0.2);
+                // horizontal bar: abs(uv.y - k)
+                d = stickySmin(d, Math.abs(py - k), 0.2);
+
+                const rndArgX = k;
+                const rndArgY = k;
+                const ang = t * 0.2 - 0.39 + stickyRnd(rndArgX, rndArgY);
+                const r = stickyRot(ang, px, py);
+                px = r.x;
+                py = r.y;
+            }
+
+            // return SE(d,.01,5.) where SE(v,a,k)=smoothstep(a+k/MN, a-k/MN, v)
+            const a = 0.01;
+            const k = 5.0;
+            const e0 = a + k / mn;
+            const e1 = a - k / mn;
+            return stickySmoothstep(e0, e1, d);
+        }
+
+        function stickyRender(ux, uy, time, mn, mx) {
+            // uv*=4
+            let x = ux * 4;
+            let y = uy * 4;
+
+            const t = time * 0.5;
+            const a = Math.round(t);
+            const b = a + 1;
+            const frac = (t + 0.5) - Math.floor(t + 0.5);
+            const mixH = Math.pow(frac, 8);
+
+            const sa = stickyScene(x, y, a, mn);
+            const sb = stickyScene(x, y, b, mn);
+            const k = (sa * (1 - mixH) + sb * mixH);
+
+            // vec3(1,.95,.8)*S(1.4,-.4,k)
+            const s = stickySmoothstep(1.4, -0.4, k);
+            let col = s; // use red channel as scalar mask
+
+            // in shader: col = max(col, .08); col = tanh(col)
+            col = Math.max(col, 0.08);
+            col = Math.tanh(col);
+
+            // reveal(uv)
+            // reveal(p) = SE(MN/MX*length(p), sqrt(S(1.,.0,1./T)), 1.)
+            const len = Math.hypot(x, y);
+            const term0 = (mn / mx) * len;
+            const s2 = stickySmoothstep(1.0, 0.0, 1.0 / Math.max(0.0001, time));
+            const term1 = Math.sqrt(s2);
+            const e0 = term1 + 1.0 / mn;
+            const e1 = term1 - 1.0 / mn;
+            const reveal = stickySmoothstep(e0, e1, term0);
+            col *= reveal;
+
+            // vignette:
+            // c = FC / R; c*=1.-c.yx; vig=c.x*c.y*25.; vig=pow(vig,.25); col*=vig
+            // (We don't have FC here, so we apply a cheap version based on uv.)
+            // This is mainly to keep the "sticky" look centered.
+            const vign = Math.pow(Math.max(0, 1 - (x * x + y * y) * 0.0025), 0.25);
+            col *= vign;
+
+            return col;
+        }
+
+        function sampleStickyMask(wx, wy) {
+            if (!STICKY_MASK.data) return 1;
+            const sx = clamp(Math.floor((wx / Math.max(cssWidth, 1)) * (STICKY_MASK_W - 1)), 0, STICKY_MASK_W - 1);
+            const sy = clamp(Math.floor((wy / Math.max(cssHeight, 1)) * (STICKY_MASK_H - 1)), 0, STICKY_MASK_H - 1);
+            return STICKY_MASK.data[sx + sy * STICKY_MASK_W];
+        }
+
+        function ensureStickyMask() {
+            if (state.myceliumStyle !== 'sticky') return;
+            const key = `${state.generateSeed}:${state.generateTime}:${STICKY_MASK_W}x${STICKY_MASK_H}:${Math.floor(cssWidth)}x${Math.floor(cssHeight)}`;
+            if (STICKY_MASK.data && STICKY_MASK.key === key) return;
+
+            const data = new Float32Array(STICKY_MASK_W * STICKY_MASK_H);
+            const mn = Math.min(STICKY_MASK_W, STICKY_MASK_H);
+            const mx = Math.max(STICKY_MASK_W, STICKY_MASK_H);
+
+            // Map tool time-ish values to the shader's time uniform.
+            const time = 1.8 + (state.generateTime / 100) * 3.2 + ((state.generateSeed >>> 0) % 10000) / 10000 * 2.1;
+
+            for (let y = 0; y < STICKY_MASK_H; y++) {
+                for (let x = 0; x < STICKY_MASK_W; x++) {
+                    // gl_FragCoord.xy ~ pixel center.
+                    const fcX = x + 0.5;
+                    const fcY = y + 0.5;
+                    const uvx = (fcX - 0.5 * STICKY_MASK_W) / mn;
+                    const uvy = (fcY - 0.5 * STICKY_MASK_H) / mn;
+                    const v = stickyRender(uvx, uvy, time, mn, mx);
+                    data[x + y * STICKY_MASK_W] = clamp(v, 0, 1);
+                }
+            }
+
+            STICKY_MASK.data = data;
+            STICKY_MASK.key = key;
         }
 
         function mirroredPoints(x, y) {
@@ -848,6 +1034,9 @@
             const idx = state.points.length - 1;
             const rng = state.selectionRng || Math.random;
 
+            const style = state.myceliumStyle;
+            if (style === 'sticky') ensureStickyMask();
+
             /** Mycelium only: dense local mesh + rare long bridges */
             const recentWindow = 420;
             const startIndex = Math.max(0, idx - recentWindow);
@@ -856,9 +1045,23 @@
                 const prev = state.points[i];
                 if (!prev) continue;
                 const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
-                if (dist > 0 && dist < dynamicConnect) {
-                    state.edges.push({ a: i, b: idx });
-                    scratchLine(prev.x, prev.y, p.x, p.y, dist);
+                if (!dist) continue;
+
+                if (style === 'sticky') {
+                    const mx = (p.x + prev.x) * 0.5;
+                    const my = (p.y + prev.y) * 0.5;
+                    const mv = sampleStickyMask(mx, my); // 0..1
+                    const dyn = dynamicConnect * (0.45 + 0.95 * mv);
+                    if (dist < dyn && rng() < (0.10 + 0.90 * mv)) {
+                        const distAdj = dist * (0.9 - 0.4 * mv);
+                        state.edges.push({ a: i, b: idx });
+                        scratchLine(prev.x, prev.y, p.x, p.y, distAdj);
+                    }
+                } else {
+                    if (dist < dynamicConnect) {
+                        state.edges.push({ a: i, b: idx });
+                        scratchLine(prev.x, prev.y, p.x, p.y, dist);
+                    }
                 }
             }
             if (idx > 48 && rng() < 0.145) {
@@ -871,8 +1074,18 @@
                         const lo = dynamicConnect * 0.9;
                         const hi = dynamicConnect * 2.45;
                         if (d > lo && d < hi) {
-                            state.edges.push({ a: j, b: idx });
-                            scratchLine(prev.x, prev.y, p.x, p.y, d);
+                            if (style === 'sticky') {
+                                const mx = (p.x + prev.x) * 0.5;
+                                const my = (p.y + prev.y) * 0.5;
+                                const mv = sampleStickyMask(mx, my);
+                                if (rng() > (0.15 + 0.85 * mv)) return;
+                                const dAdj = d * (0.9 - 0.4 * mv);
+                                state.edges.push({ a: j, b: idx });
+                                scratchLine(prev.x, prev.y, p.x, p.y, dAdj);
+                            } else {
+                                state.edges.push({ a: j, b: idx });
+                                scratchLine(prev.x, prev.y, p.x, p.y, d);
+                            }
                         }
                     }
                 }
@@ -884,6 +1097,8 @@
             state.isDrawing = true;
             state.selectionRng = Math.random;
             pushUndoSnapshot();
+
+            if (state.myceliumStyle === 'sticky') ensureStickyMask();
 
             const p = canvasCoordsFromEvent(e);
             addPoint(p.x, p.y);
@@ -925,6 +1140,9 @@
             state.selectionRng = state.uiTab === 'generate'
                 ? makeRng((state.generateSeed ^ 0x9e3779b9) >>> 0)
                 : Math.random;
+
+            if (state.myceliumStyle === 'sticky') ensureStickyMask();
+
             for (let i = 0; i < src.length; i++) {
                 const p = src[i];
                 if (!p) {
@@ -1104,6 +1322,16 @@
             if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
         });
 
+        myceliumStyleEl?.addEventListener('change', (e) => {
+            state.myceliumStyle = e.target.value;
+            if (state.uiTab === 'generate') {
+                rerenderGenerateCurrent();
+            } else if (state.points.length) {
+                state.undoStack = [];
+                renderFromPoints(state.points);
+            }
+        });
+
         taperEl?.addEventListener('change', (e) => {
             state.taperEnabled = e.target.checked;
             rerenderGenerateCurrent();
@@ -1179,6 +1407,7 @@
         // init
         setMode('ink');
         setMarker(state.marker);
+        if (myceliumStyleEl) myceliumStyleEl.value = state.myceliumStyle;
         if (taperEl) taperEl.checked = state.taperEnabled;
         updateFilter();
         updateFilterEnabled();
