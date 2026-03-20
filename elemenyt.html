@@ -99,6 +99,12 @@
                                 </select>
                             </div>
 
+                            <div class="control-row">
+                                <label for="el-sticky-strength">Sticky</label>
+                                <input type="range" id="el-sticky-strength" min="0" max="10" value="6" step="0.1">
+                                <span class="param-value" id="val-el-sticky-strength">6.0</span>
+                            </div>
+
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-taper">
                                 <span class="toggle-box"></span>
@@ -288,6 +294,8 @@
         const outlineEl = el('el-outline');
         const outlineVal = el('val-el-outline');
         const taperEl = el('el-taper');
+        const stickyStrengthEl = el('el-sticky-strength');
+        const stickyStrengthVal = el('val-el-sticky-strength');
         const myceliumStyleEl = el('el-mycelium-style');
         const clearBtn = el('el-clear');
         const exportBtn = el('el-export');
@@ -306,6 +314,7 @@
             generateSeed: (Math.random() * 0x7fffffff) | 0,
             taperEnabled: false,
             myceliumStyle: 'mesh', // 'mesh' | 'sticky'
+            stickyStrength: 6.0, // 0 = neutral, 10 = strong merging bias
 
             fillEnabled: false,
             inkColor: '#000000',
@@ -1037,6 +1046,8 @@
             const style = state.myceliumStyle;
             if (style === 'sticky') ensureStickyMask();
 
+            const stickyT = clamp(state.stickyStrength / 10, 0, 1);
+
             /** Mycelium only: dense local mesh + rare long bridges */
             const recentWindow = 420;
             const startIndex = Math.max(0, idx - recentWindow);
@@ -1051,9 +1062,16 @@
                     const mx = (p.x + prev.x) * 0.5;
                     const my = (p.y + prev.y) * 0.5;
                     const mv = sampleStickyMask(mx, my); // 0..1
-                    const dyn = dynamicConnect * (0.45 + 0.95 * mv);
-                    if (dist < dyn && rng() < (0.10 + 0.90 * mv)) {
-                        const distAdj = dist * (0.9 - 0.4 * mv);
+                    // Blend: at stickyT=0 -> behave like mesh (neutral).
+                    // At stickyT=1 -> strongly bias towards higher mv (sticky regions).
+                    const dynBias = (0.45 + 0.95 * mv);
+                    const probBias = (0.10 + 0.90 * mv);
+                    const dyn = dynamicConnect * (1 - stickyT + stickyT * dynBias);
+                    const prob = (1 - stickyT) * 1 + stickyT * probBias;
+                    if (dist < dyn && rng() < prob) {
+                        const distScaleBias = (0.9 - 0.4 * mv); // smaller = thicker
+                        const distScale = (1 - stickyT) * 1 + stickyT * distScaleBias;
+                        const distAdj = dist * distScale;
                         state.edges.push({ a: i, b: idx });
                         scratchLine(prev.x, prev.y, p.x, p.y, distAdj);
                     }
@@ -1078,8 +1096,12 @@
                                 const mx = (p.x + prev.x) * 0.5;
                                 const my = (p.y + prev.y) * 0.5;
                                 const mv = sampleStickyMask(mx, my);
-                                if (rng() > (0.15 + 0.85 * mv)) return;
-                                const dAdj = d * (0.9 - 0.4 * mv);
+                                const probBridgeBias = (0.15 + 0.85 * mv);
+                                const probBridge = (1 - stickyT) * 1 + stickyT * probBridgeBias;
+                                if (rng() > probBridge) return;
+                                const distScaleBias = (0.9 - 0.4 * mv);
+                                const distScale = (1 - stickyT) * 1 + stickyT * distScaleBias;
+                                const dAdj = d * distScale;
                                 state.edges.push({ a: j, b: idx });
                                 scratchLine(prev.x, prev.y, p.x, p.y, dAdj);
                             } else {
@@ -1332,6 +1354,17 @@
             }
         });
 
+        stickyStrengthEl?.addEventListener('input', (e) => {
+            state.stickyStrength = clamp(parseFloat(e.target.value), 0, 10);
+            stickyStrengthVal.textContent = String(Math.round(state.stickyStrength * 10) / 10);
+            if (state.uiTab === 'generate') {
+                rerenderGenerateCurrent();
+            } else if (state.points.length) {
+                // In sketch tab, keep it responsive too.
+                renderFromPoints(state.points);
+            }
+        });
+
         taperEl?.addEventListener('change', (e) => {
             state.taperEnabled = e.target.checked;
             rerenderGenerateCurrent();
@@ -1408,6 +1441,10 @@
         setMode('ink');
         setMarker(state.marker);
         if (myceliumStyleEl) myceliumStyleEl.value = state.myceliumStyle;
+        if (stickyStrengthEl) {
+            stickyStrengthEl.value = String(state.stickyStrength);
+            if (stickyStrengthVal) stickyStrengthVal.textContent = String(Math.round(state.stickyStrength * 10) / 10);
+        }
         if (taperEl) taperEl.checked = state.taperEnabled;
         updateFilter();
         updateFilterEnabled();
