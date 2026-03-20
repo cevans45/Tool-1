@@ -65,9 +65,20 @@
                                 <span class="cb-label">Mirror top-bottom</span>
                             </label>
 
+                            <label class="checkbox-label">
+                                <input id="if-outline" type="checkbox">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Outline stroke</span>
+                            </label>
+
                             <div class="control-row color-row">
                                 <label for="if-ink">Ink</label>
                                 <input id="if-ink" type="color" value="#000000">
+                            </div>
+
+                            <div class="control-row color-row" id="if-outline-color-row" style="display:none;">
+                                <label for="if-outline-col">Outline Color</label>
+                                <input id="if-outline-col" type="color" value="#ffffff">
                             </div>
 
                             <div class="control-row color-row">
@@ -104,6 +115,8 @@
             marker: 'line',
             mirrorX: true,
             mirrorY: false,
+            outline: false,
+            outlineCol: '#ffffff',
             ink: '#000000',
             bg: '#ffffff',
             isDrawing: false,
@@ -122,17 +135,16 @@
             canvas.height = Math.floor(cssH * dpr);
             canvas.style.width = `${cssW}px`;
             canvas.style.height = `${cssH}px`;
+            canvas.style.backgroundColor = state.bg;
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            repaintBackground();
+            clearCanvas();
         }
 
-        function repaintBackground() {
+        function clearCanvas() {
             ctx.save();
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.restore();
-            ctx.fillStyle = state.bg;
-            ctx.fillRect(0, 0, cssW, cssH);
         }
 
         function mirroredPoints(x, y) {
@@ -148,71 +160,90 @@
             const len = Math.hypot(dx, dy) || 1;
             const distFactor = Math.max(0.2, (72 - len) / 10);
             const w = state.size * distFactor;
-            const jitter = 3.5 + w * 0.75;
-            const dir = Math.atan2(dy, dx);
-            const passes = Math.max(3, Math.round(5 + Math.abs(Math.sin(dir * 1.7)) * 3));
 
-            ctx.fillStyle = state.ink;
-            ctx.strokeStyle = state.ink;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
 
+            if (state.marker === 'line') {
+                const drawPaths = (lineWidth, col, gco) => {
+                    ctx.globalCompositeOperation = gco;
+                    ctx.lineWidth = lineWidth;
+                    ctx.strokeStyle = col;
+                    ctx.beginPath();
+                    const lines = [{ x1, y1, x2, y2 }];
+                    if (state.mirrorX) lines.push({ x1: cssW - x1, y1, x2: cssW - x2, y2 });
+                    if (state.mirrorY) lines.push({ x1, y1: cssH - y1, x2, y2: cssH - y2 });
+                    if (state.mirrorX && state.mirrorY) lines.push({ x1: cssW - x1, y1: cssH - y1, x2: cssW - x2, y2: cssH - y2 });
+                    for (let i = 0; i < lines.length; i++) {
+                        ctx.moveTo(lines[i].x1, lines[i].y1);
+                        ctx.lineTo(lines[i].x2, lines[i].y2);
+                    }
+                    ctx.stroke();
+                };
+                
+                drawPaths(w, state.ink, 'source-over');
+                if (state.outline) {
+                    drawPaths(w + 6, state.outlineCol, 'destination-over');
+                }
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
             if (state.marker === 'sprinkle') {
-                const dots = Math.max(3, Math.floor(len / 10));
-                for (let p = 0; p < passes; p++) {
-                    for (let i = 0; i < dots; i++) {
-                        const t = Math.random();
-                        const px = x1 + dx * t + (Math.random() - 0.5) * jitter;
-                        const py = y1 + dy * t + (Math.random() - 0.5) * jitter;
-                        const r = Math.max(0.35, w * (0.1 + Math.random() * 0.25));
-                        const m = mirroredPoints(px, py);
-                        for (let k = 0; k < m.length; k++) {
-                            ctx.beginPath();
-                            ctx.arc(m[k].x, m[k].y, r, 0, Math.PI * 2);
-                            ctx.fill();
+                const dots = Math.max(3, Math.floor(len / 4));
+                const spread = w * 2.5 + 10;
+                
+                const drawDot = (mx, my, r, col, gco) => {
+                    ctx.globalCompositeOperation = gco;
+                    ctx.beginPath();
+                    ctx.arc(mx, my, r, 0, Math.PI * 2);
+                    ctx.fillStyle = col;
+                    ctx.fill();
+                };
+                
+                for (let i = 0; i < dots; i++) {
+                    const t = Math.random();
+                    const px = x1 + dx * t + (Math.random() - 0.5) * spread;
+                    const py = y1 + dy * t + (Math.random() - 0.5) * spread;
+                    const r = Math.max(0.5, (w * 0.3) * (0.5 + Math.random() * 0.6));
+                    const m = mirroredPoints(px, py);
+                    for (let k = 0; k < m.length; k++) {
+                        drawDot(m[k].x, m[k].y, r, state.ink, 'source-over');
+                        if (state.outline) {
+                            drawDot(m[k].x, m[k].y, r + 2, state.outlineCol, 'destination-over');
                         }
                     }
                 }
+                ctx.globalCompositeOperation = 'source-over';
                 return;
             }
 
             if (state.marker === 'inkblot') {
-                const samples = Math.max(6, Math.floor(len / 5));
-                for (let p = 0; p < passes; p++) {
-                    for (let i = 0; i < samples; i++) {
-                        const t = samples <= 1 ? 0.5 : i / (samples - 1);
-                        const px = x1 + dx * t + (Math.random() - 0.5) * jitter * 0.6;
-                        const py = y1 + dy * t + (Math.random() - 0.5) * jitter * 0.6;
-                        const r = Math.max(0.45, w * (0.28 + Math.random() * 0.7));
-                        const m = mirroredPoints(px, py);
-                        for (let k = 0; k < m.length; k++) {
-                            ctx.beginPath();
-                            ctx.arc(m[k].x, m[k].y, r, 0, Math.PI * 2);
-                            ctx.fill();
+                const samples = Math.max(2, Math.floor(len / 8));
+                
+                const drawCircle = (mx, my, r, col, gco) => {
+                    ctx.globalCompositeOperation = gco;
+                    ctx.beginPath();
+                    ctx.arc(mx, my, r, 0, Math.PI * 2);
+                    ctx.fillStyle = col;
+                    ctx.fill();
+                };
+
+                for (let i = 0; i < samples; i++) {
+                    const t = samples <= 1 ? 0.5 : i / (samples - 1);
+                    const px = x1 + dx * t + (Math.random() - 0.5) * (w * 0.5);
+                    const py = y1 + dy * t + (Math.random() - 0.5) * (w * 0.5);
+                    const r = Math.max(2, w * (1.2 + Math.random() * 0.8));
+                    const m = mirroredPoints(px, py);
+                    for (let k = 0; k < m.length; k++) {
+                        drawCircle(m[k].x, m[k].y, r, state.ink, 'source-over');
+                        if (state.outline) {
+                            drawCircle(m[k].x, m[k].y, r + 4, state.outlineCol, 'destination-over');
                         }
                     }
                 }
+                ctx.globalCompositeOperation = 'source-over';
                 return;
-            }
-
-            for (let p = 0; p < passes; p++) {
-                const ax = x1 + (Math.random() - 0.5) * jitter;
-                const ay = y1 + (Math.random() - 0.5) * jitter;
-                const bx = x2 + (Math.random() - 0.5) * jitter;
-                const by = y2 + (Math.random() - 0.5) * jitter;
-                ctx.lineWidth = w;
-                const lines = [
-                    { x1: ax, y1: ay, x2: bx, y2: by }
-                ];
-                if (state.mirrorX) lines.push({ x1: cssW - ax, y1: ay, x2: cssW - bx, y2: by });
-                if (state.mirrorY) lines.push({ x1: ax, y1: cssH - ay, x2: bx, y2: cssH - by });
-                if (state.mirrorX && state.mirrorY) lines.push({ x1: cssW - ax, y1: cssH - ay, x2: cssW - bx, y2: cssH - by });
-                ctx.beginPath();
-                for (let i = 0; i < lines.length; i++) {
-                    ctx.moveTo(lines[i].x1, lines[i].y1);
-                    ctx.lineTo(lines[i].x2, lines[i].y2);
-                }
-                ctx.stroke();
             }
         }
 
@@ -266,7 +297,7 @@
 
         function generate() {
             pushUndo();
-            repaintBackground();
+            clearCanvas();
             state.points = [];
             const n = Math.max(200, Math.floor((cssW * cssH) / 9000));
             let x = 20 + Math.random() * (cssW - 40);
@@ -314,9 +345,17 @@
         $('if-marker').addEventListener('change', (e) => state.marker = e.target.value);
         $('if-mirror-x').addEventListener('change', (e) => state.mirrorX = e.target.checked);
         $('if-mirror-y').addEventListener('change', (e) => state.mirrorY = e.target.checked);
+        $('if-outline').addEventListener('change', (e) => {
+            state.outline = e.target.checked;
+            $('if-outline-color-row').style.display = state.outline ? 'flex' : 'none';
+        });
+        $('if-outline-col').addEventListener('input', (e) => state.outlineCol = e.target.value);
         $('if-ink').addEventListener('input', (e) => state.ink = e.target.value);
-        $('if-bg').addEventListener('input', (e) => { state.bg = e.target.value; repaintBackground(); });
-        $('if-clear').addEventListener('click', () => { pushUndo(); repaintBackground(); state.points = []; });
+        $('if-bg').addEventListener('input', (e) => { 
+            state.bg = e.target.value; 
+            canvas.style.backgroundColor = state.bg; 
+        });
+        $('if-clear').addEventListener('click', () => { pushUndo(); clearCanvas(); state.points = []; });
         $('if-export').addEventListener('click', () => {
             const out = document.createElement('canvas');
             out.width = canvas.width; out.height = canvas.height;
@@ -338,7 +377,7 @@
             } else if (e.code === 'Space') {
                 e.preventDefault();
                 pushUndo();
-                repaintBackground();
+                clearCanvas();
                 state.points = [];
             }
         });
