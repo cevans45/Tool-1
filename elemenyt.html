@@ -813,6 +813,20 @@
         function addPoint(x, y) {
             const p = { x, y };
             state.points.push(p);
+
+            // Generate tab uses L-system branch paths:
+            // connect only to the most recent contiguous point so it reads as
+            // structured recursive branching instead of mycelium webbing.
+            if (state.uiTab === 'generate') {
+                const prev = state.points.length > 1 ? state.points[state.points.length - 2] : null;
+                if (!prev || !p) return;
+                const dx = p.x - prev.x;
+                const dy = p.y - prev.y;
+                const dist = Math.hypot(dx, dy);
+                scratchLine(prev.x, prev.y, p.x, p.y, dist);
+                return;
+            }
+
             const startIndex = Math.max(0, state.points.length - 250);
 
             for (let i = startIndex; i < state.points.length - 1; i++) {
