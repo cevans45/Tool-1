@@ -92,6 +92,15 @@
                             </div>
 
                             <div class="control-row">
+                                <label for="el-connection-mode">Connections</label>
+                                <select id="el-connection-mode" class="select-input">
+                                    <option value="mycelium">Mycelium (mesh)</option>
+                                    <option value="flowGraph" selected>Flow graph</option>
+                                    <option value="reactionDiffusion">Reaction–diffusion</option>
+                                </select>
+                            </div>
+
+                            <div class="control-row">
                                 <label for="el-marker">Marker</label>
                                 <select id="el-marker" class="select-input">
                                     <option value="line" selected>Line</option>
@@ -265,6 +274,7 @@
         const modeRowEl = el('el-mode-row');
         const strokeEl = el('el-stroke');
         const strokeVal = el('val-el-stroke');
+        const connectionModeEl = el('el-connection-mode');
         const markerEl = el('el-marker');
         const markerIconsWrap = el('el-marker-icons');
         const fillEnabledEl = el('el-fill-enabled');
@@ -288,6 +298,8 @@
             uiTab: 'sketch', // 'sketch' | 'generate'
             generateTime: 55,
             generateSeed: (Math.random() * 0x7fffffff) | 0,
+            /** @type {'mycelium' | 'flowGraph' | 'reactionDiffusion'} */
+            connectionMode: 'flowGraph',
 
             fillEnabled: false,
             inkColor: '#000000',
@@ -302,7 +314,22 @@
             selectionRng: Math.random,
 
             undoStack: [], // { snapCanvas, pointsLen }
+
+            /** Gray–Scott buffers (reaction–diffusion connection mode) */
+            rdU: null,
+            rdV: null,
+            rdUn: null,
+            rdVn: null,
         };
+
+        /** Fixed grid for Gray–Scott; mapped to canvas in CSS pixels */
+        const RD_W = 76;
+        const RD_H = 76;
+        const RD_DU = 0.16;
+        const RD_DV = 0.08;
+        const RD_F = 0.055;
+        const RD_K = 0.062;
+        const RD_DT = 0.22;
 
         const CONFIG = {
             connectDistance: 70,
@@ -348,6 +375,113 @@
             if (o3 === 0 && onSeg(b1, a1, b2)) return true;
             if (o4 === 0 && onSeg(b1, a2, b2)) return true;
             return false;
+        }
+
+        function ensureRDBuffers() {
+            const n = RD_W * RD_H;
+            if (!state.rdU || state.rdU.length !== n) {
+                state.rdU = new Float32Array(n);
+                state.rdV = new Float32Array(n);
+                state.rdUn = new Float32Array(n);
+                state.rdVn = new Float32Array(n);
+            }
+        }
+
+        function resetRDGrid() {
+            ensureRDBuffers();
+            const n = RD_W * RD_H;
+            for (let i = 0; i < n; i++) {
+                state.rdU[i] = 1;
+                state.rdV[i] = 0;
+            }
+        }
+
+        function rdCellIndex(ix, iy) {
+            ix = clamp(ix | 0, 0, RD_W - 1);
+            iy = clamp(iy | 0, 0, RD_H - 1);
+            return ix + iy * RD_W;
+        }
+
+        function stepGrayScottOnce() {
+            const U = state.rdU;
+            const V = state.rdV;
+            const Un = state.rdUn;
+            const Vn = state.rdVn;
+            const W = RD_W;
+            for (let j = 0; j < RD_H; j++) {
+                for (let i = 0; i < W; i++) {
+                    const idx = i + j * W;
+                    const u = U[idx];
+                    const v = V[idx];
+                    const uim = U[rdCellIndex(i - 1, j)];
+                    const uip = U[rdCellIndex(i + 1, j)];
+                    const ujm = U[rdCellIndex(i, j - 1)];
+                    const ujp = U[rdCellIndex(i, j + 1)];
+                    const vim = V[rdCellIndex(i - 1, j)];
+                    const vip = V[rdCellIndex(i + 1, j)];
+                    const vjm = V[rdCellIndex(i, j - 1)];
+                    const vjp = V[rdCellIndex(i, j + 1)];
+                    const lu = uim + uip + ujm + ujp - 4 * u;
+                    const lv = vim + vip + vjm + vjp - 4 * v;
+                    const uvv = u * v * v;
+                    const un = u + RD_DT * (RD_DU * lu - uvv + RD_F * (1 - u));
+                    const vn = v + RD_DT * (RD_DV * lv + uvv - (RD_F + RD_K) * v);
+                    Un[idx] = clamp(un, 0, 1);
+                    Vn[idx] = clamp(vn, 0, 1);
+                }
+            }
+            for (let i = 0; i < U.length; i++) {
+                U[i] = Un[i];
+                V[i] = Vn[i];
+            }
+        }
+
+        function rdInjectAndStep(wx, wy, subSteps) {
+            const steps = subSteps === undefined ? 4 : subSteps;
+            ensureRDBuffers();
+            const ix = clamp(Math.floor((wx / Math.max(cssWidth, 1)) * RD_W), 0, RD_W - 1);
+            const iy = clamp(Math.floor((wy / Math.max(cssHeight, 1)) * RD_H), 0, RD_H - 1);
+            const ii = rdCellIndex(ix, iy);
+            state.rdU[ii] = Math.max(0.04, state.rdU[ii] - 0.12);
+            state.rdV[ii] = Math.min(1, state.rdV[ii] + 0.42);
+            for (let s = 0; s < steps; s++) stepGrayScottOnce();
+        }
+
+        function rdSampleV(wx, wy) {
+            if (!state.rdV) return 0;
+            const fx = (wx / Math.max(cssWidth, 1)) * (RD_W - 1);
+            const fy = (wy / Math.max(cssHeight, 1)) * (RD_H - 1);
+            const ix = Math.floor(fx);
+            const iy = Math.floor(fy);
+            const tx = fx - ix;
+            const ty = fy - iy;
+            const q11 = state.rdV[rdCellIndex(ix, iy)];
+            const q21 = state.rdV[rdCellIndex(ix + 1, iy)];
+            const q12 = state.rdV[rdCellIndex(ix, iy + 1)];
+            const q22 = state.rdV[rdCellIndex(ix + 1, iy + 1)];
+            return (q11 * (1 - tx) + q21 * tx) * (1 - ty) + (q12 * (1 - tx) + q22 * tx) * ty;
+        }
+
+        function rdGradV(wx, wy) {
+            if (!state.rdV) return { x: 0, y: 0 };
+            const ix = clamp(Math.round((wx / Math.max(cssWidth, 1)) * (RD_W - 1)), 1, RD_W - 2);
+            const iy = clamp(Math.round((wy / Math.max(cssHeight, 1)) * (RD_H - 1)), 1, RD_H - 2);
+            const vxp = state.rdV[rdCellIndex(ix + 1, iy)];
+            const vxm = state.rdV[rdCellIndex(ix - 1, iy)];
+            const vyp = state.rdV[rdCellIndex(ix, iy + 1)];
+            const vym = state.rdV[rdCellIndex(ix, iy - 1)];
+            const gx = (vxp - vxm) * 0.5 * RD_W / Math.max(cssWidth, 1);
+            const gy = (vyp - vym) * 0.5 * RD_H / Math.max(cssHeight, 1);
+            return { x: gx, y: gy };
+        }
+
+        function syncRDGridFromPoints() {
+            resetRDGrid();
+            for (let i = 0; i < state.points.length; i++) {
+                const pt = state.points[i];
+                if (!pt) continue;
+                rdInjectAndStep(pt.x, pt.y, 3);
+            }
         }
 
         function mirroredPoints(x, y) {
@@ -522,6 +656,10 @@
             ctx.drawImage(rec.snapCanvas, 0, 0);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             state.points.length = rec.pointsLen;
+            state.edges = [];
+            if (state.connectionMode === 'reactionDiffusion') {
+                syncRDGridFromPoints();
+            }
         }
 
         function getEventClientXY(e) {
@@ -845,11 +983,31 @@
             const maxDist = CONFIG.connectDistance + state.brushSize * 1.25;
             const recentWindow = 280;
             const startIndex = Math.max(0, idx - recentWindow);
+            const rng = state.selectionRng || Math.random;
+            const mode = state.connectionMode;
+
+            /** Classic mesh: connect to all recent points inside dynamic radius */
+            if (mode === 'mycelium') {
+                const dynamicConnect = CONFIG.connectDistance + state.brushSize;
+                for (let i = startIndex; i < idx; i++) {
+                    const prev = state.points[i];
+                    if (!prev) continue;
+                    const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
+                    if (dist > 0 && dist < dynamicConnect) {
+                        state.edges.push({ a: i, b: idx });
+                        scratchLine(prev.x, prev.y, p.x, p.y, dist);
+                    }
+                }
+                return;
+            }
+
+            if (mode === 'reactionDiffusion') {
+                rdInjectAndStep(p.x, p.y, 4);
+            }
+
             const candidateEdges = [];
             const seen = new Set();
-            const rng = state.selectionRng || Math.random;
 
-            // Direction from last contiguous point into this point.
             let motionDir = null;
             for (let k = idx - 1; k >= 0; k--) {
                 const prev = state.points[k];
@@ -861,17 +1019,15 @@
                 break;
             }
 
-            // Local density around the new point.
             let localDensity = 0;
             const crowdR = maxDist * 0.45;
-            for (let i = startIndex; i < idx; i++) {
-                const q = state.points[i];
+            for (let ti = startIndex; ti < idx; ti++) {
+                const q = state.points[ti];
                 if (!q) continue;
                 if (Math.hypot(p.x - q.x, p.y - q.y) < crowdR) localDensity++;
             }
             const sCrowd = clamp(localDensity / 16, 0, 1);
 
-            // Flow field direction anchors a recognizable "signature."
             const seedPhase = (state.generateSeed % 100000) * 0.00037;
             const flowA = Math.sin(p.x * 0.012 + seedPhase) + Math.cos(p.y * 0.009 - seedPhase * 1.7);
             const fieldDir = { x: Math.cos(flowA), y: Math.sin(flowA) };
@@ -889,13 +1045,26 @@
                 const uy = dy / dist;
                 const sDist = 1 - dist / maxDist;
                 const sDir = motionDir ? (motionDir.x * ux + motionDir.y * uy + 1) * 0.5 : 0.5;
-                const sField = (fieldDir.x * ux + fieldDir.y * uy + 1) * 0.5;
 
-                // Mild "memory decay": newer points are easier to connect.
+                let sGuidance;
+                if (mode === 'flowGraph') {
+                    sGuidance = (fieldDir.x * ux + fieldDir.y * uy + 1) * 0.5;
+                } else {
+                    const vPrev = rdSampleV(prev.x, prev.y);
+                    const vHere = rdSampleV(p.x, p.y);
+                    const vmid = (vPrev + vHere) * 0.5;
+                    const mx = (prev.x + p.x) * 0.5;
+                    const my = (prev.y + p.y) * 0.5;
+                    const g = rdGradV(mx, my);
+                    const gLen = Math.hypot(g.x, g.y) || 1;
+                    const perpAlign = Math.abs(ux * (g.y / gLen) - uy * (g.x / gLen));
+                    const ridge = clamp(Math.hypot(g.x, g.y) * 4, 0, 1);
+                    sGuidance = clamp(vmid, 0, 1) * (0.4 + 0.6 * perpAlign) + 0.25 * ridge;
+                }
+
                 const age = idx - i;
                 const memory = clamp(1 - age / recentWindow, 0, 1);
 
-                // Penalize crossings against recent edges.
                 let crossCount = 0;
                 const edgeStart = Math.max(0, state.edges.length - 180);
                 for (let e = edgeStart; e < state.edges.length; e++) {
@@ -908,14 +1077,15 @@
                 }
                 const sCross = clamp(crossCount / 3, 0, 1);
 
-                const score = (1.2 * sDist) + (0.9 * sDir) + (0.8 * sField) + (0.45 * memory) - (0.7 * sCrowd) - (1.1 * sCross);
-                if (score > 0.34) candidateEdges.push({ i, dist, score });
+                const score = (1.2 * sDist) + (0.9 * sDir) + (0.85 * sGuidance) + (0.45 * memory)
+                    - (0.7 * sCrowd) - (1.1 * sCross);
+                const cut = mode === 'reactionDiffusion' ? 0.3 : 0.34;
+                if (score > cut) candidateEdges.push({ i, dist, score });
             }
 
             if (!candidateEdges.length) return;
             candidateEdges.sort((a, b) => b.score - a.score);
 
-            // Top-k weighted picks: keeps structure controlled and less webby.
             const kMin = 1;
             const kMax = state.uiTab === 'generate' ? 3 : 2;
             const topPool = candidateEdges.slice(0, Math.min(14, candidateEdges.length));
@@ -974,6 +1144,7 @@
         function clearAll() {
             state.points = [];
             state.edges = [];
+            resetRDGrid();
             state.undoStack = [];
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -987,6 +1158,7 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             state.points = [];
             state.edges = [];
+            resetRDGrid();
             state.selectionRng = state.uiTab === 'generate'
                 ? makeRng((state.generateSeed ^ 0x9e3779b9) >>> 0)
                 : Math.random;
@@ -1169,6 +1341,11 @@
             if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
         });
 
+        connectionModeEl?.addEventListener('change', (e) => {
+            state.connectionMode = e.target.value;
+            rerenderGenerateCurrent();
+        });
+
         markerEl?.addEventListener('change', (e) => {
             setMarker(e.target.value);
             rerenderGenerateCurrent();
@@ -1239,6 +1416,8 @@
         // init
         setMode('ink');
         setMarker(state.marker);
+        if (connectionModeEl) connectionModeEl.value = state.connectionMode;
+        resetRDGrid();
         updateFilter();
         updateFilterEnabled();
         applyBackgroundColor();
