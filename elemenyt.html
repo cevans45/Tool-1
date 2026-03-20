@@ -91,6 +91,12 @@
                                 <span class="param-value" id="val-el-stroke">6</span>
                             </div>
 
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-taper">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Taper ends</span>
+                            </label>
+
                             <div class="control-row">
                                 <label for="el-connection-mode">Connections</label>
                                 <select id="el-connection-mode" class="select-input">
@@ -283,6 +289,7 @@
         const bgColorEl = el('el-bg-color');
         const outlineEl = el('el-outline');
         const outlineVal = el('val-el-outline');
+        const taperEl = el('el-taper');
         const clearBtn = el('el-clear');
         const exportBtn = el('el-export');
 
@@ -300,6 +307,7 @@
             generateSeed: (Math.random() * 0x7fffffff) | 0,
             /** @type {'mycelium' | 'flowGraph' | 'reactionDiffusion'} */
             connectionMode: 'flowGraph',
+            taperEnabled: false,
 
             fillEnabled: false,
             inkColor: '#000000',
@@ -327,9 +335,10 @@
         const RD_H = 76;
         const RD_DU = 0.16;
         const RD_DV = 0.08;
-        const RD_F = 0.055;
-        const RD_K = 0.062;
-        const RD_DT = 0.22;
+        /** Coral / spotty regime — stronger patterns for connection scoring */
+        const RD_F = 0.042;
+        const RD_K = 0.059;
+        const RD_DT = 0.24;
 
         const CONFIG = {
             connectDistance: 70,
@@ -437,13 +446,19 @@
         }
 
         function rdInjectAndStep(wx, wy, subSteps) {
-            const steps = subSteps === undefined ? 4 : subSteps;
+            const steps = subSteps === undefined ? 6 : subSteps;
             ensureRDBuffers();
             const ix = clamp(Math.floor((wx / Math.max(cssWidth, 1)) * RD_W), 0, RD_W - 1);
             const iy = clamp(Math.floor((wy / Math.max(cssHeight, 1)) * RD_H), 0, RD_H - 1);
             const ii = rdCellIndex(ix, iy);
-            state.rdU[ii] = Math.max(0.04, state.rdU[ii] - 0.12);
-            state.rdV[ii] = Math.min(1, state.rdV[ii] + 0.42);
+            state.rdU[ii] = Math.max(0.03, state.rdU[ii] - 0.18);
+            state.rdV[ii] = Math.min(1, state.rdV[ii] + 0.55);
+            for (let sy = -1; sy <= 1; sy++) {
+                for (let sx = -1; sx <= 1; sx++) {
+                    const ji = rdCellIndex(ix + sx, iy + sy);
+                    state.rdV[ji] = Math.min(1, state.rdV[ji] + 0.12);
+                }
+            }
             for (let s = 0; s < steps; s++) stepGrayScottOnce();
         }
 
@@ -676,9 +691,28 @@
             };
         }
 
+        /** 0→1 along segment x1,y1 → x2,y2: thin at ends when taper on */
+        function taperWidthAt(t) {
+            if (!state.taperEnabled) return 1;
+            const u = clamp(t, 0, 1);
+            return 0.05 + 0.95 * Math.pow(Math.sin(Math.PI * u), 1.06);
+        }
+
+        /** Visual + passes differ strongly per connection algorithm */
+        function connectionScratchStyle() {
+            const m = state.connectionMode;
+            if (m === 'mycelium') {
+                return { passMul: 1.38, jitterMul: 1.55, holeMul: 0.68, distPlus: 0.26 };
+            }
+            if (m === 'flowGraph') {
+                return { passMul: 0.55, jitterMul: 0.36, holeMul: 1.28, distPlus: -0.14 };
+            }
+            return { passMul: 1.22, jitterMul: 1.4, holeMul: 0.92, distPlus: 0.1 };
+        }
+
         function scratchLine(x1, y1, x2, y2, dist) {
-            // Thickness logic from your reference
-            const distFactor = Math.max(0.2, (CONFIG.connectDistance - dist) / 10);
+            const sty = connectionScratchStyle();
+            const distFactor = Math.max(0.12, (CONFIG.connectDistance - dist) / 10 + sty.distPlus);
             const finalThickness = state.brushSize * distFactor;
             const baseJitter = CONFIG.baseJitter + (finalThickness * CONFIG.jitterMultiplier);
 
@@ -687,8 +721,7 @@
             ctx.strokeStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
             ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
 
-            // Ensure stroke style uses correct geometry
-            ctx.lineCap = 'square';
+            ctx.lineCap = state.taperEnabled ? 'round' : 'square';
             ctx.lineJoin = 'bevel';
 
             const dx = x2 - x1;
@@ -696,8 +729,9 @@
             const segLen = Math.hypot(dx, dy) || 1;
             const dir = Math.atan2(dy, dx);
             const myceliumBias = 0.85 + Math.abs(Math.sin(dir * 1.7)) * 0.55;
-            const passesLocal = Math.max(3, Math.round(CONFIG.passes * myceliumBias));
-            const jitter = baseJitter * (0.9 + (myceliumBias - 0.85) * 0.35);
+            const passesLocal = Math.max(2, Math.round(CONFIG.passes * myceliumBias * sty.passMul));
+            const jitter = baseJitter * (0.9 + (myceliumBias - 0.85) * 0.35) * sty.jitterMul;
+            const holeProb = clamp(CONFIG.holeChance * sty.holeMul, 0, 0.5);
 
             // Marker behaviours
             if (state.marker === 'sprinkle') {
@@ -705,7 +739,7 @@
                 const dotCount = Math.max(2, Math.floor(segLen / 14));
                 for (let i = 0; i < passesLocal; i++) {
                     for (let d = 0; d < dotCount; d++) {
-                        if (Math.random() < CONFIG.holeChance) continue;
+                        if (Math.random() < holeProb) continue;
                         const t = Math.random();
                         const cx = x1 + dx * t;
                         const cy = y1 + dy * t;
@@ -735,7 +769,7 @@
 
                 for (let pass = 0; pass < passesLocal; pass++) {
                     for (let d = 0; d < dotCount; d++) {
-                        if (Math.random() < CONFIG.holeChance * 0.55) continue;
+                        if (Math.random() < holeProb * 0.55) continue;
 
                         const t = Math.random();
                         const cx = x1 + dx * t;
@@ -772,7 +806,7 @@
 
                 for (let pass = 0; pass < blotPasses; pass++) {
                     for (let s = 0; s < samples; s++) {
-                        if (Math.random() < CONFIG.holeChance * 0.45) continue;
+                        if (Math.random() < holeProb * 0.45) continue;
                         const t = samples <= 1 ? 0.5 : s / (samples - 1);
                         const cx = x1 + dx * t;
                         const cy = y1 + dy * t;
@@ -825,7 +859,7 @@
 
                 for (let pass = 0; pass < passesLocal; pass++) {
                     for (let i = 0; i < samples; i++) {
-                        if (Math.random() < CONFIG.holeChance * 0.8) continue;
+                        if (Math.random() < holeProb * 0.8) continue;
                         const t = samples <= 1 ? 0.5 : i / (samples - 1);
                         const cx = x1 + dx * t;
                         const cy = y1 + dy * t;
