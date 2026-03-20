@@ -96,6 +96,7 @@
         const canvas = document.getElementById('inkflow-canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const $ = (id) => document.getElementById(id);
+        const clamp = (val, min, max) => Math.max(min, Math.min(max, val));
 
         const state = {
             tab: 'sketch',
@@ -350,6 +351,10 @@
         canvas.addEventListener('touchmove', (e) => { e.preventDefault(); onMove(e); }, { passive: false });
         canvas.addEventListener('touchend', onUp);
         canvas.addEventListener('touchcancel', onUp);
+
+        const infoBtn = document.getElementById('infoBtn');
+        const infoClose = document.getElementById('infoClose');
+        const infoOverlay = document.getElementById('infoOverlay');
 
         infoBtn?.addEventListener('click', () => infoOverlay.hidden = false);
         infoClose?.addEventListener('click', () => infoOverlay.hidden = true);
