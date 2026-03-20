@@ -348,8 +348,21 @@
 
             // Mode controls are only for Sketch. Generate always draws.
             if (modeRowEl) modeRowEl.style.display = tab === 'sketch' ? '' : 'none';
-            if (tab === 'generate') setMode('ink');
+            if (tab === 'generate') {
+                setMode('ink');
+                requestLiveGenerate();
+            }
             else setMode(state.sketchMode);
+        }
+
+        let liveGenerateRaf = 0;
+        function requestLiveGenerate() {
+            if (state.uiTab !== 'generate') return;
+            if (liveGenerateRaf) cancelAnimationFrame(liveGenerateRaf);
+            liveGenerateRaf = requestAnimationFrame(() => {
+                liveGenerateRaf = 0;
+                generateRandomDrawing(true);
+            });
         }
 
         function setMarker(marker) {
@@ -361,6 +374,7 @@
                 const btn = buttons[i];
                 btn.classList.toggle('is-active', btn.getAttribute('data-marker') === marker);
             }
+            requestLiveGenerate();
         }
 
         function currentInkColor() {
@@ -450,6 +464,7 @@
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            requestLiveGenerate();
         }
 
         function setMirrorY(enabled) {
@@ -458,6 +473,7 @@
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            requestLiveGenerate();
         }
 
         function pushUndoSnapshot() {
@@ -851,7 +867,7 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
 
-        function generateRandomDrawing() {
+        function generateRandomDrawing(live = false) {
             // Generate a single random "hand-like" drawing.
             // Uses the current INK/CUT mode, marker, brush size, colors, and mirror.
             // Ensure current filter + canvas dimensions are correct.
@@ -862,7 +878,7 @@
             updateFilter();
 
             // Snapshot what the user currently has so UNDO can restore it.
-            pushUndoSnapshot();
+            if (!live) pushUndoSnapshot();
             state.isDrawing = false;
             state.points = [];
 
@@ -1028,6 +1044,7 @@
         strokeEl?.addEventListener('input', (e) => {
             state.brushSize = parseFloat(e.target.value);
             strokeVal.textContent = state.brushSize < 1 ? state.brushSize.toFixed(1) : String(Math.round(state.brushSize * 10) / 10);
+            requestLiveGenerate();
         });
 
         markerEl?.addEventListener('change', (e) => {
@@ -1044,32 +1061,38 @@
             state.fillEnabled = e.target.checked;
             updateFilterEnabled();
             updateFilter();
+            requestLiveGenerate();
         });
 
         inkColorEl?.addEventListener('input', (e) => {
             state.inkColor = e.target.value;
             if (!state.fillEnabled) updateFilter();
+            requestLiveGenerate();
         });
 
         fillColorEl?.addEventListener('input', (e) => {
             state.fillColor = e.target.value;
             if (state.fillEnabled) updateFilter();
+            requestLiveGenerate();
         });
 
         bgColorEl?.addEventListener('input', (e) => {
             state.bgColor = e.target.value;
             applyBackgroundColor();
+            requestLiveGenerate();
         });
 
         outlineEl?.addEventListener('input', (e) => {
             state.outlineRadius = parseFloat(e.target.value);
             outlineVal.textContent = state.outlineRadius.toFixed(2);
             updateFilter();
+            requestLiveGenerate();
         });
 
         genTimeEl?.addEventListener('input', (e) => {
             state.generateTime = parseInt(e.target.value, 10);
             genTimeVal.textContent = String(state.generateTime);
+            requestLiveGenerate();
         });
 
         clearBtn?.addEventListener('click', clearAll);
