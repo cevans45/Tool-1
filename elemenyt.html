@@ -890,54 +890,112 @@
 
         function buildGeneratedPoints(seed) {
             const rng = makeRng(seed);
-            const points = [];
             const w = cssWidth;
             const h = cssHeight;
-            const margin = Math.max(18, state.brushSize * 2.2);
+            const margin = Math.max(20, state.brushSize * 2.4);
+            const tN = clamp(state.generateTime / 100, 0, 1);
 
-            const tN = clamp(state.generateTime / 100, 0, 1); // 0 = fast, 1 = slow
-            const dynamicConnect = CONFIG.connectDistance + state.brushSize;
-            const baseSteps = (w * h) / 9000;
-            const steps = clamp(Math.floor(baseSteps * (0.55 + tN * 1.25)), 240, 2200);
-            const stepLenScale = 1.9 - tN * 1.25;
-            const penUpChance = 0.08 - tN * 0.06;
+            // L-system setup
+            const angles = [18, 20, 22.5, 25, 30];
+            const turnDeg = angles[Math.floor(rng() * angles.length)] + (rng() - 0.5) * 4;
+            const turn = turnDeg * Math.PI / 180;
+            const iterations = 3 + Math.floor(tN * 3); // 3..6
+            const baseStep = 5 + tN * 6 + state.brushSize * 0.35;
+            const noiseAmp = (1.5 + state.brushSize * 0.2) * (0.6 + tN * 0.9);
+            const branchChance = 0.45 + tN * 0.25;
 
-            let x = margin + rng() * (w - margin * 2);
-            let y = margin + rng() * (h - margin * 2);
-            let angle = rng() * Math.PI * 2;
-            points.push({ x, y });
+            const rulesets = [
+                { axiom: 'X', rules: { X: 'F-[[X]+X]+F[+FX]-X', F: 'FF' } },
+                { axiom: 'X', rules: { X: 'F[+X][-X]FX', F: 'FF' } },
+                { axiom: 'F', rules: { F: 'F[+F]F[-F]F' } }
+            ];
+            const selected = rulesets[Math.floor(rng() * rulesets.length)];
+            let sequence = selected.axiom;
 
-            for (let i = 0; i < steps; i++) {
-                if (rng() < penUpChance) {
+            for (let i = 0; i < iterations; i++) {
+                let next = '';
+                for (let j = 0; j < sequence.length; j++) {
+                    const ch = sequence[j];
+                    next += selected.rules[ch] || ch;
+                    if (next.length > 14000) break;
+                }
+                sequence = next;
+                if (sequence.length > 14000) break;
+            }
+
+            // Turtle walk in local space (centered near origin)
+            let x = 0;
+            let y = 0;
+            let heading = -Math.PI / 2;
+            let step = baseStep;
+            const stack = [];
+            const raw = [{ x, y }];
+
+            for (let i = 0; i < sequence.length; i++) {
+                const ch = sequence[i];
+                if (ch === 'F') {
+                    const localNoise = (rng() - 0.5) * noiseAmp;
+                    const len = step * (0.75 + rng() * 0.5);
+                    const nx = x + Math.cos(heading + localNoise) * len;
+                    const ny = y + Math.sin(heading + localNoise) * len;
+                    raw.push({ x: nx, y: ny });
+                    x = nx;
+                    y = ny;
+                    step *= 0.997; // gentle taper in branch length
+                } else if (ch === '+') {
+                    heading += turn * (0.8 + rng() * 0.45);
+                } else if (ch === '-') {
+                    heading -= turn * (0.8 + rng() * 0.45);
+                } else if (ch === '[') {
+                    if (rng() < branchChance) {
+                        stack.push({ x, y, heading, step });
+                    } else {
+                        stack.push(null);
+                    }
+                } else if (ch === ']') {
+                    const s = stack.pop();
+                    if (s) {
+                        x = s.x;
+                        y = s.y;
+                        heading = s.heading;
+                        step = s.step * (0.85 + rng() * 0.25);
+                        raw.push(null);
+                        raw.push({ x, y });
+                    }
+                }
+            }
+
+            // Fit L-system path to canvas area.
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (let i = 0; i < raw.length; i++) {
+                const p = raw[i];
+                if (!p) continue;
+                if (p.x < minX) minX = p.x;
+                if (p.y < minY) minY = p.y;
+                if (p.x > maxX) maxX = p.x;
+                if (p.y > maxY) maxY = p.y;
+            }
+            const bw = Math.max(1, maxX - minX);
+            const bh = Math.max(1, maxY - minY);
+            const targetW = Math.max(120, w - margin * 2);
+            const targetH = Math.max(120, h - margin * 2);
+            const scale = Math.min(targetW / bw, targetH / bh);
+            const offsetX = (w - bw * scale) * 0.5 - minX * scale;
+            const offsetY = (h - bh * scale) * 0.5 - minY * scale;
+
+            const points = [];
+            for (let i = 0; i < raw.length; i++) {
+                const p = raw[i];
+                if (!p) {
                     points.push(null);
-                    x = margin + rng() * (w - margin * 2);
-                    y = margin + rng() * (h - margin * 2);
-                    angle = rng() * Math.PI * 2;
-                    points.push({ x, y });
                     continue;
                 }
-
-                angle += (rng() - 0.5) * 1.1;
-                let stepLen = (10 + rng() * 28) * (0.6 + state.brushSize / 14) * stepLenScale;
-                const maxStepLen = dynamicConnect * 0.85;
-                const minStepLen = Math.min(8, maxStepLen * 0.35);
-                stepLen = clamp(stepLen, minStepLen, maxStepLen);
-
-                const nx = clamp(x + Math.cos(angle) * stepLen, margin, w - margin);
-                const ny = clamp(y + Math.sin(angle) * stepLen, margin, h - margin);
-                points.push({ x: nx, y: ny });
-
-                if (rng() < 0.2) {
-                    const jx = (rng() - 0.5) * state.brushSize * 0.6;
-                    const jy = (rng() - 0.5) * state.brushSize * 0.6;
-                    const mx = clamp(nx + jx, margin, w - margin);
-                    const my = clamp(ny + jy, margin, h - margin);
-                    points.push({ x: mx, y: my });
-                }
-
-                x = nx;
-                y = ny;
+                points.push({
+                    x: clamp(p.x * scale + offsetX, margin, w - margin),
+                    y: clamp(p.y * scale + offsetY, margin, h - margin)
+                });
             }
+
             return points;
         }
 
