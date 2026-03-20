@@ -298,6 +298,8 @@
 
             isDrawing: false,
             points: [],
+            edges: [],
+            selectionRng: Math.random,
 
             undoStack: [], // { snapCanvas, pointsLen }
         };
@@ -320,6 +322,32 @@
                 s = (1664525 * s + 1013904223) >>> 0;
                 return s / 4294967296;
             };
+        }
+
+        function edgeKey(a, b) {
+            return a < b ? `${a}:${b}` : `${b}:${a}`;
+        }
+
+        function segmentIntersects(a1, a2, b1, b2) {
+            function orient(p, q, r) {
+                return (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+            }
+            function onSeg(p, q, r) {
+                return q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) &&
+                    q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y);
+            }
+
+            const o1 = orient(a1, a2, b1);
+            const o2 = orient(a1, a2, b2);
+            const o3 = orient(b1, b2, a1);
+            const o4 = orient(b1, b2, a2);
+
+            if ((o1 > 0) !== (o2 > 0) && (o3 > 0) !== (o4 > 0)) return true;
+            if (o1 === 0 && onSeg(a1, b1, a2)) return true;
+            if (o2 === 0 && onSeg(a1, b2, a2)) return true;
+            if (o3 === 0 && onSeg(b1, a1, b2)) return true;
+            if (o4 === 0 && onSeg(b1, a2, b2)) return true;
+            return false;
         }
 
         function mirroredPoints(x, y) {
@@ -813,28 +841,113 @@
         function addPoint(x, y) {
             const p = { x, y };
             state.points.push(p);
-            const startIndex = Math.max(0, state.points.length - 250);
+            const idx = state.points.length - 1;
+            const maxDist = CONFIG.connectDistance + state.brushSize * 1.25;
+            const recentWindow = 280;
+            const startIndex = Math.max(0, idx - recentWindow);
+            const candidateEdges = [];
+            const seen = new Set();
+            const rng = state.selectionRng || Math.random;
 
-            for (let i = startIndex; i < state.points.length - 1; i++) {
+            // Direction from last contiguous point into this point.
+            let motionDir = null;
+            for (let k = idx - 1; k >= 0; k--) {
+                const prev = state.points[k];
+                if (!prev) break;
+                const vx = p.x - prev.x;
+                const vy = p.y - prev.y;
+                const vLen = Math.hypot(vx, vy) || 1;
+                motionDir = { x: vx / vLen, y: vy / vLen };
+                break;
+            }
+
+            // Local density around the new point.
+            let localDensity = 0;
+            const crowdR = maxDist * 0.45;
+            for (let i = startIndex; i < idx; i++) {
+                const q = state.points[i];
+                if (!q) continue;
+                if (Math.hypot(p.x - q.x, p.y - q.y) < crowdR) localDensity++;
+            }
+            const sCrowd = clamp(localDensity / 16, 0, 1);
+
+            // Flow field direction anchors a recognizable "signature."
+            const seedPhase = (state.generateSeed % 100000) * 0.00037;
+            const flowA = Math.sin(p.x * 0.012 + seedPhase) + Math.cos(p.y * 0.009 - seedPhase * 1.7);
+            const fieldDir = { x: Math.cos(flowA), y: Math.sin(flowA) };
+
+            for (let i = startIndex; i < idx; i++) {
                 const prev = state.points[i];
-                if (!prev || !p) continue;
+                if (!prev) continue;
 
                 const dx = p.x - prev.x;
                 const dy = p.y - prev.y;
                 const dist = Math.hypot(dx, dy);
+                if (!dist || dist > maxDist) continue;
 
-                // DynamicConnect from reference
-                let dynamicConnect = CONFIG.connectDistance + (state.brushSize);
+                const ux = dx / dist;
+                const uy = dy / dist;
+                const sDist = 1 - dist / maxDist;
+                const sDir = motionDir ? (motionDir.x * ux + motionDir.y * uy + 1) * 0.5 : 0.5;
+                const sField = (fieldDir.x * ux + fieldDir.y * uy + 1) * 0.5;
 
-                if (dist < dynamicConnect) {
-                    scratchLine(prev.x, prev.y, p.x, p.y, dist);
+                // Mild "memory decay": newer points are easier to connect.
+                const age = idx - i;
+                const memory = clamp(1 - age / recentWindow, 0, 1);
+
+                // Penalize crossings against recent edges.
+                let crossCount = 0;
+                const edgeStart = Math.max(0, state.edges.length - 180);
+                for (let e = edgeStart; e < state.edges.length; e++) {
+                    const ed = state.edges[e];
+                    if (ed.a === i || ed.b === i) continue;
+                    const a1 = state.points[ed.a];
+                    const a2 = state.points[ed.b];
+                    if (!a1 || !a2) continue;
+                    if (segmentIntersects(prev, p, a1, a2)) crossCount++;
                 }
+                const sCross = clamp(crossCount / 3, 0, 1);
+
+                const score = (1.2 * sDist) + (0.9 * sDir) + (0.8 * sField) + (0.45 * memory) - (0.7 * sCrowd) - (1.1 * sCross);
+                if (score > 0.34) candidateEdges.push({ i, dist, score });
+            }
+
+            if (!candidateEdges.length) return;
+            candidateEdges.sort((a, b) => b.score - a.score);
+
+            // Top-k weighted picks: keeps structure controlled and less webby.
+            const kMin = 1;
+            const kMax = state.uiTab === 'generate' ? 3 : 2;
+            const topPool = candidateEdges.slice(0, Math.min(14, candidateEdges.length));
+            let picks = kMin + Math.floor(rng() * (kMax - kMin + 1));
+            picks = Math.min(picks, topPool.length);
+
+            for (let n = 0; n < picks; n++) {
+                let sum = 0;
+                for (let t = 0; t < topPool.length; t++) sum += Math.max(0.001, topPool[t].score);
+                let r = rng() * sum;
+                let chosenIdx = 0;
+                for (let t = 0; t < topPool.length; t++) {
+                    r -= Math.max(0.001, topPool[t].score);
+                    if (r <= 0) {
+                        chosenIdx = t;
+                        break;
+                    }
+                }
+                const chosen = topPool.splice(chosenIdx, 1)[0];
+                const key = edgeKey(chosen.i, idx);
+                if (seen.has(key)) continue;
+                seen.add(key);
+                state.edges.push({ a: chosen.i, b: idx });
+                scratchLine(state.points[chosen.i].x, state.points[chosen.i].y, p.x, p.y, chosen.dist);
+                if (!topPool.length) break;
             }
         }
 
         function startDrawing(e) {
             if (state.uiTab !== 'sketch') return;
             state.isDrawing = true;
+            state.selectionRng = Math.random;
             pushUndoSnapshot();
 
             const p = canvasCoordsFromEvent(e);
@@ -860,6 +973,7 @@
 
         function clearAll() {
             state.points = [];
+            state.edges = [];
             state.undoStack = [];
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -872,6 +986,10 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             state.points = [];
+            state.edges = [];
+            state.selectionRng = state.uiTab === 'generate'
+                ? makeRng((state.generateSeed ^ 0x9e3779b9) >>> 0)
+                : Math.random;
             for (let i = 0; i < src.length; i++) {
                 const p = src[i];
                 if (!p) {
