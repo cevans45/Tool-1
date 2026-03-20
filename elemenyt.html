@@ -287,6 +287,7 @@
 
             uiTab: 'sketch', // 'sketch' | 'generate'
             generateTime: 55,
+            generateSeed: (Math.random() * 0x7fffffff) | 0,
 
             fillEnabled: false,
             inkColor: '#000000',
@@ -311,6 +312,14 @@
 
         function clamp(v, min, max) {
             return Math.max(min, Math.min(max, v));
+        }
+
+        function makeRng(seed) {
+            let s = (seed >>> 0) || 1;
+            return () => {
+                s = (1664525 * s + 1013904223) >>> 0;
+                return s / 4294967296;
+            };
         }
 
         function mirroredPoints(x, y) {
@@ -447,17 +456,23 @@
         function setMirror(enabled) {
             state.mirrorEnabled = enabled;
             mirrorEl.checked = enabled;
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            if (state.uiTab === 'generate') rerenderGenerateCurrent();
+            else {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
         }
 
         function setMirrorY(enabled) {
             state.mirrorYEnabled = enabled;
             mirrorYEl.checked = enabled;
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            if (state.uiTab === 'generate') rerenderGenerateCurrent();
+            else {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
         }
 
         function pushUndoSnapshot() {
@@ -851,10 +866,85 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
 
-        function generateRandomDrawing() {
+        function renderFromPoints(pointsSource) {
+            const src = pointsSource.slice();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            state.points = [];
+            for (let i = 0; i < src.length; i++) {
+                const p = src[i];
+                if (!p) {
+                    state.points.push(null);
+                    continue;
+                }
+                addPoint(p.x, p.y);
+            }
+        }
+
+        function rerenderGenerateCurrent() {
+            if (state.uiTab !== 'generate') return;
+            if (!state.points.length) return;
+            renderFromPoints(state.points);
+        }
+
+        function buildGeneratedPoints(seed) {
+            const rng = makeRng(seed);
+            const points = [];
+            const w = cssWidth;
+            const h = cssHeight;
+            const margin = Math.max(18, state.brushSize * 2.2);
+
+            const tN = clamp(state.generateTime / 100, 0, 1); // 0 = fast, 1 = slow
+            const dynamicConnect = CONFIG.connectDistance + state.brushSize;
+            const baseSteps = (w * h) / 9000;
+            const steps = clamp(Math.floor(baseSteps * (0.55 + tN * 1.25)), 240, 2200);
+            const stepLenScale = 1.9 - tN * 1.25;
+            const penUpChance = 0.08 - tN * 0.06;
+
+            let x = margin + rng() * (w - margin * 2);
+            let y = margin + rng() * (h - margin * 2);
+            let angle = rng() * Math.PI * 2;
+            points.push({ x, y });
+
+            for (let i = 0; i < steps; i++) {
+                if (rng() < penUpChance) {
+                    points.push(null);
+                    x = margin + rng() * (w - margin * 2);
+                    y = margin + rng() * (h - margin * 2);
+                    angle = rng() * Math.PI * 2;
+                    points.push({ x, y });
+                    continue;
+                }
+
+                angle += (rng() - 0.5) * 1.1;
+                let stepLen = (10 + rng() * 28) * (0.6 + state.brushSize / 14) * stepLenScale;
+                const maxStepLen = dynamicConnect * 0.85;
+                const minStepLen = Math.min(8, maxStepLen * 0.35);
+                stepLen = clamp(stepLen, minStepLen, maxStepLen);
+
+                const nx = clamp(x + Math.cos(angle) * stepLen, margin, w - margin);
+                const ny = clamp(y + Math.sin(angle) * stepLen, margin, h - margin);
+                points.push({ x: nx, y: ny });
+
+                if (rng() < 0.2) {
+                    const jx = (rng() - 0.5) * state.brushSize * 0.6;
+                    const jy = (rng() - 0.5) * state.brushSize * 0.6;
+                    const mx = clamp(nx + jx, margin, w - margin);
+                    const my = clamp(ny + jy, margin, h - margin);
+                    points.push({ x: mx, y: my });
+                }
+
+                x = nx;
+                y = ny;
+            }
+            return points;
+        }
+
+        function generateRandomDrawing(opts = {}) {
+            const newSeed = opts.newSeed !== false;
+            const pushUndo = opts.pushUndo !== false;
             // Generate a single random "hand-like" drawing.
-            // Uses the current INK/CUT mode, marker, brush size, colors, and mirror.
-            // Ensure current filter + canvas dimensions are correct.
             // Generate always draws (no erase mode on this tab).
             setMode('ink');
             state.sketchMode = 'ink';
@@ -862,81 +952,11 @@
             updateFilter();
 
             // Snapshot what the user currently has so UNDO can restore it.
-            pushUndoSnapshot();
+            if (pushUndo) pushUndoSnapshot();
             state.isDrawing = false;
-            state.points = [];
-
-            // Clear canvas (device space), then draw in CSS pixel space.
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-            // For CUT mode, seed an opaque base so destination-out has pixels to remove.
-            if (state.mode === 'cut') {
-                ctx.fillStyle = 'rgba(0, 0, 0, 1)';
-                ctx.fillRect(0, 0, cssWidth, cssHeight);
-            }
-
-            const w = cssWidth;
-            const h = cssHeight;
-            const margin = Math.max(18, state.brushSize * 2.2);
-
-            const tN = clamp(state.generateTime / 100, 0, 1); // 0 = fast, 1 = slow
-            const dynamicConnect = CONFIG.connectDistance + state.brushSize;
-
-            const baseSteps = (w * h) / 9000;
-            const steps = clamp(Math.floor(baseSteps * (0.55 + tN * 1.25)), 240, 2200);
-
-            // Slower time => denser points => stickier/thicker lines.
-            const stepLenScale = 1.9 - tN * 1.25;
-            const penUpChance = 0.08 - tN * 0.06; // slow => fewer lift-offs
-
-            let x = margin + Math.random() * (w - margin * 2);
-            let y = margin + Math.random() * (h - margin * 2);
-            let angle = Math.random() * Math.PI * 2;
-
-            // Seed initial point so magnetic connections can form.
-            addPoint(x, y);
-
-            for (let i = 0; i < steps; i++) {
-                // Lift pen sometimes and restart elsewhere.
-                if (Math.random() < penUpChance) {
-                    state.points.push(null);
-                    x = margin + Math.random() * (w - margin * 2);
-                    y = margin + Math.random() * (h - margin * 2);
-                    angle = Math.random() * Math.PI * 2;
-                    addPoint(x, y);
-                    continue;
-                }
-
-                // Smooth random walk.
-                angle += (Math.random() - 0.5) * 1.1;
-                let stepLen = (10 + Math.random() * 28) * (0.6 + state.brushSize / 14) * stepLenScale;
-
-                // Keep spacing within magnetic connect distance so drawing stays visible.
-                const maxStepLen = dynamicConnect * 0.85;
-                const minStepLen = Math.min(8, maxStepLen * 0.35);
-                stepLen = clamp(stepLen, minStepLen, maxStepLen);
-
-                const nx = clamp(x + Math.cos(angle) * stepLen, margin, w - margin);
-                const ny = clamp(y + Math.sin(angle) * stepLen, margin, h - margin);
-                // Main stroke segment + magnetic connections.
-                // We add points so `addPoint()` can connect to nearby history,
-                // matching the sketchpad "lines stick together" feel.
-                addPoint(nx, ny);
-
-                // Occasional extra pass for a more human feel.
-                if (Math.random() < 0.2) {
-                    const jx = (Math.random() - 0.5) * state.brushSize * 0.6;
-                    const jy = (Math.random() - 0.5) * state.brushSize * 0.6;
-                    const mx = clamp(nx + jx, margin, w - margin);
-                    const my = clamp(ny + jy, margin, h - margin);
-                    addPoint(mx, my);
-                }
-
-                x = nx;
-                y = ny;
-            }
+            if (newSeed) state.generateSeed = (Math.random() * 0x7fffffff) | 0;
+            const generated = buildGeneratedPoints(state.generateSeed);
+            renderFromPoints(generated);
         }
 
         function exportWithFilter() {
@@ -1028,32 +1048,38 @@
         strokeEl?.addEventListener('input', (e) => {
             state.brushSize = parseFloat(e.target.value);
             strokeVal.textContent = state.brushSize < 1 ? state.brushSize.toFixed(1) : String(Math.round(state.brushSize * 10) / 10);
+            if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
         });
 
         markerEl?.addEventListener('change', (e) => {
             setMarker(e.target.value);
+            rerenderGenerateCurrent();
         });
 
         markerIconsWrap?.addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-marker]');
             if (!btn) return;
             setMarker(btn.getAttribute('data-marker'));
+            rerenderGenerateCurrent();
         });
 
         fillEnabledEl?.addEventListener('change', (e) => {
             state.fillEnabled = e.target.checked;
             updateFilterEnabled();
             updateFilter();
+            rerenderGenerateCurrent();
         });
 
         inkColorEl?.addEventListener('input', (e) => {
             state.inkColor = e.target.value;
             if (!state.fillEnabled) updateFilter();
+            rerenderGenerateCurrent();
         });
 
         fillColorEl?.addEventListener('input', (e) => {
             state.fillColor = e.target.value;
             if (state.fillEnabled) updateFilter();
+            rerenderGenerateCurrent();
         });
 
         bgColorEl?.addEventListener('input', (e) => {
@@ -1065,11 +1091,13 @@
             state.outlineRadius = parseFloat(e.target.value);
             outlineVal.textContent = state.outlineRadius.toFixed(2);
             updateFilter();
+            rerenderGenerateCurrent();
         });
 
         genTimeEl?.addEventListener('input', (e) => {
             state.generateTime = parseInt(e.target.value, 10);
             genTimeVal.textContent = String(state.generateTime);
+            if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
         });
 
         clearBtn?.addEventListener('click', clearAll);
