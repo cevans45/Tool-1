@@ -98,15 +98,6 @@
                             </label>
 
                             <div class="control-row">
-                                <label for="el-connection-mode">Connections</label>
-                                <select id="el-connection-mode" class="select-input">
-                                    <option value="mycelium">Mycelium — dense mesh + bridges</option>
-                                    <option value="flowGraph" selected>Flow graph — tight, field-aligned</option>
-                                    <option value="reactionDiffusion">Reaction–diffusion — spot &amp; front edges</option>
-                                </select>
-                            </div>
-
-                            <div class="control-row">
                                 <label for="el-marker">Marker</label>
                                 <select id="el-marker" class="select-input">
                                     <option value="line" selected>Line</option>
@@ -280,7 +271,6 @@
         const modeRowEl = el('el-mode-row');
         const strokeEl = el('el-stroke');
         const strokeVal = el('val-el-stroke');
-        const connectionModeEl = el('el-connection-mode');
         const markerEl = el('el-marker');
         const markerIconsWrap = el('el-marker-icons');
         const fillEnabledEl = el('el-fill-enabled');
@@ -305,8 +295,6 @@
             uiTab: 'sketch', // 'sketch' | 'generate'
             generateTime: 55,
             generateSeed: (Math.random() * 0x7fffffff) | 0,
-            /** @type {'mycelium' | 'flowGraph' | 'reactionDiffusion'} */
-            connectionMode: 'flowGraph',
             taperEnabled: false,
 
             fillEnabled: false,
@@ -322,23 +310,10 @@
             selectionRng: Math.random,
 
             undoStack: [], // { snapCanvas, pointsLen }
-
-            /** Gray–Scott buffers (reaction–diffusion connection mode) */
-            rdU: null,
-            rdV: null,
-            rdUn: null,
-            rdVn: null,
         };
 
-        /** Fixed grid for Gray–Scott; mapped to canvas in CSS pixels */
-        const RD_W = 76;
-        const RD_H = 76;
-        const RD_DU = 0.16;
-        const RD_DV = 0.08;
-        /** Coral / spotty regime — stronger patterns for connection scoring */
-        const RD_F = 0.042;
-        const RD_K = 0.059;
-        const RD_DT = 0.24;
+        /** Mycelium stroke look (passes / jitter / holes / thickness falloff) */
+        const MYCELIUM_STROKE = { passMul: 1.38, jitterMul: 1.55, holeMul: 0.68, distPlus: 0.26 };
 
         const CONFIG = {
             connectDistance: 70,
@@ -358,153 +333,6 @@
                 s = (1664525 * s + 1013904223) >>> 0;
                 return s / 4294967296;
             };
-        }
-
-        function edgeKey(a, b) {
-            return a < b ? `${a}:${b}` : `${b}:${a}`;
-        }
-
-        function segmentIntersects(a1, a2, b1, b2) {
-            function orient(p, q, r) {
-                return (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
-            }
-            function onSeg(p, q, r) {
-                return q.x <= Math.max(p.x, r.x) && q.x >= Math.min(p.x, r.x) &&
-                    q.y <= Math.max(p.y, r.y) && q.y >= Math.min(p.y, r.y);
-            }
-
-            const o1 = orient(a1, a2, b1);
-            const o2 = orient(a1, a2, b2);
-            const o3 = orient(b1, b2, a1);
-            const o4 = orient(b1, b2, a2);
-
-            if ((o1 > 0) !== (o2 > 0) && (o3 > 0) !== (o4 > 0)) return true;
-            if (o1 === 0 && onSeg(a1, b1, a2)) return true;
-            if (o2 === 0 && onSeg(a1, b2, a2)) return true;
-            if (o3 === 0 && onSeg(b1, a1, b2)) return true;
-            if (o4 === 0 && onSeg(b1, a2, b2)) return true;
-            return false;
-        }
-
-        function ensureRDBuffers() {
-            const n = RD_W * RD_H;
-            if (!state.rdU || state.rdU.length !== n) {
-                state.rdU = new Float32Array(n);
-                state.rdV = new Float32Array(n);
-                state.rdUn = new Float32Array(n);
-                state.rdVn = new Float32Array(n);
-            }
-        }
-
-        function resetRDGrid() {
-            ensureRDBuffers();
-            const n = RD_W * RD_H;
-            for (let i = 0; i < n; i++) {
-                state.rdU[i] = 1;
-                state.rdV[i] = 0;
-            }
-        }
-
-        function rdCellIndex(ix, iy) {
-            ix = clamp(ix | 0, 0, RD_W - 1);
-            iy = clamp(iy | 0, 0, RD_H - 1);
-            return ix + iy * RD_W;
-        }
-
-        function stepGrayScottOnce() {
-            const U = state.rdU;
-            const V = state.rdV;
-            const Un = state.rdUn;
-            const Vn = state.rdVn;
-            const W = RD_W;
-            for (let j = 0; j < RD_H; j++) {
-                for (let i = 0; i < W; i++) {
-                    const idx = i + j * W;
-                    const u = U[idx];
-                    const v = V[idx];
-                    const uim = U[rdCellIndex(i - 1, j)];
-                    const uip = U[rdCellIndex(i + 1, j)];
-                    const ujm = U[rdCellIndex(i, j - 1)];
-                    const ujp = U[rdCellIndex(i, j + 1)];
-                    const vim = V[rdCellIndex(i - 1, j)];
-                    const vip = V[rdCellIndex(i + 1, j)];
-                    const vjm = V[rdCellIndex(i, j - 1)];
-                    const vjp = V[rdCellIndex(i, j + 1)];
-                    const lu = uim + uip + ujm + ujp - 4 * u;
-                    const lv = vim + vip + vjm + vjp - 4 * v;
-                    const uvv = u * v * v;
-                    const un = u + RD_DT * (RD_DU * lu - uvv + RD_F * (1 - u));
-                    const vn = v + RD_DT * (RD_DV * lv + uvv - (RD_F + RD_K) * v);
-                    Un[idx] = clamp(un, 0, 1);
-                    Vn[idx] = clamp(vn, 0, 1);
-                }
-            }
-            for (let i = 0; i < U.length; i++) {
-                U[i] = Un[i];
-                V[i] = Vn[i];
-            }
-        }
-
-        function rdInjectAndStep(wx, wy, subSteps) {
-            const steps = subSteps === undefined ? 6 : subSteps;
-            ensureRDBuffers();
-            const ix = clamp(Math.floor((wx / Math.max(cssWidth, 1)) * RD_W), 0, RD_W - 1);
-            const iy = clamp(Math.floor((wy / Math.max(cssHeight, 1)) * RD_H), 0, RD_H - 1);
-            const ii = rdCellIndex(ix, iy);
-            state.rdU[ii] = Math.max(0.03, state.rdU[ii] - 0.18);
-            state.rdV[ii] = Math.min(1, state.rdV[ii] + 0.55);
-            for (let sy = -1; sy <= 1; sy++) {
-                for (let sx = -1; sx <= 1; sx++) {
-                    const ji = rdCellIndex(ix + sx, iy + sy);
-                    state.rdV[ji] = Math.min(1, state.rdV[ji] + 0.12);
-                }
-            }
-            for (let s = 0; s < steps; s++) stepGrayScottOnce();
-        }
-
-        function rdSampleChannel(wx, wy, arr) {
-            if (!arr) return 0;
-            const fx = (wx / Math.max(cssWidth, 1)) * (RD_W - 1);
-            const fy = (wy / Math.max(cssHeight, 1)) * (RD_H - 1);
-            const ix = Math.floor(fx);
-            const iy = Math.floor(fy);
-            const tx = fx - ix;
-            const ty = fy - iy;
-            const q11 = arr[rdCellIndex(ix, iy)];
-            const q21 = arr[rdCellIndex(ix + 1, iy)];
-            const q12 = arr[rdCellIndex(ix, iy + 1)];
-            const q22 = arr[rdCellIndex(ix + 1, iy + 1)];
-            return (q11 * (1 - tx) + q21 * tx) * (1 - ty) + (q12 * (1 - tx) + q22 * tx) * ty;
-        }
-
-        function rdSampleV(wx, wy) {
-            return rdSampleChannel(wx, wy, state.rdV);
-        }
-
-        function rdSampleU(wx, wy) {
-            return rdSampleChannel(wx, wy, state.rdU);
-        }
-
-        function rdGradV(wx, wy) {
-            if (!state.rdV) return { x: 0, y: 0 };
-            const ix = clamp(Math.round((wx / Math.max(cssWidth, 1)) * (RD_W - 1)), 1, RD_W - 2);
-            const iy = clamp(Math.round((wy / Math.max(cssHeight, 1)) * (RD_H - 1)), 1, RD_H - 2);
-            const vxp = state.rdV[rdCellIndex(ix + 1, iy)];
-            const vxm = state.rdV[rdCellIndex(ix - 1, iy)];
-            const vyp = state.rdV[rdCellIndex(ix, iy + 1)];
-            const vym = state.rdV[rdCellIndex(ix, iy - 1)];
-            const gx = (vxp - vxm) * 0.5 * RD_W / Math.max(cssWidth, 1);
-            const gy = (vyp - vym) * 0.5 * RD_H / Math.max(cssHeight, 1);
-            return { x: gx, y: gy };
-        }
-
-        function syncRDGridFromPoints() {
-            resetRDGrid();
-            for (let i = 0; i < state.points.length; i++) {
-                const pt = state.points[i];
-                if (!pt) continue;
-                rdInjectAndStep(pt.x, pt.y, 3);
-            }
         }
 
         function mirroredPoints(x, y) {
@@ -680,9 +508,6 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             state.points.length = rec.pointsLen;
             state.edges = [];
-            if (state.connectionMode === 'reactionDiffusion') {
-                syncRDGridFromPoints();
-            }
         }
 
         function getEventClientXY(e) {
@@ -706,20 +531,8 @@
             return 0.05 + 0.95 * Math.pow(Math.sin(Math.PI * u), 1.06);
         }
 
-        /** Visual + passes differ strongly per connection algorithm */
-        function connectionScratchStyle() {
-            const m = state.connectionMode;
-            if (m === 'mycelium') {
-                return { passMul: 1.38, jitterMul: 1.55, holeMul: 0.68, distPlus: 0.26 };
-            }
-            if (m === 'flowGraph') {
-                return { passMul: 0.55, jitterMul: 0.36, holeMul: 1.28, distPlus: -0.14 };
-            }
-            return { passMul: 1.22, jitterMul: 1.4, holeMul: 0.92, distPlus: 0.1 };
-        }
-
         function scratchLine(x1, y1, x2, y2, dist) {
-            const sty = connectionScratchStyle();
+            const sty = MYCELIUM_STROKE;
             const distFactor = Math.max(0.12, (CONFIG.connectDistance - dist) / 10 + sty.distPlus);
             const finalThickness = state.brushSize * distFactor;
             const baseJitter = CONFIG.baseJitter + (finalThickness * CONFIG.jitterMultiplier);
@@ -1034,189 +847,35 @@
             state.points.push(p);
             const idx = state.points.length - 1;
             const rng = state.selectionRng || Math.random;
-            const mode = state.connectionMode;
 
-            /** Mycelium: wide mesh + rare long bridges (filaments) */
-            if (mode === 'mycelium') {
-                const recentWindow = 420;
-                const startIndex = Math.max(0, idx - recentWindow);
-                const dynamicConnect = CONFIG.connectDistance * 1.28 + state.brushSize * 1.62;
-                for (let i = startIndex; i < idx; i++) {
-                    const prev = state.points[i];
-                    if (!prev) continue;
-                    const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
-                    if (dist > 0 && dist < dynamicConnect) {
-                        state.edges.push({ a: i, b: idx });
-                        scratchLine(prev.x, prev.y, p.x, p.y, dist);
-                    }
-                }
-                if (idx > 48 && rng() < 0.145) {
-                    const span = idx - startIndex - 38;
-                    if (span > 2) {
-                        const j = startIndex + Math.floor(rng() * span);
-                        const prev = state.points[j];
-                        if (prev) {
-                            const d = Math.hypot(p.x - prev.x, p.y - prev.y);
-                            const lo = dynamicConnect * 0.9;
-                            const hi = dynamicConnect * 2.45;
-                            if (d > lo && d < hi) {
-                                state.edges.push({ a: j, b: idx });
-                                scratchLine(prev.x, prev.y, p.x, p.y, d);
-                            }
-                        }
-                    }
-                }
-                return;
-            }
-
-            if (mode === 'reactionDiffusion') {
-                rdInjectAndStep(p.x, p.y, 6);
-            }
-
-            let maxDist;
-            let recentWindow;
-            let kMin;
-            let kMax;
-            let topPoolN;
-            let scoreCut;
-            const seedPhase = (state.generateSeed % 100000) * 0.00037;
-
-            if (mode === 'flowGraph') {
-                maxDist = CONFIG.connectDistance * 0.5 + state.brushSize * 0.58;
-                recentWindow = 82;
-                kMin = 1;
-                kMax = 2;
-                topPoolN = 5;
-                scoreCut = 0.5;
-            } else {
-                maxDist = CONFIG.connectDistance + state.brushSize * 1.38;
-                recentWindow = 310;
-                kMin = 1;
-                kMax = state.uiTab === 'generate' ? 4 : 3;
-                topPoolN = 15;
-                scoreCut = 0.16;
-            }
-
+            /** Mycelium only: dense local mesh + rare long bridges */
+            const recentWindow = 420;
             const startIndex = Math.max(0, idx - recentWindow);
-            const candidateEdges = [];
-            const seen = new Set();
-
-            let motionDir = null;
-            for (let k = idx - 1; k >= 0; k--) {
-                const prev = state.points[k];
-                if (!prev) break;
-                const vx = p.x - prev.x;
-                const vy = p.y - prev.y;
-                const vLen = Math.hypot(vx, vy) || 1;
-                motionDir = { x: vx / vLen, y: vy / vLen };
-                break;
-            }
-
-            let localDensity = 0;
-            const crowdR = maxDist * 0.45;
-            for (let ti = startIndex; ti < idx; ti++) {
-                const q = state.points[ti];
-                if (!q) continue;
-                if (Math.hypot(p.x - q.x, p.y - q.y) < crowdR) localDensity++;
-            }
-            const sCrowd = clamp(localDensity / 16, 0, 1);
-
-            const flowA = Math.sin(p.x * 0.0105 + seedPhase) + Math.cos(p.y * 0.0082 - seedPhase * 1.65);
-            const flowB = Math.sin(p.x * 0.026 - seedPhase * 0.72) * Math.cos(p.y * 0.018 + seedPhase * 1.08);
-            const fieldDirA = { x: Math.cos(flowA), y: Math.sin(flowA) };
-            const fieldDirB = { x: Math.cos(flowB * 1.73 + 0.9), y: Math.sin(flowB * 1.73 + 0.9) };
-
+            const dynamicConnect = CONFIG.connectDistance * 1.28 + state.brushSize * 1.62;
             for (let i = startIndex; i < idx; i++) {
                 const prev = state.points[i];
                 if (!prev) continue;
-
-                const dx = p.x - prev.x;
-                const dy = p.y - prev.y;
-                const dist = Math.hypot(dx, dy);
-                if (!dist || dist > maxDist) continue;
-
-                const ux = dx / dist;
-                const uy = dy / dist;
-                const sDist = 1 - dist / maxDist;
-                const sDir = motionDir ? (motionDir.x * ux + motionDir.y * uy + 1) * 0.5 : 0.5;
-
-                let sGuidance;
-                if (mode === 'flowGraph') {
-                    const alignA = (fieldDirA.x * ux + fieldDirA.y * uy + 1) * 0.5;
-                    const alignB = (fieldDirB.x * ux + fieldDirB.y * uy + 1) * 0.5;
-                    sGuidance = alignA * 0.64 + alignB * 0.36;
-                    sGuidance = Math.pow(Math.max(0.001, sGuidance), 1.42);
-                } else {
-                    const vPrev = rdSampleV(prev.x, prev.y);
-                    const vHere = rdSampleV(p.x, p.y);
-                    const uPrev = rdSampleU(prev.x, prev.y);
-                    const uHere = rdSampleU(p.x, p.y);
-                    const vmid = (vPrev + vHere) * 0.5;
-                    const umid = (uPrev + uHere) * 0.5;
-                    const vContrast = Math.abs(vPrev - vHere);
-                    const mx = (prev.x + p.x) * 0.5;
-                    const my = (prev.y + p.y) * 0.5;
-                    const g = rdGradV(mx, my);
-                    const gLen = Math.hypot(g.x, g.y) || 1;
-                    const perpAlign = Math.abs(ux * (g.y / gLen) - uy * (g.x / gLen));
-                    const ridge = clamp(Math.hypot(g.x, g.y) * 5, 0, 1);
-                    const spot = clamp(vContrast * 2.8, 0, 1);
-                    const depleted = clamp(1 - umid, 0, 1);
-                    sGuidance = spot * (0.55 + 0.45 * perpAlign) + 0.38 * ridge * vmid + 0.22 * depleted * perpAlign;
+                const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
+                if (dist > 0 && dist < dynamicConnect) {
+                    state.edges.push({ a: i, b: idx });
+                    scratchLine(prev.x, prev.y, p.x, p.y, dist);
                 }
-
-                const age = idx - i;
-                const memory = clamp(1 - age / recentWindow, 0, 1);
-
-                let crossCount = 0;
-                const edgeStart = Math.max(0, state.edges.length - 180);
-                for (let e = edgeStart; e < state.edges.length; e++) {
-                    const ed = state.edges[e];
-                    if (ed.a === i || ed.b === i) continue;
-                    const a1 = state.points[ed.a];
-                    const a2 = state.points[ed.b];
-                    if (!a1 || !a2) continue;
-                    if (segmentIntersects(prev, p, a1, a2)) crossCount++;
-                }
-                const sCross = clamp(crossCount / 3, 0, 1);
-
-                let score;
-                if (mode === 'flowGraph') {
-                    score = (0.32 * sDist) + (0.38 * sDir) + (1.72 * sGuidance) + (0.22 * memory)
-                        - (0.42 * sCrowd) - (1.15 * sCross);
-                } else {
-                    score = (1.18 * sDist) + (0.48 * sDir) + (1.12 * sGuidance) + (0.42 * memory)
-                        - (0.82 * sCrowd) - (0.78 * sCross);
-                }
-                if (score > scoreCut) candidateEdges.push({ i, dist, score });
             }
-
-            if (!candidateEdges.length) return;
-            candidateEdges.sort((a, b) => b.score - a.score);
-
-            const topPool = candidateEdges.slice(0, Math.min(topPoolN, candidateEdges.length));
-            let picks = kMin + Math.floor(rng() * (kMax - kMin + 1));
-            picks = Math.min(picks, topPool.length);
-
-            for (let n = 0; n < picks; n++) {
-                let sum = 0;
-                for (let t = 0; t < topPool.length; t++) sum += Math.max(0.001, topPool[t].score);
-                let r = rng() * sum;
-                let chosenIdx = 0;
-                for (let t = 0; t < topPool.length; t++) {
-                    r -= Math.max(0.001, topPool[t].score);
-                    if (r <= 0) {
-                        chosenIdx = t;
-                        break;
+            if (idx > 48 && rng() < 0.145) {
+                const span = idx - startIndex - 38;
+                if (span > 2) {
+                    const j = startIndex + Math.floor(rng() * span);
+                    const prev = state.points[j];
+                    if (prev) {
+                        const d = Math.hypot(p.x - prev.x, p.y - prev.y);
+                        const lo = dynamicConnect * 0.9;
+                        const hi = dynamicConnect * 2.45;
+                        if (d > lo && d < hi) {
+                            state.edges.push({ a: j, b: idx });
+                            scratchLine(prev.x, prev.y, p.x, p.y, d);
+                        }
                     }
                 }
-                const chosen = topPool.splice(chosenIdx, 1)[0];
-                const key = edgeKey(chosen.i, idx);
-                if (seen.has(key)) continue;
-                seen.add(key);
-                state.edges.push({ a: chosen.i, b: idx });
-                scratchLine(state.points[chosen.i].x, state.points[chosen.i].y, p.x, p.y, chosen.dist);
-                if (!topPool.length) break;
             }
         }
 
@@ -1250,7 +909,6 @@
         function clearAll() {
             state.points = [];
             state.edges = [];
-            resetRDGrid();
             state.undoStack = [];
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1264,7 +922,6 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             state.points = [];
             state.edges = [];
-            resetRDGrid();
             state.selectionRng = state.uiTab === 'generate'
                 ? makeRng((state.generateSeed ^ 0x9e3779b9) >>> 0)
                 : Math.random;
@@ -1447,11 +1104,6 @@
             if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
         });
 
-        connectionModeEl?.addEventListener('change', (e) => {
-            state.connectionMode = e.target.value;
-            rerenderGenerateCurrent();
-        });
-
         taperEl?.addEventListener('change', (e) => {
             state.taperEnabled = e.target.checked;
             rerenderGenerateCurrent();
@@ -1527,9 +1179,7 @@
         // init
         setMode('ink');
         setMarker(state.marker);
-        if (connectionModeEl) connectionModeEl.value = state.connectionMode;
         if (taperEl) taperEl.checked = state.taperEnabled;
-        resetRDGrid();
         updateFilter();
         updateFilterEnabled();
         applyBackgroundColor();
