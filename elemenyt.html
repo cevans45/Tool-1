@@ -100,9 +100,9 @@
                             <div class="control-row">
                                 <label for="el-connection-mode">Connections</label>
                                 <select id="el-connection-mode" class="select-input">
-                                    <option value="mycelium">Mycelium (mesh)</option>
-                                    <option value="flowGraph" selected>Flow graph</option>
-                                    <option value="reactionDiffusion">Reaction–diffusion</option>
+                                    <option value="mycelium">Mycelium — dense mesh + bridges</option>
+                                    <option value="flowGraph" selected>Flow graph — tight, field-aligned</option>
+                                    <option value="reactionDiffusion">Reaction–diffusion — spot &amp; front edges</option>
                                 </select>
                             </div>
 
@@ -462,19 +462,27 @@
             for (let s = 0; s < steps; s++) stepGrayScottOnce();
         }
 
-        function rdSampleV(wx, wy) {
-            if (!state.rdV) return 0;
+        function rdSampleChannel(wx, wy, arr) {
+            if (!arr) return 0;
             const fx = (wx / Math.max(cssWidth, 1)) * (RD_W - 1);
             const fy = (wy / Math.max(cssHeight, 1)) * (RD_H - 1);
             const ix = Math.floor(fx);
             const iy = Math.floor(fy);
             const tx = fx - ix;
             const ty = fy - iy;
-            const q11 = state.rdV[rdCellIndex(ix, iy)];
-            const q21 = state.rdV[rdCellIndex(ix + 1, iy)];
-            const q12 = state.rdV[rdCellIndex(ix, iy + 1)];
-            const q22 = state.rdV[rdCellIndex(ix + 1, iy + 1)];
+            const q11 = arr[rdCellIndex(ix, iy)];
+            const q21 = arr[rdCellIndex(ix + 1, iy)];
+            const q12 = arr[rdCellIndex(ix, iy + 1)];
+            const q22 = arr[rdCellIndex(ix + 1, iy + 1)];
             return (q11 * (1 - tx) + q21 * tx) * (1 - ty) + (q12 * (1 - tx) + q22 * tx) * ty;
+        }
+
+        function rdSampleV(wx, wy) {
+            return rdSampleChannel(wx, wy, state.rdV);
+        }
+
+        function rdSampleU(wx, wy) {
+            return rdSampleChannel(wx, wy, state.rdU);
         }
 
         function rdGradV(wx, wy) {
@@ -747,7 +755,7 @@
                         const px = cx + (Math.random() - 0.5) * noiseScale;
                         const py = cy + (Math.random() - 0.5) * noiseScale;
 
-                        const r = Math.max(0.8, finalThickness * (0.18 + Math.random() * 0.45)) * 0.5;
+                        const r = Math.max(0.8, finalThickness * (0.18 + Math.random() * 0.45)) * 0.5 * taperWidthAt(t);
                         const pts = mirroredPoints(px, py);
                         for (let pi = 0; pi < pts.length; pi++) {
                             const mp = pts[pi];
@@ -781,7 +789,7 @@
                         const px = cx + alongJit + nx * normJit;
                         const py = cy + alongJit + ny * normJit;
 
-                        const r = Math.max(0.6, finalThickness * (0.08 + Math.random() * 0.18)) * 0.5;
+                        const r = Math.max(0.6, finalThickness * (0.08 + Math.random() * 0.18)) * 0.5 * taperWidthAt(t);
                         const pts = mirroredPoints(px, py);
                         for (let pi = 0; pi < pts.length; pi++) {
                             const mp = pts[pi];
@@ -816,7 +824,7 @@
                         const px = cx + alongJ + nx * normJ;
                         const py = cy + alongJ + ny * normJ;
 
-                        const r = blotBase * (0.55 + Math.random() * 1.1);
+                        const r = blotBase * (0.55 + Math.random() * 1.1) * taperWidthAt(t);
                         const pts = mirroredPoints(px, py);
                         for (let pi = 0; pi < pts.length; pi++) {
                             const mp = pts[pi];
@@ -833,7 +841,7 @@
                             const ang = Math.random() * Math.PI * 2;
                             const sx = px + Math.cos(ang) * off;
                             const sy = py + Math.sin(ang) * off;
-                            const sr = Math.max(0.35, r * (0.16 + Math.random() * 0.22));
+                            const sr = Math.max(0.35, r * (0.16 + Math.random() * 0.22)) * taperWidthAt(t);
                             const spts = mirroredPoints(sx, sy);
                             for (let spi = 0; spi < spts.length; spi++) {
                                 const smp = spts[spi];
@@ -873,7 +881,7 @@
                         const gx = Math.round(px / gridSize) * gridSize;
                         const gy = Math.round(py / gridSize) * gridSize;
 
-                        const s = Math.max(0.9, finalThickness * (0.35 + Math.random() * 0.35));
+                        const s = Math.max(0.9, finalThickness * (0.35 + Math.random() * 0.35)) * taperWidthAt(t);
                         const pts = mirroredPoints(gx, gy);
                         for (let pi = 0; pi < pts.length; pi++) {
                             const mp = pts[pi];
@@ -897,7 +905,7 @@
                         const noiseScale = jitter * 1.1;
                         const px = cx + (Math.random() - 0.5) * noiseScale;
                         const py = cy + (Math.random() - 0.5) * noiseScale;
-                        const r = Math.max(0.6, finalThickness * (0.12 + Math.random() * 0.32)) * 0.55;
+                        const r = Math.max(0.6, finalThickness * (0.12 + Math.random() * 0.32)) * 0.55 * taperWidthAt(t);
                         ctx.beginPath();
                         ctx.arc(px, py, r, 0, Math.PI * 2);
                         ctx.fill();
@@ -931,10 +939,11 @@
                         const bx = x1 + dx * tB + jxB;
                         const by = y1 + dy * tB + jyB;
 
+                        const tm = (tA + tB) * 0.5;
                         const lines = mirroredLines(ax, ay, bx, by);
                         for (let li = 0; li < lines.length; li++) {
                             const ml = lines[li];
-                            ctx.lineWidth = finalThickness;
+                            ctx.lineWidth = Math.max(0.15, finalThickness * taperWidthAt(tm));
                             ctx.beginPath();
                             ctx.moveTo(ml.x1, ml.y1);
                             ctx.lineTo(ml.x2, ml.y2);
@@ -971,7 +980,7 @@
                         const lines = mirroredLines(ax, ay, bx, by);
                         for (let li = 0; li < lines.length; li++) {
                             const ml = lines[li];
-                            ctx.lineWidth = finalThickness * 0.9;
+                            ctx.lineWidth = Math.max(0.12, finalThickness * 0.9 * taperWidthAt(t));
                             ctx.beginPath();
                             ctx.moveTo(ml.x1, ml.y1);
                             ctx.lineTo(ml.x2, ml.y2);
@@ -990,21 +999,31 @@
                 let jx2 = (Math.random() - 0.5) * jitter;
                 let jy2 = (Math.random() - 0.5) * jitter;
 
-                if (Math.random() <= CONFIG.holeChance) continue;
+                if (Math.random() <= holeProb) continue;
 
                 const px1 = x1 + jx1, py1 = y1 + jy1;
                 const px2 = x2 + jx2, py2 = y2 + jy2;
 
-                const lines = mirroredLines(px1, py1, px2, py2);
-                ctx.lineWidth = finalThickness;
-                ctx.beginPath();
-                for (let li = 0; li < lines.length; li++) {
-                    const ml = lines[li];
-                    ctx.moveTo(ml.x1, ml.y1);
-                    ctx.lineTo(ml.x2, ml.y2);
+                const taperSegs = state.taperEnabled ? Math.max(8, Math.min(24, Math.floor(segLen / 5))) : 1;
+                for (let seg = 0; seg < taperSegs; seg++) {
+                    const t0 = seg / taperSegs;
+                    const t1 = (seg + 1) / taperSegs;
+                    const tm = (t0 + t1) * 0.5;
+                    const ax = px1 + (px2 - px1) * t0;
+                    const ay = py1 + (py2 - py1) * t0;
+                    const bx = px1 + (px2 - px1) * t1;
+                    const by = py1 + (py2 - py1) * t1;
+                    const tw = taperWidthAt(tm);
+                    const lines = mirroredLines(ax, ay, bx, by);
+                    ctx.lineWidth = Math.max(0.15, finalThickness * tw);
+                    ctx.beginPath();
+                    for (let li = 0; li < lines.length; li++) {
+                        const ml = lines[li];
+                        ctx.moveTo(ml.x1, ml.y1);
+                        ctx.lineTo(ml.x2, ml.y2);
+                    }
+                    ctx.stroke();
                 }
-
-                ctx.stroke();
             }
 
             ctx.globalCompositeOperation = 'source-over';
@@ -1014,15 +1033,14 @@
             const p = { x, y };
             state.points.push(p);
             const idx = state.points.length - 1;
-            const maxDist = CONFIG.connectDistance + state.brushSize * 1.25;
-            const recentWindow = 280;
-            const startIndex = Math.max(0, idx - recentWindow);
             const rng = state.selectionRng || Math.random;
             const mode = state.connectionMode;
 
-            /** Classic mesh: connect to all recent points inside dynamic radius */
+            /** Mycelium: wide mesh + rare long bridges (filaments) */
             if (mode === 'mycelium') {
-                const dynamicConnect = CONFIG.connectDistance + state.brushSize;
+                const recentWindow = 420;
+                const startIndex = Math.max(0, idx - recentWindow);
+                const dynamicConnect = CONFIG.connectDistance * 1.28 + state.brushSize * 1.62;
                 for (let i = startIndex; i < idx; i++) {
                     const prev = state.points[i];
                     if (!prev) continue;
@@ -1032,13 +1050,54 @@
                         scratchLine(prev.x, prev.y, p.x, p.y, dist);
                     }
                 }
+                if (idx > 48 && rng() < 0.145) {
+                    const span = idx - startIndex - 38;
+                    if (span > 2) {
+                        const j = startIndex + Math.floor(rng() * span);
+                        const prev = state.points[j];
+                        if (prev) {
+                            const d = Math.hypot(p.x - prev.x, p.y - prev.y);
+                            const lo = dynamicConnect * 0.9;
+                            const hi = dynamicConnect * 2.45;
+                            if (d > lo && d < hi) {
+                                state.edges.push({ a: j, b: idx });
+                                scratchLine(prev.x, prev.y, p.x, p.y, d);
+                            }
+                        }
+                    }
+                }
                 return;
             }
 
             if (mode === 'reactionDiffusion') {
-                rdInjectAndStep(p.x, p.y, 4);
+                rdInjectAndStep(p.x, p.y, 6);
             }
 
+            let maxDist;
+            let recentWindow;
+            let kMin;
+            let kMax;
+            let topPoolN;
+            let scoreCut;
+            const seedPhase = (state.generateSeed % 100000) * 0.00037;
+
+            if (mode === 'flowGraph') {
+                maxDist = CONFIG.connectDistance * 0.5 + state.brushSize * 0.58;
+                recentWindow = 82;
+                kMin = 1;
+                kMax = 2;
+                topPoolN = 5;
+                scoreCut = 0.5;
+            } else {
+                maxDist = CONFIG.connectDistance + state.brushSize * 1.38;
+                recentWindow = 310;
+                kMin = 1;
+                kMax = state.uiTab === 'generate' ? 4 : 3;
+                topPoolN = 15;
+                scoreCut = 0.16;
+            }
+
+            const startIndex = Math.max(0, idx - recentWindow);
             const candidateEdges = [];
             const seen = new Set();
 
@@ -1062,9 +1121,10 @@
             }
             const sCrowd = clamp(localDensity / 16, 0, 1);
 
-            const seedPhase = (state.generateSeed % 100000) * 0.00037;
-            const flowA = Math.sin(p.x * 0.012 + seedPhase) + Math.cos(p.y * 0.009 - seedPhase * 1.7);
-            const fieldDir = { x: Math.cos(flowA), y: Math.sin(flowA) };
+            const flowA = Math.sin(p.x * 0.0105 + seedPhase) + Math.cos(p.y * 0.0082 - seedPhase * 1.65);
+            const flowB = Math.sin(p.x * 0.026 - seedPhase * 0.72) * Math.cos(p.y * 0.018 + seedPhase * 1.08);
+            const fieldDirA = { x: Math.cos(flowA), y: Math.sin(flowA) };
+            const fieldDirB = { x: Math.cos(flowB * 1.73 + 0.9), y: Math.sin(flowB * 1.73 + 0.9) };
 
             for (let i = startIndex; i < idx; i++) {
                 const prev = state.points[i];
@@ -1082,18 +1142,27 @@
 
                 let sGuidance;
                 if (mode === 'flowGraph') {
-                    sGuidance = (fieldDir.x * ux + fieldDir.y * uy + 1) * 0.5;
+                    const alignA = (fieldDirA.x * ux + fieldDirA.y * uy + 1) * 0.5;
+                    const alignB = (fieldDirB.x * ux + fieldDirB.y * uy + 1) * 0.5;
+                    sGuidance = alignA * 0.64 + alignB * 0.36;
+                    sGuidance = Math.pow(Math.max(0.001, sGuidance), 1.42);
                 } else {
                     const vPrev = rdSampleV(prev.x, prev.y);
                     const vHere = rdSampleV(p.x, p.y);
+                    const uPrev = rdSampleU(prev.x, prev.y);
+                    const uHere = rdSampleU(p.x, p.y);
                     const vmid = (vPrev + vHere) * 0.5;
+                    const umid = (uPrev + uHere) * 0.5;
+                    const vContrast = Math.abs(vPrev - vHere);
                     const mx = (prev.x + p.x) * 0.5;
                     const my = (prev.y + p.y) * 0.5;
                     const g = rdGradV(mx, my);
                     const gLen = Math.hypot(g.x, g.y) || 1;
                     const perpAlign = Math.abs(ux * (g.y / gLen) - uy * (g.x / gLen));
-                    const ridge = clamp(Math.hypot(g.x, g.y) * 4, 0, 1);
-                    sGuidance = clamp(vmid, 0, 1) * (0.4 + 0.6 * perpAlign) + 0.25 * ridge;
+                    const ridge = clamp(Math.hypot(g.x, g.y) * 5, 0, 1);
+                    const spot = clamp(vContrast * 2.8, 0, 1);
+                    const depleted = clamp(1 - umid, 0, 1);
+                    sGuidance = spot * (0.55 + 0.45 * perpAlign) + 0.38 * ridge * vmid + 0.22 * depleted * perpAlign;
                 }
 
                 const age = idx - i;
@@ -1111,18 +1180,21 @@
                 }
                 const sCross = clamp(crossCount / 3, 0, 1);
 
-                const score = (1.2 * sDist) + (0.9 * sDir) + (0.85 * sGuidance) + (0.45 * memory)
-                    - (0.7 * sCrowd) - (1.1 * sCross);
-                const cut = mode === 'reactionDiffusion' ? 0.3 : 0.34;
-                if (score > cut) candidateEdges.push({ i, dist, score });
+                let score;
+                if (mode === 'flowGraph') {
+                    score = (0.32 * sDist) + (0.38 * sDir) + (1.72 * sGuidance) + (0.22 * memory)
+                        - (0.42 * sCrowd) - (1.15 * sCross);
+                } else {
+                    score = (1.18 * sDist) + (0.48 * sDir) + (1.12 * sGuidance) + (0.42 * memory)
+                        - (0.82 * sCrowd) - (0.78 * sCross);
+                }
+                if (score > scoreCut) candidateEdges.push({ i, dist, score });
             }
 
             if (!candidateEdges.length) return;
             candidateEdges.sort((a, b) => b.score - a.score);
 
-            const kMin = 1;
-            const kMax = state.uiTab === 'generate' ? 3 : 2;
-            const topPool = candidateEdges.slice(0, Math.min(14, candidateEdges.length));
+            const topPool = candidateEdges.slice(0, Math.min(topPoolN, candidateEdges.length));
             let picks = kMin + Math.floor(rng() * (kMax - kMin + 1));
             picks = Math.min(picks, topPool.length);
 
@@ -1380,6 +1452,11 @@
             rerenderGenerateCurrent();
         });
 
+        taperEl?.addEventListener('change', (e) => {
+            state.taperEnabled = e.target.checked;
+            rerenderGenerateCurrent();
+        });
+
         markerEl?.addEventListener('change', (e) => {
             setMarker(e.target.value);
             rerenderGenerateCurrent();
@@ -1451,6 +1528,7 @@
         setMode('ink');
         setMarker(state.marker);
         if (connectionModeEl) connectionModeEl.value = state.connectionMode;
+        if (taperEl) taperEl.checked = state.taperEnabled;
         resetRDGrid();
         updateFilter();
         updateFilterEnabled();
