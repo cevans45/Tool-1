@@ -91,11 +91,11 @@
                                 <span class="param-value" id="val-el-stroke">6</span>
                             </div>
 
-                            <div class="control-row">
-                                <label for="el-sticky-strength">Sticky strength</label>
-                                <input type="range" id="el-sticky-strength" min="0" max="10" value="6" step="0.1">
-                                <span class="param-value" id="val-el-sticky-strength">6.0</span>
-                            </div>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-sticky-enabled" checked>
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Sticky</span>
+                            </label>
 
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-taper">
@@ -106,7 +106,8 @@
                             <div class="control-row">
                                 <label for="el-marker">Marker</label>
                                 <select id="el-marker" class="select-input">
-                                    <option value="line" selected>Line</option>
+                                    <option value="none" selected>None</option>
+                                    <option value="line">Line</option>
                                     <option value="sprinkle">Sprinkle</option>
                                     <option value="grid">Grid</option>
                                     <option value="grain">Grain</option>
@@ -117,7 +118,8 @@
                             <div class="control-row" style="margin-top:-4px;">
                                 <label>Effect icons</label>
                                 <div class="mode-switch" id="el-marker-icons" style="width:100%; margin:0;">
-                                    <button type="button" class="panel-button is-active" data-marker="line" title="Line">/</button>
+                                    <button type="button" class="panel-button is-active" data-marker="none" title="None">○</button>
+                                    <button type="button" class="panel-button" data-marker="line" title="Line">/</button>
                                     <button type="button" class="panel-button" data-marker="sprinkle" title="Sprinkle">:</button>
                                     <button type="button" class="panel-button" data-marker="grid" title="Grid">#</button>
                                     <button type="button" class="panel-button" data-marker="grain" title="Grain">.</button>
@@ -286,8 +288,7 @@
         const outlineEl = el('el-outline');
         const outlineVal = el('val-el-outline');
         const taperEl = el('el-taper');
-        const stickyStrengthEl = el('el-sticky-strength');
-        const stickyStrengthVal = el('val-el-sticky-strength');
+        const stickyEnabledEl = el('el-sticky-enabled');
         const clearBtn = el('el-clear');
         const exportBtn = el('el-export');
 
@@ -298,14 +299,15 @@
             mirrorEnabled: true,   // left-right
             mirrorYEnabled: false, // top-bottom
             brushSize: 6,
-            marker: 'line', // line|sprinkle|grid|grain|inkblot
+            marker: 'none', // none|line|sprinkle|grid|grain|inkblot
 
             uiTab: 'sketch', // 'sketch' | 'generate'
             generateTime: 55,
             generateSeed: (Math.random() * 0x7fffffff) | 0,
             taperEnabled: false,
-            // Sticky-only control (0 = neutral / mesh baseline, 10 = strong merging)
-            stickyStrength: 6.0,
+            // Sticky toggle: on = strong merging (6), off = no webbing (0)
+            stickyEnabled: true,
+            get stickyStrength() { return this.stickyEnabled ? 6.0 : 0; },
 
             fillEnabled: false,
             inkColor: '#000000',
@@ -737,12 +739,35 @@
             const segLen = Math.hypot(dx, dy) || 1;
             const dir = Math.atan2(dy, dx);
             const myceliumBias = 0.85 + Math.abs(Math.sin(dir * 1.7)) * 0.55;
-            const passesLocal = Math.max(2, Math.round(CONFIG.passes * myceliumBias * sty.passMul * (1 + t * 0.35 * mv)));
+            const passesLocal = Math.max(2, Math.round(CONFIG.passes * myceliumBias * sty.passMul * (1 + t * 0.75 * mv)));
             const jitter = baseJitter * (0.9 + (myceliumBias - 0.85) * 0.35) * sty.jitterMul * (1 - t * 0.08 * mv);
             // When sticky is strong in a region, reduce "holes" so edges merge into thicker joints.
-            const holeProb = clamp(CONFIG.holeChance * sty.holeMul * (1 - t * 0.7 * mv), 0, 0.5);
+            const holeProb = clamp(CONFIG.holeChance * sty.holeMul * (1 - t * 0.95 * mv), 0, 0.5);
 
             // Marker behaviours
+            if (state.marker === 'none') {
+                // Plain round circles — no texture, no jitter.
+                const samples = Math.max(2, Math.floor(segLen / 3));
+                const isInkLocal = state.mode === 'ink';
+                ctx.globalCompositeOperation = isInkLocal ? 'source-over' : 'destination-out';
+                ctx.fillStyle = isInkLocal ? currentInkColor() : 'rgba(0,0,0,1)';
+                for (let s = 0; s <= samples; s++) {
+                    const t = samples <= 1 ? 0.5 : s / samples;
+                    const cx = x1 + dx * t;
+                    const cy = y1 + dy * t;
+                    const r = Math.max(0.5, finalThickness * 0.5 * taperWidthAt(t));
+                    const pts = mirroredPoints(cx, cy);
+                    for (let pi = 0; pi < pts.length; pi++) {
+                        const mp = pts[pi];
+                        ctx.beginPath();
+                        ctx.arc(mp.x, mp.y, r, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
             if (state.marker === 'sprinkle') {
                 // Bead-drops along the segment
                 const dotCount = Math.max(2, Math.floor(segLen / 14));
@@ -1036,49 +1061,87 @@
             const idx = state.points.length - 1;
             const rng = state.selectionRng || Math.random;
 
-            // Sticky-only: blend sticky mask influence into the classic dense mesh.
             const t = clamp(state.stickyStrength / 10, 0, 1);
-
             const recentWindow = 420;
-            const startIndex = Math.max(0, idx - recentWindow);
+            // Only connect within the current stroke segment (null breaks should not web).
+            let segmentStart = 0;
+            for (let s = idx - 1; s >= 0; s--) {
+                if (!state.points[s]) {
+                    segmentStart = s + 1;
+                    break;
+                }
+            }
+            const startIndex = Math.max(segmentStart, idx - recentWindow);
             const dynamicConnect = CONFIG.connectDistance * 1.28 + state.brushSize * 1.62;
 
-            for (let i = startIndex; i < idx; i++) {
-                const prev = state.points[i];
-                if (!prev) continue;
-                const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
-                if (!dist) continue;
+            // Always connect to the last contiguous point so the stroke stays continuous.
+            // This is the ONLY connection at t=0 => no webbing.
+            let lastIdx = idx - 1;
 
-                const mx = (p.x + prev.x) * 0.5;
-                const my = (p.y + prev.y) * 0.5;
-                const mv = sampleStickyMask(mx, my); // 0..1
-
-                // Sample multiple points along the edge to hit thin mask lines reliably.
-                const mv2 = Math.max(
-                    mv,
-                    sampleStickyMask(prev.x, prev.y),
-                    sampleStickyMask(p.x, p.y)
-                );
-
-                // At t=0 behave like baseline mesh (no sticky bias).
-                // At t=1 strongly expand radius + probability + thickness in sticky zones.
-                const dynBias = 0.85 + 1.05 * mv2; // ~0.85..1.9
-                const dyn = dynamicConnect * (1 + t * (dynBias - 1));
-
-                const probBias = 0.35 + 0.65 * Math.pow(mv2, 0.7); // ~0.35..1
-                const prob = 1 - t + t * probBias;
-
-                if (dist < dyn && rng() < prob) {
-                    // Smaller dist => thicker strokes (scratchLine uses (connectDistance - dist)).
-                    const distScale = 1 - (0.55 + 0.25 * t) * t * Math.pow(mv2, 0.65);
-                    const distAdj = dist * distScale;
-                    state.edges.push({ a: i, b: idx });
-                    scratchLine(prev.x, prev.y, p.x, p.y, distAdj, mv2, t);
+            if (lastIdx >= 0) {
+                const prev = state.points[lastIdx];
+                if (prev) {
+                    const distPrev = Math.hypot(p.x - prev.x, p.y - prev.y);
+                    if (distPrev) {
+                        const mv = sampleStickyMask((p.x + prev.x) * 0.5, (p.y + prev.y) * 0.5);
+                        const distScale = 1 - 0.10 * t * Math.pow(mv, 0.7); // neutral at t=0
+                        state.edges.push({ a: lastIdx, b: idx });
+                        scratchLine(prev.x, prev.y, p.x, p.y, distPrev * distScale, mv, t);
+                    }
                 }
             }
 
-            // Filaments: rare long-bridge attempts.
-            const filamentChance = 0.145 * (1 + t * 1.8);
+            if (t <= 0) return;
+
+            // Extra connections: increase gradually with t.
+            const extraCount = Math.floor(t * 6); // 0 at small t, up to 6
+            if (extraCount <= 0) return;
+
+            // Candidate radius increases with t (magnet "pull range").
+            const maxDist = dynamicConnect * (0.25 + 2.0 * t);
+
+            const scored = [];
+            for (let i = startIndex; i < idx; i++) {
+                if (i === lastIdx) continue;
+                const prev = state.points[i];
+                if (!prev) continue;
+                const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
+                if (!dist || dist > maxDist) continue;
+
+                // Sticky sampling: hit thin ridges by checking endpoints + midpoint.
+                const mv = sampleStickyMask((p.x + prev.x) * 0.5, (p.y + prev.y) * 0.5);
+                const mv2 = Math.max(mv, sampleStickyMask(prev.x, prev.y), sampleStickyMask(p.x, p.y));
+                if (mv2 <= 0.001) continue;
+
+                // Magnet score: sticky stronger + closer edges preferred.
+                // Multiplying by t makes score -> 0 as t -> 0.
+                const magnet = Math.pow(mv2, 2.5) * t;
+                const score = magnet / Math.pow(dist + 0.35, 1.65);
+                scored.push({ i, dist, mv: mv2, score });
+            }
+
+            if (!scored.length) return;
+            scored.sort((a, b) => b.score - a.score);
+
+            const topPool = scored.slice(0, Math.min(24, scored.length));
+            const chosen = new Set();
+
+            for (let n = 0; n < extraCount; n++) {
+                // Deterministic magnet: always pick the highest score edge not used yet.
+                const pool = topPool.filter(e => !chosen.has(e.i));
+                if (!pool.length) break;
+                const pick = pool[0];
+
+                chosen.add(pick.i);
+                state.edges.push({ a: pick.i, b: idx });
+
+                // Smaller effective dist => thicker, merged joints.
+                const distScale = clamp(1 - (0.55 * t + 0.10) * Math.pow(pick.mv, 0.65), 0.15, 1.05);
+                scratchLine(state.points[pick.i].x, state.points[pick.i].y, p.x, p.y, pick.dist * distScale, pick.mv, t);
+            }
+
+            // Filaments: rare long bridges; only when sticky is strong.
+            const filamentChance = 0.12 * Math.pow(t, 2.2);
             if (idx > 48 && rng() < filamentChance) {
                 const span = idx - startIndex - 38;
                 if (span > 2) {
@@ -1086,23 +1149,21 @@
                     const prev = state.points[j];
                     if (prev) {
                         const d = Math.hypot(p.x - prev.x, p.y - prev.y);
+
+                        const mv = sampleStickyMask((p.x + prev.x) * 0.5, (p.y + prev.y) * 0.5);
+                        const mv2 = Math.max(mv, sampleStickyMask(prev.x, prev.y), sampleStickyMask(p.x, p.y));
+
                         let lo = dynamicConnect * 0.9;
                         let hi = dynamicConnect * 2.45;
 
-                        const mx = (p.x + prev.x) * 0.5;
-                        const my = (p.y + prev.y) * 0.5;
-                        const mv = sampleStickyMask(mx, my);
-
-                        // Bleed: expand bridge range + thicken in sticky zones.
-                        // Sticky bleed expands bridge range, and thins/merges by lowering effective dist.
-                        hi *= 1 + 0.75 * t * mv;
-                        lo *= 1 - 0.20 * t * mv;
+                        // Sticky bleed expands bridge range and tightens dist for thicker joints.
+                        hi *= 1 + 0.9 * t * mv2;
+                        lo *= 1 - 0.25 * t * mv2;
 
                         if (d > lo && d < hi) {
-                            const distScale = 1 - (0.75 * t) * Math.pow(mv, 0.65);
-                            const dAdj = d * distScale;
+                            const distScale = clamp(1 - (0.65 * t) * Math.pow(mv2, 0.65), 0.15, 1.05);
                             state.edges.push({ a: j, b: idx });
-                            scratchLine(prev.x, prev.y, p.x, p.y, dAdj, mv, t);
+                            scratchLine(prev.x, prev.y, p.x, p.y, d * distScale, mv2, t);
                         }
                     }
                 }
@@ -1339,9 +1400,8 @@
             if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
         });
 
-        stickyStrengthEl?.addEventListener('input', (e) => {
-            state.stickyStrength = clamp(parseFloat(e.target.value), 0, 10);
-            if (stickyStrengthVal) stickyStrengthVal.textContent = String(Math.round(state.stickyStrength * 10) / 10);
+        stickyEnabledEl?.addEventListener('change', (e) => {
+            state.stickyEnabled = e.target.checked;
             if (state.uiTab === 'generate') rerenderGenerateCurrent();
             else if (state.points.length) renderFromPoints(state.points);
         });
@@ -1421,8 +1481,7 @@
         // init
         setMode('ink');
         setMarker(state.marker);
-        if (stickyStrengthEl) stickyStrengthEl.value = String(state.stickyStrength);
-        if (stickyStrengthVal) stickyStrengthVal.textContent = String(Math.round(state.stickyStrength * 10) / 10);
+        if (stickyEnabledEl) stickyEnabledEl.checked = state.stickyEnabled;
         if (taperEl) taperEl.checked = state.taperEnabled;
         updateFilter();
         updateFilterEnabled();
