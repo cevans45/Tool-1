@@ -352,26 +352,34 @@
 
         function particleGrowth(p, idx) {
             // Approximate visual radius of a drawn stroke from its center.
-            // scratchLine produces thickness ~ brushSize * distFactor; for
-            // sequential points distFactor is large, so visual radius ≈ brushSize * 2.
-            const strokeR = state.brushSize * 2;
-            // Max gap between stroke outer edges that still triggers growth.
-            const maxGap = state.brushSize * 5;
+            // scratchLine uses distFactor ≈ (70-dist)/10+0.26 which for short
+            // sequential segments yields finalThickness ≈ brushSize * 6,
+            // so visual radius ≈ brushSize * 3.  Use 3.5 for safe coverage.
+            const strokeR = state.brushSize * 3.5;
+            // Max gap between stroke outer edges that triggers growth.
+            const maxGap = state.brushSize * 12;
             // Max center-to-center distance worth checking.
             const maxCenterDist = maxGap + strokeR * 2;
 
-            // Only skip the most recent ~6 points (the stroke you're
-            // currently drawing) so growth only fires between separate passes.
-            const skipRecent = 8;
-            const searchLen = Math.min(600, idx - skipRecent);
-            if (searchLen <= 0) return;
-            const start = idx - skipRecent - searchLen;
+            // Find the start of the current stroke segment (after the last null break).
+            // We only grow toward points from PREVIOUS strokes, not the current one.
+            let currentSegStart = idx;
+            for (let s = idx - 1; s >= 0; s--) {
+                if (!state.points[s]) { currentSegStart = s + 1; break; }
+                if (s === 0) currentSegStart = 0;
+            }
+
+            // Need at least some previous-segment points to grow toward.
+            if (currentSegStart <= 0) return;
 
             const isInk = state.mode === 'ink';
             ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
             ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
 
-            for (let i = Math.max(0, start); i < idx - skipRecent; i++) {
+            // Search all points from previous strokes (before current segment).
+            const searchStart = Math.max(0, currentSegStart - 800);
+
+            for (let i = searchStart; i < currentSegStart; i++) {
                 const prev = state.points[i];
                 if (!prev) continue;
 
@@ -382,12 +390,12 @@
 
                 // Edge-to-edge gap (gap between outer surfaces of the two strokes).
                 const edgeGap = centerDist - strokeR * 2;
-                if (edgeGap >= maxGap) continue;  // too far apart
-                if (edgeGap < -strokeR) continue; // deeply overlapping, no visible gap
+                if (edgeGap >= maxGap) continue;   // too far apart
+                if (edgeGap < -strokeR * 1.5) continue; // deeply overlapping
 
                 // Closeness: 1 = edges touching, 0 = edges at max range.
                 const closeness = clamp(1 - Math.max(0, edgeGap) / maxGap, 0, 1);
-                if (closeness < 0.03) continue;
+                if (closeness < 0.02) continue;
 
                 // Unit direction from prev toward p.
                 const nx = dx / centerDist;
@@ -405,21 +413,21 @@
                 const edgeBy = p.y - ny * strokeR;
 
                 // How far particles reach across the gap (0–1).
-                const growReach = Math.pow(closeness, 1.0) * 0.9;
+                const growReach = Math.pow(closeness, 0.8) * 0.95;
                 // How many particles to emit (more when close).
-                const count = Math.max(1, Math.floor(closeness * closeness * 7));
+                const count = Math.max(2, Math.floor(closeness * 10));
 
                 for (let j = 0; j < count; j++) {
-                    const frac = (j + 0.3 + Math.random() * 0.4) / count;
+                    const frac = (j + 0.2 + Math.random() * 0.6) / count;
 
                     // ── Growth from edge A toward edge B ──
                     const tA = frac * growReach;
-                    const jitterA = (Math.random() - 0.5) * state.brushSize * 0.45 * (1 - closeness * 0.3);
+                    const jitterA = (Math.random() - 0.5) * state.brushSize * 0.8;
                     const axg = edgeAx + (edgeBx - edgeAx) * tA + perpX * jitterA;
                     const ayg = edgeAy + (edgeBy - edgeAy) * tA + perpY * jitterA;
-                    // Taper: large near the edge, small at the tip.
-                    const taperA = Math.pow(1 - tA / Math.max(0.01, growReach), 0.7);
-                    const rA = Math.max(0.4, strokeR * 0.35 * taperA * closeness);
+                    // Taper: large near the stroke edge, small at the tip.
+                    const taperA = Math.pow(1 - tA / Math.max(0.01, growReach), 0.6);
+                    const rA = Math.max(0.5, strokeR * 0.5 * taperA * Math.pow(closeness, 0.5));
 
                     const ptsA = mirroredPoints(axg, ayg);
                     for (let pi = 0; pi < ptsA.length; pi++) {
@@ -430,11 +438,11 @@
 
                     // ── Growth from edge B toward edge A (symmetrical) ──
                     const tB = (1 - frac) * growReach;
-                    const jitterB = (Math.random() - 0.5) * state.brushSize * 0.45 * (1 - closeness * 0.3);
+                    const jitterB = (Math.random() - 0.5) * state.brushSize * 0.8;
                     const bxg = edgeBx + (edgeAx - edgeBx) * tB + perpX * jitterB;
                     const byg = edgeBy + (edgeAy - edgeBy) * tB + perpY * jitterB;
-                    const taperB = Math.pow(1 - tB / Math.max(0.01, growReach), 0.7);
-                    const rB = Math.max(0.4, strokeR * 0.35 * taperB * closeness);
+                    const taperB = Math.pow(1 - tB / Math.max(0.01, growReach), 0.6);
+                    const rB = Math.max(0.5, strokeR * 0.5 * taperB * Math.pow(closeness, 0.5));
 
                     const ptsB = mirroredPoints(bxg, byg);
                     for (let pi = 0; pi < ptsB.length; pi++) {
@@ -444,12 +452,12 @@
                     }
 
                     // ── Occasional side-branch for organic look ──
-                    if (Math.random() < closeness * 0.35) {
-                        const branchT = tA * (0.3 + Math.random() * 0.5);
-                        const branchOff = (Math.random() - 0.5) * state.brushSize * 0.7;
+                    if (Math.random() < closeness * 0.4) {
+                        const branchT = tA * (0.2 + Math.random() * 0.6);
+                        const branchOff = (Math.random() - 0.5) * state.brushSize * 1.2;
                         const brx = edgeAx + (edgeBx - edgeAx) * branchT + perpX * branchOff;
                         const bry = edgeAy + (edgeBy - edgeAy) * branchT + perpY * branchOff;
-                        const brR = Math.max(0.3, rA * 0.5);
+                        const brR = Math.max(0.4, rA * 0.6);
                         const brPts = mirroredPoints(brx, bry);
                         for (let pi = 0; pi < brPts.length; pi++) {
                             ctx.beginPath();
