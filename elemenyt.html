@@ -68,8 +68,8 @@
 
                             <div class="control-row" id="el-mode-row" style="margin-bottom:12px;">
                                 <div class="mode-switch" style="width:100%; margin:0;">
-                                    <button type="button" id="el-mode-ink" class="panel-button is-active">DRAW (+)</button>
-                                    <button type="button" id="el-mode-cut" class="panel-button">ERASE (−)</button>
+                                    <button type="button" id="el-mode-ink" class="panel-button is-active">DRAW</button>
+                                    <button type="button" id="el-mode-cut" class="panel-button">ERASE</button>
                                 </div>
                             </div>
 
@@ -109,11 +109,6 @@
                                 <span class="cb-label">Taper ends</span>
                             </label>
 
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="el-thorns">
-                                <span class="toggle-box"></span>
-                                <span class="cb-label">Gothic thorns</span>
-                            </label>
 
                             <div class="control-row">
                                 <label for="el-marker">Marker</label>
@@ -316,7 +311,6 @@
         const stickyStrengthVal = el('val-el-sticky-strength');
         const stickyDistanceEl = el('el-sticky-distance');
         const stickyDistanceVal = el('val-el-sticky-distance');
-        const thornsEl = el('el-thorns');
         const markerPreviewCanvas = el('el-marker-preview');
         const clearBtn = el('el-clear');
         const exportBtn = el('el-export');
@@ -334,7 +328,6 @@
             generateTime: 55,
             generateSeed: (Math.random() * 0x7fffffff) | 0,
             taperEnabled: false,
-            thornsEnabled: false,
             // Sticky strength: 0 = off, 10 = max growth.
             stickyStrength: 0,
             stickyDistance: 5,
@@ -1198,10 +1191,6 @@
                 }
             }
 
-            if (state.thornsEnabled && idx >= 2) {
-                drawThornAtJoin(idx);
-            }
-
             applyStickyMode(p, idx);
         }
 
@@ -1279,119 +1268,9 @@
                 }
 
                 applyStickyMode(pt, i);
-
-                if (state.thornsEnabled && i >= startIdx + 2) {
-                    drawThornAtJoin(i);
-                }
             }
 
             state.strokeTotalDist = 1e9;
-        }
-
-        function drawThornAtJoin(idx) {
-            const p0 = state.points[idx - 2];
-            const p1 = state.points[idx - 1];
-            const p2 = state.points[idx];
-            if (!p0 || !p1 || !p2) return;
-
-            const a1 = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-            const a2 = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-            let angleDiff = a2 - a1;
-            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-            while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-
-            const sharpness = Math.abs(angleDiff);
-            if (sharpness < 0.35) return;
-
-            const isInk = state.mode === 'ink';
-            ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
-            ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
-            ctx.strokeStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
-
-            const thornScale = state.brushSize * (1.2 + sharpness * 2.5);
-            const thornCount = 1 + Math.floor(Math.random() * 2 + sharpness * 0.6);
-            const bisector = (a1 + a2) / 2 + (Math.PI / 2) * Math.sign(angleDiff);
-            const rng = () => Math.random();
-
-            for (let t = 0; t < thornCount; t++) {
-                const spread = (t - (thornCount - 1) / 2) * 0.5;
-                const thornAngle = bisector + spread + (rng() - 0.5) * 0.9;
-                const thornLen = thornScale * (0.5 + rng() * 0.9);
-                const curl = (rng() - 0.5) * 1.1;
-
-                const tipX = p1.x + Math.cos(thornAngle) * thornLen;
-                const tipY = p1.y + Math.sin(thornAngle) * thornLen;
-                const cpDist = thornLen * (0.45 + rng() * 0.3);
-                const cpX = p1.x + Math.cos(thornAngle + curl) * cpDist;
-                const cpY = p1.y + Math.sin(thornAngle + curl) * cpDist;
-
-                const baseW = state.brushSize * 0.35 * (0.4 + sharpness * 0.4);
-                const perpA = thornAngle + Math.PI / 2;
-
-                const pts = mirroredPoints(p1.x, p1.y);
-                for (let pi = 0; pi < pts.length; pi++) {
-                    const mp = pts[pi];
-                    const ox = mp.x - p1.x;
-                    const oy = mp.y - p1.y;
-
-                    ctx.beginPath();
-                    ctx.moveTo(mp.x + Math.cos(perpA) * baseW, mp.y + Math.sin(perpA) * baseW);
-                    ctx.quadraticCurveTo(cpX + ox, cpY + oy, tipX + ox, tipY + oy);
-                    ctx.lineTo(mp.x - Math.cos(perpA) * baseW, mp.y - Math.sin(perpA) * baseW);
-                    ctx.quadraticCurveTo(
-                        cpX + ox + Math.cos(perpA) * baseW * -0.3,
-                        cpY + oy + Math.sin(perpA) * baseW * -0.3,
-                        mp.x + Math.cos(perpA) * baseW,
-                        mp.y + Math.sin(perpA) * baseW
-                    );
-                    ctx.fill();
-                }
-
-                if (rng() < 0.45 * sharpness) {
-                    const subAngle = thornAngle + (rng() - 0.5) * 1.8;
-                    const subLen = thornLen * (0.25 + rng() * 0.35);
-                    const midFrac = 0.3 + rng() * 0.3;
-                    const midX = p1.x + Math.cos(thornAngle) * thornLen * midFrac;
-                    const midY = p1.y + Math.sin(thornAngle) * thornLen * midFrac;
-                    const subTipX = midX + Math.cos(subAngle) * subLen;
-                    const subTipY = midY + Math.sin(subAngle) * subLen;
-                    const subCurl = (rng() - 0.5) * 0.8;
-                    const subCpX = midX + Math.cos(subAngle + subCurl) * subLen * 0.5;
-                    const subCpY = midY + Math.sin(subAngle + subCurl) * subLen * 0.5;
-                    const subW = baseW * 0.5;
-                    const subPerp = subAngle + Math.PI / 2;
-
-                    for (let pi = 0; pi < pts.length; pi++) {
-                        const mp = pts[pi];
-                        const ox = mp.x - p1.x;
-                        const oy = mp.y - p1.y;
-                        ctx.beginPath();
-                        ctx.moveTo(midX + ox + Math.cos(subPerp) * subW, midY + oy + Math.sin(subPerp) * subW);
-                        ctx.quadraticCurveTo(subCpX + ox, subCpY + oy, subTipX + ox, subTipY + oy);
-                        ctx.lineTo(midX + ox - Math.cos(subPerp) * subW, midY + oy - Math.sin(subPerp) * subW);
-                        ctx.fill();
-                    }
-                }
-
-                if (rng() < 0.3) {
-                    const hookAngle = thornAngle + (rng() > 0.5 ? 1 : -1) * (0.8 + rng() * 0.7);
-                    const hookLen = thornLen * (0.15 + rng() * 0.2);
-                    const hookX = tipX + Math.cos(hookAngle) * hookLen;
-                    const hookY = tipY + Math.sin(hookAngle) * hookLen;
-                    for (let pi = 0; pi < pts.length; pi++) {
-                        const mp = pts[pi];
-                        const ox = mp.x - p1.x;
-                        const oy = mp.y - p1.y;
-                        ctx.lineWidth = Math.max(0.4, baseW * 0.4);
-                        ctx.beginPath();
-                        ctx.moveTo(tipX + ox, tipY + oy);
-                        ctx.lineTo(hookX + ox, hookY + oy);
-                        ctx.stroke();
-                    }
-                }
-            }
-
-            ctx.globalCompositeOperation = 'source-over';
         }
 
         function drawMove(e) {
@@ -1659,12 +1538,6 @@
             else if (state.points.length) renderFromPoints(state.points);
         });
 
-        thornsEl?.addEventListener('change', (e) => {
-            state.thornsEnabled = e.target.checked;
-            if (state.uiTab === 'generate') rerenderGenerateCurrent();
-            else if (state.points.length) renderFromPoints(state.points);
-        });
-
         markerEl?.addEventListener('change', (e) => {
             setMarker(e.target.value);
             rerenderGenerateCurrent();
@@ -1740,7 +1613,6 @@
         if (stickyDistanceEl) stickyDistanceEl.value = String(state.stickyDistance);
         if (stickyDistanceVal) stickyDistanceVal.textContent = state.stickyDistance % 1 === 0 ? String(state.stickyDistance) : state.stickyDistance.toFixed(1);
         if (taperEl) taperEl.checked = state.taperEnabled;
-        if (thornsEl) thornsEl.checked = state.thornsEnabled;
         updateFilter();
         updateFilterEnabled();
         applyBackgroundColor();
