@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typo — OVRT</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="site-shell">
+        <header class="tool-header">
+            <a href="index.html" class="back-link">← Back to OVRT</a>
+            <span class="tool-title">Typo</span>
+        </header>
+
+        <div class="app" aria-label="Typo">
+            <div id="sketch-container">
+                <canvas id="canvas"></canvas>
+                <div id="drop-overlay" hidden>Drop .ttf / .otf / .woff here</div>
+            </div>
+
+            <aside class="control-panel">
+                <header class="panel-header">
+                    <h2>Controls</h2>
+                </header>
+
+                <div class="panel-body">
+                    <details class="control-window" open>
+                        <summary>Type pad</summary>
+                        <section class="control-section">
+
+                            <div class="control-row" style="flex-direction:column;gap:4px;">
+                                <label for="ty-text">Text</label>
+                                <textarea id="ty-text" rows="3" spellcheck="false"
+                                    style="width:100%;resize:vertical;font-family:inherit;font-size:11px;padding:6px 8px;border:1px solid var(--border,#333);border-radius:4px;background:var(--surface-2,#1a1a1a);color:inherit;">TYPO</textarea>
+                            </div>
+
+                            <div class="control-row" style="margin-top:4px;">
+                                <label for="ty-font-size">Font size</label>
+                                <input type="range" id="ty-font-size" min="20" max="400" value="140" step="1">
+                                <span class="param-value" id="val-ty-font-size">140</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="ty-spacing">Spacing</label>
+                                <input type="range" id="ty-spacing" min="-10" max="40" value="0" step="1">
+                                <span class="param-value" id="val-ty-spacing">0</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="ty-line-h">Line height</label>
+                                <input type="range" id="ty-line-h" min="0.6" max="3.0" value="1.2" step="0.05">
+                                <span class="param-value" id="val-ty-line-h">1.20</span>
+                            </div>
+
+                            <div class="control-row" style="margin-bottom:8px;">
+                                <label>Align</label>
+                                <div class="mode-switch" style="width:100%;margin:0;">
+                                    <button type="button" class="panel-button" data-align="left">L</button>
+                                    <button type="button" class="panel-button is-active" data-align="center">C</button>
+                                    <button type="button" class="panel-button" data-align="right">R</button>
+                                </div>
+                            </div>
+
+                            <div class="control-row" style="margin-bottom:8px;">
+                                <div class="mode-switch" style="width:100%;margin:0;">
+                                    <button type="button" id="ty-fill-btn" class="panel-button is-active">FILL</button>
+                                    <button type="button" id="ty-outline-btn" class="panel-button">OUTLINE</button>
+                                </div>
+                            </div>
+
+                            <div class="control-row" id="ty-outline-row" style="display:none;">
+                                <label for="ty-outline-w">Outline width</label>
+                                <input type="range" id="ty-outline-w" min="0.5" max="10" value="2" step="0.5">
+                                <span class="param-value" id="val-ty-outline-w">2</span>
+                            </div>
+
+                            <div class="control-row" style="margin-top:4px;flex-direction:column;gap:4px;">
+                                <label>Font</label>
+                                <div id="ty-font-label"
+                                    style="font-size:10px;opacity:0.6;padding:4px 0;">System default — drop
+                                    .ttf/.otf/.woff onto canvas</div>
+                                <button type="button" id="ty-font-reset" class="panel-button"
+                                    style="display:none;">Reset font</button>
+                            </div>
+
+                            <div class="control-row" style="margin-top:8px;">
+                                <label for="ty-filter">Filter</label>
+                                <select id="ty-filter" class="select-input">
+                                    <option value="none" selected>None</option>
+                                    <option value="halftone">Halftone</option>
+                                    <option value="scanline">Scanline</option>
+                                    <option value="grid">Grid</option>
+                                    <option value="grain">Grain</option>
+                                    <option value="stripe">Stripe</option>
+                                    <option value="hatch">Hatch</option>
+                                    <option value="dots">Dots</option>
+                                    <option value="pixel">Pixel</option>
+                                    <option value="warp">Warp</option>
+                                    <option value="glitch">Glitch</option>
+                                    <option value="erode">Erode</option>
+                                    <option value="outline_f">Outline</option>
+                                    <option value="shadow">Shadow</option>
+                                </select>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="ty-fscale">Scale</label>
+                                <input type="range" id="ty-fscale" min="1" max="30" value="8" step="1">
+                                <span class="param-value" id="val-ty-fscale">8</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="ty-fdensity">Density</label>
+                                <input type="range" id="ty-fdensity" min="1" max="10" value="5" step="0.5">
+                                <span class="param-value" id="val-ty-fdensity">5</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="ty-fangle">Angle</label>
+                                <input type="range" id="ty-fangle" min="0" max="180" value="45" step="1">
+                                <span class="param-value" id="val-ty-fangle">45</span>
+                            </div>
+
+                            <div class="control-row color-row">
+                                <label for="ty-ink">Ink color</label>
+                                <input type="color" id="ty-ink" value="#000000">
+                            </div>
+                            <div class="control-row color-row">
+                                <label for="ty-bg">Background</label>
+                                <input type="color" id="ty-bg" value="#ffffff">
+                            </div>
+
+                            <div class="control-row" style="gap:6px;margin-top:8px;">
+                                <button type="button" id="ty-export" class="panel-button">Export PNG</button>
+                            </div>
+                        </section>
+                    </details>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <style>
+        .app[aria-label="Typo"] {
+            height: calc(100vh - 56px);
+            min-height: calc(100vh - 56px);
+            padding: 0;
+            gap: 0;
+            align-items: stretch;
+            justify-content: flex-start;
+        }
+
+        .app[aria-label="Typo"] #sketch-container {
+            flex: 1;
+            height: 100%;
+            width: 100%;
+            min-width: 0;
+            pointer-events: auto;
+            position: relative;
+        }
+
+        .app[aria-label="Typo"] #sketch-container canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            touch-action: none;
+        }
+
+        .app[aria-label="Typo"] .control-panel {
+            width: 280px;
+        }
+
+        .app[aria-label="Typo"] .control-row {
+            gap: 8px;
+        }
+
+        .app[aria-label="Typo"] .control-row label {
+            flex: 0 0 90px;
+        }
+
+        .app[aria-label="Typo"] .panel-body {
+            max-height: none;
+        }
+
+        #drop-overlay {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 700;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.55);
+            border: 3px dashed rgba(255, 255, 255, 0.5);
+            border-radius: 8px;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
+
+    <script src="page-transition.js"></script>
+    <script>
+        if (new URLSearchParams(window.location.search).get('preview') === '1') {
+            document.body.classList.add('is-preview');
+        }
+
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const srcCanvas = document.createElement('canvas');
+        const srcCtx = srcCanvas.getContext('2d');
+        let cssWidth = 1, cssHeight = 1, dpr = 1;
+
+        const $ = (id) => document.getElementById(id);
+
+        const state = {
+            text: 'TYPO',
+            fontSize: 140,
+            letterSpacing: 0,
+            lineHeight: 1.2,
+            textAlign: 'center',
+            fillMode: true,
+            outlineWidth: 2,
+            fontFamily: 'sans-serif',
+            fontFileName: null,
+            filter: 'none',
+            filterScale: 8,
+            filterDensity: 5,
+            filterAngle: 45,
+            inkColor: '#000000',
+            bgColor: '#ffffff',
+        };
+
+        function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+        // ─── Text measurement + rendering helpers ────────────────────
+
+        function fontStr() {
+            return state.fontSize + 'px ' + state.fontFamily;
+        }
+
+        function measureLineWidth(context, text) {
+            if (state.letterSpacing === 0) return context.measureText(text).width;
+            let w = 0;
+            for (let i = 0; i < text.length; i++) {
+                w += context.measureText(text[i]).width;
+                if (i < text.length - 1) w += state.letterSpacing;
+            }
+            return w;
+        }
+
+        function drawTextLine(context, text, x, y, fill) {
+            if (state.letterSpacing === 0) {
+                if (fill) context.fillText(text, x, y);
+                else context.strokeText(text, x, y);
+                return;
+            }
+            const totalW = measureLineWidth(context, text);
+            let cx = x;
+            if (context.textAlign === 'center') cx -= totalW / 2;
+            else if (context.textAlign === 'right') cx -= totalW;
+
+            const saved = context.textAlign;
+            context.textAlign = 'left';
+            for (let i = 0; i < text.length; i++) {
+                if (fill) context.fillText(text[i], cx, y);
+                else context.strokeText(text[i], cx, y);
+                cx += context.measureText(text[i]).width + state.letterSpacing;
+            }
+            context.textAlign = saved;
+        }
+
+        function renderTextTo(context, w, h) {
+            context.font = fontStr();
+            context.textAlign = state.textAlign;
+            context.textBaseline = 'middle';
+
+            const lines = state.text.split('\n');
+            const lineH = state.fontSize * state.lineHeight;
+            const totalH = (lines.length - 1) * lineH;
+            const startY = h / 2 - totalH / 2;
+            const x = state.textAlign === 'left' ? 40
+                : state.textAlign === 'right' ? w - 40
+                    : w / 2;
+
+            for (let i = 0; i < lines.length; i++) {
+                const y = startY + i * lineH;
+                if (state.fillMode) {
+                    context.fillStyle = state.inkColor;
+                    drawTextLine(context, lines[i], x, y, true);
+                } else {
+                    context.strokeStyle = state.inkColor;
+                    context.lineWidth = state.outlineWidth;
+                    context.lineJoin = 'round';
+                    drawTextLine(context, lines[i], x, y, false);
+                }
+            }
+        }
+
+        function renderSource() {
+            srcCanvas.width = canvas.width;
+            srcCanvas.height = canvas.height;
+            srcCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            srcCtx.clearRect(0, 0, cssWidth, cssHeight);
+            renderTextTo(srcCtx, cssWidth, cssHeight);
+        }
+
+        function getSourceAlpha() {
+            return srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height).data;
+        }
+
+        function sampleAlpha(data, w, cx, cy, radius) {
+            let sum = 0, count = 0;
+            const r = Math.max(1, Math.floor(radius));
+            for (let dy = -r; dy < r; dy++) {
+                for (let dx = -r; dx < r; dx++) {
+                    const px = Math.round(cx + dx);
+                    const py = Math.round(cy + dy);
+                    if (px >= 0 && px < w && py >= 0 && py < srcCanvas.height) {
+                        sum += data[(py * w + px) * 4 + 3];
+                        count++;
+                    }
+                }
+            }
+            return count > 0 ? sum / count / 255 : 0;
+        }
+
+        function clearMain() {
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, cssWidth, cssHeight);
+        }
+
+        // ─── Filters ─────────────────────────────────────────────────
+
+        function filterNone() {
+            clearMain();
+            renderTextTo(ctx, cssWidth, cssHeight);
+        }
+
+        function filterHalftone() {
+            const data = getSourceAlpha();
+            const w = srcCanvas.width;
+            const sp = Math.max(3, Math.round(state.filterScale * dpr));
+            clearMain();
+            ctx.fillStyle = state.inkColor;
+            for (let cy = Math.floor(sp / 2); cy < srcCanvas.height; cy += sp) {
+                for (let cx = Math.floor(sp / 2); cx < w; cx += sp) {
+                    const a = sampleAlpha(data, w, cx, cy, sp / 2);
+                    if (a < 0.03) continue;
+                    const maxR = sp * 0.48;
+                    const r = maxR * Math.sqrt(a);
+                    ctx.beginPath();
+                    ctx.arc(cx / dpr, cy / dpr, r / dpr, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function filterScanline() {
+            const data = getSourceAlpha();
+            const w = srcCanvas.width;
+            const h = srcCanvas.height;
+            const sp = Math.max(2, Math.round(state.filterScale * dpr * 0.7));
+            const lineW = Math.max(1, sp * (state.filterDensity / 10) * 0.8);
+            clearMain();
+            ctx.fillStyle = state.inkColor;
+            for (let py = 0; py < h; py += sp) {
+                for (let px = 0; px < w; px++) {
+                    const a = data[(py * w + px) * 4 + 3] / 255;
+                    if (a < 0.1) continue;
+                    ctx.fillRect(px / dpr, py / dpr, 1 / dpr, lineW / dpr);
+                }
+            }
+        }
+
+        function filterGrid() {
+            const data = getSourceAlpha();
+            const w = srcCanvas.width;
+            const sp = Math.max(3, Math.round(state.filterScale * dpr));
+            const gap = Math.max(0.5, sp * 0.12);
+            clearMain();
+            ctx.fillStyle = state.inkColor;
+            for (let cy = 0; cy < srcCanvas.height; cy += sp) {
+                for (let cx = 0; cx < w; cx += sp) {
+                    const a = sampleAlpha(data, w, cx + sp / 2, cy + sp / 2, sp / 2);
+                    if (a < 0.15) continue;
+                    ctx.globalAlpha = clamp(a, 0.3, 1);
+                    ctx.fillRect(
+                        (cx + gap) / dpr, (cy + gap) / dpr,
+                        (sp - gap * 2) / dpr, (sp - gap * 2) / dpr
+                    );
+                }
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        function filterGrain() {
+            const data = getSourceAlpha();
+            const w = srcCanvas.width;
+            const h = srcCanvas.height;
+            const density = state.filterDensity * 0.003;
+            const dotR = Math.max(0.3, state.filterScale * 0.08);
+            clearMain();
+            ctx.fillStyle = state.inkColor;
+            for (let py = 0; py < h; py++) {
+                for (let px = 0; px < w; px++) {
+                    const a = data[(py * w + px) * 4 + 3] / 255;
+                    if (a < 0.1) continue;
+                    if (Math.random() > density * a) continue;
+                    const jx = (Math.random() - 0.5) * 1.5;
+                    const jy = (Math.random() - 0.5) * 1.5;
+                    const r = dotR * (0.5 + Math.random()) / dpr;
+                    ctx.beginPath();
+                    ctx.arc((px + jx) / dpr, (py + jy) / dpr, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function filterStripe() {
+            const angle = state.filterAngle * Math.PI / 180;
+            const sp = Math.max(2, state.filterScale);
+            const lineW = sp * (state.filterDensity / 10) * 0.7;
+            clearMain();
+
+            ctx.save();
+            ctx.translate(cssWidth / 2, cssHeight / 2);
+            ctx.rotate(angle);
+            ctx.strokeStyle = state.inkColor;
+            ctx.lineWidth = lineW;
+            const diag = Math.hypot(cssWidth, cssHeight);
+            for (let y = -diag; y < diag; y += sp) {
+                ctx.beginPath();
+                ctx.moveTo(-diag, y);
+                ctx.lineTo(diag, y);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            ctx.globalCompositeOperation = 'destination-in';
+            ctx.drawImage(srcCanvas, 0, 0, cssWidth, cssHeight);
+            ctx.globalCompositeOperation = 'source-over';
+
+            ctx.globalCompositeOperation = 'destination-over';
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, cssWidth, cssHeight);
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function filterHatch() {
+            const angle = state.filterAngle * Math.PI / 180;
+            const sp = Math.max(2, state.filterScale);
+            const lineW = Math.max(0.5, sp * (state.filterDensity / 10) * 0.45);
+            clearMain();
+
+            ctx.save();
+            const diag = Math.hypot(cssWidth, cssHeight);
+            ctx.strokeStyle = state.inkColor;
+            ctx.lineWidth = lineW;
+
+            ctx.translate(cssWidth / 2, cssHeight / 2);
+            ctx.rotate(angle);
+            for (let y = -diag; y < diag; y += sp) {
+                ctx.beginPath();
+                ctx.moveTo(-diag, y);
+                ctx.lineTo(diag, y);
+                ctx.stroke();
+            }
+            ctx.rotate(-angle);
+
+            ctx.rotate(angle + Math.PI / 2);
+            for (let y = -diag; y < diag; y += sp) {
+                ctx.beginPath();
+                ctx.moveTo(-diag, y);
+                ctx.lineTo(diag, y);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            ctx.globalCompositeOperation = 'destination-in';
+            ctx.drawImage(srcCanvas, 0, 0, cssWidth, cssHeight);
+            ctx.globalCompositeOperation = 'source-over';
+
+            ctx.globalCompositeOperation = 'destination-over';
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, cssWidth, cssHeight);
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function filterDots() {
+            const data = getSourceAlpha();
+            const w = srcCanvas.width;
+            const sp = Math.max(3, Math.round(state.filterScale * dpr));
+            const r0 = sp * 0.3 * (state.filterDensity / 10 * 0.6 + 0.4);
+            clearMain();
+            ctx.fillStyle = state.inkColor;
+            for (let cy = Math.floor(sp / 2); cy < srcCanvas.height; cy += sp) {
+                for (let cx = Math.floor(sp / 2); cx < w; cx += sp) {
+                    const a = sampleAlpha(data, w, cx, cy, sp / 2);
+                    if (a < 0.2) continue;
+                    ctx.beginPath();
+                    ctx.arc(cx / dpr, cy / dpr, r0 / dpr, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function filterPixel() {
+            const sp = Math.max(2, Math.round(state.filterScale * dpr));
+            clearMain();
+            ctx.imageSmoothingEnabled = false;
+
+            const tmpC = document.createElement('canvas');
+            const tw = Math.ceil(srcCanvas.width / sp);
+            const th = Math.ceil(srcCanvas.height / sp);
+            tmpC.width = tw;
+            tmpC.height = th;
+            const tc = tmpC.getContext('2d');
+            tc.imageSmoothingEnabled = false;
+            tc.drawImage(srcCanvas, 0, 0, tw, th);
+
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, cssWidth, cssHeight);
+            ctx.drawImage(tmpC, 0, 0, tw, th, 0, 0, cssWidth, cssHeight);
+            ctx.imageSmoothingEnabled = true;
+        }
+
+        function filterWarp() {
+            const data = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
+            const w = srcCanvas.width;
+            const h = srcCanvas.height;
+            const amp = state.filterScale * dpr * 1.5;
+            const freq = state.filterDensity * 0.008;
+            clearMain();
+
+            const out = ctx.createImageData(w, h);
+            for (let y = 0; y < h; y++) {
+                const shift = Math.round(Math.sin(y * freq) * amp);
+                for (let x = 0; x < w; x++) {
+                    const sx = clamp(x - shift, 0, w - 1);
+                    const si = (y * w + sx) * 4;
+                    const di = (y * w + x) * 4;
+                    out.data[di] = data.data[si];
+                    out.data[di + 1] = data.data[si + 1];
+                    out.data[di + 2] = data.data[si + 2];
+                    out.data[di + 3] = data.data[si + 3];
+                }
+            }
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.putImageData(out, 0, 0);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            ctx.globalCompositeOperation = 'destination-over';
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, cssWidth, cssHeight);
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function filterGlitch() {
+            clearMain();
+            ctx.drawImage(srcCanvas, 0, 0, cssWidth, cssHeight);
+
+            const sliceCount = Math.max(3, Math.round(state.filterDensity * 2.5));
+            const maxShift = state.filterScale * 3;
+
+            for (let i = 0; i < sliceCount; i++) {
+                const sy = Math.random() * cssHeight;
+                const sh = 2 + Math.random() * state.filterScale * 2;
+                const shift = (Math.random() - 0.5) * maxShift * 2;
+                ctx.drawImage(
+                    canvas,
+                    0, sy * dpr, canvas.width, sh * dpr,
+                    shift, sy, cssWidth, sh
+                );
+            }
+
+            ctx.globalCompositeOperation = 'destination-over';
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, cssWidth, cssHeight);
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function filterErode() {
+            const data = getSourceAlpha();
+            const w = srcCanvas.width;
+            const h = srcCanvas.height;
+            const iterations = Math.max(1, Math.round(state.filterScale * 0.5));
+            let current = new Uint8Array(w * h);
+            for (let i = 0; i < w * h; i++) current[i] = data[i * 4 + 3] > 127 ? 1 : 0;
+
+            for (let iter = 0; iter < iterations; iter++) {
+                const next = new Uint8Array(w * h);
+                for (let y = 1; y < h - 1; y++) {
+                    for (let x = 1; x < w - 1; x++) {
+                        const idx = y * w + x;
+                        if (current[idx] === 0) continue;
+                        const n = current[idx - w] + current[idx + w] +
+                            current[idx - 1] + current[idx + 1];
+                        next[idx] = n >= 3 ? 1 : 0;
+                    }
+                }
+                current = next;
+            }
+
+            clearMain();
+            ctx.fillStyle = state.inkColor;
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    if (current[y * w + x]) {
+                        ctx.fillRect(x / dpr, y / dpr, 1.2 / dpr, 1.2 / dpr);
+                    }
+                }
+            }
+        }
+
+        function filterOutlineF() {
+            const data = getSourceAlpha();
+            const w = srcCanvas.width;
+            const h = srcCanvas.height;
+            const thickness = Math.max(1, Math.round(state.filterScale * 0.4 * dpr));
+
+            clearMain();
+            ctx.fillStyle = state.inkColor;
+
+            for (let y = thickness; y < h - thickness; y++) {
+                for (let x = thickness; x < w - thickness; x++) {
+                    const a = data[(y * w + x) * 4 + 3];
+                    if (a < 127) continue;
+                    let isEdge = false;
+                    for (let d = 1; d <= thickness && !isEdge; d++) {
+                        if (data[((y - d) * w + x) * 4 + 3] < 127) isEdge = true;
+                        else if (data[((y + d) * w + x) * 4 + 3] < 127) isEdge = true;
+                        else if (data[(y * w + x - d) * 4 + 3] < 127) isEdge = true;
+                        else if (data[(y * w + x + d) * 4 + 3] < 127) isEdge = true;
+                    }
+                    if (isEdge) {
+                        ctx.fillRect(x / dpr, y / dpr, 1.2 / dpr, 1.2 / dpr);
+                    }
+                }
+            }
+        }
+
+        function filterShadow() {
+            const offsetX = state.filterScale * 0.5;
+            const offsetY = state.filterScale * 0.5;
+            const layers = Math.max(1, Math.round(state.filterDensity));
+            clearMain();
+
+            const r = parseInt(state.inkColor.slice(1, 3), 16);
+            const g = parseInt(state.inkColor.slice(3, 5), 16);
+            const b = parseInt(state.inkColor.slice(5, 7), 16);
+
+            for (let i = layers; i >= 0; i--) {
+                const frac = i / Math.max(1, layers);
+                const ox = offsetX * frac;
+                const oy = offsetY * frac;
+                const alpha = 0.08 + (1 - frac) * 0.92;
+                ctx.save();
+                ctx.translate(ox, oy);
+                ctx.globalAlpha = alpha;
+                ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+                ctx.strokeStyle = ctx.fillStyle;
+                ctx.font = fontStr();
+                ctx.textAlign = state.textAlign;
+                ctx.textBaseline = 'middle';
+                const lines = state.text.split('\n');
+                const lineH = state.fontSize * state.lineHeight;
+                const totalH = (lines.length - 1) * lineH;
+                const startY = cssHeight / 2 - totalH / 2;
+                const x = state.textAlign === 'left' ? 40
+                    : state.textAlign === 'right' ? cssWidth - 40
+                        : cssWidth / 2;
+                for (let li = 0; li < lines.length; li++) {
+                    const y = startY + li * lineH;
+                    if (state.fillMode) drawTextLine(ctx, lines[li], x, y, true);
+                    else {
+                        ctx.lineWidth = state.outlineWidth;
+                        drawTextLine(ctx, lines[li], x, y, false);
+                    }
+                }
+                ctx.restore();
+            }
+            ctx.globalAlpha = 1;
+        }
+
+        const filterMap = {
+            none: filterNone,
+            halftone: filterHalftone,
+            scanline: filterScanline,
+            grid: filterGrid,
+            grain: filterGrain,
+            stripe: filterStripe,
+            hatch: filterHatch,
+            dots: filterDots,
+            pixel: filterPixel,
+            warp: filterWarp,
+            glitch: filterGlitch,
+            erode: filterErode,
+            outline_f: filterOutlineF,
+            shadow: filterShadow,
+        };
+
+        // ─── Main render ─────────────────────────────────────────────
+
+        function render() {
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            renderSource();
+
+            const fn = filterMap[state.filter] || filterNone;
+            fn();
+        }
+
+        // ─── Resize ──────────────────────────────────────────────────
+
+        function resize() {
+            const container = document.getElementById('sketch-container');
+            const rect = container.getBoundingClientRect();
+            let w = rect.width, h = rect.height;
+            if (!Number.isFinite(w) || w < 10) w = window.innerWidth;
+            if (!Number.isFinite(h) || h < 10) h = window.innerHeight;
+
+            cssWidth = w;
+            cssHeight = h;
+            dpr = Math.max(1, window.devicePixelRatio || 1);
+
+            canvas.style.width = w + 'px';
+            canvas.style.height = h + 'px';
+            canvas.width = Math.floor(w * dpr);
+            canvas.height = Math.floor(h * dpr);
+
+            render();
+        }
+
+        window.addEventListener('resize', () => requestAnimationFrame(resize));
+
+        // ─── Font drag-and-drop ──────────────────────────────────────
+
+        const sketchContainer = document.getElementById('sketch-container');
+        const dropOverlay = $('drop-overlay');
+        let dragCounter = 0;
+
+        sketchContainer.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            dragCounter++;
+            dropOverlay.hidden = false;
+        });
+        sketchContainer.addEventListener('dragleave', () => {
+            dragCounter--;
+            if (dragCounter <= 0) { dragCounter = 0; dropOverlay.hidden = true; }
+        });
+        sketchContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        });
+        sketchContainer.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dragCounter = 0;
+            dropOverlay.hidden = true;
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
+            if (!/\.(ttf|otf|woff2?|TTF|OTF|WOFF2?)$/.test(file.name)) return;
+            try {
+                const buf = await file.arrayBuffer();
+                const name = 'CustomFont_' + Date.now();
+                const face = new FontFace(name, buf);
+                await face.load();
+                document.fonts.add(face);
+                state.fontFamily = name;
+                state.fontFileName = file.name;
+                $('ty-font-label').textContent = file.name;
+                $('ty-font-reset').style.display = '';
+                render();
+            } catch (err) {
+                console.error('Font load failed:', err);
+            }
+        });
+
+        // ─── Export ──────────────────────────────────────────────────
+
+        function exportPNG() {
+            const out = document.createElement('canvas');
+            out.width = canvas.width;
+            out.height = canvas.height;
+            const oc = out.getContext('2d');
+            oc.drawImage(canvas, 0, 0);
+            const link = document.createElement('a');
+            link.download = 'typo_export.png';
+            link.href = out.toDataURL('image/png');
+            link.click();
+        }
+
+        // ─── UI Wiring ──────────────────────────────────────────────
+
+        $('ty-text').addEventListener('input', (e) => {
+            state.text = e.target.value;
+            render();
+        });
+
+        $('ty-font-size').addEventListener('input', (e) => {
+            state.fontSize = parseInt(e.target.value, 10);
+            $('val-ty-font-size').textContent = state.fontSize;
+            render();
+        });
+
+        $('ty-spacing').addEventListener('input', (e) => {
+            state.letterSpacing = parseInt(e.target.value, 10);
+            $('val-ty-spacing').textContent = state.letterSpacing;
+            render();
+        });
+
+        $('ty-line-h').addEventListener('input', (e) => {
+            state.lineHeight = parseFloat(e.target.value);
+            $('val-ty-line-h').textContent = state.lineHeight.toFixed(2);
+            render();
+        });
+
+        document.querySelectorAll('[data-align]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('[data-align]').forEach(b => b.classList.remove('is-active'));
+                btn.classList.add('is-active');
+                state.textAlign = btn.getAttribute('data-align');
+                render();
+            });
+        });
+
+        $('ty-fill-btn').addEventListener('click', () => {
+            state.fillMode = true;
+            $('ty-fill-btn').classList.add('is-active');
+            $('ty-outline-btn').classList.remove('is-active');
+            $('ty-outline-row').style.display = 'none';
+            render();
+        });
+        $('ty-outline-btn').addEventListener('click', () => {
+            state.fillMode = false;
+            $('ty-outline-btn').classList.add('is-active');
+            $('ty-fill-btn').classList.remove('is-active');
+            $('ty-outline-row').style.display = '';
+            render();
+        });
+
+        $('ty-outline-w').addEventListener('input', (e) => {
+            state.outlineWidth = parseFloat(e.target.value);
+            $('val-ty-outline-w').textContent = state.outlineWidth;
+            render();
+        });
+
+        $('ty-font-reset').addEventListener('click', () => {
+            state.fontFamily = 'sans-serif';
+            state.fontFileName = null;
+            $('ty-font-label').textContent = 'System default — drop .ttf/.otf/.woff onto canvas';
+            $('ty-font-reset').style.display = 'none';
+            render();
+        });
+
+        $('ty-filter').addEventListener('change', (e) => {
+            state.filter = e.target.value;
+            render();
+        });
+
+        $('ty-fscale').addEventListener('input', (e) => {
+            state.filterScale = parseInt(e.target.value, 10);
+            $('val-ty-fscale').textContent = state.filterScale;
+            render();
+        });
+
+        $('ty-fdensity').addEventListener('input', (e) => {
+            state.filterDensity = parseFloat(e.target.value);
+            $('val-ty-fdensity').textContent = state.filterDensity % 1 === 0 ? String(state.filterDensity) : state.filterDensity.toFixed(1);
+            render();
+        });
+
+        $('ty-fangle').addEventListener('input', (e) => {
+            state.filterAngle = parseInt(e.target.value, 10);
+            $('val-ty-fangle').textContent = state.filterAngle;
+            render();
+        });
+
+        $('ty-ink').addEventListener('input', (e) => {
+            state.inkColor = e.target.value;
+            render();
+        });
+
+        $('ty-bg').addEventListener('input', (e) => {
+            state.bgColor = e.target.value;
+            const app = document.querySelector('.app[aria-label="Typo"]');
+            if (app) app.style.backgroundColor = state.bgColor;
+            render();
+        });
+
+        $('ty-export').addEventListener('click', exportPNG);
+
+        // ─── Init ────────────────────────────────────────────────────
+
+        const app = document.querySelector('.app[aria-label="Typo"]');
+        if (app) app.style.backgroundColor = state.bgColor;
+
+        resize();
+        requestAnimationFrame(resize);
+    </script>
+</body>
+
+</html>
