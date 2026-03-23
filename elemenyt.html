@@ -361,25 +361,19 @@
             // Max center-to-center distance worth checking.
             const maxCenterDist = maxGap + strokeR * 2;
 
-            // Find the start of the current stroke segment (after the last null break).
-            // We only grow toward points from PREVIOUS strokes, not the current one.
-            let currentSegStart = idx;
-            for (let s = idx - 1; s >= 0; s--) {
-                if (!state.points[s]) { currentSegStart = s + 1; break; }
-                if (s === 0) currentSegStart = 0;
-            }
-
-            // Need at least some previous-segment points to grow toward.
-            if (currentSegStart <= 0) return;
+            // Skip recent points so we don't grow the stroke into itself as we
+            // draw — but still allow growth between older parts of the same
+            // stroke as well as between fully separate strokes (pen-up/down).
+            const skipRecent = 20;
+            const endSearch = idx - skipRecent;
+            if (endSearch <= 0) return;
+            const searchStart = Math.max(0, endSearch - 800);
 
             const isInk = state.mode === 'ink';
             ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
             ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
 
-            // Search all points from previous strokes (before current segment).
-            const searchStart = Math.max(0, currentSegStart - 800);
-
-            for (let i = searchStart; i < currentSegStart; i++) {
+            for (let i = searchStart; i < endSearch; i++) {
                 const prev = state.points[i];
                 if (!prev) continue;
 
