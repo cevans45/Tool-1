@@ -91,11 +91,20 @@
                                 <span class="param-value" id="val-el-stroke">6</span>
                             </div>
 
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="el-sticky-enabled" checked>
-                                <span class="toggle-box"></span>
-                                <span class="cb-label">Sticky</span>
-                            </label>
+                            <div class="control-row">
+                                <label for="el-sticky-mode">Sticky</label>
+                                <select id="el-sticky-mode" class="select-input">
+                                    <option value="off" selected>Off</option>
+                                    <option value="bridge">Distance Bridge</option>
+                                    <option value="grid">Grid Density</option>
+                                    <option value="knn">Nearest-K Web</option>
+                                    <option value="gravity">Gravity Wells</option>
+                                    <option value="overlap">Overlap Flood</option>
+                                    <option value="trail">Trail Expansion</option>
+                                    <option value="hull">Convex Hull</option>
+                                    <option value="heat">Heat Map</option>
+                                </select>
+                            </div>
 
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-taper">
@@ -288,7 +297,7 @@
         const outlineEl = el('el-outline');
         const outlineVal = el('val-el-outline');
         const taperEl = el('el-taper');
-        const stickyEnabledEl = el('el-sticky-enabled');
+        const stickyModeEl = el('el-sticky-mode');
         const clearBtn = el('el-clear');
         const exportBtn = el('el-export');
 
@@ -305,9 +314,17 @@
             generateTime: 55,
             generateSeed: (Math.random() * 0x7fffffff) | 0,
             taperEnabled: false,
-            // Sticky toggle: on = strong merging (6), off = no webbing (0)
-            stickyEnabled: true,
-            get stickyStrength() { return this.stickyEnabled ? 6.0 : 0; },
+            // Sticky mode: off|bridge|grid|knn|gravity|overlap|trail|hull|heat
+            stickyMode: 'off',
+
+            // Data structures for sticky modes
+            _gridCells: null,   // for grid density mode
+            _gridW: 0,
+            _gridH: 0,
+            _heatMap: null,     // for heat map mode
+            _heatW: 0,
+            _heatH: 0,
+            _trailRadii: [],    // for trail expansion mode
 
             fillEnabled: false,
             inkColor: '#000000',
@@ -347,179 +364,395 @@
             };
         }
 
-        // Sticky shader mask (ported to CPU so it can bias connection decisions).
-        const STICKY_MASK_W = 220;
-        const STICKY_MASK_H = 220;
-        const STICKY_MASK = {
-            // Cache to avoid recomputing while you drag sliders.
-            key: '',
-            data: null, // Float32Array
-        };
+        // ─── Sticky mode helpers ───────────────────────────────────────
+        const STICKY_GRID_SIZE = 12; // cell size in CSS px for grid/heat modes
 
-        function stickySmoothstep(e0, e1, x) {
-            // Works like GLSL smoothstep for arbitrary edge ordering.
-            const t = (x - e0) / (e1 - e0);
-            const tt = clamp(t, 0, 1);
-            return tt * tt * (3 - 2 * tt);
+        function ensureStickyGrid() {
+            const gw = Math.ceil(cssWidth / STICKY_GRID_SIZE) + 1;
+            const gh = Math.ceil(cssHeight / STICKY_GRID_SIZE) + 1;
+            if (state._gridCells && state._gridW === gw && state._gridH === gh) return;
+            state._gridW = gw;
+            state._gridH = gh;
+            state._gridCells = new Uint8Array(gw * gh);
         }
 
-        function stickyMix(a, b, h) {
-            return a * (1 - h) + b * h;
+        function clearStickyGrid() {
+            if (state._gridCells) state._gridCells.fill(0);
         }
 
-        function stickySmin(a, b, k) {
-            // Smooth min from your shader:
-            // h = clamp(0.5 + 0.5*(b-a)/k, 0, 1)
-            // return mix(b,a,h) - k*h*(1.-h)
-            const h = clamp(0.5 + 0.5 * (b - a) / k, 0, 1);
-            return stickyMix(b, a, h) - k * h * (1 - h);
+        function markGrid(x, y) {
+            const gx = clamp(Math.floor(x / STICKY_GRID_SIZE), 0, state._gridW - 1);
+            const gy = clamp(Math.floor(y / STICKY_GRID_SIZE), 0, state._gridH - 1);
+            state._gridCells[gx + gy * state._gridW] = 1;
         }
 
-        function stickyRnd(px, py) {
-            // rnd(p) with fract(p*vec2(12.9898,78.233)) then hash-ish dot.
-            const sx = px * 12.9898;
-            const sy = py * 78.233;
-            let fx = sx - Math.floor(sx);
-            let fy = sy - Math.floor(sy);
-            // p += dot(p, p + 34.56)
-            const dot = fx * (fx + 34.56) + fy * (fy + 34.56);
-            fx += dot;
-            fy += dot;
-            // fract(p.x * p.y)
-            const v = fx * fy;
-            return v - Math.floor(v);
+        function getGrid(gx, gy) {
+            if (gx < 0 || gx >= state._gridW || gy < 0 || gy >= state._gridH) return 0;
+            return state._gridCells[gx + gy * state._gridW];
         }
 
-        function stickyRot(a, vx, vy) {
-            // mat2(cos((a)-vec4(0,11,33,0))) and then uv *= mat2
-            // We emulate the vec2 * mat2 multiplication:
-            // res.x = vx*m00 + vy*m01
-            // res.y = vx*m10 + vy*m11
-            // with columns packed from the vec4.
-            const c0 = Math.cos(a);        // cos(a-0)
-            const c1 = Math.cos(a - 11.0); // cos(a-11)
-            const c2 = Math.cos(a - 33.0); // cos(a-33)
-            // columns:
-            // col0 = [c0, c1], col1 = [c2, c0]
-            const m00 = c0;
-            const m10 = c1;
-            const m01 = c2;
-            const m11 = c0;
-            return {
-                x: vx * m00 + vy * m01,
-                y: vx * m10 + vy * m11
-            };
+        function ensureHeatMap() {
+            const hw = Math.ceil(cssWidth / STICKY_GRID_SIZE) + 1;
+            const hh = Math.ceil(cssHeight / STICKY_GRID_SIZE) + 1;
+            if (state._heatMap && state._heatW === hw && state._heatH === hh) return;
+            state._heatW = hw;
+            state._heatH = hh;
+            state._heatMap = new Float32Array(hw * hh);
         }
 
-        function stickyScene(ux, uy, t, mn) {
-            // Scene from fragment shader.
-            let d = 5e5;
-            let px = ux;
-            let py = uy;
-
-            for (let i = 0; i < 3; i++) {
-                const kBaseX = t - (i + 1);
-                const kBaseY = t - (i * 10);
-                const f = stickyRnd(kBaseX, kBaseY);
-                const k = Math.floor(f * 10) / 10;
-
-                // vertical bar: abs(uv.x + k)
-                d = stickySmin(d, Math.abs(px + k), 0.2);
-                // horizontal bar: abs(uv.y - k)
-                d = stickySmin(d, Math.abs(py - k), 0.2);
-
-                const rndArgX = k;
-                const rndArgY = k;
-                const ang = t * 0.2 - 0.39 + stickyRnd(rndArgX, rndArgY);
-                const r = stickyRot(ang, px, py);
-                px = r.x;
-                py = r.y;
-            }
-
-            // return SE(d,.01,5.) where SE(v,a,k)=smoothstep(a+k/MN, a-k/MN, v)
-            const a = 0.01;
-            const k = 5.0;
-            const e0 = a + k / mn;
-            const e1 = a - k / mn;
-            return stickySmoothstep(e0, e1, d);
+        function clearHeatMap() {
+            if (state._heatMap) state._heatMap.fill(0);
         }
 
-        function stickyRender(ux, uy, time, mn, mx) {
-            // uv*=4
-            let x = ux * 4;
-            let y = uy * 4;
-
-            const t = time * 0.5;
-            const a = Math.round(t);
-            const b = a + 1;
-            const frac = (t + 0.5) - Math.floor(t + 0.5);
-            const mixH = Math.pow(frac, 8);
-
-            const sa = stickyScene(x, y, a, mn);
-            const sb = stickyScene(x, y, b, mn);
-            const k = (sa * (1 - mixH) + sb * mixH);
-
-            // vec3(1,.95,.8)*S(1.4,-.4,k)
-            const s = stickySmoothstep(1.4, -0.4, k);
-            let col = s; // use red channel as scalar mask
-
-            // in shader: col = max(col, .08); col = tanh(col)
-            col = Math.max(col, 0.08);
-            col = Math.tanh(col);
-
-            // reveal(uv)
-            // reveal(p) = SE(MN/MX*length(p), sqrt(S(1.,.0,1./T)), 1.)
-            const len = Math.hypot(x, y);
-            const term0 = (mn / mx) * len;
-            const s2 = stickySmoothstep(1.0, 0.0, 1.0 / Math.max(0.0001, time));
-            const term1 = Math.sqrt(s2);
-            const e0 = term1 + 1.0 / mn;
-            const e1 = term1 - 1.0 / mn;
-            const reveal = stickySmoothstep(e0, e1, term0);
-            col *= reveal;
-
-            // vignette:
-            // c = FC / R; c*=1.-c.yx; vig=c.x*c.y*25.; vig=pow(vig,.25); col*=vig
-            // (We don't have FC here, so we apply a cheap version based on uv.)
-            // This is mainly to keep the "sticky" look centered.
-            const vign = Math.pow(Math.max(0, 1 - (x * x + y * y) * 0.0025), 0.25);
-            col *= vign;
-
-            return col;
-        }
-
-        function sampleStickyMask(wx, wy) {
-            if (!STICKY_MASK.data) return 1;
-            const sx = clamp(Math.floor((wx / Math.max(cssWidth, 1)) * (STICKY_MASK_W - 1)), 0, STICKY_MASK_W - 1);
-            const sy = clamp(Math.floor((wy / Math.max(cssHeight, 1)) * (STICKY_MASK_H - 1)), 0, STICKY_MASK_H - 1);
-            return STICKY_MASK.data[sx + sy * STICKY_MASK_W];
-        }
-
-        function ensureStickyMask() {
-            const key = `${state.generateSeed}:${state.generateTime}:${STICKY_MASK_W}x${STICKY_MASK_H}:${Math.floor(cssWidth)}x${Math.floor(cssHeight)}`;
-            if (STICKY_MASK.data && STICKY_MASK.key === key) return;
-
-            const data = new Float32Array(STICKY_MASK_W * STICKY_MASK_H);
-            const mn = Math.min(STICKY_MASK_W, STICKY_MASK_H);
-            const mx = Math.max(STICKY_MASK_W, STICKY_MASK_H);
-
-            // Map tool time-ish values to the shader's time uniform.
-            const time = 1.8 + (state.generateTime / 100) * 3.2 + ((state.generateSeed >>> 0) % 10000) / 10000 * 2.1;
-
-            for (let y = 0; y < STICKY_MASK_H; y++) {
-                for (let x = 0; x < STICKY_MASK_W; x++) {
-                    // gl_FragCoord.xy ~ pixel center.
-                    const fcX = x + 0.5;
-                    const fcY = y + 0.5;
-                    const uvx = (fcX - 0.5 * STICKY_MASK_W) / mn;
-                    const uvy = (fcY - 0.5 * STICKY_MASK_H) / mn;
-                    const v = stickyRender(uvx, uvy, time, mn, mx);
-                    data[x + y * STICKY_MASK_W] = clamp(v, 0, 1);
+        function splatHeat(x, y, amount) {
+            const gx = Math.floor(x / STICKY_GRID_SIZE);
+            const gy = Math.floor(y / STICKY_GRID_SIZE);
+            for (let dy = -2; dy <= 2; dy++) {
+                for (let dx = -2; dx <= 2; dx++) {
+                    const nx = gx + dx;
+                    const ny = gy + dy;
+                    if (nx < 0 || nx >= state._heatW || ny < 0 || ny >= state._heatH) continue;
+                    const falloff = 1 / (1 + Math.abs(dx) + Math.abs(dy));
+                    state._heatMap[nx + ny * state._heatW] += amount * falloff;
                 }
             }
+        }
 
-            STICKY_MASK.data = data;
-            STICKY_MASK.key = key;
+        function getHeat(x, y) {
+            const gx = clamp(Math.floor(x / STICKY_GRID_SIZE), 0, state._heatW - 1);
+            const gy = clamp(Math.floor(y / STICKY_GRID_SIZE), 0, state._heatH - 1);
+            return state._heatMap[gx + gy * state._heatW];
+        }
+
+        function drawBridgeCircles(x1, y1, x2, y2, thickness) {
+            const isInk = state.mode === 'ink';
+            ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
+            ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+            const dist = Math.hypot(x2 - x1, y2 - y1);
+            const steps = Math.max(2, Math.floor(dist / 2));
+            for (let s = 0; s <= steps; s++) {
+                const t = s / steps;
+                const bx = x1 + (x2 - x1) * t;
+                const by = y1 + (y2 - y1) * t;
+                const r = Math.max(0.4, thickness * 0.5 * taperWidthAt(t));
+                const pts = mirroredPoints(bx, by);
+                for (let pi = 0; pi < pts.length; pi++) {
+                    ctx.beginPath();
+                    ctx.arc(pts[pi].x, pts[pi].y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        // ─── 8 Sticky Mode Implementations ────────────────────────────
+
+        /** 1. Distance Bridge: connect to nearby points proportional to distance */
+        function stickyBridge(p, idx) {
+            const maxDist = CONFIG.connectDistance * 1.5 + state.brushSize * 2;
+            const window = Math.min(400, idx);
+            const start = idx - window;
+            for (let i = start; i < idx - 1; i++) {
+                const prev = state.points[i];
+                if (!prev) continue;
+                const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
+                if (dist <= 0 || dist >= maxDist) continue;
+                const strength = Math.pow(1 - dist / maxDist, 2);
+                const thickness = state.brushSize * strength * 0.6;
+                if (thickness < 0.3) continue;
+                drawBridgeCircles(prev.x, prev.y, p.x, p.y, thickness);
+            }
+        }
+
+        /** 2. Grid Density: fill gaps when adjacent grid cells are both occupied */
+        function stickyGridDensity(p, idx) {
+            ensureStickyGrid();
+            markGrid(p.x, p.y);
+            const gx = Math.floor(p.x / STICKY_GRID_SIZE);
+            const gy = Math.floor(p.y / STICKY_GRID_SIZE);
+            const isInk = state.mode === 'ink';
+            ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
+            ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+            // Check 8 neighbors
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    if (dx === 0 && dy === 0) continue;
+                    if (!getGrid(gx + dx, gy + dy)) continue;
+                    // Neighbor is occupied — fill the gap
+                    const nx = (gx + dx + 0.5) * STICKY_GRID_SIZE;
+                    const ny = (gy + dy + 0.5) * STICKY_GRID_SIZE;
+                    const mx = (p.x + nx) * 0.5;
+                    const my = (p.y + ny) * 0.5;
+                    const r = state.brushSize * 0.4;
+                    const pts = mirroredPoints(mx, my);
+                    for (let pi = 0; pi < pts.length; pi++) {
+                        ctx.beginPath();
+                        ctx.arc(pts[pi].x, pts[pi].y, r, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        /** 3. Nearest-K Webbing: find K closest points and draw bridges */
+        function stickyKNN(p, idx) {
+            const K = 4;
+            const maxDist = CONFIG.connectDistance * 2 + state.brushSize * 3;
+            const window = Math.min(500, idx);
+            const start = idx - window;
+            // Collect candidates
+            const candidates = [];
+            for (let i = start; i < idx - 1; i++) {
+                const prev = state.points[i];
+                if (!prev) continue;
+                const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
+                if (dist <= 0 || dist >= maxDist) continue;
+                candidates.push({ i, dist, x: prev.x, y: prev.y });
+            }
+            if (!candidates.length) return;
+            candidates.sort((a, b) => a.dist - b.dist);
+            const chosen = candidates.slice(0, K);
+            for (const c of chosen) {
+                const strength = Math.pow(1 - c.dist / maxDist, 1.5);
+                const thickness = state.brushSize * strength * 0.5;
+                if (thickness < 0.2) continue;
+                drawBridgeCircles(c.x, c.y, p.x, p.y, thickness);
+            }
+        }
+
+        /** 4. Gravity Wells: pull new stroke toward nearby points, fill between */
+        function stickyGravity(p, idx) {
+            const pullRadius = CONFIG.connectDistance * 1.8 + state.brushSize * 2;
+            const window = Math.min(350, idx);
+            const start = idx - window;
+            let pullX = 0, pullY = 0, pullW = 0;
+            for (let i = start; i < idx - 1; i++) {
+                const prev = state.points[i];
+                if (!prev) continue;
+                const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
+                if (dist <= 0 || dist >= pullRadius) continue;
+                const w = Math.pow(1 - dist / pullRadius, 3);
+                pullX += prev.x * w;
+                pullY += prev.y * w;
+                pullW += w;
+            }
+            if (pullW < 0.01) return;
+            // Weighted centroid of nearby points
+            const cx = pullX / pullW;
+            const cy = pullY / pullW;
+            // Draw fill between current point, centroid, and midpoint
+            const midX = (p.x + cx) * 0.5;
+            const midY = (p.y + cy) * 0.5;
+            const dist = Math.hypot(p.x - cx, p.y - cy);
+            const strength = clamp(pullW * 0.3, 0, 1);
+            const thickness = state.brushSize * strength * 0.7;
+            if (thickness < 0.3) return;
+            drawBridgeCircles(p.x, p.y, midX, midY, thickness);
+            // Extra blob at the gravity center
+            const isInk = state.mode === 'ink';
+            ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
+            ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+            const r = thickness * 0.4;
+            const pts = mirroredPoints(cx, cy);
+            for (let pi = 0; pi < pts.length; pi++) {
+                ctx.beginPath();
+                ctx.arc(pts[pi].x, pts[pi].y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        /** 5. Overlap Detection: AABB overlap fills gaps */
+        function stickyOverlap(p, idx) {
+            const reach = state.brushSize * 3;
+            const window = Math.min(300, idx);
+            const start = idx - window;
+            const isInk = state.mode === 'ink';
+            ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
+            ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+            // Simple box overlap: if a prior point's bounding box overlaps ours, flood fill
+            for (let i = start; i < idx - 1; i++) {
+                const prev = state.points[i];
+                if (!prev) continue;
+                const dx = Math.abs(p.x - prev.x);
+                const dy = Math.abs(p.y - prev.y);
+                if (dx > reach || dy > reach) continue;
+                // Boxes overlap — fill the intersection area with small circles
+                const overlap = (1 - Math.max(dx, dy) / reach);
+                const count = Math.floor(overlap * 4) + 1;
+                for (let c = 0; c < count; c++) {
+                    const t = (c + 0.5) / count;
+                    const fx = prev.x + (p.x - prev.x) * t;
+                    const fy = prev.y + (p.y - prev.y) * t;
+                    const r = state.brushSize * overlap * 0.35;
+                    if (r < 0.3) continue;
+                    const pts = mirroredPoints(fx, fy);
+                    for (let pi = 0; pi < pts.length; pi++) {
+                        ctx.beginPath();
+                        ctx.arc(pts[pi].x, pts[pi].y, r, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        /** 6. Trail Expansion: each point grows a radius; overlapping radii merge */
+        function stickyTrail(p, idx) {
+            // Each point gets a growing radius
+            const baseR = state.brushSize * 0.8;
+            const growRate = 0.15;
+            // Grow all previous radii slightly
+            for (let i = 0; i < state._trailRadii.length; i++) {
+                state._trailRadii[i] += growRate;
+            }
+            state._trailRadii.push(baseR);
+            const maxR = baseR * 4;
+            const isInk = state.mode === 'ink';
+            ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
+            ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+            const window = Math.min(200, idx);
+            const start = idx - window;
+            for (let i = start; i < idx - 1; i++) {
+                const prev = state.points[i];
+                if (!prev) continue;
+                const ri = Math.min(state._trailRadii[i] || baseR, maxR);
+                const rj = Math.min(state._trailRadii[idx] || baseR, maxR);
+                const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
+                // Do the expanded radii touch?
+                if (dist < ri + rj && dist > 0) {
+                    const overlap = (ri + rj - dist) / (ri + rj);
+                    const thickness = state.brushSize * overlap * 0.5;
+                    if (thickness < 0.2) continue;
+                    const mx = (p.x + prev.x) * 0.5;
+                    const my = (p.y + prev.y) * 0.5;
+                    const r = Math.max(0.3, thickness * 0.5);
+                    const pts = mirroredPoints(mx, my);
+                    for (let pi = 0; pi < pts.length; pi++) {
+                        ctx.beginPath();
+                        ctx.arc(pts[pi].x, pts[pi].y, r, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        /** 7. Convex Hull Fill: cluster nearby points and fill the area */
+        function stickyHull(p, idx) {
+            const clusterRadius = CONFIG.connectDistance * 1.2 + state.brushSize * 2;
+            const window = Math.min(300, idx);
+            const start = idx - window;
+            // Gather nearby points
+            const cluster = [p];
+            for (let i = start; i < idx; i++) {
+                const prev = state.points[i];
+                if (!prev) continue;
+                const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
+                if (dist > 0 && dist < clusterRadius) cluster.push(prev);
+            }
+            if (cluster.length < 3) return;
+            // Simple convex hull (gift wrapping) on up to 16 points
+            const limited = cluster.slice(0, 16);
+            // Find leftmost
+            let hull = [];
+            let start2 = 0;
+            for (let i = 1; i < limited.length; i++) {
+                if (limited[i].x < limited[start2].x) start2 = i;
+            }
+            let current = start2;
+            do {
+                hull.push(limited[current]);
+                let next = 0;
+                for (let i = 0; i < limited.length; i++) {
+                    if (i === current) continue;
+                    if (next === current) { next = i; continue; }
+                    const cross = (limited[i].x - limited[current].x) * (limited[next].y - limited[current].y)
+                               - (limited[i].y - limited[current].y) * (limited[next].x - limited[current].x);
+                    if (cross < 0) next = i;
+                }
+                current = next;
+            } while (current !== start2 && hull.length < limited.length);
+
+            if (hull.length < 3) return;
+            // Fill the hull
+            const isInk = state.mode === 'ink';
+            ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
+            ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+            ctx.globalAlpha = 0.15;
+            // Draw on all mirrored positions
+            const cx = hull.reduce((s, h) => s + h.x, 0) / hull.length;
+            const cy = hull.reduce((s, h) => s + h.y, 0) / hull.length;
+            const mirrors = mirroredPoints(cx, cy);
+            for (let mi = 0; mi < mirrors.length; mi++) {
+                const offX = mirrors[mi].x - cx;
+                const offY = mirrors[mi].y - cy;
+                ctx.beginPath();
+                ctx.moveTo(hull[0].x + offX, hull[0].y + offY);
+                for (let i = 1; i < hull.length; i++) {
+                    ctx.lineTo(hull[i].x + offX, hull[i].y + offY);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        /** 8. Proximity Heat Map: splat heat, fill when threshold reached */
+        function stickyHeatMap(p, idx) {
+            ensureHeatMap();
+            splatHeat(p.x, p.y, 0.25);
+            const threshold = 1.2;
+            const gx = Math.floor(p.x / STICKY_GRID_SIZE);
+            const gy = Math.floor(p.y / STICKY_GRID_SIZE);
+            const isInk = state.mode === 'ink';
+            ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
+            ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+            // Check nearby cells for heat threshold
+            for (let dy = -3; dy <= 3; dy++) {
+                for (let dx = -3; dx <= 3; dx++) {
+                    const nx = gx + dx;
+                    const ny = gy + dy;
+                    if (nx < 0 || nx >= state._heatW || ny < 0 || ny >= state._heatH) continue;
+                    const heat = state._heatMap[nx + ny * state._heatW];
+                    if (heat < threshold) continue;
+                    // Fill this hot cell
+                    const cx = (nx + 0.5) * STICKY_GRID_SIZE;
+                    const cy = (ny + 0.5) * STICKY_GRID_SIZE;
+                    const intensity = clamp((heat - threshold) / 2, 0, 1);
+                    const r = state.brushSize * 0.3 * (0.5 + intensity * 0.5);
+                    const pts = mirroredPoints(cx, cy);
+                    for (let pi = 0; pi < pts.length; pi++) {
+                        ctx.beginPath();
+                        ctx.arc(pts[pi].x, pts[pi].y, r, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            }
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        /** Dispatch to the active sticky mode */
+        function applyStickyMode(p, idx) {
+            switch (state.stickyMode) {
+                case 'bridge':  stickyBridge(p, idx); break;
+                case 'grid':    stickyGridDensity(p, idx); break;
+                case 'knn':     stickyKNN(p, idx); break;
+                case 'gravity': stickyGravity(p, idx); break;
+                case 'overlap': stickyOverlap(p, idx); break;
+                case 'trail':   stickyTrail(p, idx); break;
+                case 'hull':    stickyHull(p, idx); break;
+                case 'heat':    stickyHeatMap(p, idx); break;
+                default: break; // 'off'
+            }
+        }
+
+        function resetStickyData() {
+            clearStickyGrid();
+            clearHeatMap();
+            state._trailRadii = [];
         }
 
         function mirroredPoints(x, y) {
@@ -1059,115 +1292,22 @@
             const p = { x, y };
             state.points.push(p);
             const idx = state.points.length - 1;
-            const rng = state.selectionRng || Math.random;
 
-            const t = clamp(state.stickyStrength / 10, 0, 1);
-            const recentWindow = 420;
-            // Only connect within the current stroke segment (null breaks should not web).
-            let segmentStart = 0;
-            for (let s = idx - 1; s >= 0; s--) {
-                if (!state.points[s]) {
-                    segmentStart = s + 1;
-                    break;
-                }
-            }
-            const startIndex = Math.max(segmentStart, idx - recentWindow);
-            const dynamicConnect = CONFIG.connectDistance * 1.28 + state.brushSize * 1.62;
-
-            // Always connect to the last contiguous point so the stroke stays continuous.
-            // This is the ONLY connection at t=0 => no webbing.
-            let lastIdx = idx - 1;
-
+            // Always connect to the last contiguous point (basic stroke line).
+            const lastIdx = idx - 1;
             if (lastIdx >= 0) {
                 const prev = state.points[lastIdx];
                 if (prev) {
                     const distPrev = Math.hypot(p.x - prev.x, p.y - prev.y);
                     if (distPrev) {
-                        const mv = sampleStickyMask((p.x + prev.x) * 0.5, (p.y + prev.y) * 0.5);
-                        const distScale = 1 - 0.10 * t * Math.pow(mv, 0.7); // neutral at t=0
                         state.edges.push({ a: lastIdx, b: idx });
-                        scratchLine(prev.x, prev.y, p.x, p.y, distPrev * distScale, mv, t);
+                        scratchLine(prev.x, prev.y, p.x, p.y, distPrev, 0, 0);
                     }
                 }
             }
 
-            if (t <= 0) return;
-
-            // Extra connections: increase gradually with t.
-            const extraCount = Math.floor(t * 6); // 0 at small t, up to 6
-            if (extraCount <= 0) return;
-
-            // Candidate radius increases with t (magnet "pull range").
-            const maxDist = dynamicConnect * (0.25 + 2.0 * t);
-
-            const scored = [];
-            for (let i = startIndex; i < idx; i++) {
-                if (i === lastIdx) continue;
-                const prev = state.points[i];
-                if (!prev) continue;
-                const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
-                if (!dist || dist > maxDist) continue;
-
-                // Sticky sampling: hit thin ridges by checking endpoints + midpoint.
-                const mv = sampleStickyMask((p.x + prev.x) * 0.5, (p.y + prev.y) * 0.5);
-                const mv2 = Math.max(mv, sampleStickyMask(prev.x, prev.y), sampleStickyMask(p.x, p.y));
-                if (mv2 <= 0.001) continue;
-
-                // Magnet score: sticky stronger + closer edges preferred.
-                // Multiplying by t makes score -> 0 as t -> 0.
-                const magnet = Math.pow(mv2, 2.5) * t;
-                const score = magnet / Math.pow(dist + 0.35, 1.65);
-                scored.push({ i, dist, mv: mv2, score });
-            }
-
-            if (!scored.length) return;
-            scored.sort((a, b) => b.score - a.score);
-
-            const topPool = scored.slice(0, Math.min(24, scored.length));
-            const chosen = new Set();
-
-            for (let n = 0; n < extraCount; n++) {
-                // Deterministic magnet: always pick the highest score edge not used yet.
-                const pool = topPool.filter(e => !chosen.has(e.i));
-                if (!pool.length) break;
-                const pick = pool[0];
-
-                chosen.add(pick.i);
-                state.edges.push({ a: pick.i, b: idx });
-
-                // Smaller effective dist => thicker, merged joints.
-                const distScale = clamp(1 - (0.55 * t + 0.10) * Math.pow(pick.mv, 0.65), 0.15, 1.05);
-                scratchLine(state.points[pick.i].x, state.points[pick.i].y, p.x, p.y, pick.dist * distScale, pick.mv, t);
-            }
-
-            // Filaments: rare long bridges; only when sticky is strong.
-            const filamentChance = 0.12 * Math.pow(t, 2.2);
-            if (idx > 48 && rng() < filamentChance) {
-                const span = idx - startIndex - 38;
-                if (span > 2) {
-                    const j = startIndex + Math.floor(rng() * span);
-                    const prev = state.points[j];
-                    if (prev) {
-                        const d = Math.hypot(p.x - prev.x, p.y - prev.y);
-
-                        const mv = sampleStickyMask((p.x + prev.x) * 0.5, (p.y + prev.y) * 0.5);
-                        const mv2 = Math.max(mv, sampleStickyMask(prev.x, prev.y), sampleStickyMask(p.x, p.y));
-
-                        let lo = dynamicConnect * 0.9;
-                        let hi = dynamicConnect * 2.45;
-
-                        // Sticky bleed expands bridge range and tightens dist for thicker joints.
-                        hi *= 1 + 0.9 * t * mv2;
-                        lo *= 1 - 0.25 * t * mv2;
-
-                        if (d > lo && d < hi) {
-                            const distScale = clamp(1 - (0.65 * t) * Math.pow(mv2, 0.65), 0.15, 1.05);
-                            state.edges.push({ a: j, b: idx });
-                            scratchLine(prev.x, prev.y, p.x, p.y, d * distScale, mv2, t);
-                        }
-                    }
-                }
-            }
+            // Apply the selected sticky mode for extra connections/fill.
+            applyStickyMode(p, idx);
         }
 
         function startDrawing(e) {
@@ -1175,8 +1315,6 @@
             state.isDrawing = true;
             state.selectionRng = Math.random;
             pushUndoSnapshot();
-
-            ensureStickyMask();
 
             const p = canvasCoordsFromEvent(e);
             addPoint(p.x, p.y);
@@ -1203,6 +1341,7 @@
             state.points = [];
             state.edges = [];
             state.undoStack = [];
+            resetStickyData();
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -1219,7 +1358,7 @@
                 ? makeRng((state.generateSeed ^ 0x9e3779b9) >>> 0)
                 : Math.random;
 
-            ensureStickyMask();
+            resetStickyData();
 
             for (let i = 0; i < src.length; i++) {
                 const p = src[i];
@@ -1400,8 +1539,9 @@
             if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
         });
 
-        stickyEnabledEl?.addEventListener('change', (e) => {
-            state.stickyEnabled = e.target.checked;
+        stickyModeEl?.addEventListener('change', (e) => {
+            state.stickyMode = e.target.value;
+            resetStickyData();
             if (state.uiTab === 'generate') rerenderGenerateCurrent();
             else if (state.points.length) renderFromPoints(state.points);
         });
@@ -1481,7 +1621,7 @@
         // init
         setMode('ink');
         setMarker(state.marker);
-        if (stickyEnabledEl) stickyEnabledEl.checked = state.stickyEnabled;
+        if (stickyModeEl) stickyModeEl.value = state.stickyMode;
         if (taperEl) taperEl.checked = state.taperEnabled;
         updateFilter();
         updateFilterEnabled();
