@@ -91,11 +91,11 @@
                                 <span class="param-value" id="val-el-stroke">6</span>
                             </div>
 
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="el-sticky-enabled">
-                                <span class="toggle-box"></span>
-                                <span class="cb-label">Sticky</span>
-                            </label>
+                            <div class="control-row">
+                                <label for="el-sticky-strength">Sticky</label>
+                                <input type="range" id="el-sticky-strength" min="0" max="10" value="0" step="0.5">
+                                <span class="param-value" id="val-el-sticky-strength">0</span>
+                            </div>
 
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-taper">
@@ -288,7 +288,8 @@
         const outlineEl = el('el-outline');
         const outlineVal = el('val-el-outline');
         const taperEl = el('el-taper');
-        const stickyEnabledEl = el('el-sticky-enabled');
+        const stickyStrengthEl = el('el-sticky-strength');
+        const stickyStrengthVal = el('val-el-sticky-strength');
         const clearBtn = el('el-clear');
         const exportBtn = el('el-export');
 
@@ -305,8 +306,8 @@
             generateTime: 55,
             generateSeed: (Math.random() * 0x7fffffff) | 0,
             taperEnabled: false,
-            // Sticky mode: off|growth
-            stickyMode: 'off',
+            // Sticky strength: 0 = off, 10 = max growth.
+            stickyStrength: 0,
 
             fillEnabled: false,
             inkColor: '#000000',
@@ -351,14 +352,12 @@
         // Growth is based on edge-to-edge distance, not center-to-center.
 
         function particleGrowth(p, idx) {
-            // Approximate visual radius of a drawn stroke from its center.
-            // scratchLine uses distFactor ≈ (70-dist)/10+0.26 which for short
-            // sequential segments yields finalThickness ≈ brushSize * 6,
-            // so visual radius ≈ brushSize * 3.  Use 3.5 for safe coverage.
+            const t = state.stickyStrength / 10; // 0-1 normalized strength
+            if (t <= 0) return;
+
             const strokeR = state.brushSize * 3.5;
-            // Max gap between stroke outer edges that triggers growth.
-            const maxGap = state.brushSize * 12;
-            // Max center-to-center distance worth checking.
+            // Scale detection range and particle intensity by strength.
+            const maxGap = state.brushSize * (4 + t * 12);
             const maxCenterDist = maxGap + strokeR * 2;
 
             // Skip recent points so we don't grow the stroke into itself as we
@@ -407,9 +406,9 @@
                 const edgeBy = p.y - ny * strokeR;
 
                 // How far particles reach across the gap (0–1).
-                const growReach = Math.pow(closeness, 0.8) * 0.95;
-                // How many particles to emit (more when close).
-                const count = Math.max(2, Math.floor(closeness * 10));
+                const growReach = Math.pow(closeness, 0.8) * (0.5 + t * 0.5);
+                // How many particles to emit (more when close and stronger).
+                const count = Math.max(1, Math.floor(closeness * (3 + t * 8)));
 
                 for (let j = 0; j < count; j++) {
                     const frac = (j + 0.2 + Math.random() * 0.6) / count;
@@ -421,7 +420,7 @@
                     const ayg = edgeAy + (edgeBy - edgeAy) * tA + perpY * jitterA;
                     // Taper: large near the stroke edge, small at the tip.
                     const taperA = Math.pow(1 - tA / Math.max(0.01, growReach), 0.6);
-                    const rA = Math.max(0.5, strokeR * 0.5 * taperA * Math.pow(closeness, 0.5));
+                    const rA = Math.max(0.5, strokeR * (0.2 + t * 0.4) * taperA * Math.pow(closeness, 0.5));
 
                     const ptsA = mirroredPoints(axg, ayg);
                     for (let pi = 0; pi < ptsA.length; pi++) {
@@ -436,7 +435,7 @@
                     const bxg = edgeBx + (edgeAx - edgeBx) * tB + perpX * jitterB;
                     const byg = edgeBy + (edgeAy - edgeBy) * tB + perpY * jitterB;
                     const taperB = Math.pow(1 - tB / Math.max(0.01, growReach), 0.6);
-                    const rB = Math.max(0.5, strokeR * 0.5 * taperB * Math.pow(closeness, 0.5));
+                    const rB = Math.max(0.5, strokeR * (0.2 + t * 0.4) * taperB * Math.pow(closeness, 0.5));
 
                     const ptsB = mirroredPoints(bxg, byg);
                     for (let pi = 0; pi < ptsB.length; pi++) {
@@ -467,7 +466,7 @@
 
         /** Dispatch to the active sticky mode */
         function applyStickyMode(p, idx) {
-            if (state.stickyMode === 'growth') particleGrowth(p, idx);
+            if (state.stickyStrength > 0) particleGrowth(p, idx);
         }
 
         function resetStickyData() {
@@ -1258,8 +1257,9 @@
             if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
         });
 
-        stickyEnabledEl?.addEventListener('change', (e) => {
-            state.stickyMode = e.target.checked ? 'growth' : 'off';
+        stickyStrengthEl?.addEventListener('input', (e) => {
+            state.stickyStrength = parseFloat(e.target.value);
+            if (stickyStrengthVal) stickyStrengthVal.textContent = state.stickyStrength % 1 === 0 ? String(state.stickyStrength) : state.stickyStrength.toFixed(1);
             resetStickyData();
             if (state.uiTab === 'generate') rerenderGenerateCurrent();
             else if (state.points.length) renderFromPoints(state.points);
@@ -1340,7 +1340,8 @@
         // init
         setMode('ink');
         setMarker(state.marker);
-        if (stickyEnabledEl) stickyEnabledEl.checked = state.stickyMode === 'growth';
+        if (stickyStrengthEl) stickyStrengthEl.value = String(state.stickyStrength);
+        if (stickyStrengthVal) stickyStrengthVal.textContent = state.stickyStrength % 1 === 0 ? String(state.stickyStrength) : state.stickyStrength.toFixed(1);
         if (taperEl) taperEl.checked = state.taperEnabled;
         updateFilter();
         updateFilterEnabled();
