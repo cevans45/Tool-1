@@ -97,10 +97,22 @@
                                 <span class="param-value" id="val-el-sticky-strength">0</span>
                             </div>
 
+                            <div class="control-row">
+                                <label for="el-sticky-distance">Sticky dist</label>
+                                <input type="range" id="el-sticky-distance" min="0" max="10" value="5" step="0.5">
+                                <span class="param-value" id="val-el-sticky-distance">5</span>
+                            </div>
+
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-taper">
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Taper ends</span>
+                            </label>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-thorns">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Gothic thorns</span>
                             </label>
 
                             <div class="control-row">
@@ -125,6 +137,10 @@
                                     <button type="button" class="panel-button" data-marker="grain" title="Grain">.</button>
                                     <button type="button" class="panel-button" data-marker="inkblot" title="Inkblot">o</button>
                                 </div>
+                            </div>
+
+                            <div class="control-row" style="margin-top:2px;">
+                                <canvas id="el-marker-preview" width="440" height="56"></canvas>
                             </div>
 
                             <label class="checkbox-label">
@@ -245,6 +261,14 @@
             text-transform: none;
             font-weight: 700;
         }
+
+        #el-marker-preview {
+            width: 100%;
+            height: 28px;
+            border-radius: 4px;
+            background: #1a1a1a;
+            display: block;
+        }
     </style>
 
     <script src="page-transition.js"></script>
@@ -290,6 +314,10 @@
         const taperEl = el('el-taper');
         const stickyStrengthEl = el('el-sticky-strength');
         const stickyStrengthVal = el('val-el-sticky-strength');
+        const stickyDistanceEl = el('el-sticky-distance');
+        const stickyDistanceVal = el('val-el-sticky-distance');
+        const thornsEl = el('el-thorns');
+        const markerPreviewCanvas = el('el-marker-preview');
         const clearBtn = el('el-clear');
         const exportBtn = el('el-export');
 
@@ -306,8 +334,19 @@
             generateTime: 55,
             generateSeed: (Math.random() * 0x7fffffff) | 0,
             taperEnabled: false,
+            thornsEnabled: false,
             // Sticky strength: 0 = off, 10 = max growth.
             stickyStrength: 0,
+            stickyDistance: 5,
+
+            // Per-stroke tracking for taper + speed
+            strokeCumDist: 0,
+            strokeStartIdx: 0,
+            strokeTotalDist: 1e9,
+            lastDrawTime: 0,
+            lastDrawSpeed: 0,
+            currentSpeed: 0,
+            currentTaper: { cumDist1: 0, cumDist2: 0, totalDist: 1e9 },
 
             fillEnabled: false,
             inkColor: '#000000',
@@ -356,8 +395,8 @@
             if (t <= 0) return;
 
             const strokeR = state.brushSize * 3.5;
-            // Scale detection range and particle intensity by strength.
-            const maxGap = state.brushSize * (4 + t * 12);
+            const distT = state.stickyDistance / 10;
+            const maxGap = state.brushSize * (2 + distT * 22);
             const maxCenterDist = maxGap + strokeR * 2;
 
             // Skip recent points so we don't grow the stroke into itself as we
@@ -512,6 +551,91 @@
             else setMode(state.sketchMode);
         }
 
+        function renderMarkerPreview() {
+            const pc = markerPreviewCanvas;
+            if (!pc) return;
+            const pctx = pc.getContext('2d');
+            const w = pc.width;
+            const h = pc.height;
+            pctx.clearRect(0, 0, w, h);
+            pctx.fillStyle = '#1a1a1a';
+            pctx.fillRect(0, 0, w, h);
+
+            pctx.fillStyle = '#ffffff';
+            pctx.strokeStyle = '#ffffff';
+            const amp = h * 0.22;
+            const midY = h / 2;
+            const padX = 16;
+            const steps = 60;
+            const marker = state.marker;
+            const bz = Math.max(1, state.brushSize * 0.35);
+
+            let prevX = 0, prevY = 0;
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                const x = padX + (w - padX * 2) * t;
+                const y = midY + Math.sin(t * Math.PI * 2.2) * amp;
+
+                if (marker === 'none') {
+                    pctx.beginPath();
+                    pctx.arc(x, y, Math.max(0.5, bz), 0, Math.PI * 2);
+                    pctx.fill();
+                } else if (marker === 'line') {
+                    if (i > 0) {
+                        for (let p = 0; p < 3; p++) {
+                            const jx = (Math.random() - 0.5) * bz * 1.5;
+                            const jy = (Math.random() - 0.5) * bz * 1.5;
+                            pctx.lineWidth = Math.max(0.3, bz * 0.5);
+                            pctx.beginPath();
+                            pctx.moveTo(prevX + jx, prevY + jy);
+                            pctx.lineTo(x + jx, y + jy);
+                            pctx.stroke();
+                        }
+                    }
+                } else if (marker === 'sprinkle') {
+                    const cnt = 2 + Math.floor(Math.random() * 3);
+                    for (let j = 0; j < cnt; j++) {
+                        const sx = x + (Math.random() - 0.5) * bz * 5;
+                        const sy = y + (Math.random() - 0.5) * bz * 5;
+                        const sr = Math.max(0.3, bz * (0.15 + Math.random() * 0.4));
+                        pctx.beginPath();
+                        pctx.arc(sx, sy, sr, 0, Math.PI * 2);
+                        pctx.fill();
+                    }
+                } else if (marker === 'grid') {
+                    const gs = Math.max(3, Math.floor(bz * 1.6));
+                    const gx = Math.round(x / gs) * gs;
+                    const gy = Math.round(y / gs) * gs;
+                    const s = Math.max(0.8, bz * 0.7);
+                    pctx.fillRect(gx - s / 2, gy - s / 2, s, s);
+                } else if (marker === 'grain') {
+                    const cnt = 4 + Math.floor(Math.random() * 5);
+                    for (let j = 0; j < cnt; j++) {
+                        const gx = x + (Math.random() - 0.5) * bz * 4;
+                        const gy = y + (Math.random() - 0.5) * bz * 4;
+                        const gr = Math.max(0.2, bz * (0.08 + Math.random() * 0.18));
+                        pctx.beginPath();
+                        pctx.arc(gx, gy, gr, 0, Math.PI * 2);
+                        pctx.fill();
+                    }
+                } else if (marker === 'inkblot') {
+                    const br = Math.max(0.5, bz * (0.5 + Math.random() * 0.9));
+                    pctx.beginPath();
+                    pctx.arc(x, y, br, 0, Math.PI * 2);
+                    pctx.fill();
+                    if (Math.random() < 0.4) {
+                        const ang = Math.random() * Math.PI * 2;
+                        const off = br * 0.9;
+                        pctx.beginPath();
+                        pctx.arc(x + Math.cos(ang) * off, y + Math.sin(ang) * off, br * 0.3, 0, Math.PI * 2);
+                        pctx.fill();
+                    }
+                }
+                prevX = x;
+                prevY = y;
+            }
+        }
+
         function setMarker(marker) {
             state.marker = marker;
             if (markerEl) markerEl.value = marker;
@@ -521,6 +645,7 @@
                 const btn = buttons[i];
                 btn.classList.toggle('is-active', btn.getAttribute('data-marker') === marker);
             }
+            renderMarkerPreview();
         }
 
         function currentInkColor() {
@@ -662,11 +787,25 @@
             };
         }
 
-        /** 0→1 along segment x1,y1 → x2,y2: thin at ends when taper on */
+        /** Taper based on cumulative distance within the full stroke (start + end only) */
         function taperWidthAt(t) {
             if (!state.taperEnabled) return 1;
-            const u = clamp(t, 0, 1);
-            return 0.05 + 0.95 * Math.pow(Math.sin(Math.PI * u), 1.06);
+            const info = state.currentTaper;
+            if (!info || info.totalDist <= 0) return 1;
+            const cumDist = info.cumDist1 + (info.cumDist2 - info.cumDist1) * clamp(t, 0, 1);
+            const totalDist = info.totalDist;
+            const taperLen = Math.max(15, state.brushSize * 12);
+            if (totalDist <= taperLen * 2.5) {
+                const u = totalDist > 0 ? cumDist / totalDist : 0.5;
+                return 0.06 + 0.94 * Math.pow(Math.sin(Math.PI * clamp(u, 0, 1)), 0.75);
+            }
+            if (cumDist < taperLen) {
+                return 0.06 + 0.94 * Math.pow(cumDist / taperLen, 0.6);
+            }
+            if (cumDist > totalDist - taperLen) {
+                return 0.06 + 0.94 * Math.pow((totalDist - cumDist) / taperLen, 0.6);
+            }
+            return 1;
         }
 
         function scratchLine(x1, y1, x2, y2, dist, stickyMv = 0, stickyT = 0) {
@@ -674,7 +813,10 @@
             const mv = clamp(stickyMv, 0, 1);
             const t = clamp(stickyT, 0, 1);
             const distFactor = Math.max(0.12, (CONFIG.connectDistance - dist) / 10 + sty.distPlus);
-            const finalThickness = state.brushSize * distFactor;
+            const rawThickness = state.brushSize * distFactor;
+            const speedNorm = clamp((state.currentSpeed || 0) / 1.8, 0, 1);
+            const speedMul = 1.0 - speedNorm * 0.55;
+            const finalThickness = rawThickness * speedMul;
             const baseJitter = CONFIG.baseJitter + (finalThickness * CONFIG.jitterMultiplier);
 
             const isInk = state.mode === 'ink';
@@ -1007,11 +1149,43 @@
         }
 
         function addPoint(x, y) {
-            const p = { x, y };
+            const prevIdx = state.points.length - 1;
+            const prevPt = prevIdx >= 0 ? state.points[prevIdx] : null;
+
+            let segDist = 0;
+            if (prevPt) {
+                segDist = Math.hypot(x - prevPt.x, y - prevPt.y);
+            } else {
+                state.strokeCumDist = 0;
+                state.lastDrawSpeed = 0;
+            }
+
+            state.strokeCumDist += segDist;
+
+            const now = performance.now();
+            if (prevPt && state.lastDrawTime > 0) {
+                const dt = Math.max(1, now - state.lastDrawTime);
+                const speed = segDist / dt;
+                state.lastDrawSpeed = state.lastDrawSpeed * 0.65 + speed * 0.35;
+            }
+            state.lastDrawTime = now;
+
+            const p = { x, y, cumDist: state.strokeCumDist, speed: state.lastDrawSpeed };
             state.points.push(p);
             const idx = state.points.length - 1;
 
-            // Always connect to the last contiguous point (basic stroke line).
+            if (prevPt) {
+                state.currentTaper = {
+                    cumDist1: prevPt.cumDist || 0,
+                    cumDist2: p.cumDist,
+                    totalDist: state.strokeTotalDist
+                };
+                state.currentSpeed = ((prevPt.speed || 0) + p.speed) * 0.5;
+            } else {
+                state.currentTaper = { cumDist1: 0, cumDist2: 0, totalDist: 1e9 };
+                state.currentSpeed = 0;
+            }
+
             const lastIdx = idx - 1;
             if (lastIdx >= 0) {
                 const prev = state.points[lastIdx];
@@ -1024,7 +1198,10 @@
                 }
             }
 
-            // Apply the selected sticky mode for extra connections/fill.
+            if (state.thornsEnabled && idx >= 2) {
+                drawThornAtJoin(idx);
+            }
+
             applyStickyMode(p, idx);
         }
 
@@ -1034,6 +1211,14 @@
             state.selectionRng = Math.random;
             pushUndoSnapshot();
 
+            state.strokeCumDist = 0;
+            state.strokeStartIdx = state.points.length;
+            state.lastDrawTime = performance.now();
+            state.lastDrawSpeed = 0;
+            state.currentSpeed = 0;
+            state.strokeTotalDist = 1e9;
+            state.currentTaper = { cumDist1: 0, cumDist2: 0, totalDist: 1e9 };
+
             const p = canvasCoordsFromEvent(e);
             addPoint(p.x, p.y);
         }
@@ -1041,8 +1226,172 @@
         function stopDrawing() {
             if (!state.isDrawing) return;
             state.isDrawing = false;
-            // Only mark stroke breaks when in sketch mode.
-            if (state.uiTab === 'sketch') state.points.push(null);
+            if (state.uiTab === 'sketch') {
+                if (state.taperEnabled && state.undoStack.length > 0) {
+                    finalizeStrokeTaper();
+                }
+                state.points.push(null);
+            }
+        }
+
+        function finalizeStrokeTaper() {
+            const startIdx = state.strokeStartIdx;
+            const endIdx = state.points.length;
+            if (endIdx - startIdx < 2) return;
+
+            let totalDist = 0;
+            for (let i = startIdx + 1; i < endIdx; i++) {
+                const pt = state.points[i];
+                const prev = state.points[i - 1];
+                if (!pt || !prev) break;
+                totalDist += Math.hypot(pt.x - prev.x, pt.y - prev.y);
+            }
+            if (totalDist <= 0) return;
+
+            const snapshot = state.undoStack[state.undoStack.length - 1];
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(snapshot.snapCanvas, 0, 0);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            state.strokeTotalDist = totalDist;
+            state.strokeCumDist = 0;
+
+            for (let i = startIdx; i < endIdx; i++) {
+                const pt = state.points[i];
+                if (!pt) break;
+
+                if (i > startIdx) {
+                    const prev = state.points[i - 1];
+                    if (prev) {
+                        const segDist = Math.hypot(pt.x - prev.x, pt.y - prev.y);
+                        state.strokeCumDist += segDist;
+                        state.currentTaper = {
+                            cumDist1: state.strokeCumDist - segDist,
+                            cumDist2: state.strokeCumDist,
+                            totalDist: totalDist
+                        };
+                        state.currentSpeed = pt.speed || 0;
+                        if (segDist) {
+                            scratchLine(prev.x, prev.y, pt.x, pt.y, segDist, 0, 0);
+                        }
+                    }
+                }
+
+                applyStickyMode(pt, i);
+
+                if (state.thornsEnabled && i >= startIdx + 2) {
+                    drawThornAtJoin(i);
+                }
+            }
+
+            state.strokeTotalDist = 1e9;
+        }
+
+        function drawThornAtJoin(idx) {
+            const p0 = state.points[idx - 2];
+            const p1 = state.points[idx - 1];
+            const p2 = state.points[idx];
+            if (!p0 || !p1 || !p2) return;
+
+            const a1 = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+            const a2 = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+            let angleDiff = a2 - a1;
+            while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+            while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+            const sharpness = Math.abs(angleDiff);
+            if (sharpness < 0.35) return;
+
+            const isInk = state.mode === 'ink';
+            ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
+            ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+            ctx.strokeStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+
+            const thornScale = state.brushSize * (1.2 + sharpness * 2.5);
+            const thornCount = 1 + Math.floor(Math.random() * 2 + sharpness * 0.6);
+            const bisector = (a1 + a2) / 2 + (Math.PI / 2) * Math.sign(angleDiff);
+            const rng = () => Math.random();
+
+            for (let t = 0; t < thornCount; t++) {
+                const spread = (t - (thornCount - 1) / 2) * 0.5;
+                const thornAngle = bisector + spread + (rng() - 0.5) * 0.9;
+                const thornLen = thornScale * (0.5 + rng() * 0.9);
+                const curl = (rng() - 0.5) * 1.1;
+
+                const tipX = p1.x + Math.cos(thornAngle) * thornLen;
+                const tipY = p1.y + Math.sin(thornAngle) * thornLen;
+                const cpDist = thornLen * (0.45 + rng() * 0.3);
+                const cpX = p1.x + Math.cos(thornAngle + curl) * cpDist;
+                const cpY = p1.y + Math.sin(thornAngle + curl) * cpDist;
+
+                const baseW = state.brushSize * 0.35 * (0.4 + sharpness * 0.4);
+                const perpA = thornAngle + Math.PI / 2;
+
+                const pts = mirroredPoints(p1.x, p1.y);
+                for (let pi = 0; pi < pts.length; pi++) {
+                    const mp = pts[pi];
+                    const ox = mp.x - p1.x;
+                    const oy = mp.y - p1.y;
+
+                    ctx.beginPath();
+                    ctx.moveTo(mp.x + Math.cos(perpA) * baseW, mp.y + Math.sin(perpA) * baseW);
+                    ctx.quadraticCurveTo(cpX + ox, cpY + oy, tipX + ox, tipY + oy);
+                    ctx.lineTo(mp.x - Math.cos(perpA) * baseW, mp.y - Math.sin(perpA) * baseW);
+                    ctx.quadraticCurveTo(
+                        cpX + ox + Math.cos(perpA) * baseW * -0.3,
+                        cpY + oy + Math.sin(perpA) * baseW * -0.3,
+                        mp.x + Math.cos(perpA) * baseW,
+                        mp.y + Math.sin(perpA) * baseW
+                    );
+                    ctx.fill();
+                }
+
+                if (rng() < 0.45 * sharpness) {
+                    const subAngle = thornAngle + (rng() - 0.5) * 1.8;
+                    const subLen = thornLen * (0.25 + rng() * 0.35);
+                    const midFrac = 0.3 + rng() * 0.3;
+                    const midX = p1.x + Math.cos(thornAngle) * thornLen * midFrac;
+                    const midY = p1.y + Math.sin(thornAngle) * thornLen * midFrac;
+                    const subTipX = midX + Math.cos(subAngle) * subLen;
+                    const subTipY = midY + Math.sin(subAngle) * subLen;
+                    const subCurl = (rng() - 0.5) * 0.8;
+                    const subCpX = midX + Math.cos(subAngle + subCurl) * subLen * 0.5;
+                    const subCpY = midY + Math.sin(subAngle + subCurl) * subLen * 0.5;
+                    const subW = baseW * 0.5;
+                    const subPerp = subAngle + Math.PI / 2;
+
+                    for (let pi = 0; pi < pts.length; pi++) {
+                        const mp = pts[pi];
+                        const ox = mp.x - p1.x;
+                        const oy = mp.y - p1.y;
+                        ctx.beginPath();
+                        ctx.moveTo(midX + ox + Math.cos(subPerp) * subW, midY + oy + Math.sin(subPerp) * subW);
+                        ctx.quadraticCurveTo(subCpX + ox, subCpY + oy, subTipX + ox, subTipY + oy);
+                        ctx.lineTo(midX + ox - Math.cos(subPerp) * subW, midY + oy - Math.sin(subPerp) * subW);
+                        ctx.fill();
+                    }
+                }
+
+                if (rng() < 0.3) {
+                    const hookAngle = thornAngle + (rng() > 0.5 ? 1 : -1) * (0.8 + rng() * 0.7);
+                    const hookLen = thornLen * (0.15 + rng() * 0.2);
+                    const hookX = tipX + Math.cos(hookAngle) * hookLen;
+                    const hookY = tipY + Math.sin(hookAngle) * hookLen;
+                    for (let pi = 0; pi < pts.length; pi++) {
+                        const mp = pts[pi];
+                        const ox = mp.x - p1.x;
+                        const oy = mp.y - p1.y;
+                        ctx.lineWidth = Math.max(0.4, baseW * 0.4);
+                        ctx.beginPath();
+                        ctx.moveTo(tipX + ox, tipY + oy);
+                        ctx.lineTo(hookX + ox, hookY + oy);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            ctx.globalCompositeOperation = 'source-over';
         }
 
         function drawMove(e) {
@@ -1065,6 +1414,32 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
 
+        function computeStrokeTotalDists(pts) {
+            const dists = new Float64Array(pts.length);
+            let strokeStartI = -1;
+            let cumDist = 0;
+            for (let i = 0; i < pts.length; i++) {
+                if (!pts[i]) {
+                    if (strokeStartI >= 0) {
+                        for (let j = strokeStartI; j < i; j++) dists[j] = cumDist;
+                    }
+                    strokeStartI = -1;
+                    cumDist = 0;
+                    continue;
+                }
+                if (strokeStartI < 0) strokeStartI = i;
+                if (i > strokeStartI && pts[i - 1]) {
+                    cumDist += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+                }
+            }
+            if (strokeStartI >= 0) {
+                for (let j = strokeStartI; j < pts.length; j++) {
+                    if (pts[j]) dists[j] = cumDist;
+                }
+            }
+            return dists;
+        }
+
         function renderFromPoints(pointsSource) {
             const src = pointsSource.slice();
             ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1078,12 +1453,16 @@
 
             resetStickyData();
 
+            const strokeDists = state.taperEnabled ? computeStrokeTotalDists(src) : null;
+
             for (let i = 0; i < src.length; i++) {
                 const p = src[i];
                 if (!p) {
                     state.points.push(null);
+                    state.strokeCumDist = 0;
                     continue;
                 }
+                if (strokeDists) state.strokeTotalDist = strokeDists[i] || 1e9;
                 addPoint(p.x, p.y);
             }
         }
@@ -1254,6 +1633,7 @@
         strokeEl?.addEventListener('input', (e) => {
             state.brushSize = clamp(parseFloat(e.target.value), 0, 10);
             strokeVal.textContent = state.brushSize < 1 ? state.brushSize.toFixed(1) : String(Math.round(state.brushSize * 10) / 10);
+            renderMarkerPreview();
             if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
         });
 
@@ -1265,9 +1645,24 @@
             else if (state.points.length) renderFromPoints(state.points);
         });
 
+        stickyDistanceEl?.addEventListener('input', (e) => {
+            state.stickyDistance = parseFloat(e.target.value);
+            if (stickyDistanceVal) stickyDistanceVal.textContent = state.stickyDistance % 1 === 0 ? String(state.stickyDistance) : state.stickyDistance.toFixed(1);
+            resetStickyData();
+            if (state.uiTab === 'generate') rerenderGenerateCurrent();
+            else if (state.points.length) renderFromPoints(state.points);
+        });
+
         taperEl?.addEventListener('change', (e) => {
             state.taperEnabled = e.target.checked;
-            rerenderGenerateCurrent();
+            if (state.uiTab === 'generate') rerenderGenerateCurrent();
+            else if (state.points.length) renderFromPoints(state.points);
+        });
+
+        thornsEl?.addEventListener('change', (e) => {
+            state.thornsEnabled = e.target.checked;
+            if (state.uiTab === 'generate') rerenderGenerateCurrent();
+            else if (state.points.length) renderFromPoints(state.points);
         });
 
         markerEl?.addEventListener('change', (e) => {
@@ -1342,12 +1737,15 @@
         setMarker(state.marker);
         if (stickyStrengthEl) stickyStrengthEl.value = String(state.stickyStrength);
         if (stickyStrengthVal) stickyStrengthVal.textContent = state.stickyStrength % 1 === 0 ? String(state.stickyStrength) : state.stickyStrength.toFixed(1);
+        if (stickyDistanceEl) stickyDistanceEl.value = String(state.stickyDistance);
+        if (stickyDistanceVal) stickyDistanceVal.textContent = state.stickyDistance % 1 === 0 ? String(state.stickyDistance) : state.stickyDistance.toFixed(1);
         if (taperEl) taperEl.checked = state.taperEnabled;
+        if (thornsEl) thornsEl.checked = state.thornsEnabled;
         updateFilter();
         updateFilterEnabled();
         applyBackgroundColor();
         setUiTab('sketch');
-        // Run immediately, and again on the next frame to catch any layout settling.
+        renderMarkerPreview();
         resize();
         requestAnimationFrame(resize);
     </script>
