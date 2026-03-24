@@ -41,7 +41,7 @@ const params = {
   fixedSeed: 0.0,
 };
 
-// ─── Prism Weave shader ──────────────────────────────────────────
+/* ── Prism Weave GLSL ─────────────────────────────────────────── */
 
 const vert = `
   precision highp float;
@@ -131,9 +131,9 @@ const frag = `
   }
 `;
 
-// ─── Helpers ─────────────────────────────────────────────────────
+/* ── Helpers ──────────────────────────────────────────────────── */
 
-function hslToRgb(h, s, l) {
+function hsl(h, s, l) {
   h = ((h % 360) + 360) % 360;
   s = constrain(s, 0, 1);
   l = constrain(l, 0, 1);
@@ -150,10 +150,12 @@ function hslToRgb(h, s, l) {
   return [(r + m) * 255, (g + m) * 255, (b + m) * 255];
 }
 
-function pseudoRandom(v) { return fract(sin(v * 12.9898 + 78.233) * 43758.5453); }
-function fract(v) { return v - floor(v); }
+function pseudoRandom(v) {
+  const x = Math.sin(v * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
 
-// ─── Setup ───────────────────────────────────────────────────────
+/* ── Setup ────────────────────────────────────────────────────── */
 
 function setup() {
   const c = createCanvas(calcW(), calcH(), WEBGL);
@@ -174,22 +176,22 @@ function calcW() { return max(360, windowWidth - 440); }
 function calcH() { return max(320, windowHeight - 120); }
 function windowResized() { resizeCanvas(calcW(), calcH()); }
 
-// ─── Draw dispatch ───────────────────────────────────────────────
+/* ── Draw dispatch ────────────────────────────────────────────── */
 
 function draw() {
   switch (activePreset) {
-    case 'prism': drawPrism(); break;
-    case 'cubes': drawCubes(); break;
-    case 'organic': drawOrganic(); break;
-    case 'bands': drawBands(); break;
-    case 'spiral': drawSpiral(); break;
-    case 'tunnel': drawTunnel(); break;
-    case 'moire': drawMoire(); break;
-    default: drawPrism();
+    case 'prism':   drawPrism(); break;
+    case 'bloom':   drawBloom(); break;
+    case 'grid':    drawGrid(); break;
+    case 'ember':   drawEmber(); break;
+    case 'mirror':  drawMirror(); break;
+    case 'lattice': drawLattice(); break;
+    case 'silk':    drawSilk(); break;
+    default:        drawPrism();
   }
 }
 
-// ─── 1. Prism Weave ─────────────────────────────────────────────
+/* ── 1. Prism Weave (GLSL shader — original) ─────────────────── */
 
 function drawPrism() {
   shader(theShader);
@@ -252,306 +254,483 @@ function drawPrism() {
   quad(-1, -1, 1, -1, 1, 1, -1, 1);
 }
 
-// ─── 2. Nested Cubes ────────────────────────────────────────────
+/* ── 2. Fractal Bloom ─────────────────────────────────────────── */
 
-function drawCubes() {
+function drawBloom() {
   resetShader();
   background(0);
 
   const t = millis() / 1000.0;
-  const maxCubes = floor(constrain(params.stripes * 16, 10, 120));
-  const baseSize = min(width, height) * 0.9;
-  const sf = pow(0.02, 1.0 / maxCubes);
-  const angStep = PI / 18;
-  const rotSpd = params.zoomSpeed * 8;
-  const hueSpd = params.pulse * 2;
-  const animSpd = constrain(params.pulse * 0.5, 0.05, 2.0);
-  const baseHue = (t * hueSpd * 60 + params.hueShift * 360) % 360;
-
-  const cycleLen = maxCubes / animSpd;
-  const totalPhase = (t * animSpd) % (maxCubes * 6);
-  const phase = floor(totalPhase / maxCubes) % 6;
-  const progress = totalPhase % maxCubes;
-
-  let startI = 0, endI = 0;
-  switch (phase) {
-    case 0: startI = 0; endI = progress; break;
-    case 1: startI = 0; endI = maxCubes - progress; break;
-    case 2: startI = 0; endI = progress; break;
-    case 3: startI = progress; endI = maxCubes; break;
-    case 4: startI = maxCubes - progress; endI = maxCubes; break;
-    case 5: startI = 0; endI = maxCubes - progress; break;
-  }
-
-  const rotAngle = t * 0.6 * rotSpd;
-  rotateX(rotAngle * 0.2);
-  rotateY(rotAngle * 0.3);
-  rotateZ(rotAngle * 0.1);
+  const spd = params.pulse * 0.8;
+  const bri = params.brightness;
+  const warpAmt = params.warp;
+  const layers = floor(constrain(params.stripes * 3, 4, 24));
+  const hueOff = params.hueShift * 360;
+  const sat = params.saturation;
+  const sw = constrain(params.contrast * 1.2, 0.3, 4);
+  const folds = floor(constrain(params.mirrorMin, 2, 12));
 
   noFill();
-  strokeWeight(constrain(params.contrast * 1.5, 0.5, 5));
+  strokeWeight(sw);
 
-  for (let i = 0; i < maxCubes; i++) {
-    if (i < startI || i >= endI) continue;
-    const h = (baseHue + i * (360.0 / maxCubes)) % 360;
-    const l = map(i, 0, maxCubes, 0.55, 0.8);
-    const rgb = hslToRgb(h, 0.9 * params.saturation, l * params.brightness);
-    stroke(rgb[0], rgb[1], rgb[2]);
-    const sz = baseSize * pow(sf, i);
+  const maxR = min(width, height) * 0.42;
+
+  for (let ring = 0; ring < layers; ring++) {
+    const ringT = ring / layers;
+    const breathPhase = t * spd * (1 + ring * 0.15) + ring * 0.7;
+    const breathScale = 0.7 + 0.3 * sin(breathPhase);
+    const r = maxR * ringT * breathScale;
+
+    const wobble = sin(t * spd * 0.6 + ring * 1.3) * warpAmt * 15;
+    const petals = folds + floor(ring * 0.5);
+    const h = (hueOff + ring * (360 / layers) + t * spd * 20) % 360;
+    const l = constrain(0.35 + ringT * 0.3, 0, 1) * bri;
+    const c = hsl(h, 0.75 * sat, l);
+    const fadeAlpha = map(ringT, 0, 1, 255, 80);
+    stroke(c[0], c[1], c[2], fadeAlpha);
+
+    beginShape();
+    for (let a = 0; a <= TWO_PI; a += TWO_PI / 120) {
+      const petalWave = sin(a * petals + t * spd * 0.9) * wobble;
+      const jag = sin(a * (petals * 3) - t * spd * 2) * warpAmt * 4 * ringT;
+      const dist = r + petalWave + jag;
+      vertex(cos(a) * dist, sin(a) * dist);
+    }
+    endShape(CLOSE);
+
+    if (ring > 2 && ring % 3 === 0) {
+      const subPetals = petals * 2;
+      const subR = r * 0.35;
+      const h2 = (h + 120) % 360;
+      const c2 = hsl(h2, 0.6 * sat, l * 0.9);
+      stroke(c2[0], c2[1], c2[2], fadeAlpha * 0.5);
+      beginShape();
+      for (let a = 0; a <= TWO_PI; a += TWO_PI / 80) {
+        const wave = sin(a * subPetals - t * spd * 1.5) * warpAmt * 8;
+        vertex(cos(a) * (subR + wave), sin(a) * (subR + wave));
+      }
+      endShape(CLOSE);
+    }
+  }
+
+  for (let spoke = 0; spoke < folds; spoke++) {
+    const angle = (TWO_PI / folds) * spoke + t * spd * 0.15;
+    const h = (hueOff + spoke * (360 / folds) + t * 30) % 360;
+    const c = hsl(h, 0.5 * sat, 0.5 * bri);
+    stroke(c[0], c[1], c[2], 40);
+    const outerR = maxR * (0.6 + 0.4 * sin(t * spd + spoke));
+    line(0, 0, cos(angle) * outerR, sin(angle) * outerR);
+  }
+}
+
+/* ── 3. Liquid Grid ───────────────────────────────────────────── */
+
+function drawGrid() {
+  resetShader();
+  background(8, 10, 18);
+
+  const t = millis() / 1000.0;
+  const cols = floor(constrain(params.stripes * 5, 6, 40));
+  const rows = floor(cols * (height / width));
+  const spd = params.pulse * 1.5;
+  const warpAmt = params.warp * 30;
+  const bri = params.brightness;
+  const hueOff = params.hueShift * 360;
+  const sat = params.saturation;
+  const sw = constrain(params.contrast * 0.8, 0.3, 3);
+  const connectDist = min(width, height) / cols * 2.2;
+
+  push();
+  translate(-width / 2, -height / 2);
+
+  const cellW = width / (cols - 1);
+  const cellH = height / (rows - 1);
+  const pts = [];
+
+  for (let r = 0; r < rows; r++) {
+    pts[r] = [];
+    for (let c = 0; c < cols; c++) {
+      const baseX = c * cellW;
+      const baseY = r * cellH;
+      const distFromCenter = dist(baseX, baseY, width / 2, height / 2);
+      const normDist = distFromCenter / (min(width, height) * 0.7);
+
+      const wave1 = sin(baseX * 0.008 + t * spd * 0.7) * cos(baseY * 0.006 - t * spd * 0.5);
+      const wave2 = cos(baseX * 0.012 - t * spd * 0.3 + baseY * 0.005) * sin(t * spd * 0.8);
+      const ripple = sin(normDist * 8 - t * spd * 2) * (1 - normDist * 0.5);
+
+      const dx = (wave1 * warpAmt + ripple * warpAmt * 0.6) * (1 + normDist * 0.3);
+      const dy = (wave2 * warpAmt + ripple * warpAmt * 0.4) * (1 + normDist * 0.3);
+
+      pts[r][c] = { x: baseX + dx, y: baseY + dy, normDist };
+    }
+  }
+
+  strokeWeight(sw);
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const p = pts[r][c];
+
+      if (c < cols - 1) {
+        const q = pts[r][c + 1];
+        const d = dist(p.x, p.y, q.x, q.y);
+        const tension = constrain(d / connectDist, 0, 1);
+        const h = (hueOff + p.normDist * 180 + t * 25 * spd) % 360;
+        const l = constrain((0.4 + tension * 0.3) * bri, 0, 1);
+        const a = map(tension, 0, 1, 200, 30);
+        const clr = hsl(h, 0.7 * sat, l);
+        stroke(clr[0], clr[1], clr[2], a);
+        line(p.x, p.y, q.x, q.y);
+      }
+
+      if (r < rows - 1) {
+        const q = pts[r + 1][c];
+        const d = dist(p.x, p.y, q.x, q.y);
+        const tension = constrain(d / connectDist, 0, 1);
+        const h = (hueOff + p.normDist * 180 + 90 + t * 25 * spd) % 360;
+        const l = constrain((0.4 + tension * 0.3) * bri, 0, 1);
+        const a = map(tension, 0, 1, 200, 30);
+        const clr = hsl(h, 0.7 * sat, l);
+        stroke(clr[0], clr[1], clr[2], a);
+        line(p.x, p.y, q.x, q.y);
+      }
+
+      const dotSize = 2 + sin(t * spd * 2 + p.normDist * 10) * 1.5;
+      const h = (hueOff + p.normDist * 220 + t * 30) % 360;
+      const clr = hsl(h, 0.9 * sat, constrain(0.65 * bri, 0, 1));
+      noStroke();
+      fill(clr[0], clr[1], clr[2], 180);
+      ellipse(p.x, p.y, dotSize, dotSize);
+      strokeWeight(sw);
+      noFill();
+    }
+  }
+  pop();
+}
+
+/* ── 4. Ember Drift ───────────────────────────────────────────── */
+
+let emberPositions = null;
+
+function initEmbers(count) {
+  emberPositions = new Float32Array(count * 4);
+  for (let i = 0; i < count; i++) {
+    const idx = i * 4;
+    emberPositions[idx]     = (Math.random() - 0.5) * 2;
+    emberPositions[idx + 1] = (Math.random() - 0.5) * 2;
+    emberPositions[idx + 2] = Math.random() * TWO_PI;
+    emberPositions[idx + 3] = 0.3 + Math.random() * 0.7;
+  }
+}
+
+function drawEmber() {
+  resetShader();
+
+  const t = millis() / 1000.0;
+  const count = floor(constrain(params.stripes * 600, 200, 4000));
+  const spd = params.pulse;
+  const turbulence = params.warp * 0.5;
+  const bri = params.brightness;
+  const hueOff = params.hueShift * 360;
+  const sat = params.saturation;
+  const trailOpacity = floor(constrain(15 + (1 - params.grain * 4) * 30, 5, 50));
+
+  if (!emberPositions || emberPositions.length !== count * 4) {
+    initEmbers(count);
+  }
+
+  push();
+  translate(-width / 2, -height / 2);
+  noStroke();
+  fill(0, 0, 0, trailOpacity);
+  rect(0, 0, width, height);
+  pop();
+
+  noStroke();
+  const dt = 0.016 * spd;
+  const hw = width * 0.5;
+  const hh = height * 0.5;
+
+  for (let i = 0; i < count; i++) {
+    const idx = i * 4;
+    let px = emberPositions[idx];
+    let py = emberPositions[idx + 1];
+    const phase = emberPositions[idx + 2];
+    const energy = emberPositions[idx + 3];
+
+    const fieldX = sin(py * 3.2 + t * 0.6) * cos(px * 2.8 - t * 0.4)
+                 + sin(px * 1.7 + py * 2.1 + t * 0.9) * turbulence;
+    const fieldY = cos(px * 3.1 - t * 0.5) * sin(py * 2.6 + t * 0.7)
+                 + cos(py * 1.9 - px * 2.3 + t * 0.8) * turbulence;
+
+    px += fieldX * dt * energy;
+    py += fieldY * dt * energy;
+
+    if (px < -1.1) px += 2.2;
+    if (px > 1.1) px -= 2.2;
+    if (py < -1.1) py += 2.2;
+    if (py > 1.1) py -= 2.2;
+
+    emberPositions[idx] = px;
+    emberPositions[idx + 1] = py;
+
+    const screenX = px * hw;
+    const screenY = py * hh;
+
+    const speed = sqrt(fieldX * fieldX + fieldY * fieldY);
+    const h = (hueOff + phase * 57.3 + speed * 120 + t * 15) % 360;
+    const l = constrain(0.45 + speed * 0.2, 0, 0.85) * bri;
+    const sz = constrain(1 + energy * 3 * speed, 0.5, 5);
+    const clr = hsl(h, 0.8 * sat, l);
+    fill(clr[0], clr[1], clr[2], 180 + energy * 75);
+    ellipse(screenX, screenY, sz, sz);
+  }
+}
+
+/* ── 5. Mirror Shards ─────────────────────────────────────────── */
+
+function drawMirror() {
+  resetShader();
+  background(0);
+
+  const t = millis() / 1000.0;
+  const folds = floor(constrain(params.mirrorMin, 2, 16));
+  const spd = params.pulse * 0.6;
+  const bri = params.brightness;
+  const warpAmt = params.warp;
+  const density = floor(constrain(params.stripes * 8, 6, 50));
+  const hueOff = params.hueShift * 360;
+  const sat = params.saturation;
+  const sw = constrain(params.contrast * 1.5, 0.5, 5);
+
+  noFill();
+  strokeWeight(sw);
+
+  const maxR = min(width, height) * 0.48;
+
+  for (let f = 0; f < folds; f++) {
+    const sectorAngle = TWO_PI / folds;
+    const baseAngle = sectorAngle * f + t * spd * 0.2;
+
     push();
-    rotateX(i * angStep * 0.2);
-    rotateY(i * angStep * 0.3);
-    rotateZ(i * angStep * 0.1);
-    box(sz);
+    rotateZ(baseAngle);
+
+    for (let ring = 1; ring <= density; ring++) {
+      const ringNorm = ring / density;
+      const r = maxR * ringNorm;
+
+      const breathe = sin(t * spd * 1.5 + ring * 0.4 + f * 0.7);
+      const actualR = r * (0.85 + 0.15 * breathe);
+
+      const angularSpread = sectorAngle * 0.92;
+      const startA = -angularSpread / 2;
+
+      const h = (hueOff + ring * (360 / density) + f * (360 / folds) + t * spd * 30) % 360;
+      const l = constrain((0.3 + ringNorm * 0.4 + breathe * 0.1) * bri, 0, 1);
+      const a = map(ringNorm, 0, 1, 220, 60);
+      const clr = hsl(h, 0.75 * sat, l);
+      stroke(clr[0], clr[1], clr[2], a);
+
+      beginShape();
+      const steps = 30;
+      for (let s = 0; s <= steps; s++) {
+        const sa = startA + (angularSpread / steps) * s;
+        const noiseVal = sin(sa * density * 0.5 + t * spd + ring * 0.3) * warpAmt * 12;
+        const jitter = cos(sa * ring * 2 + t * spd * 2.5) * warpAmt * 5 * ringNorm;
+        const d = actualR + noiseVal + jitter;
+        vertex(cos(sa) * d, sin(sa) * d);
+      }
+      endShape();
+
+      if (ring % 4 === 0) {
+        const midA = 0;
+        const innerR = maxR * ((ring - 3) / density);
+        const clr2 = hsl((h + 60) % 360, 0.5 * sat, l * 0.7);
+        stroke(clr2[0], clr2[1], clr2[2], a * 0.4);
+        line(cos(midA) * innerR, sin(midA) * innerR,
+             cos(midA) * actualR, sin(midA) * actualR);
+      }
+    }
     pop();
   }
 }
 
-// ─── 3. Liquid Globe ────────────────────────────────────────────
+/* ── 6. Phase Lattice ─────────────────────────────────────────── */
 
-function drawOrganic() {
+function drawLattice() {
   resetShader();
-  background(5, 10, 20);
+  background(5, 5, 15);
 
   const t = millis() / 1000.0;
-  const camSpd = params.zoomSpeed * 0.5;
-  const camDist = map(cos(t * camSpd), 1, -1, 800, 60);
-  camera(0, 0, camDist, 0, 0, 0, 0, 1, 0);
-
-  ambientLight(80, 80, 200);
-  pointLight(255, 255, 255, 0, 0, 0);
-  directionalLight(150, 200, 255, 1, 1, -1);
-
-  rotateX(t * 0.4 * camSpd);
-  rotateY(t * 0.6 * camSpd);
-  rotateZ(t * 0.2 * camSpd);
-
-  const detail = floor(constrain(params.stripes * 6, 12, 50));
-  const baseR = 200;
-  const nScale = params.warp * 1.5;
+  const gridN = floor(constrain(params.stripes * 4, 5, 30));
+  const spd = params.pulse * 2.0;
   const bri = params.brightness;
+  const warpAmt = params.warp;
+  const hueOff = params.hueShift * 360;
+  const sat = params.saturation;
+  const shapeSize = constrain(params.contrast * 8, 3, 25);
+  const folds = floor(constrain(params.mirrorMin, 2, 8));
 
-  for (let i = 0; i <= detail; i++) {
-    const lat = map(i, 0, detail, 0, PI);
-    beginShape(TRIANGLE_STRIP);
-    for (let j = 0; j <= detail; j++) {
-      const lon = map(j, 0, detail, 0, TWO_PI);
-      for (let layer = 0; layer < 2; layer++) {
-        const rOff = layer * 30;
-        const xo = sin(lat) * cos(lon);
-        const yo = sin(lat) * sin(lon);
-        const zo = cos(lat);
-        const n = noise(xo * nScale + t * 0.5, yo * nScale + t * 0.5, zo * nScale + t * 0.5);
-        const deform = map(n, 0, 1, -80, 80);
-        const r = baseR + rOff + deform;
-        const x = r * sin(lat) * cos(lon);
-        const y = r * sin(lat) * sin(lon);
-        const z = r * cos(lat);
-        const rc = map(n, 0, 1, 0, 255) * bri;
-        const gc = map(sin(t + lat), -1, 1, 0, 255) * bri;
-        const bc = map(cos(lon + t), -1, 1, 0, 255) * bri;
-        noStroke();
-        fill(rc, gc, bc, 100);
-        vertex(x, y, z);
+  push();
+  translate(-width / 2, -height / 2);
+  noStroke();
+
+  const cellW = width / gridN;
+  const cellH = height / gridN;
+  const cx = width / 2;
+  const cy = height / 2;
+  const maxDist = dist(0, 0, cx, cy);
+
+  for (let r = 0; r < gridN; r++) {
+    for (let c = 0; c < gridN; c++) {
+      const px = cellW * (c + 0.5);
+      const py = cellH * (r + 0.5);
+      const d = dist(px, py, cx, cy);
+      const normD = d / maxDist;
+
+      const wavePhase = normD * warpAmt * 6 - t * spd;
+      const rotation = sin(wavePhase) * PI * 0.5;
+      const scale = 0.6 + 0.4 * cos(wavePhase * 0.7 + 0.5);
+
+      const h = (hueOff + normD * 240 + rotation * 57.3 + t * spd * 15) % 360;
+      const l = constrain((0.35 + abs(sin(wavePhase)) * 0.4) * bri, 0, 1);
+      const clr = hsl(h, 0.8 * sat, l);
+      fill(clr[0], clr[1], clr[2], 200);
+
+      push();
+      translate(px, py);
+      rotateZ(rotation);
+
+      const sz = shapeSize * scale;
+      const sides = folds;
+      beginShape();
+      for (let v = 0; v < sides; v++) {
+        const a = (TWO_PI / sides) * v - HALF_PI;
+        vertex(cos(a) * sz, sin(a) * sz);
       }
+      endShape(CLOSE);
+      pop();
+    }
+  }
+
+  strokeWeight(constrain(params.contrast * 0.3, 0.2, 1.5));
+
+  for (let r = 0; r < gridN; r++) {
+    for (let c = 0; c < gridN; c++) {
+      const px = cellW * (c + 0.5);
+      const py = cellH * (r + 0.5);
+      const d = dist(px, py, cx, cy);
+      const normD = d / maxDist;
+      const wavePhase = normD * warpAmt * 6 - t * spd;
+
+      const h = (hueOff + normD * 240 + t * spd * 15 + 180) % 360;
+      const clr = hsl(h, 0.4 * sat, constrain(0.6 * bri, 0, 1));
+      stroke(clr[0], clr[1], clr[2], 50 + abs(sin(wavePhase)) * 60);
+
+      if (c < gridN - 1) {
+        const qx = cellW * (c + 1.5);
+        const qy = py;
+        noFill();
+        line(px, py, qx, qy);
+      }
+      if (r < gridN - 1) {
+        const qx = px;
+        const qy = cellH * (r + 1.5);
+        noFill();
+        line(px, py, qx, qy);
+      }
+    }
+  }
+  pop();
+}
+
+/* ── 7. Silk Threads ──────────────────────────────────────────── */
+
+function drawSilk() {
+  resetShader();
+  background(2, 2, 8);
+
+  const t = millis() / 1000.0;
+  const ribbons = floor(constrain(params.stripes * 6, 4, 40));
+  const spd = params.pulse * 0.5;
+  const bri = params.brightness;
+  const warpAmt = params.warp * 1.5;
+  const hueOff = params.hueShift * 360;
+  const sat = params.saturation;
+  const sw = constrain(params.contrast * 2, 0.5, 8);
+
+  noFill();
+
+  push();
+  const halfW = width * 0.5;
+  const halfH = height * 0.5;
+
+  for (let r = 0; r < ribbons; r++) {
+    const rNorm = r / ribbons;
+    const freq1 = 0.3 + rNorm * 0.7;
+    const freq2 = 0.5 + (1 - rNorm) * 0.6;
+    const phase = rNorm * PI * 4 + t * spd * 0.3;
+
+    const h = (hueOff + rNorm * 300 + t * spd * 20) % 360;
+    const l = constrain((0.35 + rNorm * 0.3) * bri, 0, 1);
+    const alpha = map(rNorm, 0, 1, 180, 60);
+    const clr = hsl(h, 0.7 * sat, l);
+    stroke(clr[0], clr[1], clr[2], alpha);
+
+    const thickness = sw * (0.5 + 0.5 * sin(t * spd + r));
+    strokeWeight(thickness);
+
+    beginShape();
+    noFill();
+    const segments = 100;
+    for (let s = 0; s <= segments; s++) {
+      const sNorm = s / segments;
+      const alongX = (sNorm - 0.5) * width * 1.2;
+
+      const y1 = sin(sNorm * TWO_PI * freq1 + phase + t * spd) * halfH * 0.6;
+      const y2 = cos(sNorm * TWO_PI * freq2 - phase * 0.7 + t * spd * 1.3) * halfH * 0.4;
+      const warpY = sin(sNorm * 12 + t * spd * 2 + r) * warpAmt * 15;
+
+      const baseY = (y1 + y2 + warpY) * (0.8 + 0.2 * sin(t * spd * 0.5 + r * 0.8));
+
+      const lateralShift = sin(t * spd * 0.7 + r * 2.1) * halfH * 0.3 * rNorm;
+
+      curveVertex(alongX, baseY + lateralShift);
     }
     endShape();
   }
 
-  camera(0, 0, (height / 2) / tan(PI / 6), 0, 0, 0, 0, 1, 0);
-}
-
-// ─── 4. Noise Bands ─────────────────────────────────────────────
-
-function drawBands() {
-  resetShader();
-  background(10);
-
-  const t = millis() / 1000.0;
-  const lineH = constrain(height * 0.005 * params.contrast, 1, 8);
-  const noiseSpd = params.zoomSpeed * 0.5;
-  const bri = params.brightness;
-  const warpAmt = params.warp * 0.4;
-
-  const colors = [
-    [142, 80, 23], [210, 156, 52], [164, 14, 2],
-    [40, 114, 127], [59, 81, 93], [15, 18, 12]
-  ];
-
-  push();
-  translate(-width / 2, -height / 2);
-  strokeCap(SQUARE);
-  strokeWeight(lineH);
-  noFill();
-
-  let offer = 0;
-  for (let y = 0; y <= height + lineH; y += lineH) {
-    const mainW = map(noise(y / 100 + t * 3 * noiseSpd, t * noiseSpd), 0, 1,
-      width * 0.05, width * 0.5) * warpAmt + width * 0.1;
-    const half = mainW / 2;
-    const mainX = width / 2;
-    const leftover = (width - mainW) / 2;
-    const secondaryW = map(noise(y / 100 + t * 3 * noiseSpd, t * noiseSpd, 3), 0, 1, 0, leftover);
-    const left = mainX - half;
-    const right = mainX + half;
-    const tertiaryW = leftover - secondaryW;
-
-    const cn = noise(mainX / 100 + t * noiseSpd, y / 150 + t * noiseSpd, t * 0.25);
-    const ci = floor(cn * colors.length) % colors.length;
-    const ci2 = (ci + 1) % colors.length;
-    const mix = cn * colors.length - floor(cn * colors.length);
-    const cr = lerp(colors[ci][0], colors[ci2][0], mix) * bri;
-    const cg = lerp(colors[ci][1], colors[ci2][1], mix) * bri;
-    const cb = lerp(colors[ci][2], colors[ci2][2], mix) * bri;
-
-    if (offer % 2 === 1) {
-      stroke(cr, cg, cb);
-      line(mainX - half, y, mainX + half, y);
-      const c2n = noise(tertiaryW * 0.01 + t * noiseSpd, y / 150 + t * noiseSpd);
-      const c2i = floor(c2n * colors.length) % colors.length;
-      stroke(colors[c2i][0] * bri, colors[c2i][1] * bri, colors[c2i][2] * bri);
-      line(0, y, tertiaryW, y);
-      line(width, y, width - tertiaryW, y);
-    } else {
-      stroke(cr * 0.8, cg * 0.8, cb * 0.8);
-      line(left - secondaryW, y, left, y);
-      line(right, y, right + secondaryW, y);
-    }
-    offer++;
-  }
-  pop();
-}
-
-// ─── 5. Spiral Field ────────────────────────────────────────────
-
-function drawSpiral() {
-  resetShader();
-
-  push();
-  translate(-width / 2, -height / 2);
-  noStroke();
-  fill(0, 0, 0, 25);
-  rect(0, 0, width, height);
-  pop();
-
-  const t = millis() / 1000.0;
-  const numParticles = floor(constrain(params.stripes * 1000, 500, 5000));
-  const sMax = min(width, height) * 0.3;
-  const bri = params.brightness;
-  const spd = params.pulse;
-  const hueOff = params.hueShift * 360;
-
-  noStroke();
-
-  for (let i = 0; i < numParticles; i++) {
-    const ti = i * 0.01;
-    const S = (i + t * spd * 80) % sMax;
-
-    const A = (cos(ti * 3) - cos(ti * 6) + 9) * 0.45;
-    const B = ti / 2 + (sin(ti * 3) - sin(ti * 6)) / 3;
-
-    const h = (B * 57.3 * 10 + t * spd * 60 + hueOff) % 360;
-    const rgb = hslToRgb(h, 0.7 * params.saturation, 0.55 * bri);
-    fill(rgb[0], rgb[1], rgb[2]);
-
-    const x = S * A * cos(B);
-    const y = S * A * sin(B);
-    const sz = abs(S * 0.18 * sin(ti * 11));
-    if (sz > 0.3) circle(x, y, sz);
-  }
-}
-
-// ─── 6. Warp Tunnel ─────────────────────────────────────────────
-
-function drawTunnel() {
-  resetShader();
-  background(0);
-
-  const t = millis() / 1000.0;
-  const ringCount = floor(constrain(params.stripes * 15, 20, 120));
-  const bri = params.brightness;
-  const spd = params.pulse;
-  const warpAmt = params.warp;
-  const sides = floor(constrain(params.mirrorMin + 1, 3, 12));
-  const hueOff = params.hueShift * 360;
-
-  noFill();
-
-  for (let i = 0; i < ringCount; i++) {
-    const depth = ((i / ringCount) + t * spd * 0.25) % 1.0;
-    const sz = map(depth, 0, 1, 5, max(width, height) * 1.4);
-    const alpha = map(depth, 0, 1, 255, 0);
-
-    const h = (i * (360.0 / ringCount) + t * spd * 50 + hueOff) % 360;
-    const l = constrain(0.55 * bri * (1 - depth * 0.5), 0, 1);
-    const rgb = hslToRgb(h, 0.85 * params.saturation, l);
-    stroke(rgb[0], rgb[1], rgb[2], alpha);
-    strokeWeight(constrain(params.contrast * 2 * (1 - depth), 0.5, 6));
-
-    push();
-    rotateZ(depth * warpAmt * 1.5 + t * 0.25);
+  for (let crossR = 0; crossR < floor(ribbons * 0.3); crossR++) {
+    const rNorm = crossR / (ribbons * 0.3);
+    const h = (hueOff + rNorm * 300 + 150 + t * spd * 15) % 360;
+    const clr = hsl(h, 0.5 * sat, constrain(0.3 * bri, 0, 1));
+    stroke(clr[0], clr[1], clr[2], 40);
+    strokeWeight(sw * 0.3);
 
     beginShape();
-    for (let j = 0; j <= sides; j++) {
-      const angle = (TWO_PI / sides) * j;
-      vertex(cos(angle) * sz * 0.5, sin(angle) * sz * 0.5);
+    noFill();
+    const segs = 80;
+    for (let s = 0; s <= segs; s++) {
+      const sNorm = s / segs;
+      const alongY = (sNorm - 0.5) * height * 1.2;
+      const xWave = sin(sNorm * TWO_PI * 2 + t * spd * 0.8 + crossR) * halfW * 0.4 * warpAmt;
+      const xShift = cos(t * spd * 0.4 + crossR * 3) * halfW * 0.2;
+      curveVertex(xWave + xShift, alongY);
     }
-    endShape(CLOSE);
-    pop();
-  }
-}
-
-// ─── 7. Moire Waves ─────────────────────────────────────────────
-
-function drawMoire() {
-  resetShader();
-  background(240, 236, 230);
-
-  const t = millis() / 1000.0;
-  const numStripes = floor(constrain(params.stripes * 12, 15, 80));
-  const numLayers = floor(constrain(params.mirrorMin, 2, 7));
-  const noiseSpd = params.zoomSpeed * 0.5;
-  const bri = params.brightness;
-  const warpAmt = params.warp * 0.3;
-  const hueOff = params.hueShift * 360;
-
-  push();
-  translate(-width / 2, -height / 2);
-  noFill();
-  strokeWeight(constrain(params.contrast * 2, 1, 6));
-
-  const yd = constrain(height / 150, 2, 6);
-
-  for (let layer = 0; layer < numLayers; layer++) {
-    const h = (layer * (360.0 / numLayers) + hueOff) % 360;
-    const rgb = hslToRgb(h, 0.85 * params.saturation, 0.45 * bri);
-    stroke(rgb[0], rgb[1], rgb[2]);
-
-    for (let i = 0; i < numStripes; i++) {
-      beginShape();
-      for (let y = 0; y < height; y += yd) {
-        const baseX = map(i, 0, numStripes, 0, width);
-        const nv = noise(
-          i / 7 + layer * 100,
-          y / (height * 0.5) + t * noiseSpd,
-          t * 0.1 + layer
-        );
-        const x = baseX + (nv - 0.5) * width * warpAmt;
-        vertex(x, y);
-      }
-      endShape();
-    }
+    endShape();
   }
   pop();
 }
 
-// ─── Control binding ─────────────────────────────────────────────
+/* ── Control binding ──────────────────────────────────────────── */
 
 function bindControls() {
   const presetSel = document.getElementById('sh-preset');
   if (presetSel) {
     presetSel.addEventListener('change', () => {
       activePreset = presetSel.value;
+      emberPositions = null;
     });
   }
 

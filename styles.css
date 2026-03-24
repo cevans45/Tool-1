@@ -238,7 +238,7 @@ body.is-leaving {
     flex-shrink: 0;
     background: rgba(255, 255, 255, 0.95);
     border: 1px solid #000;
-    border-radius: 0;
+    border-radius: 16px;
     box-shadow: none;
     overflow: hidden;
 }
@@ -452,66 +452,69 @@ body.is-leaving {
 .control-row input[type="range"] {
     flex: 1;
     min-width: 0;
-    height: 1px;
+    height: 3px;
     cursor: pointer;
     background: #ccc;
     border: none;
+    border-radius: 2px;
     -webkit-appearance: none;
     appearance: none;
     accent-color: #000;
 }
 
 .control-row input[type="range"]::-webkit-slider-runnable-track {
-    height: 1px;
+    height: 3px;
     background: #ccc;
+    border-radius: 2px;
 }
 
 .control-row input[type="range"]::-webkit-slider-thumb {
     -webkit-appearance: none;
     appearance: none;
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     background: #000;
     border: none;
-    border-radius: 0;
+    border-radius: 50%;
     cursor: pointer;
-    margin-top: -5px;
+    margin-top: -6px;
 }
 
 .control-row input[type="range"]::-moz-range-track {
-    height: 1px;
+    height: 3px;
     background: #ccc;
+    border-radius: 2px;
 }
 
 .control-row input[type="range"]::-moz-range-thumb {
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
     background: #000;
     border: none;
-    border-radius: 0;
+    border-radius: 50%;
     cursor: pointer;
 }
 
 .control-row input[type="number"] {
     width: 100px;
-    padding: 6px 8px;
+    padding: 6px 10px;
     font-family: inherit;
     font-size: 11px;
     background: #fff;
     border: 1px solid #000;
-    border-radius: 0;
+    border-radius: 20px;
     color: #111;
 }
 
 .select-input {
     flex: 1;
     min-width: 0;
-    padding: 6px 8px;
+    padding: 6px 10px;
     font-family: inherit;
     font-size: 11px;
     background: #fff;
     border: 1px solid #000;
-    border-radius: 0;
+    border-radius: 20px;
     color: #111;
 }
 
@@ -529,7 +532,7 @@ body.is-leaving {
     padding: 2px;
     cursor: pointer;
     border: 1px solid #000;
-    border-radius: 0;
+    border-radius: 14px;
     background: #fff;
 }
 
@@ -538,13 +541,13 @@ body.is-leaving {
 }
 
 .panel-button {
-    padding: 6px 10px;
+    padding: 6px 12px;
     font-family: inherit;
     font-size: 10px;
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    border-radius: 0;
+    border-radius: 20px;
     border: 1px solid #000;
     background: #fff;
     cursor: pointer;
@@ -564,11 +567,14 @@ body.is-leaving {
     display: flex;
     gap: 0;
     border: 1px solid #000;
+    border-radius: 20px;
+    overflow: hidden;
 }
 
 .mode-switch .panel-button {
     flex: 1;
     border: none;
+    border-radius: 0;
     text-align: center;
     padding: 8px 6px;
 }
@@ -614,8 +620,8 @@ body.is-leaving {
 }
 
 .checkbox-label .toggle-box {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
     border: 1px solid #000;
     background: #fff;
     display: flex;
@@ -624,6 +630,7 @@ body.is-leaving {
     font-size: 10px;
     font-weight: 700;
     flex-shrink: 0;
+    border-radius: 4px;
 }
 
 .checkbox-label input[type="checkbox"]:checked + .toggle-box {
