@@ -41,6 +41,15 @@ const params = {
   fixedSeed: 0.0,
 };
 
+const fx = {
+  bloom: { petals: 6, breath: 0.5, jag: 0.3, inner: 0.4, spoke: 0.25, mirror: false },
+  grid:  { ripple: 8, connect: 0.5, nodes: 0.5, damp: 0.3, diagonal: 0, mirror: false },
+  ember: { trail: 30, field: 2, size: 0.3, wind: 0.4, glow: 0.5, mirror: false },
+  mirrorS: { depth: 30, flicker: 0.4, edge: 0.5, twist: 0.2, gap: 0.15, shards: 6 },
+  lattice: { wave: 6, morph: 0.5, phase: 0, glow: 0.4, gap: 0.5, mirror: false },
+  silk: { curl: 0.5, ribbon: 0.3, layers: 3, fade: 0.3, cross: 0.2, mirror: false },
+};
+
 /* ── Prism Weave GLSL ─────────────────────────────────────────── */
 
 const vert = `
@@ -176,6 +185,16 @@ function calcW() { return max(360, windowWidth - 440); }
 function calcH() { return max(320, windowHeight - 120); }
 function windowResized() { resizeCanvas(calcW(), calcH()); }
 
+/* ── Panel switching ──────────────────────────────────────────── */
+
+function switchFxPanel(preset) {
+  document.querySelectorAll('.preset-fx').forEach(el => {
+    el.style.display = 'none';
+  });
+  const panel = document.getElementById('fx-' + preset);
+  if (panel) panel.style.display = '';
+}
+
 /* ── Draw dispatch ────────────────────────────────────────────── */
 
 function draw() {
@@ -191,7 +210,7 @@ function draw() {
   }
 }
 
-/* ── 1. Prism Weave (GLSL shader — original) ─────────────────── */
+/* ── 1. Prism Weave (GLSL shader) ────────────────────────────── */
 
 function drawPrism() {
   shader(theShader);
@@ -261,66 +280,81 @@ function drawBloom() {
   background(0);
 
   const t = millis() / 1000.0;
+  const B = fx.bloom;
   const spd = params.pulse * 0.8;
   const bri = params.brightness;
   const warpAmt = params.warp;
   const layers = floor(constrain(params.stripes * 3, 4, 24));
   const hueOff = params.hueShift * 360;
   const sat = params.saturation;
-  const sw = constrain(params.contrast * 1.2, 0.3, 4);
-  const folds = floor(constrain(params.mirrorMin, 2, 12));
+  const petals = B.petals;
+  const breathAmp = B.breath;
+  const jagAmt = B.jag;
+  const innerAmt = B.inner;
+  const spokeAlpha = B.spoke * 255;
+  const doMirror = B.mirror;
 
+  const sw = constrain(params.contrast * 1.2, 0.3, 4);
   noFill();
   strokeWeight(sw);
 
-  const maxR = min(width, height) * 0.42;
+  const maxR = min(width, height) * 0.44;
 
-  for (let ring = 0; ring < layers; ring++) {
-    const ringT = ring / layers;
-    const breathPhase = t * spd * (1 + ring * 0.15) + ring * 0.7;
-    const breathScale = 0.7 + 0.3 * sin(breathPhase);
-    const r = maxR * ringT * breathScale;
+  const drawHalf = (xFlip) => {
+    push();
+    if (xFlip) scale(-1, 1);
 
-    const wobble = sin(t * spd * 0.6 + ring * 1.3) * warpAmt * 15;
-    const petals = folds + floor(ring * 0.5);
-    const h = (hueOff + ring * (360 / layers) + t * spd * 20) % 360;
-    const l = constrain(0.35 + ringT * 0.3, 0, 1) * bri;
-    const c = hsl(h, 0.75 * sat, l);
-    const fadeAlpha = map(ringT, 0, 1, 255, 80);
-    stroke(c[0], c[1], c[2], fadeAlpha);
+    for (let ring = 0; ring < layers; ring++) {
+      const ringT = ring / layers;
+      const breathPhase = t * spd * (1 + ring * 0.12) + ring * 0.8;
+      const breathScale = 1 - breathAmp * 0.4 + breathAmp * 0.4 * sin(breathPhase);
+      const r = maxR * ringT * breathScale;
 
-    beginShape();
-    for (let a = 0; a <= TWO_PI; a += TWO_PI / 120) {
-      const petalWave = sin(a * petals + t * spd * 0.9) * wobble;
-      const jag = sin(a * (petals * 3) - t * spd * 2) * warpAmt * 4 * ringT;
-      const dist = r + petalWave + jag;
-      vertex(cos(a) * dist, sin(a) * dist);
-    }
-    endShape(CLOSE);
+      const petalScale = petals + floor(ring * 0.3);
+      const h = (hueOff + ring * (360 / layers) + t * spd * 22) % 360;
+      const l = constrain((0.3 + ringT * 0.35) * bri, 0, 1);
+      const fadeA = map(ringT, 0, 1, 240, 70);
+      const clr = hsl(h, 0.75 * sat, l);
+      stroke(clr[0], clr[1], clr[2], fadeA);
 
-    if (ring > 2 && ring % 3 === 0) {
-      const subPetals = petals * 2;
-      const subR = r * 0.35;
-      const h2 = (h + 120) % 360;
-      const c2 = hsl(h2, 0.6 * sat, l * 0.9);
-      stroke(c2[0], c2[1], c2[2], fadeAlpha * 0.5);
       beginShape();
-      for (let a = 0; a <= TWO_PI; a += TWO_PI / 80) {
-        const wave = sin(a * subPetals - t * spd * 1.5) * warpAmt * 8;
-        vertex(cos(a) * (subR + wave), sin(a) * (subR + wave));
+      for (let a = 0; a <= TWO_PI; a += TWO_PI / 100) {
+        const petalWave = sin(a * petalScale + t * spd * 0.9) * warpAmt * 18;
+        const jagWave = sin(a * (petalScale * 3) - t * spd * 2) * jagAmt * 25 * ringT;
+        const d = r + petalWave + jagWave;
+        vertex(cos(a) * d, sin(a) * d);
       }
       endShape(CLOSE);
-    }
-  }
 
-  for (let spoke = 0; spoke < folds; spoke++) {
-    const angle = (TWO_PI / folds) * spoke + t * spd * 0.15;
-    const h = (hueOff + spoke * (360 / folds) + t * 30) % 360;
-    const c = hsl(h, 0.5 * sat, 0.5 * bri);
-    stroke(c[0], c[1], c[2], 40);
-    const outerR = maxR * (0.6 + 0.4 * sin(t * spd + spoke));
-    line(0, 0, cos(angle) * outerR, sin(angle) * outerR);
-  }
+      if (innerAmt > 0.05 && ring > 2 && ring % 2 === 0) {
+        const subR = r * 0.3 * innerAmt;
+        const h2 = (h + 140) % 360;
+        const clr2 = hsl(h2, 0.6 * sat, l * 0.85);
+        stroke(clr2[0], clr2[1], clr2[2], fadeA * 0.45 * innerAmt);
+        beginShape();
+        for (let a = 0; a <= TWO_PI; a += TWO_PI / 60) {
+          const w2 = sin(a * petalScale * 2 - t * spd * 1.5) * warpAmt * 10 * innerAmt;
+          vertex(cos(a) * (subR + w2), sin(a) * (subR + w2));
+        }
+        endShape(CLOSE);
+      }
+    }
+
+    if (spokeAlpha > 2) {
+      for (let sp = 0; sp < petals * 2; sp++) {
+        const angle = (TWO_PI / (petals * 2)) * sp + t * spd * 0.12;
+        const h = (hueOff + sp * 30 + t * 25) % 360;
+        const clr = hsl(h, 0.4 * sat, 0.5 * bri);
+        stroke(clr[0], clr[1], clr[2], spokeAlpha * 0.4);
+        const outerR = maxR * (0.5 + 0.5 * sin(t * spd + sp * 0.8));
+        line(0, 0, cos(angle) * outerR, sin(angle) * outerR);
+      }
+    }
+    pop();
+  };
+
+  drawHalf(false);
+  if (doMirror) drawHalf(true);
 }
 
 /* ── 3. Liquid Grid ───────────────────────────────────────────── */
@@ -330,6 +364,7 @@ function drawGrid() {
   background(8, 10, 18);
 
   const t = millis() / 1000.0;
+  const G = fx.grid;
   const cols = floor(constrain(params.stripes * 5, 6, 40));
   const rows = floor(cols * (height / width));
   const spd = params.pulse * 1.5;
@@ -338,75 +373,91 @@ function drawGrid() {
   const hueOff = params.hueShift * 360;
   const sat = params.saturation;
   const sw = constrain(params.contrast * 0.8, 0.3, 3);
-  const connectDist = min(width, height) / cols * 2.2;
+  const rippleFreq = G.ripple;
+  const connectRange = G.connect * 4;
+  const nodeGlow = G.nodes;
+  const dampAmt = G.damp;
+  const diagAmt = G.diagonal;
+  const doMirror = G.mirror;
 
-  push();
-  translate(-width / 2, -height / 2);
+  const connectDist = min(width, height) / cols * connectRange;
 
-  const cellW = width / (cols - 1);
-  const cellH = height / (rows - 1);
-  const pts = [];
+  const drawHalf = (xFlip) => {
+    push();
+    if (xFlip) scale(-1, 1);
+    translate(-width / 2, -height / 2);
 
-  for (let r = 0; r < rows; r++) {
-    pts[r] = [];
-    for (let c = 0; c < cols; c++) {
-      const baseX = c * cellW;
-      const baseY = r * cellH;
-      const distFromCenter = dist(baseX, baseY, width / 2, height / 2);
-      const normDist = distFromCenter / (min(width, height) * 0.7);
+    const cellW = width / (cols - 1);
+    const cellH = height / (rows - 1);
+    const pts = [];
 
-      const wave1 = sin(baseX * 0.008 + t * spd * 0.7) * cos(baseY * 0.006 - t * spd * 0.5);
-      const wave2 = cos(baseX * 0.012 - t * spd * 0.3 + baseY * 0.005) * sin(t * spd * 0.8);
-      const ripple = sin(normDist * 8 - t * spd * 2) * (1 - normDist * 0.5);
+    for (let r = 0; r < rows; r++) {
+      pts[r] = [];
+      for (let c = 0; c < cols; c++) {
+        const baseX = c * cellW;
+        const baseY = r * cellH;
+        const distFromCenter = dist(baseX, baseY, width / 2, height / 2);
+        const normDist = distFromCenter / (min(width, height) * 0.7);
+        const dampMul = 1 - dampAmt * normDist;
 
-      const dx = (wave1 * warpAmt + ripple * warpAmt * 0.6) * (1 + normDist * 0.3);
-      const dy = (wave2 * warpAmt + ripple * warpAmt * 0.4) * (1 + normDist * 0.3);
+        const wave1 = sin(baseX * 0.008 * rippleFreq / 8 + t * spd * 0.7)
+                     * cos(baseY * 0.006 * rippleFreq / 8 - t * spd * 0.5);
+        const wave2 = cos(baseX * 0.012 - t * spd * 0.3 + baseY * 0.005)
+                     * sin(t * spd * 0.8);
+        const ripple = sin(normDist * rippleFreq - t * spd * 2) * (1 - normDist * 0.5);
 
-      pts[r][c] = { x: baseX + dx, y: baseY + dy, normDist };
-    }
-  }
+        const dx = (wave1 * warpAmt + ripple * warpAmt * 0.6) * dampMul;
+        const dy = (wave2 * warpAmt + ripple * warpAmt * 0.4) * dampMul;
 
-  strokeWeight(sw);
-
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const p = pts[r][c];
-
-      if (c < cols - 1) {
-        const q = pts[r][c + 1];
-        const d = dist(p.x, p.y, q.x, q.y);
-        const tension = constrain(d / connectDist, 0, 1);
-        const h = (hueOff + p.normDist * 180 + t * 25 * spd) % 360;
-        const l = constrain((0.4 + tension * 0.3) * bri, 0, 1);
-        const a = map(tension, 0, 1, 200, 30);
-        const clr = hsl(h, 0.7 * sat, l);
-        stroke(clr[0], clr[1], clr[2], a);
-        line(p.x, p.y, q.x, q.y);
+        pts[r][c] = { x: baseX + dx, y: baseY + dy, normDist };
       }
-
-      if (r < rows - 1) {
-        const q = pts[r + 1][c];
-        const d = dist(p.x, p.y, q.x, q.y);
-        const tension = constrain(d / connectDist, 0, 1);
-        const h = (hueOff + p.normDist * 180 + 90 + t * 25 * spd) % 360;
-        const l = constrain((0.4 + tension * 0.3) * bri, 0, 1);
-        const a = map(tension, 0, 1, 200, 30);
-        const clr = hsl(h, 0.7 * sat, l);
-        stroke(clr[0], clr[1], clr[2], a);
-        line(p.x, p.y, q.x, q.y);
-      }
-
-      const dotSize = 2 + sin(t * spd * 2 + p.normDist * 10) * 1.5;
-      const h = (hueOff + p.normDist * 220 + t * 30) % 360;
-      const clr = hsl(h, 0.9 * sat, constrain(0.65 * bri, 0, 1));
-      noStroke();
-      fill(clr[0], clr[1], clr[2], 180);
-      ellipse(p.x, p.y, dotSize, dotSize);
-      strokeWeight(sw);
-      noFill();
     }
-  }
-  pop();
+
+    strokeWeight(sw);
+    noFill();
+
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const p = pts[r][c];
+
+        const drawLink = (q, hueExtra) => {
+          const d = dist(p.x, p.y, q.x, q.y);
+          const tension = constrain(d / connectDist, 0, 1);
+          const h = (hueOff + p.normDist * 180 + hueExtra + t * 25 * spd) % 360;
+          const l = constrain((0.4 + tension * 0.3) * bri, 0, 1);
+          const a = map(tension, 0, 1, 200, 20);
+          const clr = hsl(h, 0.7 * sat, l);
+          stroke(clr[0], clr[1], clr[2], a);
+          line(p.x, p.y, q.x, q.y);
+        };
+
+        if (c < cols - 1) drawLink(pts[r][c + 1], 0);
+        if (r < rows - 1) drawLink(pts[r + 1][c], 90);
+
+        if (diagAmt > 0.05) {
+          strokeWeight(sw * 0.5 * diagAmt);
+          if (c < cols - 1 && r < rows - 1) drawLink(pts[r + 1][c + 1], 45);
+          if (c > 0 && r < rows - 1) drawLink(pts[r + 1][c - 1], 135);
+          strokeWeight(sw);
+        }
+
+        if (nodeGlow > 0.05) {
+          const dotSize = (2 + sin(t * spd * 2 + p.normDist * 10) * 1.5) * nodeGlow * 2;
+          const h = (hueOff + p.normDist * 220 + t * 30) % 360;
+          const clr = hsl(h, 0.9 * sat, constrain(0.65 * bri, 0, 1));
+          noStroke();
+          fill(clr[0], clr[1], clr[2], 160 * nodeGlow);
+          ellipse(p.x, p.y, dotSize, dotSize);
+          strokeWeight(sw);
+          noFill();
+        }
+      }
+    }
+    pop();
+  };
+
+  drawHalf(false);
+  if (doMirror) drawHalf(true);
 }
 
 /* ── 4. Ember Drift ───────────────────────────────────────────── */
@@ -428,13 +479,20 @@ function drawEmber() {
   resetShader();
 
   const t = millis() / 1000.0;
+  const E = fx.ember;
   const count = floor(constrain(params.stripes * 600, 200, 4000));
   const spd = params.pulse;
   const turbulence = params.warp * 0.5;
   const bri = params.brightness;
   const hueOff = params.hueShift * 360;
   const sat = params.saturation;
-  const trailOpacity = floor(constrain(15 + (1 - params.grain * 4) * 30, 5, 50));
+
+  const trailFade = floor(constrain(5 + (80 - E.trail) * 0.8, 5, 60));
+  const fieldLayers = E.field;
+  const baseSize = E.size * 10;
+  const windShift = E.wind;
+  const glowAmt = E.glow;
+  const doMirror = E.mirror;
 
   if (!emberPositions || emberPositions.length !== count * 4) {
     initEmbers(count);
@@ -443,7 +501,7 @@ function drawEmber() {
   push();
   translate(-width / 2, -height / 2);
   noStroke();
-  fill(0, 0, 0, trailOpacity);
+  fill(0, 0, 0, trailFade);
   rect(0, 0, width, height);
   pop();
 
@@ -452,40 +510,71 @@ function drawEmber() {
   const hw = width * 0.5;
   const hh = height * 0.5;
 
-  for (let i = 0; i < count; i++) {
-    const idx = i * 4;
-    let px = emberPositions[idx];
-    let py = emberPositions[idx + 1];
-    const phase = emberPositions[idx + 2];
-    const energy = emberPositions[idx + 3];
+  const drawParticles = (xFlip) => {
+    for (let i = 0; i < count; i++) {
+      const idx = i * 4;
+      let px = emberPositions[idx];
+      let py = emberPositions[idx + 1];
+      const phase = emberPositions[idx + 2];
+      const energy = emberPositions[idx + 3];
 
-    const fieldX = sin(py * 3.2 + t * 0.6) * cos(px * 2.8 - t * 0.4)
-                 + sin(px * 1.7 + py * 2.1 + t * 0.9) * turbulence;
-    const fieldY = cos(px * 3.1 - t * 0.5) * sin(py * 2.6 + t * 0.7)
-                 + cos(py * 1.9 - px * 2.3 + t * 0.8) * turbulence;
+      if (!xFlip) {
+        let fX = sin(py * 3.2 + t * 0.6 * windShift) * cos(px * 2.8 - t * 0.4);
+        let fY = cos(px * 3.1 - t * 0.5) * sin(py * 2.6 + t * 0.7 * windShift);
 
-    px += fieldX * dt * energy;
-    py += fieldY * dt * energy;
+        if (fieldLayers >= 2) {
+          fX += sin(px * 1.7 + py * 2.1 + t * 0.9) * turbulence * 0.6;
+          fY += cos(py * 1.9 - px * 2.3 + t * 0.8) * turbulence * 0.6;
+        }
+        if (fieldLayers >= 3) {
+          fX += cos(py * 5.3 - t * 1.2 + px) * turbulence * 0.3;
+          fY += sin(px * 4.7 + t * 1.1 - py) * turbulence * 0.3;
+        }
+        if (fieldLayers >= 4) {
+          fX += sin(px * py * 2 + t) * turbulence * 0.2;
+          fY += cos(px * py * 2.5 - t * 0.7) * turbulence * 0.2;
+        }
+        if (fieldLayers >= 5) {
+          const r2 = px * px + py * py;
+          fX += sin(r2 * 4 + t * 0.5) * turbulence * 0.15;
+          fY += cos(r2 * 3 - t * 0.6) * turbulence * 0.15;
+        }
 
-    if (px < -1.1) px += 2.2;
-    if (px > 1.1) px -= 2.2;
-    if (py < -1.1) py += 2.2;
-    if (py > 1.1) py -= 2.2;
+        px += fX * dt * energy;
+        py += fY * dt * energy;
 
-    emberPositions[idx] = px;
-    emberPositions[idx + 1] = py;
+        if (px < -1.1) px += 2.2;
+        if (px > 1.1) px -= 2.2;
+        if (py < -1.1) py += 2.2;
+        if (py > 1.1) py -= 2.2;
 
-    const screenX = px * hw;
-    const screenY = py * hh;
+        emberPositions[idx] = px;
+        emberPositions[idx + 1] = py;
+      }
 
-    const speed = sqrt(fieldX * fieldX + fieldY * fieldY);
-    const h = (hueOff + phase * 57.3 + speed * 120 + t * 15) % 360;
-    const l = constrain(0.45 + speed * 0.2, 0, 0.85) * bri;
-    const sz = constrain(1 + energy * 3 * speed, 0.5, 5);
-    const clr = hsl(h, 0.8 * sat, l);
-    fill(clr[0], clr[1], clr[2], 180 + energy * 75);
-    ellipse(screenX, screenY, sz, sz);
-  }
+      let screenX = (xFlip ? -px : px) * hw;
+      let screenY = py * hh;
+
+      const speed = energy * spd;
+      const h = (hueOff + phase * 57.3 + speed * 80 + t * 15) % 360;
+      const l = constrain(0.4 + speed * 0.15, 0, 0.8) * bri;
+      const sz = constrain(baseSize * (0.3 + energy * 0.7) * (0.8 + 0.2 * sin(t + phase)), 0.5, baseSize);
+      const clr = hsl(h, 0.8 * sat, l);
+      const alpha = 140 + energy * 100;
+
+      if (glowAmt > 0.1) {
+        const gc = hsl(h, 0.4 * sat, constrain(l * 1.3, 0, 1));
+        fill(gc[0], gc[1], gc[2], alpha * 0.2 * glowAmt);
+        ellipse(screenX, screenY, sz * 3 * glowAmt, sz * 3 * glowAmt);
+      }
+
+      fill(clr[0], clr[1], clr[2], alpha);
+      ellipse(screenX, screenY, sz, sz);
+    }
+  };
+
+  drawParticles(false);
+  if (doMirror) drawParticles(true);
 }
 
 /* ── 5. Mirror Shards ─────────────────────────────────────────── */
@@ -495,14 +584,20 @@ function drawMirror() {
   background(0);
 
   const t = millis() / 1000.0;
-  const folds = floor(constrain(params.mirrorMin, 2, 16));
+  const M = fx.mirrorS;
   const spd = params.pulse * 0.6;
   const bri = params.brightness;
   const warpAmt = params.warp;
-  const density = floor(constrain(params.stripes * 8, 6, 50));
   const hueOff = params.hueShift * 360;
   const sat = params.saturation;
   const sw = constrain(params.contrast * 1.5, 0.5, 5);
+
+  const folds = M.shards;
+  const density = M.depth;
+  const flickerAmt = M.flicker;
+  const edgeGlow = M.edge;
+  const twistAmt = M.twist;
+  const gapAmt = M.gap;
 
   noFill();
   strokeWeight(sw);
@@ -520,22 +615,25 @@ function drawMirror() {
       const ringNorm = ring / density;
       const r = maxR * ringNorm;
 
-      const breathe = sin(t * spd * 1.5 + ring * 0.4 + f * 0.7);
-      const actualR = r * (0.85 + 0.15 * breathe);
+      const flickerPhase = sin(t * spd * 3 + ring * 0.6 + f * 1.3) * flickerAmt;
+      const actualR = r * (0.85 + 0.15 * sin(t * spd * 1.5 + ring * 0.4));
 
-      const angularSpread = sectorAngle * 0.92;
+      const gapShrink = 1 - gapAmt * 0.3;
+      const angularSpread = sectorAngle * 0.92 * gapShrink;
       const startA = -angularSpread / 2;
 
+      const twist = twistAmt * ringNorm * sin(t * spd * 0.8 + f) * 0.5;
+
       const h = (hueOff + ring * (360 / density) + f * (360 / folds) + t * spd * 30) % 360;
-      const l = constrain((0.3 + ringNorm * 0.4 + breathe * 0.1) * bri, 0, 1);
-      const a = map(ringNorm, 0, 1, 220, 60);
-      const clr = hsl(h, 0.75 * sat, l);
-      stroke(clr[0], clr[1], clr[2], a);
+      const baseBri = constrain((0.3 + ringNorm * 0.4 + flickerPhase * 0.2) * bri, 0, 1);
+      const fadeAlpha = map(ringNorm, 0, 1, 220, 50);
+      const clr = hsl(h, 0.75 * sat, baseBri);
+      stroke(clr[0], clr[1], clr[2], fadeAlpha);
 
       beginShape();
       const steps = 30;
       for (let s = 0; s <= steps; s++) {
-        const sa = startA + (angularSpread / steps) * s;
+        const sa = startA + (angularSpread / steps) * s + twist;
         const noiseVal = sin(sa * density * 0.5 + t * spd + ring * 0.3) * warpAmt * 12;
         const jitter = cos(sa * ring * 2 + t * spd * 2.5) * warpAmt * 5 * ringNorm;
         const d = actualR + noiseVal + jitter;
@@ -543,11 +641,30 @@ function drawMirror() {
       }
       endShape();
 
-      if (ring % 4 === 0) {
-        const midA = 0;
-        const innerR = maxR * ((ring - 3) / density);
-        const clr2 = hsl((h + 60) % 360, 0.5 * sat, l * 0.7);
-        stroke(clr2[0], clr2[1], clr2[2], a * 0.4);
+      if (edgeGlow > 0.1 && ring % 3 === 0) {
+        const edgeClr = hsl((h + 60) % 360, 0.5 * sat, constrain(baseBri * 1.3, 0, 1));
+        stroke(edgeClr[0], edgeClr[1], edgeClr[2], fadeAlpha * 0.3 * edgeGlow);
+        const d1 = actualR * (1 + edgeGlow * 0.08);
+        const d2 = actualR * (1 - edgeGlow * 0.08);
+        beginShape();
+        for (let s = 0; s <= steps; s++) {
+          const sa = startA + (angularSpread / steps) * s + twist;
+          vertex(cos(sa) * d1, sin(sa) * d1);
+        }
+        endShape();
+        beginShape();
+        for (let s = 0; s <= steps; s++) {
+          const sa = startA + (angularSpread / steps) * s + twist;
+          vertex(cos(sa) * d2, sin(sa) * d2);
+        }
+        endShape();
+      }
+
+      if (ring % 5 === 0) {
+        const midA = twist;
+        const innerR = maxR * max(0, (ring - 4) / density);
+        const clr2 = hsl((h + 90) % 360, 0.4 * sat, baseBri * 0.6);
+        stroke(clr2[0], clr2[1], clr2[2], fadeAlpha * 0.25);
         line(cos(midA) * innerR, sin(midA) * innerR,
              cos(midA) * actualR, sin(midA) * actualR);
       }
@@ -563,6 +680,7 @@ function drawLattice() {
   background(5, 5, 15);
 
   const t = millis() / 1000.0;
+  const L = fx.lattice;
   const gridN = floor(constrain(params.stripes * 4, 5, 30));
   const spd = params.pulse * 2.0;
   const bri = params.brightness;
@@ -572,77 +690,96 @@ function drawLattice() {
   const shapeSize = constrain(params.contrast * 8, 3, 25);
   const folds = floor(constrain(params.mirrorMin, 2, 8));
 
-  push();
-  translate(-width / 2, -height / 2);
-  noStroke();
+  const waveFreq = L.wave;
+  const morphAmt = L.morph;
+  const phaseOffset = L.phase;
+  const glowAmt = L.glow;
+  const spacingMul = 0.5 + L.gap;
+  const doMirror = L.mirror;
 
-  const cellW = width / gridN;
-  const cellH = height / gridN;
-  const cx = width / 2;
-  const cy = height / 2;
-  const maxDist = dist(0, 0, cx, cy);
+  const drawHalf = (xFlip) => {
+    push();
+    if (xFlip) scale(-1, 1);
+    translate(-width / 2, -height / 2);
+    noStroke();
 
-  for (let r = 0; r < gridN; r++) {
-    for (let c = 0; c < gridN; c++) {
-      const px = cellW * (c + 0.5);
-      const py = cellH * (r + 0.5);
-      const d = dist(px, py, cx, cy);
-      const normD = d / maxDist;
+    const cellW = (width / gridN) * spacingMul;
+    const cellH = (height / gridN) * spacingMul;
+    const offsetX = (width - cellW * gridN) / 2;
+    const offsetY = (height - cellH * gridN) / 2;
+    const cx = width / 2;
+    const cy = height / 2;
+    const maxDist = dist(0, 0, cx, cy);
 
-      const wavePhase = normD * warpAmt * 6 - t * spd;
-      const rotation = sin(wavePhase) * PI * 0.5;
-      const scale = 0.6 + 0.4 * cos(wavePhase * 0.7 + 0.5);
+    for (let r = 0; r < gridN; r++) {
+      for (let c = 0; c < gridN; c++) {
+        const px = offsetX + cellW * (c + 0.5);
+        const py = offsetY + cellH * (r + 0.5);
+        const d = dist(px, py, cx, cy);
+        const normD = d / maxDist;
 
-      const h = (hueOff + normD * 240 + rotation * 57.3 + t * spd * 15) % 360;
-      const l = constrain((0.35 + abs(sin(wavePhase)) * 0.4) * bri, 0, 1);
-      const clr = hsl(h, 0.8 * sat, l);
-      fill(clr[0], clr[1], clr[2], 200);
+        const wavePhase = normD * waveFreq - t * spd + phaseOffset * (PI / 180);
+        const rotation = sin(wavePhase) * PI * (0.3 + morphAmt * 0.5);
+        const scale2 = 0.5 + 0.5 * cos(wavePhase * 0.7 + 0.5);
 
-      push();
-      translate(px, py);
-      rotateZ(rotation);
+        const h = (hueOff + normD * 240 + rotation * 57.3 + t * spd * 15) % 360;
+        const l = constrain((0.3 + abs(sin(wavePhase)) * 0.4) * bri, 0, 1);
+        const clr = hsl(h, 0.8 * sat, l);
+        fill(clr[0], clr[1], clr[2], 200);
 
-      const sz = shapeSize * scale;
-      const sides = folds;
-      beginShape();
-      for (let v = 0; v < sides; v++) {
-        const a = (TWO_PI / sides) * v - HALF_PI;
-        vertex(cos(a) * sz, sin(a) * sz);
-      }
-      endShape(CLOSE);
-      pop();
-    }
-  }
+        if (glowAmt > 0.05) {
+          const gc = hsl(h, 0.3 * sat, constrain(l * 1.4, 0, 1));
+          fill(gc[0], gc[1], gc[2], 40 * glowAmt);
+          ellipse(px, py, shapeSize * scale2 * 3 * glowAmt, shapeSize * scale2 * 3 * glowAmt);
+          fill(clr[0], clr[1], clr[2], 200);
+        }
 
-  strokeWeight(constrain(params.contrast * 0.3, 0.2, 1.5));
+        push();
+        translate(px, py);
+        rotateZ(rotation);
 
-  for (let r = 0; r < gridN; r++) {
-    for (let c = 0; c < gridN; c++) {
-      const px = cellW * (c + 0.5);
-      const py = cellH * (r + 0.5);
-      const d = dist(px, py, cx, cy);
-      const normD = d / maxDist;
-      const wavePhase = normD * warpAmt * 6 - t * spd;
-
-      const h = (hueOff + normD * 240 + t * spd * 15 + 180) % 360;
-      const clr = hsl(h, 0.4 * sat, constrain(0.6 * bri, 0, 1));
-      stroke(clr[0], clr[1], clr[2], 50 + abs(sin(wavePhase)) * 60);
-
-      if (c < gridN - 1) {
-        const qx = cellW * (c + 1.5);
-        const qy = py;
-        noFill();
-        line(px, py, qx, qy);
-      }
-      if (r < gridN - 1) {
-        const qx = px;
-        const qy = cellH * (r + 1.5);
-        noFill();
-        line(px, py, qx, qy);
+        const sz = shapeSize * scale2;
+        const sides = floor(folds + morphAmt * sin(t * spd * 0.5 + normD * 4) * 2);
+        const actualSides = max(3, sides);
+        beginShape();
+        for (let v = 0; v < actualSides; v++) {
+          const a = (TWO_PI / actualSides) * v - HALF_PI;
+          vertex(cos(a) * sz, sin(a) * sz);
+        }
+        endShape(CLOSE);
+        pop();
       }
     }
-  }
-  pop();
+
+    strokeWeight(constrain(params.contrast * 0.3, 0.2, 1.5));
+    for (let r = 0; r < gridN; r++) {
+      for (let c = 0; c < gridN; c++) {
+        const px = offsetX + cellW * (c + 0.5);
+        const py = offsetY + cellH * (r + 0.5);
+        const d = dist(px, py, cx, cy);
+        const normD = d / maxDist;
+        const wavePhase = normD * waveFreq - t * spd + phaseOffset * (PI / 180);
+
+        const h = (hueOff + normD * 240 + t * spd * 15 + 180) % 360;
+        const clr = hsl(h, 0.4 * sat, constrain(0.6 * bri, 0, 1));
+        stroke(clr[0], clr[1], clr[2], 40 + abs(sin(wavePhase)) * 50);
+        noFill();
+
+        if (c < gridN - 1) {
+          const qx = offsetX + cellW * (c + 1.5);
+          line(px, py, qx, py);
+        }
+        if (r < gridN - 1) {
+          const qy = offsetY + cellH * (r + 1.5);
+          line(px, py, px, qy);
+        }
+      }
+    }
+    pop();
+  };
+
+  drawHalf(false);
+  if (doMirror) drawHalf(true);
 }
 
 /* ── 7. Silk Threads ──────────────────────────────────────────── */
@@ -652,75 +789,103 @@ function drawSilk() {
   background(2, 2, 8);
 
   const t = millis() / 1000.0;
-  const ribbons = floor(constrain(params.stripes * 6, 4, 40));
+  const S = fx.silk;
+  const ribbonCount = floor(constrain(params.stripes * 6, 4, 40));
   const spd = params.pulse * 0.5;
   const bri = params.brightness;
   const warpAmt = params.warp * 1.5;
   const hueOff = params.hueShift * 360;
   const sat = params.saturation;
-  const sw = constrain(params.contrast * 2, 0.5, 8);
+
+  const curlTight = S.curl * 3;
+  const ribbonW = S.ribbon * 12;
+  const threadLayers = S.layers;
+  const edgeFade = S.fade;
+  const crossAmt = S.cross;
+  const doMirror = S.mirror;
 
   noFill();
 
-  push();
-  const halfW = width * 0.5;
-  const halfH = height * 0.5;
+  const drawHalf = (xFlip) => {
+    push();
+    if (xFlip) scale(-1, 1);
 
-  for (let r = 0; r < ribbons; r++) {
-    const rNorm = r / ribbons;
-    const freq1 = 0.3 + rNorm * 0.7;
-    const freq2 = 0.5 + (1 - rNorm) * 0.6;
-    const phase = rNorm * PI * 4 + t * spd * 0.3;
+    for (let layerG = 0; layerG < threadLayers; layerG++) {
+      const layerOff = layerG * 0.5;
 
-    const h = (hueOff + rNorm * 300 + t * spd * 20) % 360;
-    const l = constrain((0.35 + rNorm * 0.3) * bri, 0, 1);
-    const alpha = map(rNorm, 0, 1, 180, 60);
-    const clr = hsl(h, 0.7 * sat, l);
-    stroke(clr[0], clr[1], clr[2], alpha);
+      for (let r = 0; r < floor(ribbonCount / threadLayers); r++) {
+        const rIdx = layerG * floor(ribbonCount / threadLayers) + r;
+        const rNorm = rIdx / ribbonCount;
+        const freq1 = 0.3 + rNorm * curlTight;
+        const freq2 = 0.5 + (1 - rNorm) * curlTight * 0.8;
+        const phase = rNorm * PI * 4 + t * spd * 0.3 + layerOff;
 
-    const thickness = sw * (0.5 + 0.5 * sin(t * spd + r));
-    strokeWeight(thickness);
+        const h = (hueOff + rNorm * 300 + layerG * 80 + t * spd * 20) % 360;
+        const l = constrain((0.3 + rNorm * 0.35) * bri, 0, 1);
+        const alpha = map(rNorm, 0, 1, 180, 50);
+        const clr = hsl(h, 0.7 * sat, l);
+        stroke(clr[0], clr[1], clr[2], alpha);
 
-    beginShape();
-    noFill();
-    const segments = 100;
-    for (let s = 0; s <= segments; s++) {
-      const sNorm = s / segments;
-      const alongX = (sNorm - 0.5) * width * 1.2;
+        const thickness = ribbonW * (0.4 + 0.6 * sin(t * spd + rIdx));
+        strokeWeight(max(0.5, thickness));
 
-      const y1 = sin(sNorm * TWO_PI * freq1 + phase + t * spd) * halfH * 0.6;
-      const y2 = cos(sNorm * TWO_PI * freq2 - phase * 0.7 + t * spd * 1.3) * halfH * 0.4;
-      const warpY = sin(sNorm * 12 + t * spd * 2 + r) * warpAmt * 15;
+        beginShape();
+        noFill();
+        const segments = 90;
+        for (let s = 0; s <= segments; s++) {
+          const sNorm = s / segments;
+          const alongX = (sNorm - 0.5) * width * 1.2;
 
-      const baseY = (y1 + y2 + warpY) * (0.8 + 0.2 * sin(t * spd * 0.5 + r * 0.8));
+          const y1 = sin(sNorm * TWO_PI * freq1 + phase + t * spd)
+                   * height * 0.25;
+          const y2 = cos(sNorm * TWO_PI * freq2 - phase * 0.7 + t * spd * 1.3)
+                   * height * 0.18;
+          const warpY = sin(sNorm * 12 + t * spd * 2 + rIdx) * warpAmt * 15;
 
-      const lateralShift = sin(t * spd * 0.7 + r * 2.1) * halfH * 0.3 * rNorm;
+          let baseY = y1 + y2 + warpY;
 
-      curveVertex(alongX, baseY + lateralShift);
+          if (edgeFade > 0.05) {
+            const edgeDist = min(sNorm, 1 - sNorm) * 2;
+            baseY *= constrain(edgeDist / edgeFade, 0, 1);
+          }
+
+          const lateralShift = sin(t * spd * 0.7 + rIdx * 2.1 + layerOff)
+                             * height * 0.2 * rNorm;
+
+          curveVertex(alongX, baseY + lateralShift);
+        }
+        endShape();
+      }
     }
-    endShape();
-  }
 
-  for (let crossR = 0; crossR < floor(ribbons * 0.3); crossR++) {
-    const rNorm = crossR / (ribbons * 0.3);
-    const h = (hueOff + rNorm * 300 + 150 + t * spd * 15) % 360;
-    const clr = hsl(h, 0.5 * sat, constrain(0.3 * bri, 0, 1));
-    stroke(clr[0], clr[1], clr[2], 40);
-    strokeWeight(sw * 0.3);
+    if (crossAmt > 0.05) {
+      const crossCount = floor(ribbonCount * 0.25 * crossAmt);
+      for (let cr = 0; cr < crossCount; cr++) {
+        const rNorm = cr / max(1, crossCount);
+        const h = (hueOff + rNorm * 300 + 150 + t * spd * 15) % 360;
+        const clr = hsl(h, 0.5 * sat, constrain(0.3 * bri, 0, 1));
+        stroke(clr[0], clr[1], clr[2], 35 * crossAmt);
+        strokeWeight(max(0.5, ribbonW * 0.3));
 
-    beginShape();
-    noFill();
-    const segs = 80;
-    for (let s = 0; s <= segs; s++) {
-      const sNorm = s / segs;
-      const alongY = (sNorm - 0.5) * height * 1.2;
-      const xWave = sin(sNorm * TWO_PI * 2 + t * spd * 0.8 + crossR) * halfW * 0.4 * warpAmt;
-      const xShift = cos(t * spd * 0.4 + crossR * 3) * halfW * 0.2;
-      curveVertex(xWave + xShift, alongY);
+        beginShape();
+        noFill();
+        const segs = 70;
+        for (let s = 0; s <= segs; s++) {
+          const sNorm = s / segs;
+          const alongY = (sNorm - 0.5) * height * 1.2;
+          const xWave = sin(sNorm * TWO_PI * curlTight + t * spd * 0.8 + cr)
+                      * width * 0.2 * warpAmt;
+          const xShift = cos(t * spd * 0.4 + cr * 3) * width * 0.15;
+          curveVertex(xWave + xShift, alongY);
+        }
+        endShape();
+      }
     }
-    endShape();
-  }
-  pop();
+    pop();
+  };
+
+  drawHalf(false);
+  if (doMirror) drawHalf(true);
 }
 
 /* ── Control binding ──────────────────────────────────────────── */
@@ -731,39 +896,92 @@ function bindControls() {
     presetSel.addEventListener('change', () => {
       activePreset = presetSel.value;
       emberPositions = null;
+      switchFxPanel(activePreset);
     });
   }
 
-  bindRange('sh-cycle', 'val-sh-cycle', (v) => { params.cycleDuration = parseFloat(v); return `${int(v)}s`; });
-  bindRange('sh-black', 'val-sh-black', (v) => { params.blackHold = parseFloat(v); return `${int(v)}s`; });
-  bindRange('sh-fade-in', 'val-sh-fade-in', (v) => { params.fadeIn = parseFloat(v); return `${int(v)}s`; });
-  bindRange('sh-fade-out', 'val-sh-fade-out', (v) => { params.fadeOut = parseFloat(v); return `${int(v)}s`; });
-  bindRange('sh-zoom-min', 'val-sh-zoom-min', (v) => { params.zoomMin = parseInt(v, 10) / 100; return params.zoomMin.toFixed(2); });
-  bindRange('sh-zoom-max', 'val-sh-zoom-max', (v) => { params.zoomMax = parseInt(v, 10) / 100; return params.zoomMax.toFixed(2); });
-  bindRange('sh-zoom-speed', 'val-sh-zoom-speed', (v) => { params.zoomSpeed = parseInt(v, 10) / 100; return params.zoomSpeed.toFixed(2); });
-  bindRange('sh-mirror-min', 'val-sh-mirror-min', (v) => { params.mirrorMin = parseFloat(v); return String(v); });
-  bindRange('sh-mirror-span', 'val-sh-mirror-span', (v) => { params.mirrorSpan = parseFloat(v); return String(v); });
-  bindRange('sh-rot-start', 'val-sh-rot-start', (v) => { params.rotationStartPct = parseFloat(v); return `${int(v)}%`; });
-  bindRange('sh-rot-max', 'val-sh-rot-max', (v) => { params.rotationMaxDeg = parseFloat(v); return `${int(v)}°`; });
-  bindRange('sh-bright', 'val-sh-bright', (v) => { params.brightness = parseInt(v, 10) / 100; return params.brightness.toFixed(2); });
-  bindRange('sh-warp', 'val-sh-warp', (v) => { params.warp = parseInt(v, 10) / 100; return params.warp.toFixed(2); });
-  bindRange('sh-stripes', 'val-sh-stripes', (v) => { params.stripes = parseFloat(v); return String(v); });
-  bindRange('sh-pulse', 'val-sh-pulse', (v) => { params.pulse = parseInt(v, 10) / 100; return params.pulse.toFixed(2); });
-  bindRange('sh-grain', 'val-sh-grain', (v) => { params.grain = parseInt(v, 10) / 100; return params.grain.toFixed(2); });
-  bindRange('sh-weave', 'val-sh-weave', (v) => { params.weaveAmt = parseInt(v, 10) / 100; return params.weaveAmt.toFixed(2); });
-  bindRange('sh-star', 'val-sh-star', (v) => { params.starAmt = parseInt(v, 10) / 100; return params.starAmt.toFixed(2); });
-  bindRange('sh-ring', 'val-sh-ring', (v) => { params.ringAmt = parseInt(v, 10) / 100; return params.ringAmt.toFixed(2); });
-  bindRange('sh-contrast', 'val-sh-contrast', (v) => { params.contrast = parseInt(v, 10) / 100; return params.contrast.toFixed(2); });
-  bindRange('sh-vignette', 'val-sh-vignette', (v) => { params.vignette = parseInt(v, 10) / 100; return params.vignette.toFixed(2); });
-  bindRange('sh-cellularity', 'val-sh-cellularity', (v) => { params.cellularity = parseInt(v, 10) / 100; return params.cellularity.toFixed(2); });
-  bindRange('sh-cell-density', 'val-sh-cell-density', (v) => { params.cellDensity = parseFloat(v); return String(v); });
-  bindRange('sh-cell-softness', 'val-sh-cell-softness', (v) => { params.cellSoftness = parseInt(v, 10) / 100; return params.cellSoftness.toFixed(2); });
-  bindRange('sh-cell-shift', 'val-sh-cell-shift', (v) => { params.cellShift = parseInt(v, 10) / 100; return params.cellShift.toFixed(2); });
-  bindRange('sh-hue', 'val-sh-hue', (v) => { params.hueShift = parseInt(v, 10) / 360; return `${int(v)}°`; });
-  bindRange('sh-spread', 'val-sh-spread', (v) => { params.paletteSpread = parseInt(v, 10) / 100; return params.paletteSpread.toFixed(2); });
-  bindRange('sh-sat', 'val-sh-sat', (v) => { params.saturation = parseInt(v, 10) / 100; return params.saturation.toFixed(2); });
-  bindRange('sh-tint', 'val-sh-tint', (v) => { params.tintAmount = parseInt(v, 10) / 100; return params.tintAmount.toFixed(2); });
+  // Shared controls
+  bindRange('sh-cycle', 'val-sh-cycle', v => { params.cycleDuration = parseFloat(v); return `${int(v)}s`; });
+  bindRange('sh-black', 'val-sh-black', v => { params.blackHold = parseFloat(v); return `${int(v)}s`; });
+  bindRange('sh-fade-in', 'val-sh-fade-in', v => { params.fadeIn = parseFloat(v); return `${int(v)}s`; });
+  bindRange('sh-fade-out', 'val-sh-fade-out', v => { params.fadeOut = parseFloat(v); return `${int(v)}s`; });
+  bindRange('sh-zoom-min', 'val-sh-zoom-min', v => { params.zoomMin = parseInt(v, 10) / 100; return params.zoomMin.toFixed(2); });
+  bindRange('sh-zoom-max', 'val-sh-zoom-max', v => { params.zoomMax = parseInt(v, 10) / 100; return params.zoomMax.toFixed(2); });
+  bindRange('sh-zoom-speed', 'val-sh-zoom-speed', v => { params.zoomSpeed = parseInt(v, 10) / 100; return params.zoomSpeed.toFixed(2); });
+  bindRange('sh-mirror-min', 'val-sh-mirror-min', v => { params.mirrorMin = parseFloat(v); return String(v); });
+  bindRange('sh-mirror-span', 'val-sh-mirror-span', v => { params.mirrorSpan = parseFloat(v); return String(v); });
+  bindRange('sh-rot-start', 'val-sh-rot-start', v => { params.rotationStartPct = parseFloat(v); return `${int(v)}%`; });
+  bindRange('sh-rot-max', 'val-sh-rot-max', v => { params.rotationMaxDeg = parseFloat(v); return `${int(v)}°`; });
+  bindRange('sh-bright', 'val-sh-bright', v => { params.brightness = parseInt(v, 10) / 100; return params.brightness.toFixed(2); });
+  bindRange('sh-warp', 'val-sh-warp', v => { params.warp = parseInt(v, 10) / 100; return params.warp.toFixed(2); });
+  bindRange('sh-stripes', 'val-sh-stripes', v => { params.stripes = parseFloat(v); return String(v); });
+  bindRange('sh-pulse', 'val-sh-pulse', v => { params.pulse = parseInt(v, 10) / 100; return params.pulse.toFixed(2); });
+  bindRange('sh-hue', 'val-sh-hue', v => { params.hueShift = parseInt(v, 10) / 360; return `${int(v)}°`; });
+  bindRange('sh-spread', 'val-sh-spread', v => { params.paletteSpread = parseInt(v, 10) / 100; return params.paletteSpread.toFixed(2); });
+  bindRange('sh-sat', 'val-sh-sat', v => { params.saturation = parseInt(v, 10) / 100; return params.saturation.toFixed(2); });
+  bindRange('sh-tint', 'val-sh-tint', v => { params.tintAmount = parseInt(v, 10) / 100; return params.tintAmount.toFixed(2); });
 
+  // Prism-specific
+  bindRange('sh-grain', 'val-sh-grain', v => { params.grain = parseInt(v, 10) / 100; return params.grain.toFixed(2); });
+  bindRange('sh-weave', 'val-sh-weave', v => { params.weaveAmt = parseInt(v, 10) / 100; return params.weaveAmt.toFixed(2); });
+  bindRange('sh-star', 'val-sh-star', v => { params.starAmt = parseInt(v, 10) / 100; return params.starAmt.toFixed(2); });
+  bindRange('sh-ring', 'val-sh-ring', v => { params.ringAmt = parseInt(v, 10) / 100; return params.ringAmt.toFixed(2); });
+  bindRange('sh-contrast', 'val-sh-contrast', v => { params.contrast = parseInt(v, 10) / 100; return params.contrast.toFixed(2); });
+  bindRange('sh-vignette', 'val-sh-vignette', v => { params.vignette = parseInt(v, 10) / 100; return params.vignette.toFixed(2); });
+  bindRange('sh-cellularity', 'val-sh-cellularity', v => { params.cellularity = parseInt(v, 10) / 100; return params.cellularity.toFixed(2); });
+  bindRange('sh-cell-density', 'val-sh-cell-density', v => { params.cellDensity = parseFloat(v); return String(v); });
+  bindRange('sh-cell-softness', 'val-sh-cell-softness', v => { params.cellSoftness = parseInt(v, 10) / 100; return params.cellSoftness.toFixed(2); });
+  bindRange('sh-cell-shift', 'val-sh-cell-shift', v => { params.cellShift = parseInt(v, 10) / 100; return params.cellShift.toFixed(2); });
+
+  // Bloom effects
+  bindRange('bl-petals', 'val-bl-petals', v => { fx.bloom.petals = parseInt(v, 10); return String(v); });
+  bindRange('bl-breath', 'val-bl-breath', v => { fx.bloom.breath = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('bl-jag', 'val-bl-jag', v => { fx.bloom.jag = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('bl-inner', 'val-bl-inner', v => { fx.bloom.inner = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('bl-spoke', 'val-bl-spoke', v => { fx.bloom.spoke = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindCheck('bl-mirror', v => { fx.bloom.mirror = v; });
+
+  // Grid effects
+  bindRange('gr-ripple', 'val-gr-ripple', v => { fx.grid.ripple = parseInt(v, 10); return String(v); });
+  bindRange('gr-connect', 'val-gr-connect', v => { fx.grid.connect = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('gr-nodes', 'val-gr-nodes', v => { fx.grid.nodes = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('gr-damp', 'val-gr-damp', v => { fx.grid.damp = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('gr-diagonal', 'val-gr-diagonal', v => { fx.grid.diagonal = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindCheck('gr-mirror', v => { fx.grid.mirror = v; });
+
+  // Ember effects
+  bindRange('em-trail', 'val-em-trail', v => { fx.ember.trail = parseInt(v, 10); return String(v); });
+  bindRange('em-field', 'val-em-field', v => { fx.ember.field = parseInt(v, 10); return String(v); });
+  bindRange('em-size', 'val-em-size', v => { fx.ember.size = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('em-wind', 'val-em-wind', v => { fx.ember.wind = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('em-glow', 'val-em-glow', v => { fx.ember.glow = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindCheck('em-mirror', v => { fx.ember.mirror = v; });
+
+  // Mirror Shards effects
+  bindRange('mi-depth', 'val-mi-depth', v => { fx.mirrorS.depth = parseInt(v, 10); return String(v); });
+  bindRange('mi-flicker', 'val-mi-flicker', v => { fx.mirrorS.flicker = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('mi-edge', 'val-mi-edge', v => { fx.mirrorS.edge = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('mi-twist', 'val-mi-twist', v => { fx.mirrorS.twist = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('mi-gap', 'val-mi-gap', v => { fx.mirrorS.gap = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('mi-shards', 'val-mi-shards', v => { fx.mirrorS.shards = parseInt(v, 10); return String(v); });
+
+  // Lattice effects
+  bindRange('la-wave', 'val-la-wave', v => { fx.lattice.wave = parseInt(v, 10); return String(v); });
+  bindRange('la-morph', 'val-la-morph', v => { fx.lattice.morph = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('la-phase', 'val-la-phase', v => { fx.lattice.phase = parseInt(v, 10); return `${v}°`; });
+  bindRange('la-glow', 'val-la-glow', v => { fx.lattice.glow = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('la-gap', 'val-la-gap', v => { fx.lattice.gap = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindCheck('la-mirror', v => { fx.lattice.mirror = v; });
+
+  // Silk effects
+  bindRange('si-curl', 'val-si-curl', v => { fx.silk.curl = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('si-ribbon', 'val-si-ribbon', v => { fx.silk.ribbon = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('si-layers', 'val-si-layers', v => { fx.silk.layers = parseInt(v, 10); return String(v); });
+  bindRange('si-fade', 'val-si-fade', v => { fx.silk.fade = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindRange('si-cross', 'val-si-cross', v => { fx.silk.cross = parseInt(v, 10) / 100; return (parseInt(v, 10) / 100).toFixed(2); });
+  bindCheck('si-mirror', v => { fx.silk.mirror = v; });
+
+  // Misc shared
   const lock = document.getElementById('sh-lock-seed');
   if (lock) lock.addEventListener('change', () => { params.lockSeed = !!lock.checked; });
   const fixed = document.getElementById('sh-seed');
@@ -781,6 +999,8 @@ function bindControls() {
   };
   if (textureMode) textureMode.addEventListener('change', syncTM);
   syncTM();
+
+  switchFxPanel('prism');
 }
 
 function bindRange(id, valueId, onInput) {
@@ -790,6 +1010,12 @@ function bindRange(id, valueId, onInput) {
   const apply = () => { const txt = onInput(input.value); if (value) value.textContent = txt; };
   input.addEventListener('input', apply);
   apply();
+}
+
+function bindCheck(id, onChange) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener('change', () => { onChange(!!el.checked); });
 }
 
 function hexToRgb01(hexValue) {
@@ -802,5 +1028,5 @@ function updateTextureModeUI() {
   const grainRow = document.getElementById('row-sh-grain');
   const dotsRows = document.querySelectorAll('.dots-row');
   if (grainRow) grainRow.style.display = params.useGrain ? 'flex' : 'none';
-  dotsRows.forEach((row) => { row.style.display = params.useDots ? 'flex' : 'none'; });
+  dotsRows.forEach(row => { row.style.display = params.useDots ? 'flex' : 'none'; });
 }

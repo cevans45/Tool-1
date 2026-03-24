@@ -127,8 +127,10 @@
                     </details>
 
                     <details class="control-window" open>
-                        <summary>Texture & detail</summary>
-                        <section class="control-section">
+                        <summary>Effects</summary>
+
+                        <!-- Prism Weave -->
+                        <section class="control-section preset-fx" id="fx-prism">
                         <div class="control-row">
                             <label for="sh-texture-mode">Texture mode</label>
                             <select id="sh-texture-mode" class="select-input">
@@ -189,6 +191,211 @@
                             <span class="param-value" id="val-sh-cell-shift">0.30</span>
                         </div>
                         </section>
+
+                        <!-- Fractal Bloom -->
+                        <section class="control-section preset-fx" id="fx-bloom" style="display:none">
+                        <div class="control-row">
+                            <label for="bl-petals">Petals</label>
+                            <input type="range" id="bl-petals" min="2" max="20" value="6" step="1">
+                            <span class="param-value" id="val-bl-petals">6</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="bl-breath">Breath depth</label>
+                            <input type="range" id="bl-breath" min="0" max="100" value="50" step="1">
+                            <span class="param-value" id="val-bl-breath">0.50</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="bl-jag">Jaggedness</label>
+                            <input type="range" id="bl-jag" min="0" max="100" value="30" step="1">
+                            <span class="param-value" id="val-bl-jag">0.30</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="bl-inner">Inner bloom</label>
+                            <input type="range" id="bl-inner" min="0" max="100" value="40" step="1">
+                            <span class="param-value" id="val-bl-inner">0.40</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="bl-spoke">Spoke glow</label>
+                            <input type="range" id="bl-spoke" min="0" max="100" value="25" step="1">
+                            <span class="param-value" id="val-bl-spoke">0.25</span>
+                        </div>
+                        <label class="checkbox-label" style="padding:4px 0">
+                            <input type="checkbox" id="bl-mirror">
+                            <span class="toggle-box"></span>
+                            <span class="cb-label">Mirror reflect</span>
+                        </label>
+                        </section>
+
+                        <!-- Liquid Grid -->
+                        <section class="control-section preset-fx" id="fx-grid" style="display:none">
+                        <div class="control-row">
+                            <label for="gr-ripple">Ripple freq</label>
+                            <input type="range" id="gr-ripple" min="1" max="20" value="8" step="1">
+                            <span class="param-value" id="val-gr-ripple">8</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="gr-connect">Connect range</label>
+                            <input type="range" id="gr-connect" min="10" max="100" value="50" step="1">
+                            <span class="param-value" id="val-gr-connect">0.50</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="gr-nodes">Node glow</label>
+                            <input type="range" id="gr-nodes" min="0" max="100" value="50" step="1">
+                            <span class="param-value" id="val-gr-nodes">0.50</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="gr-damp">Damping</label>
+                            <input type="range" id="gr-damp" min="0" max="100" value="30" step="1">
+                            <span class="param-value" id="val-gr-damp">0.30</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="gr-diagonal">Diagonals</label>
+                            <input type="range" id="gr-diagonal" min="0" max="100" value="0" step="1">
+                            <span class="param-value" id="val-gr-diagonal">0.00</span>
+                        </div>
+                        <label class="checkbox-label" style="padding:4px 0">
+                            <input type="checkbox" id="gr-mirror">
+                            <span class="toggle-box"></span>
+                            <span class="cb-label">Mirror reflect</span>
+                        </label>
+                        </section>
+
+                        <!-- Ember Drift -->
+                        <section class="control-section preset-fx" id="fx-ember" style="display:none">
+                        <div class="control-row">
+                            <label for="em-trail">Trail length</label>
+                            <input type="range" id="em-trail" min="5" max="80" value="30" step="1">
+                            <span class="param-value" id="val-em-trail">30</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="em-field">Field layers</label>
+                            <input type="range" id="em-field" min="1" max="5" value="2" step="1">
+                            <span class="param-value" id="val-em-field">2</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="em-size">Particle size</label>
+                            <input type="range" id="em-size" min="10" max="100" value="30" step="1">
+                            <span class="param-value" id="val-em-size">0.30</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="em-wind">Wind shift</label>
+                            <input type="range" id="em-wind" min="0" max="100" value="40" step="1">
+                            <span class="param-value" id="val-em-wind">0.40</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="em-glow">Glow blend</label>
+                            <input type="range" id="em-glow" min="0" max="100" value="50" step="1">
+                            <span class="param-value" id="val-em-glow">0.50</span>
+                        </div>
+                        <label class="checkbox-label" style="padding:4px 0">
+                            <input type="checkbox" id="em-mirror">
+                            <span class="toggle-box"></span>
+                            <span class="cb-label">Mirror reflect</span>
+                        </label>
+                        </section>
+
+                        <!-- Mirror Shards -->
+                        <section class="control-section preset-fx" id="fx-mirror" style="display:none">
+                        <div class="control-row">
+                            <label for="mi-depth">Ring depth</label>
+                            <input type="range" id="mi-depth" min="5" max="60" value="30" step="1">
+                            <span class="param-value" id="val-mi-depth">30</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="mi-flicker">Flicker</label>
+                            <input type="range" id="mi-flicker" min="0" max="100" value="40" step="1">
+                            <span class="param-value" id="val-mi-flicker">0.40</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="mi-edge">Edge glow</label>
+                            <input type="range" id="mi-edge" min="0" max="100" value="50" step="1">
+                            <span class="param-value" id="val-mi-edge">0.50</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="mi-twist">Twist</label>
+                            <input type="range" id="mi-twist" min="0" max="100" value="20" step="1">
+                            <span class="param-value" id="val-mi-twist">0.20</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="mi-gap">Gap width</label>
+                            <input type="range" id="mi-gap" min="0" max="100" value="15" step="1">
+                            <span class="param-value" id="val-mi-gap">0.15</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="mi-shards">Shard count</label>
+                            <input type="range" id="mi-shards" min="2" max="16" value="6" step="1">
+                            <span class="param-value" id="val-mi-shards">6</span>
+                        </div>
+                        </section>
+
+                        <!-- Phase Lattice -->
+                        <section class="control-section preset-fx" id="fx-lattice" style="display:none">
+                        <div class="control-row">
+                            <label for="la-wave">Wave freq</label>
+                            <input type="range" id="la-wave" min="1" max="20" value="6" step="1">
+                            <span class="param-value" id="val-la-wave">6</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="la-morph">Morph</label>
+                            <input type="range" id="la-morph" min="0" max="100" value="50" step="1">
+                            <span class="param-value" id="val-la-morph">0.50</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="la-phase">Phase offset</label>
+                            <input type="range" id="la-phase" min="0" max="360" value="0" step="1">
+                            <span class="param-value" id="val-la-phase">0°</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="la-glow">Glow aura</label>
+                            <input type="range" id="la-glow" min="0" max="100" value="40" step="1">
+                            <span class="param-value" id="val-la-glow">0.40</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="la-gap">Spacing</label>
+                            <input type="range" id="la-gap" min="10" max="100" value="50" step="1">
+                            <span class="param-value" id="val-la-gap">0.50</span>
+                        </div>
+                        <label class="checkbox-label" style="padding:4px 0">
+                            <input type="checkbox" id="la-mirror">
+                            <span class="toggle-box"></span>
+                            <span class="cb-label">Mirror reflect</span>
+                        </label>
+                        </section>
+
+                        <!-- Silk Threads -->
+                        <section class="control-section preset-fx" id="fx-silk" style="display:none">
+                        <div class="control-row">
+                            <label for="si-curl">Curl tightness</label>
+                            <input type="range" id="si-curl" min="0" max="100" value="50" step="1">
+                            <span class="param-value" id="val-si-curl">0.50</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="si-ribbon">Ribbon width</label>
+                            <input type="range" id="si-ribbon" min="10" max="100" value="30" step="1">
+                            <span class="param-value" id="val-si-ribbon">0.30</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="si-layers">Thread layers</label>
+                            <input type="range" id="si-layers" min="1" max="6" value="3" step="1">
+                            <span class="param-value" id="val-si-layers">3</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="si-fade">Edge fade</label>
+                            <input type="range" id="si-fade" min="0" max="100" value="30" step="1">
+                            <span class="param-value" id="val-si-fade">0.30</span>
+                        </div>
+                        <div class="control-row">
+                            <label for="si-cross">Cross weave</label>
+                            <input type="range" id="si-cross" min="0" max="100" value="20" step="1">
+                            <span class="param-value" id="val-si-cross">0.20</span>
+                        </div>
+                        <label class="checkbox-label" style="padding:4px 0">
+                            <input type="checkbox" id="si-mirror">
+                            <span class="toggle-box"></span>
+                            <span class="cb-label">Mirror reflect</span>
+                        </label>
+                        </section>
+
                     </details>
 
                     <details class="control-window">
