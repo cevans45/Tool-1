@@ -89,11 +89,16 @@ body.is-leaving {
 .hero-title {
     font-family: 'NG Hofmann', 'ABC Diatype Mono', sans-serif;
     font-size: clamp(120px, 24vw, 360px);
-    letter-spacing: -0.02em;
+    letter-spacing: 0.18em;
     line-height: 0.92;
     text-transform: uppercase;
     margin-bottom: 0;
-    animation: ovrtPop 900ms ease-out 1;
+}
+
+.hero-letter {
+    display: inline-block;
+    transition: transform 0.15s ease-out, opacity 0.3s ease;
+    will-change: transform;
 }
 
 .hero-sub {
@@ -141,9 +146,6 @@ body.is-leaving {
     z-index: 1;
 }
 
-#hero-canvas {
-    display: none;
-}
 
 .tool-header {
     display: flex;
