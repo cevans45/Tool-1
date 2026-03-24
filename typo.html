@@ -77,6 +77,12 @@
                                 <select id="ty-mode" class="select-input">
                                     <option value="none">None</option>
                                     <option value="circles" selected>Circles</option>
+                                    <option value="squares">Squares</option>
+                                    <option value="grid">Grid</option>
+                                    <option value="diamonds">Diamonds</option>
+                                    <option value="crosses">Crosses</option>
+                                    <option value="lines">Lines</option>
+                                    <option value="stars">Stars</option>
                                     <option value="net">Net</option>
                                     <option value="fragment">Fragment</option>
                                 </select>
@@ -442,8 +448,176 @@
         }
     }
 
+    function drawSquares() {
+        const maxS = S.scale * 0.9;
+        ctx.globalAlpha = 1;
+
+        ctx.fillStyle = S.ink;
+        for (const p of particles) {
+            const s = maxS * p.scale;
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.phase * 0.15);
+            ctx.fillRect(-s / 2, -s / 2, s, s);
+            ctx.restore();
+        }
+
+        if (!S.fill) {
+            ctx.fillStyle = S.bg;
+            const inset = Math.max(1, S.strokeW);
+            for (const p of particles) {
+                const s = maxS * p.scale;
+                const inner = Math.max(1, s - inset * 2);
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(p.phase * 0.15);
+                ctx.fillRect(-inner / 2, -inner / 2, inner, inner);
+                ctx.restore();
+            }
+        }
+    }
+
+    function drawGrid() {
+        const cellSize = Math.max(3, S.scale * 0.7);
+        ctx.globalAlpha = 1;
+
+        ctx.fillStyle = S.ink;
+        for (const p of particles) {
+            const gx = Math.round(p.x / cellSize) * cellSize;
+            const gy = Math.round(p.y / cellSize) * cellSize;
+            const s = cellSize * 0.9;
+            ctx.fillRect(gx - s / 2, gy - s / 2, s, s);
+        }
+
+        if (!S.fill) {
+            ctx.fillStyle = S.bg;
+            const inset = Math.max(1, S.strokeW);
+            for (const p of particles) {
+                const gx = Math.round(p.x / cellSize) * cellSize;
+                const gy = Math.round(p.y / cellSize) * cellSize;
+                const s = cellSize * 0.9;
+                const inner = Math.max(1, s - inset * 2);
+                ctx.fillRect(gx - inner / 2, gy - inner / 2, inner, inner);
+            }
+        }
+    }
+
+    function drawDiamonds() {
+        const maxR = S.scale * 0.5;
+        ctx.globalAlpha = 1;
+
+        ctx.fillStyle = S.ink;
+        for (const p of particles) {
+            const r = maxR * p.scale;
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y - r);
+            ctx.lineTo(p.x + r * 0.7, p.y);
+            ctx.lineTo(p.x, p.y + r);
+            ctx.lineTo(p.x - r * 0.7, p.y);
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        if (!S.fill) {
+            ctx.fillStyle = S.bg;
+            const shrink = S.strokeW;
+            for (const p of particles) {
+                const r = Math.max(0.5, maxR * p.scale - shrink);
+                const rw = r * 0.7;
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y - r);
+                ctx.lineTo(p.x + rw, p.y);
+                ctx.lineTo(p.x, p.y + r);
+                ctx.lineTo(p.x - rw, p.y);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+    }
+
+    function drawCrosses() {
+        const arm = S.scale * 0.4;
+        const thick = S.fill ? S.weight * 0.2 : S.strokeW;
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = S.ink;
+        ctx.lineCap = 'round';
+        ctx.lineWidth = thick;
+
+        for (const p of particles) {
+            const len = arm * p.scale;
+            ctx.beginPath();
+            ctx.moveTo(p.x - len, p.y);
+            ctx.lineTo(p.x + len, p.y);
+            ctx.moveTo(p.x, p.y - len);
+            ctx.lineTo(p.x, p.y + len);
+            ctx.stroke();
+        }
+    }
+
+    function drawLines() {
+        const arm = S.scale * 0.5;
+        const thick = S.fill ? S.weight * 0.18 : S.strokeW;
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = S.ink;
+        ctx.lineCap = 'round';
+        ctx.lineWidth = thick;
+
+        for (const p of particles) {
+            const len = arm * p.scale;
+            const ang = p.phase;
+            const dx = Math.cos(ang) * len;
+            const dy = Math.sin(ang) * len;
+            ctx.beginPath();
+            ctx.moveTo(p.x - dx, p.y - dy);
+            ctx.lineTo(p.x + dx, p.y + dy);
+            ctx.stroke();
+        }
+    }
+
+    function drawStars() {
+        const maxR = S.scale * 0.5;
+        ctx.globalAlpha = 1;
+
+        ctx.fillStyle = S.ink;
+        for (const p of particles) {
+            const outer = maxR * p.scale;
+            const inner = outer * 0.4;
+            const pts = 5;
+            const rot = p.phase;
+            ctx.beginPath();
+            for (let i = 0; i <= pts * 2; i++) {
+                const a = (Math.PI * 2 / (pts * 2)) * i + rot;
+                const r = i % 2 === 0 ? outer : inner;
+                ctx.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r);
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        if (!S.fill) {
+            ctx.fillStyle = S.bg;
+            const shrink = S.strokeW;
+            for (const p of particles) {
+                const outer = Math.max(1, maxR * p.scale - shrink);
+                const inner = Math.max(0.5, outer * 0.4);
+                const pts = 5;
+                const rot = p.phase;
+                ctx.beginPath();
+                for (let i = 0; i <= pts * 2; i++) {
+                    const a = (Math.PI * 2 / (pts * 2)) * i + rot;
+                    const r = i % 2 === 0 ? outer : inner;
+                    ctx.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r);
+                }
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+    }
+
     const modes = {
-        none: drawNone, circles: drawCircles, net: drawNet,
+        none: drawNone, circles: drawCircles, squares: drawSquares,
+        grid: drawGrid, diamonds: drawDiamonds, crosses: drawCrosses,
+        lines: drawLines, stars: drawStars, net: drawNet,
         fragment: drawFragment,
     };
 
