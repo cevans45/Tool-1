@@ -10,8 +10,7 @@
     <div class="site-shell">
         <section class="hero" id="hero">
             <canvas id="hero-canvas"></canvas>
-            <div class="hero-inner">
-                <h1 class="hero-title"><span class="hero-letter">O</span><span class="hero-letter">V</span><span class="hero-letter">R</span><span class="hero-letter">T</span></h1>
+            <div class="hero-inner hero-inner--bottom">
                 <p class="hero-sub">Open Visual Responsive Tools</p>
                 <hr class="hero-rule">
                 <p class="hero-copy">
@@ -26,117 +25,140 @@
             const canvas = document.getElementById('hero-canvas');
             const ctx = canvas.getContext('2d');
             const hero = document.getElementById('hero');
-            const letters = document.querySelectorAll('.hero-letter');
+            const src = document.createElement('canvas');
+            const sctx = src.getContext('2d');
             let W, H, dpr;
             let mx = -9999, my = -9999;
-            let smx = 0, smy = 0;
-            const COUNT = 120;
-            const CONN = 140;
-            const MRAD = 200;
+            let smx, smy;
             let pts = [];
+            let ready = false;
+            const MRAD = 160;
+            const CONN = 22;
+            const SPRING = 0.04;
+            const DAMP = 0.88;
+            const PUSH = 50;
 
             function resize() {
                 const r = hero.getBoundingClientRect();
                 W = r.width; H = r.height;
-                dpr = devicePixelRatio || 1;
+                dpr = Math.max(1, devicePixelRatio || 1);
                 canvas.width = W * dpr;
                 canvas.height = H * dpr;
                 canvas.style.width = W + 'px';
                 canvas.style.height = H + 'px';
-                if (pts.length === 0) spawn();
+                smx = W / 2; smy = H / 2;
+                sampleText();
             }
 
-            function spawn() {
-                pts = [];
-                for (let i = 0; i < COUNT; i++) {
-                    pts.push({
-                        x: Math.random() * W,
-                        y: Math.random() * H,
-                        vx: (Math.random() - 0.5) * 0.5,
-                        vy: (Math.random() - 0.5) * 0.5,
-                        r: 1 + Math.random() * 2,
-                    });
+            function sampleText() {
+                src.width = canvas.width;
+                src.height = canvas.height;
+                sctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                sctx.clearRect(0, 0, W, H);
+                const fSize = Math.min(W * 0.28, H * 0.38);
+                sctx.font = '400 ' + fSize + 'px "NG Hofmann", sans-serif';
+                sctx.textBaseline = 'middle';
+                sctx.fillStyle = '#000';
+                const word = 'OVRT';
+                const gap = fSize * 0.22;
+                let totalW = 0;
+                for (let i = 0; i < word.length; i++) totalW += sctx.measureText(word[i]).width;
+                totalW += gap * (word.length - 1);
+                let cx = (W - totalW) / 2;
+                for (let i = 0; i < word.length; i++) {
+                    const m = sctx.measureText(word[i]);
+                    sctx.fillText(word[i], cx, H * 0.42);
+                    cx += m.width + gap;
                 }
+
+                const img = sctx.getImageData(0, 0, src.width, src.height);
+                const d = img.data;
+                const aW = src.width, aH = src.height;
+                const step = Math.max(3, Math.round(6 * dpr));
+
+                pts = [];
+                for (let py = 0; py < aH; py += step) {
+                    for (let px = 0; px < aW; px += step) {
+                        if (d[(py * aW + px) * 4 + 3] < 80) continue;
+                        const cx = px / dpr;
+                        const cy = py / dpr;
+                        const isEdge =
+                            px > 0 && d[(py * aW + px - 1) * 4 + 3] < 80 ||
+                            px < aW - 1 && d[(py * aW + px + 1) * 4 + 3] < 80 ||
+                            py > 0 && d[((py - 1) * aW + px) * 4 + 3] < 80 ||
+                            py < aH - 1 && d[((py + 1) * aW + px) * 4 + 3] < 80;
+                        pts.push({
+                            hx: cx, hy: cy,
+                            x: cx, y: cy,
+                            vx: 0, vy: 0,
+                            r: isEdge ? 1.8 + Math.random() * 0.8 : 1.0 + Math.random() * 0.6,
+                            edge: isEdge,
+                            phase: Math.random() * Math.PI * 2,
+                        });
+                    }
+                }
+                ready = true;
             }
 
             function tick() {
-                smx += (mx - smx) * 0.08;
-                smy += (my - smy) * 0.08;
+                if (!ready) { requestAnimationFrame(tick); return; }
 
-                const ncx = (smx / W - 0.5) * 2;
-                const ncy = (smy / H - 0.5) * 2;
-                for (let i = 0; i < letters.length; i++) {
-                    const depth = (i - 1.5) * 18;
-                    const tx = ncx * depth;
-                    const ty = ncy * depth * 0.5;
-                    const skew = ncx * (i - 1.5) * 1.2;
-                    letters[i].style.transform =
-                        'translate(' + tx.toFixed(1) + 'px,' + ty.toFixed(1) + 'px) skewY(' + skew.toFixed(2) + 'deg)';
+                smx += (mx > -999 ? mx - smx : W / 2 - smx) * 0.06;
+                smy += (my > -999 ? my - smy : H * 0.42 - smy) * 0.06;
+
+                const t = performance.now() * 0.001;
+
+                for (const p of pts) {
+                    const dx = p.x - smx, dy = p.y - smy;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < MRAD && dist > 0.1) {
+                        const f = (1 - dist / MRAD);
+                        p.vx += (dx / dist) * f * PUSH * 0.016;
+                        p.vy += (dy / dist) * f * PUSH * 0.016;
+                    }
+
+                    p.vx += (p.hx - p.x) * SPRING;
+                    p.vy += (p.hy - p.y) * SPRING;
+                    p.vx *= DAMP;
+                    p.vy *= DAMP;
+                    p.x += p.vx;
+                    p.y += p.vy;
                 }
 
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 ctx.clearRect(0, 0, W, H);
 
-                for (const p of pts) {
-                    const dx = p.x - smx, dy = p.y - smy;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < MRAD && dist > 0.1) {
-                        const f = (1 - dist / MRAD) * 0.08;
-                        p.vx += (dx / dist) * f;
-                        p.vy += (dy / dist) * f;
-                    }
-                    p.x += p.vx; p.y += p.vy;
-                    p.vx *= 0.993; p.vy *= 0.993;
-                    if (p.x < 0) { p.x = 0; p.vx *= -0.5; }
-                    if (p.x > W) { p.x = W; p.vx *= -0.5; }
-                    if (p.y < 0) { p.y = 0; p.vy *= -0.5; }
-                    if (p.y > H) { p.y = H; p.vy *= -0.5; }
-                }
-
-                ctx.lineWidth = 0.6;
+                ctx.lineWidth = 0.5;
+                const connDist = CONN;
                 for (let i = 0; i < pts.length; i++) {
                     const a = pts[i];
+                    if (!a.edge) continue;
                     for (let j = i + 1; j < pts.length; j++) {
                         const b = pts[j];
+                        if (!b.edge) continue;
                         const d = Math.hypot(a.x - b.x, a.y - b.y);
-                        if (d > CONN) continue;
-                        const fade = 1 - d / CONN;
-                        ctx.strokeStyle = 'rgba(246,246,244,' + (fade * 0.18).toFixed(3) + ')';
+                        if (d > connDist || d < 0.5) continue;
+                        const fade = 1 - d / connDist;
+                        ctx.strokeStyle = 'rgba(246,246,244,' + (fade * 0.15).toFixed(3) + ')';
                         ctx.beginPath();
                         ctx.moveTo(a.x, a.y);
                         ctx.lineTo(b.x, b.y);
                         ctx.stroke();
                     }
-                    if (mx > -999) {
-                        const dm = Math.hypot(a.x - smx, a.y - smy);
-                        if (dm < MRAD * 1.5) {
-                            const fade = 1 - dm / (MRAD * 1.5);
-                            ctx.strokeStyle = 'rgba(246,246,244,' + (fade * 0.3).toFixed(3) + ')';
-                            ctx.beginPath();
-                            ctx.moveTo(a.x, a.y);
-                            ctx.lineTo(smx, smy);
-                            ctx.stroke();
-                        }
-                    }
                 }
 
                 for (const p of pts) {
                     const dm = Math.hypot(p.x - smx, p.y - smy);
-                    const glow = mx > -999 && dm < MRAD ? (1 - dm / MRAD) * 0.5 : 0;
-                    ctx.globalAlpha = 0.35 + glow;
+                    const near = dm < MRAD ? (1 - dm / MRAD) : 0;
+                    const a = p.edge ? 0.7 + near * 0.3 : 0.25 + near * 0.35;
+                    ctx.globalAlpha = a;
                     ctx.fillStyle = '#f6f6f4';
                     ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.r + glow * 3, 0, Math.PI * 2);
+                    ctx.arc(p.x, p.y, p.r + near * 1.5, 0, Math.PI * 2);
                     ctx.fill();
                 }
                 ctx.globalAlpha = 1;
-
-                if (mx > -999) {
-                    ctx.fillStyle = 'rgba(246,246,244,0.15)';
-                    ctx.beginPath();
-                    ctx.arc(smx, smy, 4, 0, Math.PI * 2);
-                    ctx.fill();
-                }
 
                 requestAnimationFrame(tick);
             }
@@ -148,7 +170,8 @@
             });
             hero.addEventListener('mouseleave', () => { mx = -9999; my = -9999; });
 
-            window.addEventListener('resize', resize);
+            window.addEventListener('resize', () => { resize(); });
+            document.fonts.ready.then(() => { resize(); });
             resize();
             requestAnimationFrame(tick);
         })();
