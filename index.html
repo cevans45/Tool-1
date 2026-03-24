@@ -25,12 +25,205 @@
             const canvas = document.getElementById('hero-canvas');
             const ctx = canvas.getContext('2d');
             const hero = document.getElementById('hero');
-            const tmp = document.createElement('canvas');
-            const tc = tmp.getContext('2d');
             let W, H, dpr;
-            const WORD = 'OVRT';
-            const letters = [];
-            let dragging = null;
+            let mx = -9999, my = -9999;
+            let bodies = [];
+            let mouseR;
+            const SUB = 8;
+
+            function rasterLetter(ch, fs) {
+                const cw = Math.ceil(fs * 1.2), ch2 = Math.ceil(fs * 1.4);
+                const c = document.createElement('canvas');
+                c.width = cw; c.height = ch2;
+                const g = c.getContext('2d');
+                g.font = '400 ' + fs + 'px "NG Hofmann", sans-serif';
+                g.textAlign = 'center';
+                g.textBaseline = 'middle';
+                g.fillStyle = '#fff';
+                g.fillText(ch, cw / 2, ch2 / 2);
+                const id = g.getImageData(0, 0, cw, ch2);
+                const alpha = new Uint8Array(cw * ch2);
+                for (let i = 0; i < alpha.length; i++) alpha[i] = id.data[i * 4 + 3];
+                return { alpha, w: cw, h: ch2 };
+            }
+
+            function findEdges(alpha, w, h) {
+                const out = [];
+                for (let y = 1; y < h - 1; y++)
+                    for (let x = 1; x < w - 1; x++) {
+                        if (alpha[y * w + x] < 128) continue;
+                        if (alpha[y*w+x-1]<128 || alpha[y*w+x+1]<128 ||
+                            alpha[(y-1)*w+x]<128 || alpha[(y+1)*w+x]<128)
+                            out.push(x, y);
+                    }
+                return out;
+            }
+
+            function traceChains(ef, w) {
+                const n = ef.length / 2;
+                const lookup = new Map();
+                for (let i = 0; i < n; i++) lookup.set(ef[i*2] + ef[i*2+1] * w, i);
+                const vis = new Uint8Array(n);
+                const chains = [];
+                const dirs = [[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[-1,-1],[1,-1]];
+                for (let si = 0; si < n; si++) {
+                    if (vis[si]) continue;
+                    const chain = [];
+                    let ci = si;
+                    while (ci >= 0 && !vis[ci]) {
+                        vis[ci] = 1;
+                        const px = ef[ci*2], py = ef[ci*2+1];
+                        chain.push(px, py);
+                        ci = -1;
+                        for (const [dx, dy] of dirs) {
+                            const ni = lookup.get((px+dx) + (py+dy) * w);
+                            if (ni !== undefined && !vis[ni]) { ci = ni; break; }
+                        }
+                    }
+                    if (chain.length >= 60) chains.push(chain);
+                }
+                return chains;
+            }
+
+            function resample(flat, targetN) {
+                const n = flat.length / 2;
+                let len = 0;
+                for (let i = 1; i < n; i++)
+                    len += Math.hypot(flat[i*2]-flat[(i-1)*2], flat[i*2+1]-flat[(i-1)*2+1]);
+                len += Math.hypot(flat[0]-flat[(n-1)*2], flat[1]-flat[(n-1)*2+1]);
+                const spacing = len / targetN;
+                const pts = [{x: flat[0], y: flat[1]}];
+                let acc = 0;
+                for (let i = 1; i <= n && pts.length < targetN; i++) {
+                    const ci = (i % n) * 2, pi = ((i-1) % n) * 2;
+                    acc += Math.hypot(flat[ci]-flat[pi], flat[ci+1]-flat[pi+1]);
+                    if (acc >= spacing) { pts.push({x: flat[ci], y: flat[ci+1]}); acc = 0; }
+                }
+                return pts;
+            }
+
+            function makeBody(pts, ox, oy, color, hx, hy) {
+                const n = pts.length;
+                const P = pts.map(p => ({
+                    x: p.x + ox, y: p.y + oy,
+                    px: p.x + ox, py: p.y + oy,
+                }));
+                const C = [];
+                for (let i = 0; i < n; i++) {
+                    for (let skip = 1; skip <= 3; skip++) {
+                        const j = (i + skip) % n;
+                        const d = Math.hypot(P[i].x-P[j].x, P[i].y-P[j].y);
+                        C.push({a:i, b:j, d, s: skip===1 ? 0.7 : skip===2 ? 0.25 : 0.08});
+                    }
+                }
+                let area = 0;
+                for (let i = 0; i < n; i++) {
+                    const j = (i+1) % n;
+                    area += P[i].x * P[j].y - P[j].x * P[i].y;
+                }
+                return { P, C, A: area / 2 * 0.9, n, color, hx, hy };
+            }
+
+            function stepBody(b) {
+                const {P, C, A, n, hx, hy} = b;
+                const t = performance.now() * 0.001;
+                for (const p of P) {
+                    const vx = (p.x - p.px) * 0.993, vy = (p.y - p.py) * 0.993;
+                    p.px = p.x; p.py = p.y;
+                    p.x += vx; p.y += vy;
+                }
+                let cx = 0, cy = 0;
+                for (const p of P) { cx += p.x; cy += p.y; }
+                cx /= n; cy /= n;
+                const str = 0.0012;
+                for (const p of P) { p.x += (hx - cx) * str; p.y += (hy - cy) * str; }
+                for (const p of P) {
+                    p.x += Math.sin(t * 0.25 + p.x * 0.005) * 0.06;
+                    p.y += Math.cos(t * 0.3 + p.y * 0.005) * 0.06;
+                }
+                if (mx > -999) {
+                    for (const p of P) {
+                        const dx = p.x - mx, dy = p.y - my;
+                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        if (dist < mouseR && dist > 0.5) {
+                            const push = ((mouseR - dist) / mouseR) * 5;
+                            p.x += (dx/dist) * push; p.y += (dy/dist) * push;
+                        }
+                    }
+                }
+                for (const c of C) {
+                    const pa = P[c.a], pb = P[c.b];
+                    const dx = pb.x-pa.x, dy = pb.y-pa.y;
+                    const dist = Math.sqrt(dx*dx+dy*dy);
+                    if (dist < 0.01) continue;
+                    const diff = (dist - c.d) / dist * c.s * 0.5;
+                    pa.x += dx*diff; pa.y += dy*diff;
+                    pb.x -= dx*diff; pb.y -= dy*diff;
+                }
+                let cur = 0;
+                for (let i = 0; i < n; i++) {
+                    const j = (i+1)%n;
+                    cur += P[i].x*P[j].y - P[j].x*P[i].y;
+                }
+                cur /= 2;
+                const ad = (A - cur) / Math.abs(A || 1);
+                for (let i = 0; i < n; i++) {
+                    const prev = P[(i+n-1)%n], next = P[(i+1)%n];
+                    const lx = next.x-prev.x, ly = next.y-prev.y;
+                    const len = Math.sqrt(lx*lx+ly*ly);
+                    if (len < 0.01) continue;
+                    P[i].x += (-ly/len) * ad;
+                    P[i].y += (lx/len) * ad;
+                }
+                for (const p of P) {
+                    if (p.x < 2) p.x = 2; if (p.x > W-2) p.x = W-2;
+                    if (p.y < 2) p.y = 2; if (p.y > H-2) p.y = H-2;
+                }
+            }
+
+            function drawBody(b) {
+                const {P, n, color} = b;
+                if (n < 3) return;
+                ctx.fillStyle = color;
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                ctx.moveTo((P[0].x+P[1].x)/2, (P[0].y+P[1].y)/2);
+                for (let i = 1; i <= n; i++) {
+                    const c = P[i%n], nx = P[(i+1)%n];
+                    ctx.quadraticCurveTo(c.x, c.y, (c.x+nx.x)/2, (c.y+nx.y)/2);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            function buildAll() {
+                bodies = [];
+                const word = 'OVRT';
+                const fs = Math.min(W * 0.45, H * 0.45);
+                const tmp = document.createElement('canvas');
+                const tc = tmp.getContext('2d');
+                for (let i = 0; i < 4; i++) {
+                    const ch = word[i];
+                    const col = i % 2, row = Math.floor(i / 2);
+                    const hx = W * (col ? 0.75 : 0.25);
+                    const hy = H * (row ? 0.68 : 0.35);
+                    const r = rasterLetter(ch, fs);
+                    const ef = findEdges(r.alpha, r.w, r.h);
+                    const chains = traceChains(ef, r.w);
+                    chains.sort((a, b) => b.length - a.length);
+                    const ox = hx - r.w / 2, oy = hy - r.h / 2;
+                    for (let ci = 0; ci < chains.length; ci++) {
+                        const tN = Math.min(100, Math.max(30, Math.floor(chains[ci].length / 8)));
+                        const pts = resample(chains[ci], tN);
+                        if (pts.length < 10) continue;
+                        const body = makeBody(pts, ox, oy, ci === 0 ? '#e8e8e4' : '#000', hx, hy);
+                        bodies.push(body);
+                    }
+                }
+            }
 
             function resize() {
                 const r = hero.getBoundingClientRect();
@@ -38,194 +231,31 @@
                 dpr = Math.max(1, devicePixelRatio || 1);
                 canvas.width = W * dpr; canvas.height = H * dpr;
                 canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-                if (letters.length === 0) initLetters();
-                else repositionHomes();
-            }
-
-            function homeFor(i) {
-                const col = i % 2, row = Math.floor(i / 2);
-                return {
-                    x: W * (col === 0 ? 0.25 : 0.75),
-                    y: H * (row === 0 ? 0.35 : 0.7),
-                };
-            }
-
-            function initLetters() {
-                letters.length = 0;
-                const fs = Math.min(W * 0.38, H * 0.38);
-                tmp.width = Math.ceil(fs * 1.2) * dpr;
-                tmp.height = Math.ceil(fs * 1.4) * dpr;
-                for (let i = 0; i < WORD.length; i++) {
-                    const ch = WORD[i];
-                    const home = homeFor(i);
-                    const pts = sampleLetter(ch, fs);
-                    letters.push({
-                        ch, pts, fs,
-                        hx: home.x, hy: home.y,
-                        x: home.x, y: home.y,
-                        vx: 0, vy: 0,
-                        ox: 0, oy: 0,
-                        phase: Math.random() * 6.28,
-                        w: tmp.width / dpr, h: tmp.height / dpr,
-                    });
-                }
-            }
-
-            function repositionHomes() {
-                const fs = Math.min(W * 0.38, H * 0.38);
-                for (let i = 0; i < letters.length; i++) {
-                    const home = homeFor(i);
-                    letters[i].hx = home.x;
-                    letters[i].hy = home.y;
-                    if (letters[i].fs !== fs) {
-                        letters[i].fs = fs;
-                        tmp.width = Math.ceil(fs * 1.2) * dpr;
-                        tmp.height = Math.ceil(fs * 1.4) * dpr;
-                        letters[i].pts = sampleLetter(letters[i].ch, fs);
-                        letters[i].w = tmp.width / dpr;
-                        letters[i].h = tmp.height / dpr;
-                    }
-                }
-            }
-
-            function sampleLetter(ch, fs) {
-                const cw = Math.ceil(fs * 1.2), ch2 = Math.ceil(fs * 1.4);
-                tmp.width = cw * dpr; tmp.height = ch2 * dpr;
-                tc.setTransform(dpr, 0, 0, dpr, 0, 0);
-                tc.clearRect(0, 0, cw, ch2);
-                tc.font = '400 ' + fs + 'px "NG Hofmann", sans-serif';
-                tc.textAlign = 'center';
-                tc.textBaseline = 'middle';
-                tc.fillStyle = '#000';
-                tc.fillText(ch, cw / 2, ch2 / 2);
-                const img = tc.getImageData(0, 0, tmp.width, tmp.height);
-                const d = img.data, aW = tmp.width, aH = tmp.height;
-                const step = Math.max(2, Math.round(4 * dpr));
-                const pts = [];
-                for (let py = 0; py < aH; py += step) {
-                    for (let px = 0; px < aW; px += step) {
-                        if (d[(py * aW + px) * 4 + 3] < 80) continue;
-                        const lx = px / dpr - cw / 2;
-                        const ly = py / dpr - ch2 / 2;
-                        const edge =
-                            (px > 0 && d[(py * aW + px - 1) * 4 + 3] < 80) ||
-                            (px < aW - 1 && d[(py * aW + px + 1) * 4 + 3] < 80) ||
-                            (py > 0 && d[((py - 1) * aW + px) * 4 + 3] < 80) ||
-                            (py < aH - 1 && d[((py + 1) * aW + px) * 4 + 3] < 80);
-                        pts.push({
-                            lx, ly,
-                            ox: 0, oy: 0,
-                            vx: 0, vy: 0,
-                            r: edge ? 1.6 + Math.random() * 0.8 : 0.7 + Math.random() * 0.5,
-                            edge, phase: Math.random() * 6.28,
-                        });
-                    }
-                }
-                return pts;
-            }
-
-            function hitTest(mx, my) {
-                for (let i = letters.length - 1; i >= 0; i--) {
-                    const L = letters[i];
-                    const hw = L.w / 2, hh = L.h / 2;
-                    if (mx > L.x - hw && mx < L.x + hw && my > L.y - hh && my < L.y + hh) return i;
-                }
-                return -1;
+                mouseR = Math.min(W, H) * 0.1;
+                buildAll();
             }
 
             function tick() {
-                const t = performance.now() * 0.001;
+                for (let s = 0; s < SUB; s++)
+                    for (const b of bodies) stepBody(b);
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 ctx.clearRect(0, 0, W, H);
-
-                for (const L of letters) {
-                    if (L !== (dragging && dragging.L)) {
-                        L.vx += (L.hx - L.x) * 0.012;
-                        L.vy += (L.hy - L.y) * 0.012;
-                    }
-                    const drift = 8;
-                    L.vx += Math.cos(t * 0.3 + L.phase) * drift * 0.001;
-                    L.vy += Math.sin(t * 0.4 + L.phase * 1.3) * drift * 0.001;
-                    L.vx *= 0.96; L.vy *= 0.96;
-                    L.x += L.vx; L.y += L.vy;
-
-                    for (const p of L.pts) {
-                        const jitter = 0.3;
-                        p.vx += -p.ox * 0.06 + Math.cos(t * 1.2 + p.phase) * jitter;
-                        p.vy += -p.oy * 0.06 + Math.sin(t * 1.5 + p.phase) * jitter;
-                        p.vx *= 0.9; p.vy *= 0.9;
-                        p.ox += p.vx; p.oy += p.vy;
-                    }
-
-                    const CONN = 14;
-                    ctx.lineWidth = 0.5;
-                    for (let i = 0; i < L.pts.length; i++) {
-                        const a = L.pts[i];
-                        if (!a.edge) continue;
-                        const ax = L.x + a.lx + a.ox, ay = L.y + a.ly + a.oy;
-                        for (let j = i + 1; j < L.pts.length; j++) {
-                            const b = L.pts[j];
-                            if (!b.edge) continue;
-                            const bx = L.x + b.lx + b.ox, by = L.y + b.ly + b.oy;
-                            const dd = Math.hypot(ax - bx, ay - by);
-                            if (dd > CONN) continue;
-                            const fade = 1 - dd / CONN;
-                            ctx.strokeStyle = 'rgba(255,255,255,' + (fade * 0.25).toFixed(3) + ')';
-                            ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
-                        }
-                    }
-
-                    for (const p of L.pts) {
-                        const wx = L.x + p.lx + p.ox;
-                        const wy = L.y + p.ly + p.oy;
-                        ctx.globalAlpha = p.edge ? 0.9 : 0.45;
-                        ctx.fillStyle = '#fff';
-                        ctx.beginPath();
-                        ctx.arc(wx, wy, p.r, 0, 6.28);
-                        ctx.fill();
-                    }
+                for (const b of bodies) drawBody(b);
+                if (mx > -999) {
+                    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(mx, my, mouseR, 0, 6.28);
+                    ctx.stroke();
                 }
-                ctx.globalAlpha = 1;
                 requestAnimationFrame(tick);
             }
 
-            function onDown(e) {
-                e.preventDefault();
-                const rect = hero.getBoundingClientRect();
-                const px = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-                const py = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-                const idx = hitTest(px, py);
-                if (idx < 0) return;
-                const L = letters[idx];
-                dragging = { L, offX: px - L.x, offY: py - L.y };
-                L.vx = 0; L.vy = 0;
-                canvas.style.cursor = 'grabbing';
-            }
-            function onMove(e) {
-                if (!dragging) {
-                    const rect = hero.getBoundingClientRect();
-                    const px = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-                    const py = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-                    canvas.style.cursor = hitTest(px, py) >= 0 ? 'grab' : '';
-                    return;
-                }
-                const rect = hero.getBoundingClientRect();
-                const px = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
-                const py = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
-                dragging.L.x = px - dragging.offX;
-                dragging.L.y = py - dragging.offY;
-            }
-            function onUp() {
-                if (dragging) { canvas.style.cursor = 'grab'; dragging = null; }
-            }
-
-            canvas.addEventListener('mousedown', onDown);
-            canvas.addEventListener('mousemove', onMove);
-            window.addEventListener('mouseup', onUp);
-            canvas.addEventListener('touchstart', onDown, { passive: false });
-            canvas.addEventListener('touchmove', onMove, { passive: false });
-            window.addEventListener('touchend', onUp);
-
+            canvas.addEventListener('mousemove', e => {
+                const r = hero.getBoundingClientRect();
+                mx = e.clientX - r.left; my = e.clientY - r.top;
+            });
+            canvas.addEventListener('mouseleave', () => { mx = -9999; my = -9999; });
             window.addEventListener('resize', resize);
             document.fonts.ready.then(resize);
             resize();
