@@ -9,48 +9,258 @@
 <body>
     <div class="site-shell">
         <section class="hero" id="hero">
-            <div class="hero-stage">
-                <div class="hero-meta hero-meta--top">
-                    <span>Open Visual Responsive Tools</span>
-                    <span>Interactive visual playground</span>
-                </div>
-
-                <div class="ovrt-mark" aria-label="OVRT graphic wordmark">
-                    <div class="mark-letter mark-letter--o" aria-hidden="true">
-                        <span class="mark-shape o-shell"></span>
-                        <span class="mark-cut o-cut"></span>
-                    </div>
-
-                    <div class="mark-letter mark-letter--v" aria-hidden="true">
-                        <span class="mark-shape v-top"></span>
-                        <span class="mark-shape v-slope"></span>
-                        <span class="mark-shape v-stem"></span>
-                        <span class="mark-shape v-notch"></span>
-                    </div>
-
-                    <div class="mark-letter mark-letter--r" aria-hidden="true">
-                        <span class="mark-shape r-stem"></span>
-                        <span class="mark-shape r-top"></span>
-                        <span class="mark-shape r-bowl"></span>
-                        <span class="mark-cut r-cut"></span>
-                    </div>
-
-                    <div class="mark-letter mark-letter--t" aria-hidden="true">
-                        <span class="mark-shape t-bar"></span>
-                        <span class="mark-shape t-drop"></span>
-                        <span class="mark-shape t-arm"></span>
-                        <span class="mark-shape t-foot"></span>
-                    </div>
-                </div>
-
-                <div class="hero-meta hero-meta--bottom">
-                    <p class="hero-copy">
-                        A growing set of visual instruments for drawing, distortion, iteration, and fast composition.
-                    </p>
-                    <a class="hero-scroll" href="#tools">Browse tools</a>
-                </div>
+            <canvas id="hero-canvas"></canvas>
+            <div class="hero-inner hero-inner--bottom">
+                <p class="hero-sub">Open Visual Responsive Tools</p>
+                <hr class="hero-rule">
+                <p class="hero-copy">
+                    A growing set of visual instruments — draw, distort, generate, repeat.
+                </p>
             </div>
+            <span class="hero-scroll">Scroll</span>
         </section>
+
+        <script>
+        (function(){
+            const canvas = document.getElementById('hero-canvas');
+            const ctx = canvas.getContext('2d');
+            const hero = document.getElementById('hero');
+            let W, H, dpr;
+            let dragging = null;
+            let pmx = 0, pmy = 0;
+            let hmx = 0, hmy = 0;
+            const L = [];
+            const S = { sx: 1, sy: 1, bboxW: 1, bboxH: 1, fs: 100 };
+
+            function measureLetters(fs) {
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
+                const word = 'OVRT';
+                const widths = [];
+                for (const ch of word) widths.push(ctx.measureText(ch).width);
+                const m = ctx.measureText('O');
+                const asc = m.actualBoundingBoxAscent ?? fs * 0.38;
+                const desc = m.actualBoundingBoxDescent ?? fs * 0.38;
+                const glyphH = Math.max(asc + desc, fs * 0.84);
+                return { widths, glyphH, asc, desc };
+            }
+
+            /** Local layout: ink from (0,0) to (bboxW, bboxH). Draw with ctx scale sx,sy to fill the canvas. */
+            function buildNaturalLayout(fs) {
+                const { widths, glyphH } = measureLetters(fs);
+                const o = Math.min(fs * 0.18, Math.min(...widths) * 0.38);
+                let left = 0;
+                const hx = [];
+                for (let i = 0; i < 4; i++) {
+                    hx.push(left + widths[i] / 2);
+                    left += widths[i] - o;
+                }
+                const bboxW = left;
+                const bboxH = glyphH;
+                const hy = glyphH / 2;
+                return { widths, glyphH, hx, hy, bboxW, bboxH };
+            }
+
+            function init() {
+                L.length = 0;
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                const fs = Math.min(880, Math.max(W, H) * 0.58);
+                const lay = buildNaturalLayout(fs);
+                S.fs = fs;
+                S.bboxW = Math.max(lay.bboxW, 1);
+                S.bboxH = Math.max(lay.bboxH, 1);
+                S.sx = W / S.bboxW;
+                S.sy = H / S.bboxH;
+                const { widths, hx, hy } = lay;
+                ctx.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
+                const word = 'OVRT';
+                const letterColors = ['#00fff8', '#ff00e7', '#ffff00', '#ff00e7'];
+                for (let i = 0; i < 4; i++) {
+                    const ch = word[i];
+                    const hxI = hx[i];
+                    const hyI = hy;
+                    const tc = document.createElement('canvas');
+                    const tw = Math.ceil(widths[i] + 30), th = Math.ceil(fs * 1.35);
+                    tc.width = tw; tc.height = th;
+                    const tg = tc.getContext('2d');
+                    tg.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
+                    tg.textAlign = 'center'; tg.textBaseline = 'middle';
+                    tg.fillStyle = '#fff';
+                    tg.fillText(ch, tw / 2, th / 2);
+                    const id = tg.getImageData(0, 0, tw, th);
+                    const alpha = new Uint8Array(tw * th);
+                    for (let k = 0; k < alpha.length; k++) alpha[k] = id.data[k * 4 + 3];
+                    L.push({
+                        ch, x: hxI, y: hyI,
+                        vx: 0, vy: 0, hx: hxI, hy: hyI,
+                        fs, hw: widths[i] / 2, hh: fs * 0.44,
+                        rot: 0,
+                        sx: 1, sy: 1,
+                        phase: Math.random() * 6.28,
+                        alpha, aw: tw, ah: th,
+                        color: letterColors[i],
+                    });
+                }
+            }
+
+            function pointInLetter(l, px, py) {
+                if (!S.sx || !S.sy) return false;
+                const plx = px / S.sx;
+                const ply = py / S.sy;
+                const dx = plx - l.x, dy = ply - l.y;
+                const c = Math.cos(-l.rot), s = Math.sin(-l.rot);
+                const lx = dx * c - dy * s + l.aw / 2;
+                const ly = dx * s + dy * c + l.ah / 2;
+                const ix = Math.round(lx), iy = Math.round(ly);
+                if (ix < 0 || ix >= l.aw || iy < 0 || iy >= l.ah) return false;
+                return l.alpha[iy * l.aw + ix] > 60;
+            }
+
+            function tick() {
+                const t = performance.now() * 0.001;
+
+                for (const l of L) {
+                    if (dragging && l === dragging.l) continue;
+                    l.vx += (l.hx - l.x) * 0.0009;
+                    l.vy += (l.hy - l.y) * 0.0009;
+                    l.vx += Math.sin(t * 0.1 + l.phase) * 0.003;
+                    l.vy += Math.cos(t * 0.15 + l.phase * 1.3) * 0.003;
+                    l.vx *= 0.994; l.vy *= 0.994;
+                    l.x += l.vx; l.y += l.vy;
+                    const tRot = Math.atan2(l.vy, l.vx) * 0.02;
+                    l.rot += (tRot - l.rot) * 0.04;
+                    l.rot *= 0.97;
+                }
+
+                for (const l of L) {
+                    const speed = Math.sqrt(l.vx * l.vx + l.vy * l.vy);
+                    const sq = Math.min(speed * 0.005, 0.08);
+                    l.sx += (1 + sq - l.sx) * 0.06;
+                    l.sy += (1 - sq * 0.35 - l.sy) * 0.06;
+                    const m = S.fs * 0.48;
+                    const x0 = l.x, y0 = l.y;
+                    l.x = Math.max(m, Math.min(S.bboxW - m, l.x));
+                    l.y = Math.max(m, Math.min(S.bboxH - m, l.y));
+                    if (Math.abs(l.x - x0) > 0.5) l.vx *= -0.25;
+                    if (Math.abs(l.y - y0) > 0.5) l.vy *= -0.25;
+                }
+
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, W, H);
+                ctx.setTransform(S.sx * dpr, 0, 0, S.sy * dpr, 0, 0);
+                ctx.globalCompositeOperation = 'multiply';
+                for (const l of L) {
+                    ctx.save();
+                    ctx.translate(l.x, l.y);
+                    ctx.rotate(l.rot);
+                    ctx.scale(l.sx, l.sy);
+                    ctx.font = '600 ' + S.fs + 'px "NG Hofmann", sans-serif';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillStyle = l.color;
+                    ctx.fillText(l.ch, 0, 0);
+                    ctx.restore();
+                }
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.globalCompositeOperation = 'source-over';
+                requestAnimationFrame(tick);
+            }
+
+            function getXY(e) {
+                const r = hero.getBoundingClientRect();
+                const src = e.touches ? e.touches[0] : e;
+                return { x: src.clientX - r.left, y: src.clientY - r.top };
+            }
+
+            function hitTest(px, py) {
+                for (let i = L.length - 1; i >= 0; i--)
+                    if (pointInLetter(L[i], px, py)) return i;
+                return -1;
+            }
+
+            function startDrag(px, py) {
+                const idx = hitTest(px, py);
+                if (idx < 0) return false;
+                const l = L[idx];
+                const lx = px / S.sx, ly = py / S.sy;
+                dragging = { l, ox: lx - l.x, oy: ly - l.y };
+                l.vx = 0; l.vy = 0;
+                pmx = lx; pmy = ly;
+                canvas.style.cursor = 'grabbing';
+                return true;
+            }
+
+            function moveDrag(px, py) {
+                if (!dragging) return;
+                const l = dragging.l;
+                const lx = px / S.sx, ly = py / S.sy;
+                l.x = lx - dragging.ox;
+                l.y = ly - dragging.oy;
+                const m = S.fs * 0.48;
+                l.x = Math.max(m, Math.min(S.bboxW - m, l.x));
+                l.y = Math.max(m, Math.min(S.bboxH - m, l.y));
+                l.vx = (lx - pmx) * 0.4;
+                l.vy = (ly - pmy) * 0.4;
+                const grabY = dragging.oy;
+                const hangAngle = Math.atan2(l.vx, Math.max(10, -grabY)) * 0.3;
+                l.rot += (hangAngle - l.rot) * 0.15;
+                pmx = lx; pmy = ly;
+            }
+
+            canvas.addEventListener('mousedown', e => {
+                const p = getXY(e);
+                if (startDrag(p.x, p.y)) e.preventDefault();
+            });
+            canvas.addEventListener('mousemove', e => {
+                const p = getXY(e);
+                if (!dragging) {
+                    const mdx = p.x - hmx, mdy = p.y - hmy;
+                    hmx = p.x; hmy = p.y;
+                    const mspeed = Math.sqrt(mdx * mdx + mdy * mdy);
+                    if (mspeed > 2 && S.sx && S.sy) {
+                        for (const l of L) {
+                            if (pointInLetter(l, p.x, p.y)) {
+                                const push = Math.min(mspeed * 0.02, 0.6);
+                                l.vx += (mdx / mspeed) * push / S.sx;
+                                l.vy += (mdy / mspeed) * push / S.sy;
+                            }
+                        }
+                    }
+                    canvas.style.cursor = hitTest(p.x, p.y) >= 0 ? 'grab' : '';
+                    return;
+                }
+                moveDrag(p.x, p.y);
+            });
+            window.addEventListener('mouseup', () => {
+                if (dragging) { canvas.style.cursor = 'grab'; dragging = null; }
+            });
+            canvas.addEventListener('touchstart', e => {
+                const p = getXY(e);
+                if (startDrag(p.x, p.y)) e.preventDefault();
+            }, { passive: false });
+            canvas.addEventListener('touchmove', e => {
+                if (!dragging) return;
+                e.preventDefault();
+                moveDrag(getXY(e).x, getXY(e).y);
+            }, { passive: false });
+            window.addEventListener('touchend', () => { dragging = null; });
+
+            function resize() {
+                const r = hero.getBoundingClientRect();
+                W = r.width; H = r.height;
+                dpr = Math.max(1, devicePixelRatio || 1);
+                canvas.width = W * dpr; canvas.height = H * dpr;
+                canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+                init();
+            }
+
+            window.addEventListener('resize', resize);
+            document.fonts.ready.then(resize);
+            resize();
+            requestAnimationFrame(tick);
+        })();
+        </script>
 
         <main id="tools" class="site-grid" aria-label="Tools">
             <article class="site-card">
