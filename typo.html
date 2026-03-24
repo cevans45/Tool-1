@@ -76,8 +76,8 @@
                                 <label for="ty-mode">Mode</label>
                                 <select id="ty-mode" class="select-input">
                                     <option value="none">None</option>
-                                    <option value="net" selected>Net</option>
-                                    <option value="stroke">Stroke</option>
+                                    <option value="circles" selected>Circles</option>
+                                    <option value="net">Net</option>
                                     <option value="fragment">Fragment</option>
                                     <option value="grain">Grain</option>
                                     <option value="blob">Blob</option>
@@ -105,13 +105,13 @@
                             </div>
                             <div class="control-row">
                                 <label for="ty-scale">Scale</label>
-                                <input type="range" id="ty-scale" min="1" max="30" value="12" step="1">
-                                <span class="param-value" id="val-ty-scale">12</span>
+                                <input type="range" id="ty-scale" min="2" max="40" value="18" step="1">
+                                <span class="param-value" id="val-ty-scale">18</span>
                             </div>
                             <div class="control-row">
                                 <label for="ty-jitter">Jitter</label>
-                                <input type="range" id="ty-jitter" min="0" max="100" value="55" step="1">
-                                <span class="param-value" id="val-ty-jitter">55</span>
+                                <input type="range" id="ty-jitter" min="0" max="100" value="40" step="1">
+                                <span class="param-value" id="val-ty-jitter">40</span>
                             </div>
                             <div class="control-row">
                                 <label for="ty-weight">Weight</label>
@@ -184,17 +184,16 @@
     const S = {
         text: 'TYPO', fontSize: 140, letterSpacing: 0, lineHeight: 1.2,
         textAlign: 'center', fontFamily: 'sans-serif', fontFileName: null,
-        mode: 'net', density: 8, scale: 12, jitter: 55, weight: 6,
+        mode: 'circles', density: 8, scale: 18, jitter: 40, weight: 6,
         fill: true, strokeW: 1.5, paused: false,
         ink: '#111111', bg: '#f0ede8',
     };
 
-    // ─── Point system ────────────────────────────────────────────
+    // ─── Alpha mask ───────────────────────────────────────────────
 
-    let pts = [];
-    let connections = [];
     let alphaData = null;
     let alphaW = 0, alphaH = 0;
+    let particles = [];
     let animId = null;
     let needsRecompute = true;
 
@@ -251,141 +250,67 @@
         for (let i = 0; i < alphaW * alphaH; i++) alphaData[i] = d[i * 4 + 3];
     }
 
-    function inside(cx, cy) {
-        const px = Math.round(cx * dpr), py = Math.round(cy * dpr);
+    function insidePx(px, py) {
         if (px < 0 || px >= alphaW || py < 0 || py >= alphaH) return false;
-        return alphaData[py * alphaW + px] > 100;
+        return alphaData[py * alphaW + px] > 80;
     }
 
-    function isEdge(px, py) {
-        if (px < 1 || px >= alphaW - 1 || py < 1 || py >= alphaH - 1) return false;
-        const a = alphaData[py * alphaW + px];
-        if (a < 100) return false;
-        return alphaData[(py - 1) * alphaW + px] < 100 ||
-               alphaData[(py + 1) * alphaW + px] < 100 ||
-               alphaData[py * alphaW + px - 1] < 100 ||
-               alphaData[py * alphaW + px + 1] < 100;
+    function insideCSS(cx, cy) {
+        return insidePx(Math.round(cx * dpr), Math.round(cy * dpr));
     }
+
+    // ─── Bouncing particle system ─────────────────────────────────
 
     function recompute() {
         renderSource();
         extractAlpha();
 
-        const spacing = Math.max(2, 22 - S.density * 2);
-        const step = Math.max(2, Math.round(spacing * dpr));
-        const scatter = S.scale * 0.45;
-        pts = [];
+        const count = Math.round(60 + S.density * S.density * 4);
+        particles = [];
+        let attempts = 0;
+        const maxAttempts = count * 80;
 
-        function makePt(px, py, edge, stray) {
-            const gx = (alphaData[py * alphaW + Math.min(px + 1, alphaW - 1)] - alphaData[py * alphaW + Math.max(px - 1, 0)]) / 510;
-            const gy = (alphaData[Math.min(py + 1, alphaH - 1) * alphaW + px] - alphaData[Math.max(py - 1, 0) * alphaW + px]) / 510;
-            const glen = Math.sqrt(gx * gx + gy * gy) || 1;
+        while (particles.length < count && attempts < maxAttempts) {
+            const x = 20 + Math.random() * (cssW - 40);
+            const y = 20 + Math.random() * (cssH - 40);
+            attempts++;
+            if (!insideCSS(x, y)) continue;
 
-            const randOff = scatter * (0.3 + Math.random() * 0.7);
-            const randAng = Math.random() * Math.PI * 2;
-            const driftX = Math.cos(randAng) * randOff;
-            const driftY = Math.sin(randAng) * randOff;
-
-            const bx = px / dpr + driftX;
-            const by = py / dpr + driftY;
-
-            pts.push({
-                bx, by, x: bx, y: by,
-                tx: gy / glen, ty: -gx / glen,
-                nx: -gx / glen, ny: -gy / glen,
-                edge, stray: !!stray,
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 0.3 + Math.random() * 0.8;
+            particles.push({
+                x, y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                scale: 0.3 + Math.random() * 0.7,
                 phase: Math.random() * Math.PI * 2,
-                phase2: Math.random() * Math.PI * 2,
-                size: 0.3 + Math.random() * 0.7,
-                rot: Math.random() * Math.PI * 2,
-                driftX: (Math.random() - 0.5) * scatter * 1.5,
-                driftY: (Math.random() - 0.5) * scatter * 1.5,
-                speed: 0.6 + Math.random() * 0.8,
             });
         }
 
-        for (let py = 2; py < alphaH - 2; py += step) {
-            for (let px = 2; px < alphaW - 2; px += step) {
-                const a = alphaData[py * alphaW + px];
-                if (a < 100) continue;
-                const edge = isEdge(px, py);
-                makePt(px, py, edge, false);
-
-                if (edge && Math.random() < 0.55) {
-                    const gx = (alphaData[py * alphaW + Math.min(px + 1, alphaW - 1)] - alphaData[py * alphaW + Math.max(px - 1, 0)]) / 510;
-                    const gy = (alphaData[Math.min(py + 1, alphaH - 1) * alphaW + px] - alphaData[Math.max(py - 1, 0) * alphaW + px]) / 510;
-                    const glen = Math.sqrt(gx * gx + gy * gy) || 1;
-                    const nx = -gx / glen, ny = -gy / glen;
-                    const esc = scatter * (1.0 + Math.random() * 2.0);
-                    const spx = Math.round(px + nx * esc * dpr);
-                    const spy = Math.round(py + ny * esc * dpr);
-                    if (spx > 0 && spx < alphaW - 1 && spy > 0 && spy < alphaH - 1) {
-                        makePt(spx, spy, true, true);
-                    }
-                }
-            }
-        }
-
-        buildConnections();
         needsRecompute = false;
     }
 
-    function buildConnections() {
-        const radius = S.scale * 3.5;
-        const cellSize = radius;
-        const grid = {};
+    function stepParticles() {
+        const speedMul = S.jitter * 0.03;
+        for (const p of particles) {
+            const nx = p.x + p.vx * speedMul;
+            const ny = p.y + p.vy * speedMul;
 
-        for (let i = 0; i < pts.length; i++) {
-            const cx = Math.floor(pts[i].bx / cellSize);
-            const cy = Math.floor(pts[i].by / cellSize);
-            const key = cx + ',' + cy;
-            if (!grid[key]) grid[key] = [];
-            grid[key].push(i);
-        }
+            if (!insideCSS(nx, p.y)) p.vx *= -1;
+            if (!insideCSS(p.x, ny)) p.vy *= -1;
 
-        connections = [];
-        for (let i = 0; i < pts.length; i++) {
-            const cx = Math.floor(pts[i].bx / cellSize);
-            const cy = Math.floor(pts[i].by / cellSize);
-            for (let dx = -1; dx <= 1; dx++) {
-                for (let dy = -1; dy <= 1; dy++) {
-                    const cell = grid[(cx + dx) + ',' + (cy + dy)];
-                    if (!cell) continue;
-                    for (const j of cell) {
-                        if (j <= i) continue;
-                        const d = Math.hypot(pts[i].bx - pts[j].bx, pts[i].by - pts[j].by);
-                        if (d < radius && d > 0.5) {
-                            connections.push({ a: i, b: j, d });
-                        }
-                    }
-                }
+            p.x += p.vx * speedMul;
+            p.y += p.vy * speedMul;
+
+            if (!insideCSS(p.x, p.y)) {
+                p.vx *= -1; p.vy *= -1;
+                p.x += p.vx * speedMul * 3;
+                p.y += p.vy * speedMul * 3;
             }
         }
     }
 
-    // ─── Scratchy line (Elemenyt-style) ──────────────────────────
-
-    function scratchLine(x1, y1, x2, y2, dist, thick) {
-        if (dist < 0.5) return;
-        const segs = Math.max(2, Math.floor(dist / 1.2));
-        const dx = x2 - x1, dy = y2 - y1;
-        const nx = -dy / dist, ny = dx / dist;
-
-        ctx.beginPath();
-        ctx.moveTo(x1 + (Math.random() - 0.5) * thick * 0.5,
-                   y1 + (Math.random() - 0.5) * thick * 0.5);
-        for (let s = 1; s <= segs; s++) {
-            const t = s / segs;
-            const jAmp = thick * 0.45;
-            ctx.lineTo(
-                x1 + dx * t + (Math.random() - 0.5) * jAmp + (Math.random() - 0.5) * jAmp * nx,
-                y1 + dy * t + (Math.random() - 0.5) * jAmp + (Math.random() - 0.5) * jAmp * ny
-            );
-        }
-        ctx.stroke();
-    }
-
-    // ─── Drawing modes ───────────────────────────────────────────
+    // ─── Drawing modes ────────────────────────────────────────────
 
     function drawNone() {
         ctx.font = fontStr();
@@ -402,131 +327,101 @@
         }
     }
 
-    function drawNet() {
-        const thick = S.weight * 0.2;
-        const maxDist = S.scale * 3.5;
+    function drawCircles() {
+        const maxR = S.scale * 0.5;
+        ctx.globalAlpha = 1;
 
-        ctx.strokeStyle = S.ink;
-        ctx.lineCap = 'round';
-
-        for (const c of connections) {
-            const a = pts[c.a], b = pts[c.b];
-            const d = Math.hypot(a.x - b.x, a.y - b.y);
-            if (d > maxDist * 1.6) continue;
-            const fade = Math.max(0.05, 1 - d / (maxDist * 1.3));
-            ctx.globalAlpha = fade * 0.65;
-            ctx.lineWidth = S.fill
-                ? thick * fade * (0.4 + (a.edge || b.edge ? 1.0 : 0.3))
-                : S.strokeW * 0.6;
-            scratchLine(a.x, a.y, b.x, b.y, d, thick * 3);
-        }
-
-        for (const p of pts) {
-            if (!p.edge && Math.random() > 0.3) continue;
-            const r = thick * (0.3 + p.size * 0.6) * (p.stray ? 1.4 : 1);
-            ctx.globalAlpha = p.stray ? 0.4 + Math.random() * 0.3 : 0.75;
+        ctx.fillStyle = S.ink;
+        for (const p of particles) {
+            const r = maxR * p.scale;
             ctx.beginPath();
             ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-            if (S.fill) {
-                ctx.fillStyle = S.ink;
+            ctx.fill();
+        }
+
+        if (!S.fill) {
+            ctx.fillStyle = S.bg;
+            const inset = Math.max(1, S.strokeW);
+            for (const p of particles) {
+                const r = maxR * p.scale;
+                const inner = Math.max(0.5, r - inset);
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, inner, 0, Math.PI * 2);
                 ctx.fill();
-            } else {
-                ctx.strokeStyle = S.ink;
-                ctx.lineWidth = S.strokeW;
-                ctx.stroke();
             }
         }
-        ctx.globalAlpha = 1;
     }
 
-    function drawStroke() {
-        const thick = S.fill ? S.weight * 0.35 : S.strokeW;
+    function drawNet() {
+        const maxR = S.scale * 0.4;
+        const connDist = S.scale * 3;
+        const lineW = S.weight * 0.12;
 
         ctx.strokeStyle = S.ink;
         ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
 
-        const edgePts = pts.filter(p => p.edge);
-        const passes = S.fill ? 4 : 2;
-
-        for (let pass = 0; pass < passes; pass++) {
-            const jAmp = (pass + 1) * thick * (S.fill ? 0.6 : 1.2);
-            ctx.lineWidth = S.fill ? thick * (1.4 - pass * 0.25) : S.strokeW * (1.2 - pass * 0.2);
-            ctx.globalAlpha = 0.45 - pass * 0.08;
-
-            ctx.beginPath();
-            let penDown = false;
-            for (let i = 0; i < edgePts.length; i++) {
-                const p = edgePts[i];
-                const next = edgePts[i + 1];
-                const jx = (Math.random() - 0.5) * jAmp + p.driftX * 0.3;
-                const jy = (Math.random() - 0.5) * jAmp + p.driftY * 0.3;
-
-                if (!next || Math.hypot(p.x - next.x, p.y - next.y) > S.scale * 4) {
-                    if (penDown) ctx.stroke();
-                    ctx.beginPath();
-                    ctx.moveTo(p.x + jx, p.y + jy);
-                    penDown = true;
-                } else {
-                    ctx.lineTo(p.x + jx, p.y + jy);
-                }
-            }
-            if (penDown) ctx.stroke();
-        }
-
-        if (S.fill) {
-            ctx.lineWidth = thick * 0.5;
-            const fillPts = pts.filter(p => !p.edge);
-            for (const p of fillPts) {
-                if (Math.random() > 0.45) continue;
-                const len = S.scale * 1.2 * p.size;
-                const angJitter = (Math.random() - 0.5) * 0.8;
-                const tx = p.tx * Math.cos(angJitter) - p.ty * Math.sin(angJitter);
-                const ty = p.tx * Math.sin(angJitter) + p.ty * Math.cos(angJitter);
-                ctx.globalAlpha = 0.15 + Math.random() * 0.15;
+        for (let i = 0; i < particles.length; i++) {
+            const a = particles[i];
+            for (let j = i + 1; j < particles.length; j++) {
+                const b = particles[j];
+                const d = Math.hypot(a.x - b.x, a.y - b.y);
+                if (d > connDist) continue;
+                const fade = 1 - d / connDist;
+                ctx.globalAlpha = fade * 0.5;
+                ctx.lineWidth = lineW * fade;
                 ctx.beginPath();
-                ctx.moveTo(p.x - tx * len, p.y - ty * len);
-                ctx.lineTo(p.x + tx * len, p.y + ty * len);
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
                 ctx.stroke();
             }
         }
+
         ctx.globalAlpha = 1;
+        ctx.fillStyle = S.ink;
+        for (const p of particles) {
+            const r = maxR * p.scale;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        if (!S.fill) {
+            ctx.fillStyle = S.bg;
+            const inset = Math.max(1, S.strokeW);
+            for (const p of particles) {
+                const r = maxR * p.scale;
+                const inner = Math.max(0.5, r - inset);
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, inner, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
     }
 
     function drawFragment() {
-        const sz = S.scale * 0.85;
-
-        ctx.strokeStyle = S.ink;
+        const maxR = S.scale * 0.5;
         ctx.fillStyle = S.ink;
-        ctx.lineJoin = 'miter';
+        ctx.strokeStyle = S.ink;
+        ctx.lineJoin = 'round';
 
-        for (const p of pts) {
-            const sides = 3 + Math.floor(p.size * 4);
-            const r = sz * (0.3 + p.size * 0.9) * (p.stray ? 1.3 : 1);
-            const rot = p.rot + p.phase * 0.5;
-            const alpha = p.edge ? 0.65 : (p.stray ? 0.3 : 0.25);
-            ctx.globalAlpha = alpha;
+        for (const p of particles) {
+            const r = maxR * p.scale;
+            const sides = 3 + Math.floor(p.scale * 4);
+            const rot = p.phase;
+            ctx.globalAlpha = 0.85;
 
             ctx.beginPath();
             for (let v = 0; v <= sides; v++) {
                 const a = (Math.PI * 2 / sides) * v + rot;
-                const wobble = 0.5 + Math.sin(a * 2.7 + p.phase) * 0.35
-                             + Math.cos(a * 4.1 + p.phase2) * 0.15;
-                const vr = r * wobble;
-                const vx = p.x + Math.cos(a) * vr + (Math.random() - 0.5) * sz * 0.2;
-                const vy = p.y + Math.sin(a) * vr + (Math.random() - 0.5) * sz * 0.2;
+                const vx = p.x + Math.cos(a) * r;
+                const vy = p.y + Math.sin(a) * r;
                 if (v === 0) ctx.moveTo(vx, vy);
                 else ctx.lineTo(vx, vy);
             }
             ctx.closePath();
 
             if (S.fill) {
-                if (p.edge || Math.random() < 0.4) {
-                    ctx.fill();
-                } else {
-                    ctx.lineWidth = S.weight * 0.1;
-                    ctx.stroke();
-                }
+                ctx.fill();
             } else {
                 ctx.lineWidth = S.strokeW;
                 ctx.stroke();
@@ -538,55 +433,53 @@
     function drawGrain() {
         ctx.fillStyle = S.ink;
         ctx.strokeStyle = S.ink;
-        const maxR = S.weight * 0.16;
-        const spread = S.scale * 1.4;
+        const maxR = S.weight * 0.08;
+        const spread = S.scale * 0.6;
 
-        for (const p of pts) {
-            const count = p.edge ? 6 : 3;
+        ctx.globalAlpha = 1;
+        for (const p of particles) {
+            const count = 3 + Math.floor(p.scale * 4);
             for (let i = 0; i < count; i++) {
                 const ang = Math.random() * Math.PI * 2;
-                const dist = Math.random() * spread * (0.3 + p.size);
-                const ox = Math.cos(ang) * dist;
-                const oy = Math.sin(ang) * dist;
-                const r = maxR * (0.2 + Math.random() * 0.8) * p.size;
-                ctx.globalAlpha = p.edge ? 0.5 + Math.random() * 0.35 : 0.15 + Math.random() * 0.2;
+                const dist = Math.random() * spread;
+                const r = maxR * (0.4 + Math.random() * 0.6);
+                const ox = p.x + Math.cos(ang) * dist;
+                const oy = p.y + Math.sin(ang) * dist;
                 ctx.beginPath();
-                ctx.arc(p.x + ox, p.y + oy, r, 0, Math.PI * 2);
+                ctx.arc(ox, oy, r, 0, Math.PI * 2);
                 if (S.fill) {
                     ctx.fill();
                 } else {
-                    ctx.lineWidth = S.strokeW * 0.5;
+                    ctx.lineWidth = S.strokeW * 0.4;
                     ctx.stroke();
                 }
             }
         }
-        ctx.globalAlpha = 1;
     }
 
     function drawBlob() {
+        const maxR = S.scale * 0.6;
         ctx.fillStyle = S.ink;
         ctx.strokeStyle = S.ink;
-        const baseR = S.scale * 0.7;
 
-        for (const p of pts) {
-            if (!p.edge && Math.random() > 0.6) continue;
-            const r = baseR * (0.4 + p.size * 1.0) * (p.stray ? 1.3 : 1);
-            const wobbleN = 3 + Math.floor(p.size * 5);
-            ctx.globalAlpha = p.edge ? 0.5 : (p.stray ? 0.2 : 0.18);
+        for (const p of particles) {
+            const r = maxR * (0.4 + p.scale * 0.6);
+            const wobbleN = 3 + Math.floor(p.scale * 4);
+            ctx.globalAlpha = 0.7;
 
             ctx.beginPath();
-            const steps = 24;
+            const steps = 20;
             for (let i = 0; i <= steps; i++) {
                 const a = (Math.PI * 2 / steps) * i;
-                const wobble = 1 + Math.sin(a * wobbleN + p.phase) * 0.4
-                             + Math.cos(a * (wobbleN + 3) + p.phase2) * 0.25
-                             + Math.sin(a * 1.5 + p.rot) * 0.15;
+                const wobble = 1 + Math.sin(a * wobbleN + p.phase) * 0.35
+                             + Math.cos(a * (wobbleN + 2) + p.phase * 1.7) * 0.2;
                 const vx = p.x + Math.cos(a) * r * wobble;
                 const vy = p.y + Math.sin(a) * r * wobble;
                 if (i === 0) ctx.moveTo(vx, vy);
                 else ctx.lineTo(vx, vy);
             }
             ctx.closePath();
+
             if (S.fill) {
                 ctx.fill();
             } else {
@@ -598,7 +491,7 @@
     }
 
     const modes = {
-        none: drawNone, net: drawNet, stroke: drawStroke,
+        none: drawNone, circles: drawCircles, net: drawNet,
         fragment: drawFragment, grain: drawGrain, blob: drawBlob,
     };
 
@@ -607,22 +500,7 @@
     function tick() {
         if (!animId) return;
 
-        const t = performance.now() / 1000;
-        const jAmp = S.jitter * 0.12 * (S.scale * 0.2 + 0.6);
-
-        for (const p of pts) {
-            const sp = p.speed;
-            const jx = Math.sin(t * 2.1 * sp + p.phase) * jAmp
-                      + Math.sin(t * 5.3 * sp + p.phase2) * jAmp * 0.45
-                      + Math.sin(t * 0.7 + p.phase * 3) * jAmp * 0.6;
-            const jy = Math.cos(t * 1.7 * sp + p.phase2) * jAmp
-                      + Math.cos(t * 4.1 * sp + p.phase) * jAmp * 0.45
-                      + Math.cos(t * 0.9 + p.phase2 * 2) * jAmp * 0.6;
-            const driftScale = S.jitter * 0.008;
-            p.x = p.bx + jx + p.driftX * driftScale * Math.sin(t * 0.4 + p.phase);
-            p.y = p.by + jy + p.driftY * driftScale * Math.cos(t * 0.3 + p.phase2);
-            p.rot += (Math.sin(t * sp + p.phase) * 0.008) * (S.jitter * 0.02);
-        }
+        stepParticles();
 
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.fillStyle = S.bg;
@@ -646,13 +524,12 @@
     function fullRender() {
         if (needsRecompute) recompute();
 
-        const animated = S.mode !== 'none';
+        const animated = S.mode !== 'none' && S.jitter > 0 && !S.paused;
 
-        if (animated && S.jitter > 0 && !S.paused) {
+        if (animated) {
             startAnim();
         } else {
             stopAnim();
-            for (const p of pts) { p.x = p.bx; p.y = p.by; }
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.fillStyle = S.bg;
             ctx.fillRect(0, 0, cssW, cssH);
@@ -663,16 +540,12 @@
 
     function paramChanged() {
         needsRecompute = true;
-        if (animId) {
-            recompute();
-        } else {
-            fullRender();
-        }
+        stopAnim();
+        fullRender();
     }
 
     function modeChanged() {
         stopAnim();
-        if (needsRecompute) recompute();
         fullRender();
     }
 
@@ -779,7 +652,6 @@
     });
     $('ty-scale').addEventListener('input', e => {
         S.scale = +e.target.value; $('val-ty-scale').textContent = S.scale;
-        buildConnections();
         if (!animId) fullRender();
     });
     $('ty-jitter').addEventListener('input', e => {
