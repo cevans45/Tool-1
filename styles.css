@@ -77,24 +77,20 @@ body.is-leaving {
     z-index: 0;
 }
 
-.hero-inner {
-    max-width: 1200px;
-    width: 100%;
+.site-intro {
+    background: #fff;
+    border-bottom: 1px solid #e5e5e5;
+    padding: 36px 24px 40px;
+}
+
+.site-intro-inner {
+    max-width: 640px;
+    margin: 0 auto;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
     gap: 0;
-    position: relative;
-    z-index: 1;
-    pointer-events: none;
-}
-
-.hero-inner--bottom {
-    position: absolute;
-    bottom: max(12px, env(safe-area-inset-bottom, 0px));
-    left: 50%;
-    transform: translateX(-50%);
 }
 
 .hero-sub {
@@ -103,7 +99,7 @@ body.is-leaving {
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: rgba(17, 17, 17, 0.45);
-    margin-top: 20px;
+    margin-top: 0;
 }
 
 .hero-copy {
@@ -125,21 +121,18 @@ body.is-leaving {
     width: 40px;
     height: 1px;
     background: rgba(17, 17, 17, 0.12);
-    margin-top: 28px;
+    margin-top: 22px;
     border: none;
 }
 
 .hero-scroll {
-    position: absolute;
-    bottom: max(8px, env(safe-area-inset-bottom, 0px));
-    left: 50%;
-    transform: translateX(-50%);
+    display: block;
+    margin-top: 24px;
     font-family: 'ABC Diatype Mono', monospace;
     font-size: 9px;
     letter-spacing: 0.2em;
     text-transform: uppercase;
     color: rgba(17, 17, 17, 0.28);
-    z-index: 1;
 }
 
 

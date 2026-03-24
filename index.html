@@ -10,14 +10,17 @@
     <div class="site-shell">
         <section class="hero" id="hero">
             <canvas id="hero-canvas"></canvas>
-            <div class="hero-inner hero-inner--bottom">
+        </section>
+
+        <section class="site-intro" aria-label="About">
+            <div class="site-intro-inner">
                 <p class="hero-sub">Open Visual Responsive Tools</p>
                 <hr class="hero-rule">
                 <p class="hero-copy">
                     A growing set of visual instruments — draw, distort, generate, repeat.
                 </p>
+                <span class="hero-scroll">Scroll</span>
             </div>
-            <span class="hero-scroll">Scroll</span>
         </section>
 
         <script>
@@ -64,12 +67,13 @@
             function init() {
                 L.length = 0;
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                const fs = Math.min(880, Math.max(W, H) * 0.58);
+                const fs = Math.min(960, Math.max(W, H) * 0.72);
                 const lay = buildNaturalLayout(fs);
                 S.fs = fs;
                 S.bboxW = Math.max(lay.bboxW, 1);
                 S.bboxH = Math.max(lay.bboxH, 1);
-                S.s = Math.min(W / S.bboxW, H / S.bboxH);
+                const sFit = Math.min(W / S.bboxW, H / S.bboxH);
+                S.s = sFit * 1.045;
                 S.tx = (W - S.bboxW * S.s) / 2;
                 S.ty = (H - S.bboxH * S.s) / 2;
                 const { widths, hx, hy } = lay;
