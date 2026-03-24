@@ -221,30 +221,38 @@
     if (isPreview || isIndexPage()) return;
     if (document.getElementById('global-export-tools')) return;
 
-    const wrap = document.createElement('div');
+    const wrap = document.createElement('section');
     wrap.id = 'global-export-tools';
-    wrap.style.position = 'fixed';
-    wrap.style.right = '16px';
-    wrap.style.bottom = '16px';
-    wrap.style.zIndex = '9999';
+    wrap.className = 'control-section';
     wrap.style.display = 'flex';
+    wrap.style.flexDirection = 'column';
     wrap.style.gap = '8px';
-    wrap.style.padding = '8px';
-    wrap.style.borderRadius = '999px';
-    wrap.style.backdropFilter = 'blur(8px)';
-    wrap.style.background = 'rgba(12,12,12,0.65)';
-    wrap.style.border = '1px solid rgba(255,255,255,0.16)';
+    wrap.style.marginTop = '10px';
+
+    const title = document.createElement('h3');
+    title.textContent = 'Export';
+    title.style.margin = '0';
+    title.style.font = '600 12px/1 system-ui, -apple-system, Segoe UI, sans-serif';
+    title.style.letterSpacing = '0.04em';
+    title.style.textTransform = 'uppercase';
+    wrap.appendChild(title);
+
+    const row = document.createElement('div');
+    row.style.display = 'grid';
+    row.style.gridTemplateColumns = '1fr';
+    row.style.gap = '6px';
 
     const makeBtn = (label, onClick) => {
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = label;
-      btn.style.border = '1px solid rgba(255,255,255,0.25)';
-      btn.style.background = '#111';
+      btn.className = 'panel-button';
+      btn.style.width = '100%';
+      btn.style.border = '1px solid rgba(255,255,255,0.18)';
+      btn.style.background = '#151515';
       btn.style.color = '#f3f3f3';
       btn.style.padding = '8px 10px';
       btn.style.font = '600 12px/1 system-ui, -apple-system, Segoe UI, sans-serif';
-      btn.style.borderRadius = '999px';
       btn.style.cursor = 'pointer';
       btn.addEventListener('click', async () => {
         try {
@@ -257,9 +265,27 @@
       return btn;
     };
 
-    wrap.appendChild(makeBtn('Export SVG', exportSVG));
-    wrap.appendChild(makeBtn('Export PNG', exportPNG));
-    wrap.appendChild(makeBtn('Export IMG', exportIMG));
+    row.appendChild(makeBtn('Export SVG', exportSVG));
+    row.appendChild(makeBtn('Export PNG', exportPNG));
+    row.appendChild(makeBtn('Export IMG', exportIMG));
+    wrap.appendChild(row);
+
+    const panelBody = document.querySelector('.control-panel .panel-body');
+    if (panelBody) {
+      panelBody.appendChild(wrap);
+      return;
+    }
+
+    // Fallback only for pages without a right-side control center.
+    wrap.style.position = 'fixed';
+    wrap.style.right = '16px';
+    wrap.style.bottom = '16px';
+    wrap.style.zIndex = '9999';
+    wrap.style.padding = '10px';
+    wrap.style.borderRadius = '14px';
+    wrap.style.backdropFilter = 'blur(8px)';
+    wrap.style.background = 'rgba(12,12,12,0.72)';
+    wrap.style.border = '1px solid rgba(255,255,255,0.16)';
     document.body.appendChild(wrap);
   }
 
