@@ -31,54 +31,61 @@
             let hmx = 0, hmy = 0;
             const L = [];
 
-            function measureWordLayout(fs) {
+            function measureLetters(fs) {
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 ctx.font = '400 ' + fs + 'px "NG Hofmann", sans-serif';
                 const word = 'OVRT';
                 const widths = [];
-                let sum = 0;
-                for (const ch of word) {
-                    const w = ctx.measureText(ch).width;
-                    widths.push(w);
-                    sum += w;
-                }
-                const overlap = fs * 0.28;
-                const span = sum - overlap * (word.length - 1);
+                for (const ch of word) widths.push(ctx.measureText(ch).width);
                 const m = ctx.measureText('O');
                 const asc = m.actualBoundingBoxAscent ?? fs * 0.38;
                 const desc = m.actualBoundingBoxDescent ?? fs * 0.38;
                 const glyphH = asc + desc;
-                return { widths, span, glyphH, overlap };
+                return { widths, glyphH, asc, desc };
+            }
+
+            /** Max font size: big glyphs, homes spread across the viewport (not one tight cluster). */
+            function fitsSpreadLayout(fs) {
+                const { widths, glyphH } = measureLetters(fs);
+                const pad = Math.max(10, fs * 0.04);
+                if (glyphH > H * 0.96) return false;
+                const hxFrac = [0.13, 0.36, 0.64, 0.87];
+                const hyFrac = [0.40, 0.58, 0.46, 0.62];
+                for (let i = 0; i < 4; i++) {
+                    const hx = W * hxFrac[i];
+                    const hy = H * hyFrac[i];
+                    if (hx - widths[i] / 2 < pad) return false;
+                    if (hx + widths[i] / 2 > W - pad) return false;
+                    if (hy - glyphH / 2 < pad) return false;
+                    if (hy + glyphH / 2 > H - pad) return false;
+                }
+                return true;
             }
 
             function init() {
                 L.length = 0;
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                let lo = 24;
-                let hi = Math.min(W, H) * 3;
+                let lo = 28;
+                let hi = Math.min(W, H) * 5;
                 let fs = lo;
-                for (let iter = 0; iter < 28; iter++) {
+                for (let iter = 0; iter < 30; iter++) {
                     const mid = (lo + hi) / 2;
-                    const { span, glyphH } = measureWordLayout(mid);
-                    const fitsW = span <= W * 0.98;
-                    const fitsH = glyphH <= H * 0.92;
-                    if (fitsW && fitsH) {
+                    if (fitsSpreadLayout(mid)) {
                         fs = mid;
                         lo = mid;
                     } else hi = mid;
                 }
-                fs = Math.max(32, fs);
-                const { widths, span, overlap } = measureWordLayout(fs);
+                fs = Math.max(40, fs);
+                const { widths } = measureLetters(fs);
                 ctx.font = '400 ' + fs + 'px "NG Hofmann", sans-serif';
                 const word = 'OVRT';
-                const cy = H * 0.5;
-                let cx = (W - span) / 2;
+                const hxFrac = [0.13, 0.36, 0.64, 0.87];
+                const hyFrac = [0.40, 0.58, 0.46, 0.62];
                 const letterColors = ['#00fff8', '#ff00e7', '#ffff00', '#ff00e7'];
                 for (let i = 0; i < 4; i++) {
                     const ch = word[i];
-                    const hx = cx + widths[i] / 2;
-                    const hy = cy;
-                    cx += widths[i] - overlap;
+                    const hx = W * hxFrac[i];
+                    const hy = H * hyFrac[i];
                     const tc = document.createElement('canvas');
                     const tw = Math.ceil(widths[i] + 30), th = Math.ceil(fs * 1.35);
                     tc.width = tw; tc.height = th;
