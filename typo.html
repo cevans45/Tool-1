@@ -114,6 +114,11 @@
                                 <span class="param-value" id="val-ty-jitter">40</span>
                             </div>
                             <div class="control-row">
+                                <label for="ty-drift">Drift</label>
+                                <input type="range" id="ty-drift" min="0" max="100" value="20" step="1">
+                                <span class="param-value" id="val-ty-drift">20</span>
+                            </div>
+                            <div class="control-row">
                                 <label for="ty-weight">Weight</label>
                                 <input type="range" id="ty-weight" min="1" max="20" value="6" step="1">
                                 <span class="param-value" id="val-ty-weight">6</span>
@@ -184,7 +189,7 @@
     const S = {
         text: 'TYPO', fontSize: 140, letterSpacing: 0, lineHeight: 1.2,
         textAlign: 'center', fontFamily: 'sans-serif', fontFileName: null,
-        mode: 'circles', density: 8, scale: 18, jitter: 40, weight: 6,
+        mode: 'circles', density: 8, scale: 18, jitter: 40, drift: 20, weight: 6,
         fill: true, strokeW: 1.5, paused: false,
         ink: '#111111', bg: '#f0ede8',
     };
@@ -279,11 +284,12 @@
             const angle = Math.random() * Math.PI * 2;
             const speed = 0.3 + Math.random() * 0.8;
             particles.push({
-                x, y,
+                x, y, homeX: x, homeY: y,
                 vx: Math.cos(angle) * speed,
                 vy: Math.sin(angle) * speed,
                 scale: 0.3 + Math.random() * 0.7,
                 phase: Math.random() * Math.PI * 2,
+                escaped: 0,
             });
         }
 
@@ -292,20 +298,43 @@
 
     function stepParticles() {
         const speedMul = S.jitter * 0.03;
+        const driftChance = S.drift * 0.01;
+        const driftRange = S.drift * 0.6;
+
         for (const p of particles) {
             const nx = p.x + p.vx * speedMul;
             const ny = p.y + p.vy * speedMul;
 
-            if (!insideCSS(nx, p.y)) p.vx *= -1;
-            if (!insideCSS(p.x, ny)) p.vy *= -1;
+            const xOut = !insideCSS(nx, p.y);
+            const yOut = !insideCSS(p.x, ny);
+
+            if (xOut) {
+                if (p.escaped < driftRange && Math.random() < driftChance) {
+                    p.escaped += speedMul;
+                } else {
+                    p.vx *= -1;
+                    if (p.escaped > 0) p.escaped -= speedMul * 0.5;
+                }
+            } else if (p.escaped > 0) {
+                p.escaped -= speedMul * 0.3;
+            }
+
+            if (yOut) {
+                if (p.escaped < driftRange && Math.random() < driftChance) {
+                    p.escaped += speedMul;
+                } else {
+                    p.vy *= -1;
+                    if (p.escaped > 0) p.escaped -= speedMul * 0.5;
+                }
+            }
 
             p.x += p.vx * speedMul;
             p.y += p.vy * speedMul;
 
-            if (!insideCSS(p.x, p.y)) {
+            if (p.x < -20 || p.x > cssW + 20 || p.y < -20 || p.y > cssH + 20) {
+                p.x = p.homeX; p.y = p.homeY;
+                p.escaped = 0;
                 p.vx *= -1; p.vy *= -1;
-                p.x += p.vx * speedMul * 3;
-                p.y += p.vy * speedMul * 3;
             }
         }
     }
@@ -353,12 +382,12 @@
     }
 
     function drawNet() {
-        const maxR = S.scale * 0.4;
         const connDist = S.scale * 3;
-        const lineW = S.weight * 0.12;
+        const lineW = S.fill ? S.weight * 0.15 : S.strokeW;
 
         ctx.strokeStyle = S.ink;
         ctx.lineCap = 'round';
+        ctx.globalAlpha = 1;
 
         for (let i = 0; i < particles.length; i++) {
             const a = particles[i];
@@ -367,35 +396,15 @@
                 const d = Math.hypot(a.x - b.x, a.y - b.y);
                 if (d > connDist) continue;
                 const fade = 1 - d / connDist;
-                ctx.globalAlpha = fade * 0.5;
-                ctx.lineWidth = lineW * fade;
+                ctx.globalAlpha = fade * 0.6;
+                ctx.lineWidth = lineW * (0.3 + fade * 0.7);
                 ctx.beginPath();
                 ctx.moveTo(a.x, a.y);
                 ctx.lineTo(b.x, b.y);
                 ctx.stroke();
             }
         }
-
         ctx.globalAlpha = 1;
-        ctx.fillStyle = S.ink;
-        for (const p of particles) {
-            const r = maxR * p.scale;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        if (!S.fill) {
-            ctx.fillStyle = S.bg;
-            const inset = Math.max(1, S.strokeW);
-            for (const p of particles) {
-                const r = maxR * p.scale;
-                const inner = Math.max(0.5, r - inset);
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, inner, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
     }
 
     function drawFragment() {
@@ -403,12 +412,12 @@
         ctx.fillStyle = S.ink;
         ctx.strokeStyle = S.ink;
         ctx.lineJoin = 'round';
+        ctx.globalAlpha = 1;
 
         for (const p of particles) {
             const r = maxR * p.scale;
             const sides = 3 + Math.floor(p.scale * 4);
             const rot = p.phase;
-            ctx.globalAlpha = 0.85;
 
             ctx.beginPath();
             for (let v = 0; v <= sides; v++) {
@@ -427,7 +436,6 @@
                 ctx.stroke();
             }
         }
-        ctx.globalAlpha = 1;
     }
 
     function drawGrain() {
@@ -461,11 +469,11 @@
         const maxR = S.scale * 0.6;
         ctx.fillStyle = S.ink;
         ctx.strokeStyle = S.ink;
+        ctx.globalAlpha = 1;
 
         for (const p of particles) {
             const r = maxR * (0.4 + p.scale * 0.6);
             const wobbleN = 3 + Math.floor(p.scale * 4);
-            ctx.globalAlpha = 0.7;
 
             ctx.beginPath();
             const steps = 20;
@@ -657,6 +665,9 @@
     $('ty-jitter').addEventListener('input', e => {
         S.jitter = +e.target.value; $('val-ty-jitter').textContent = S.jitter;
         fullRender();
+    });
+    $('ty-drift').addEventListener('input', e => {
+        S.drift = +e.target.value; $('val-ty-drift').textContent = S.drift;
     });
     $('ty-weight').addEventListener('input', e => {
         S.weight = +e.target.value; $('val-ty-weight').textContent = S.weight;
