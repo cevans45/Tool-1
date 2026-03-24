@@ -99,8 +99,8 @@ body.is-leaving {
 
 .hero-sub {
     font-family: 'NG Hofmann', sans-serif;
-    font-size: clamp(18px, 5.5vw, 56px);
-    letter-spacing: 0.18em;
+    font-size: clamp(11px, 1.9vw, 20px);
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: rgba(17, 17, 17, 0.45);
     margin-top: 20px;

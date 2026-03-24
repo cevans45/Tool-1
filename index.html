@@ -30,7 +30,7 @@
             let pmx = 0, pmy = 0;
             let hmx = 0, hmy = 0;
             const L = [];
-            const S = { sx: 1, sy: 1, bboxW: 1, bboxH: 1, fs: 100 };
+            const S = { s: 1, tx: 0, ty: 0, bboxW: 1, bboxH: 1, fs: 100 };
 
             function measureLetters(fs) {
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -45,7 +45,7 @@
                 return { widths, glyphH, asc, desc };
             }
 
-            /** Local layout: ink from (0,0) to (bboxW, bboxH). Draw with ctx scale sx,sy to fill the canvas. */
+            /** Local layout: ink from (0,0) to (bboxW, bboxH). Uniform scale + letterbox — no stretch. */
             function buildNaturalLayout(fs) {
                 const { widths, glyphH } = measureLetters(fs);
                 const o = Math.min(fs * 0.18, Math.min(...widths) * 0.38);
@@ -69,8 +69,9 @@
                 S.fs = fs;
                 S.bboxW = Math.max(lay.bboxW, 1);
                 S.bboxH = Math.max(lay.bboxH, 1);
-                S.sx = W / S.bboxW;
-                S.sy = H / S.bboxH;
+                S.s = Math.min(W / S.bboxW, H / S.bboxH);
+                S.tx = (W - S.bboxW * S.s) / 2;
+                S.ty = (H - S.bboxH * S.s) / 2;
                 const { widths, hx, hy } = lay;
                 ctx.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
                 const word = 'OVRT';
@@ -104,9 +105,9 @@
             }
 
             function pointInLetter(l, px, py) {
-                if (!S.sx || !S.sy) return false;
-                const plx = px / S.sx;
-                const ply = py / S.sy;
+                if (!S.s) return false;
+                const plx = (px - S.tx) / S.s;
+                const ply = (py - S.ty) / S.s;
                 const dx = plx - l.x, dy = ply - l.y;
                 const c = Math.cos(-l.rot), s = Math.sin(-l.rot);
                 const lx = dx * c - dy * s + l.aw / 2;
@@ -149,7 +150,7 @@
                 ctx.globalCompositeOperation = 'source-over';
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, W, H);
-                ctx.setTransform(S.sx * dpr, 0, 0, S.sy * dpr, 0, 0);
+                ctx.setTransform(S.s * dpr, 0, 0, S.s * dpr, S.tx * dpr, S.ty * dpr);
                 ctx.globalCompositeOperation = 'multiply';
                 for (const l of L) {
                     ctx.save();
@@ -183,7 +184,7 @@
                 const idx = hitTest(px, py);
                 if (idx < 0) return false;
                 const l = L[idx];
-                const lx = px / S.sx, ly = py / S.sy;
+                const lx = (px - S.tx) / S.s, ly = (py - S.ty) / S.s;
                 dragging = { l, ox: lx - l.x, oy: ly - l.y };
                 l.vx = 0; l.vy = 0;
                 pmx = lx; pmy = ly;
@@ -194,7 +195,7 @@
             function moveDrag(px, py) {
                 if (!dragging) return;
                 const l = dragging.l;
-                const lx = px / S.sx, ly = py / S.sy;
+                const lx = (px - S.tx) / S.s, ly = (py - S.ty) / S.s;
                 l.x = lx - dragging.ox;
                 l.y = ly - dragging.oy;
                 const m = S.fs * 0.48;
@@ -218,12 +219,12 @@
                     const mdx = p.x - hmx, mdy = p.y - hmy;
                     hmx = p.x; hmy = p.y;
                     const mspeed = Math.sqrt(mdx * mdx + mdy * mdy);
-                    if (mspeed > 2 && S.sx && S.sy) {
+                    if (mspeed > 2 && S.s) {
                         for (const l of L) {
                             if (pointInLetter(l, p.x, p.y)) {
                                 const push = Math.min(mspeed * 0.02, 0.6);
-                                l.vx += (mdx / mspeed) * push / S.sx;
-                                l.vy += (mdy / mspeed) * push / S.sy;
+                                l.vx += (mdx / mspeed) * push / S.s;
+                                l.vy += (mdy / mspeed) * push / S.s;
                             }
                         }
                     }
