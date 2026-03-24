@@ -28,6 +28,7 @@
             let W, H, dpr;
             let dragging = null;
             let pmx = 0, pmy = 0;
+            let hmx = 0, hmy = 0;
             const L = [];
 
             function init() {
@@ -61,7 +62,7 @@
                         ch, x: hx, y: hy,
                         vx: 0, vy: 0, hx, hy,
                         fs, hw: widths[i] / 2, hh: fs * 0.44,
-                        rot: 0, av: 0, hRot: 0,
+                        rot: 0,
                         sx: 1, sy: 1,
                         phase: Math.random() * 6.28,
                         alpha, aw: tw, ah: th,
@@ -86,13 +87,13 @@
                     if (dragging && l === dragging.l) continue;
                     l.vx += (l.hx - l.x) * 0.0012;
                     l.vy += (l.hy - l.y) * 0.0012;
-                    l.av += (l.hRot - l.rot) * 0.002;
                     l.vx += Math.sin(t * 0.1 + l.phase) * 0.004;
                     l.vy += Math.cos(t * 0.15 + l.phase * 1.3) * 0.004;
                     l.vx *= 0.994; l.vy *= 0.994;
-                    l.av *= 0.985;
                     l.x += l.vx; l.y += l.vy;
-                    l.rot += l.av;
+                    const tRot = Math.atan2(l.vy, l.vx) * 0.02;
+                    l.rot += (tRot - l.rot) * 0.04;
+                    l.rot *= 0.97;
                 }
 
                 for (let i = 0; i < L.length; i++)
@@ -106,21 +107,8 @@
                         const nx = dx / dist, ny = dy / dist;
                         const aD = dragging && a === dragging.l;
                         const bD = dragging && b === dragging.l;
-                        const cpx = a.x + nx * a.hw * 0.8;
-                        const cpy = a.y + ny * Math.min(a.hh, Math.abs(dy)) * 0.8;
-                        const imp = 0.35;
-                        if (!aD) {
-                            a.x -= nx * ov; a.y -= ny * ov;
-                            a.vx -= nx * imp; a.vy -= ny * imp;
-                            const rax = cpx - a.x, ray = cpy - a.y;
-                            a.av += (rax * (-ny) - ray * (-nx)) * imp * 0.0006;
-                        }
-                        if (!bD) {
-                            b.x += nx * ov; b.y += ny * ov;
-                            b.vx += nx * imp; b.vy += ny * imp;
-                            const rbx = cpx - b.x, rby = cpy - b.y;
-                            b.av += (rbx * ny - rby * nx) * imp * 0.0006;
-                        }
+                        if (!aD) { a.x -= nx * ov; a.y -= ny * ov; a.vx -= nx * 0.3; a.vy -= ny * 0.3; }
+                        if (!bD) { b.x += nx * ov; b.y += ny * ov; b.vx += nx * 0.3; b.vy += ny * 0.3; }
                     }
 
                 for (const l of L) {
@@ -129,10 +117,10 @@
                     l.sx += (1 + sq - l.sx) * 0.06;
                     l.sy += (1 - sq * 0.35 - l.sy) * 0.06;
                     const pad = 5;
-                    if (l.x - l.hw < pad) { l.x = l.hw + pad; l.vx *= -0.3; l.av -= l.vy * 0.002; }
-                    if (l.x + l.hw > W - pad) { l.x = W - l.hw - pad; l.vx *= -0.3; l.av += l.vy * 0.002; }
-                    if (l.y - l.hh < pad) { l.y = l.hh + pad; l.vy *= -0.3; l.av += l.vx * 0.002; }
-                    if (l.y + l.hh > H - pad) { l.y = H - l.hh - pad; l.vy *= -0.3; l.av -= l.vx * 0.002; }
+                    if (l.x - l.hw < pad) { l.x = l.hw + pad; l.vx *= -0.3; }
+                    if (l.x + l.hw > W - pad) { l.x = W - l.hw - pad; l.vx *= -0.3; }
+                    if (l.y - l.hh < pad) { l.y = l.hh + pad; l.vy *= -0.3; }
+                    if (l.y + l.hh > H - pad) { l.y = H - l.hh - pad; l.vy *= -0.3; }
                 }
 
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -181,12 +169,6 @@
                 l.x = px - dragging.ox;
                 l.y = py - dragging.oy;
                 l.vx = dx * 0.4; l.vy = dy * 0.4;
-                const rx = dragging.ox, ry = dragging.oy;
-                const armLen = Math.sqrt(rx * rx + ry * ry);
-                const maxArm = Math.sqrt(l.hw * l.hw + l.hh * l.hh);
-                const leverage = maxArm > 0 ? armLen / maxArm : 0;
-                const torque = (rx * dy - ry * dx);
-                l.av += torque * leverage * 0.00015;
                 pmx = px; pmy = py;
             }
 
@@ -196,7 +178,22 @@
             });
             canvas.addEventListener('mousemove', e => {
                 const p = getXY(e);
-                if (!dragging) { canvas.style.cursor = hitTest(p.x, p.y) >= 0 ? 'grab' : ''; return; }
+                if (!dragging) {
+                    const mdx = p.x - hmx, mdy = p.y - hmy;
+                    hmx = p.x; hmy = p.y;
+                    const mspeed = Math.sqrt(mdx * mdx + mdy * mdy);
+                    if (mspeed > 1) {
+                        for (const l of L) {
+                            if (pointInLetter(l, p.x, p.y)) {
+                                const push = Math.min(mspeed * 0.12, 3);
+                                l.vx += (mdx / mspeed) * push;
+                                l.vy += (mdy / mspeed) * push;
+                            }
+                        }
+                    }
+                    canvas.style.cursor = hitTest(p.x, p.y) >= 0 ? 'grab' : '';
+                    return;
+                }
                 moveDrag(p.x, p.y);
             });
             window.addEventListener('mouseup', () => {
