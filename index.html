@@ -69,8 +69,9 @@
                 S.fs = fs;
                 S.bboxW = Math.max(lay.bboxW, 1);
                 S.bboxH = Math.max(lay.bboxH, 1);
-                const fit = Math.min(W / S.bboxW, H / S.bboxH);
-                S.s = fit * 0.98;
+                const fitX = W / S.bboxW;
+                const fitY = H / S.bboxH;
+                S.s = Math.max(fitX, fitY) * 1.02;
                 S.tx = (W - S.bboxW * S.s) / 2;
                 S.ty = (H - S.bboxH * S.s) / 2;
                 const { widths, hx, hy } = lay;
