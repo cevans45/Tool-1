@@ -21,21 +21,16 @@
         </section>
 
         <script>
-        (function() {
+        (function(){
             const canvas = document.getElementById('hero-canvas');
             const ctx = canvas.getContext('2d');
             const hero = document.getElementById('hero');
             const tmp = document.createElement('canvas');
             const tc = tmp.getContext('2d');
             let W, H, dpr;
-            let mx = -9999, my = -9999, smx, smy;
-            let pts = [], ready = false;
-
-            const MRAD = 220;
-            const CONN = 18;
-            const SPRING = 0.025;
-            const DAMP = 0.92;
-            const PUSH = 70;
+            const WORD = 'OVRT';
+            const letters = [];
+            let dragging = null;
 
             function resize() {
                 const r = hero.getBoundingClientRect();
@@ -43,137 +38,194 @@
                 dpr = Math.max(1, devicePixelRatio || 1);
                 canvas.width = W * dpr; canvas.height = H * dpr;
                 canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-                smx = W / 2; smy = H * 0.42;
-                sample();
+                if (letters.length === 0) initLetters();
+                else repositionHomes();
             }
 
-            function sample() {
-                tmp.width = canvas.width; tmp.height = canvas.height;
+            function homeFor(i) {
+                const col = i % 2, row = Math.floor(i / 2);
+                return {
+                    x: W * (col === 0 ? 0.25 : 0.75),
+                    y: H * (row === 0 ? 0.35 : 0.7),
+                };
+            }
+
+            function initLetters() {
+                letters.length = 0;
+                const fs = Math.min(W * 0.38, H * 0.38);
+                tmp.width = Math.ceil(fs * 1.2) * dpr;
+                tmp.height = Math.ceil(fs * 1.4) * dpr;
+                for (let i = 0; i < WORD.length; i++) {
+                    const ch = WORD[i];
+                    const home = homeFor(i);
+                    const pts = sampleLetter(ch, fs);
+                    letters.push({
+                        ch, pts, fs,
+                        hx: home.x, hy: home.y,
+                        x: home.x, y: home.y,
+                        vx: 0, vy: 0,
+                        ox: 0, oy: 0,
+                        phase: Math.random() * 6.28,
+                        w: tmp.width / dpr, h: tmp.height / dpr,
+                    });
+                }
+            }
+
+            function repositionHomes() {
+                const fs = Math.min(W * 0.38, H * 0.38);
+                for (let i = 0; i < letters.length; i++) {
+                    const home = homeFor(i);
+                    letters[i].hx = home.x;
+                    letters[i].hy = home.y;
+                    if (letters[i].fs !== fs) {
+                        letters[i].fs = fs;
+                        tmp.width = Math.ceil(fs * 1.2) * dpr;
+                        tmp.height = Math.ceil(fs * 1.4) * dpr;
+                        letters[i].pts = sampleLetter(letters[i].ch, fs);
+                        letters[i].w = tmp.width / dpr;
+                        letters[i].h = tmp.height / dpr;
+                    }
+                }
+            }
+
+            function sampleLetter(ch, fs) {
+                const cw = Math.ceil(fs * 1.2), ch2 = Math.ceil(fs * 1.4);
+                tmp.width = cw * dpr; tmp.height = ch2 * dpr;
                 tc.setTransform(dpr, 0, 0, dpr, 0, 0);
-                tc.clearRect(0, 0, W, H);
-                const fs = Math.min(W * 0.3, H * 0.42);
+                tc.clearRect(0, 0, cw, ch2);
                 tc.font = '400 ' + fs + 'px "NG Hofmann", sans-serif';
+                tc.textAlign = 'center';
                 tc.textBaseline = 'middle';
                 tc.fillStyle = '#000';
-                const word = 'OVRT', gap = fs * 0.22;
-                let tw = 0;
-                for (const ch of word) tw += tc.measureText(ch).width;
-                tw += gap * (word.length - 1);
-                let cx = (W - tw) / 2;
-                for (const ch of word) {
-                    tc.fillText(ch, cx, H * 0.42);
-                    cx += tc.measureText(ch).width + gap;
-                }
+                tc.fillText(ch, cw / 2, ch2 / 2);
                 const img = tc.getImageData(0, 0, tmp.width, tmp.height);
                 const d = img.data, aW = tmp.width, aH = tmp.height;
-                const step = Math.max(2, Math.round(4.5 * dpr));
-                pts = [];
+                const step = Math.max(2, Math.round(4 * dpr));
+                const pts = [];
                 for (let py = 0; py < aH; py += step) {
                     for (let px = 0; px < aW; px += step) {
                         if (d[(py * aW + px) * 4 + 3] < 80) continue;
-                        const x = px / dpr, y = py / dpr;
+                        const lx = px / dpr - cw / 2;
+                        const ly = py / dpr - ch2 / 2;
                         const edge =
                             (px > 0 && d[(py * aW + px - 1) * 4 + 3] < 80) ||
                             (px < aW - 1 && d[(py * aW + px + 1) * 4 + 3] < 80) ||
                             (py > 0 && d[((py - 1) * aW + px) * 4 + 3] < 80) ||
                             (py < aH - 1 && d[((py + 1) * aW + px) * 4 + 3] < 80);
                         pts.push({
-                            hx: x, hy: y, x, y,
-                            vx: (Math.random() - 0.5) * 2,
-                            vy: (Math.random() - 0.5) * 2,
-                            r: edge ? 1.6 + Math.random() * 1.0 : 0.8 + Math.random() * 0.6,
+                            lx, ly,
+                            ox: 0, oy: 0,
+                            vx: 0, vy: 0,
+                            r: edge ? 1.6 + Math.random() * 0.8 : 0.7 + Math.random() * 0.5,
                             edge, phase: Math.random() * 6.28,
                         });
                     }
                 }
-                ready = true;
+                return pts;
+            }
+
+            function hitTest(mx, my) {
+                for (let i = letters.length - 1; i >= 0; i--) {
+                    const L = letters[i];
+                    const hw = L.w / 2, hh = L.h / 2;
+                    if (mx > L.x - hw && mx < L.x + hw && my > L.y - hh && my < L.y + hh) return i;
+                }
+                return -1;
             }
 
             function tick() {
-                if (!ready) { requestAnimationFrame(tick); return; }
-                const hasMouse = mx > -999;
-                smx += ((hasMouse ? mx : W / 2) - smx) * 0.05;
-                smy += ((hasMouse ? my : H * 0.42) - smy) * 0.05;
                 const t = performance.now() * 0.001;
-
-                for (const p of pts) {
-                    const dx = p.x - smx, dy = p.y - smy;
-                    const dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist < MRAD && dist > 0.1) {
-                        const f = (1 - dist / MRAD);
-                        p.vx += (dx / dist) * f * PUSH * 0.016;
-                        p.vy += (dy / dist) * f * PUSH * 0.016;
-                    }
-                    const breath = Math.sin(t * 0.8 + p.phase) * 0.15;
-                    p.vx += (p.hx - p.x) * SPRING + Math.cos(t * 0.5 + p.phase) * breath;
-                    p.vy += (p.hy - p.y) * SPRING + Math.sin(t * 0.7 + p.phase) * breath;
-                    p.vx *= DAMP; p.vy *= DAMP;
-                    p.x += p.vx; p.y += p.vy;
-                }
-
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 ctx.clearRect(0, 0, W, H);
 
-                ctx.lineWidth = 0.6;
-                for (let i = 0; i < pts.length; i++) {
-                    const a = pts[i];
-                    if (!a.edge) continue;
-                    for (let j = i + 1; j < pts.length; j++) {
-                        const b = pts[j];
-                        if (!b.edge) continue;
-                        const dd = Math.hypot(a.x - b.x, a.y - b.y);
-                        if (dd > CONN) continue;
-                        const fade = 1 - dd / CONN;
-                        ctx.strokeStyle = 'rgba(255,255,255,' + (fade * 0.3).toFixed(3) + ')';
-                        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+                for (const L of letters) {
+                    if (L !== (dragging && dragging.L)) {
+                        L.vx += (L.hx - L.x) * 0.012;
+                        L.vy += (L.hy - L.y) * 0.012;
                     }
-                }
+                    const drift = 8;
+                    L.vx += Math.cos(t * 0.3 + L.phase) * drift * 0.001;
+                    L.vy += Math.sin(t * 0.4 + L.phase * 1.3) * drift * 0.001;
+                    L.vx *= 0.96; L.vy *= 0.96;
+                    L.x += L.vx; L.y += L.vy;
 
-                if (hasMouse) {
-                    for (const p of pts) {
-                        const dm = Math.hypot(p.x - smx, p.y - smy);
-                        if (dm < MRAD * 0.7) {
-                            const fade = 1 - dm / (MRAD * 0.7);
-                            ctx.strokeStyle = 'rgba(255,255,255,' + (fade * 0.12).toFixed(3) + ')';
-                            ctx.lineWidth = 0.4;
-                            ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(smx, smy); ctx.stroke();
+                    for (const p of L.pts) {
+                        const jitter = 0.3;
+                        p.vx += -p.ox * 0.06 + Math.cos(t * 1.2 + p.phase) * jitter;
+                        p.vy += -p.oy * 0.06 + Math.sin(t * 1.5 + p.phase) * jitter;
+                        p.vx *= 0.9; p.vy *= 0.9;
+                        p.ox += p.vx; p.oy += p.vy;
+                    }
+
+                    const CONN = 14;
+                    ctx.lineWidth = 0.5;
+                    for (let i = 0; i < L.pts.length; i++) {
+                        const a = L.pts[i];
+                        if (!a.edge) continue;
+                        const ax = L.x + a.lx + a.ox, ay = L.y + a.ly + a.oy;
+                        for (let j = i + 1; j < L.pts.length; j++) {
+                            const b = L.pts[j];
+                            if (!b.edge) continue;
+                            const bx = L.x + b.lx + b.ox, by = L.y + b.ly + b.oy;
+                            const dd = Math.hypot(ax - bx, ay - by);
+                            if (dd > CONN) continue;
+                            const fade = 1 - dd / CONN;
+                            ctx.strokeStyle = 'rgba(255,255,255,' + (fade * 0.25).toFixed(3) + ')';
+                            ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
                         }
                     }
-                }
 
-                for (const p of pts) {
-                    const dm = Math.hypot(p.x - smx, p.y - smy);
-                    const near = dm < MRAD ? (1 - dm / MRAD) : 0;
-                    const alpha = p.edge ? 0.85 + near * 0.15 : 0.4 + near * 0.4;
-                    ctx.globalAlpha = alpha;
-                    ctx.fillStyle = '#fff';
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, p.r + near * 2.5, 0, 6.28);
-                    ctx.fill();
-                    if (near > 0.3) {
-                        ctx.globalAlpha = (near - 0.3) * 0.4;
+                    for (const p of L.pts) {
+                        const wx = L.x + p.lx + p.ox;
+                        const wy = L.y + p.ly + p.oy;
+                        ctx.globalAlpha = p.edge ? 0.9 : 0.45;
+                        ctx.fillStyle = '#fff';
                         ctx.beginPath();
-                        ctx.arc(p.x, p.y, p.r + near * 6, 0, 6.28);
+                        ctx.arc(wx, wy, p.r, 0, 6.28);
                         ctx.fill();
                     }
                 }
                 ctx.globalAlpha = 1;
-
-                if (hasMouse) {
-                    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-                    ctx.beginPath(); ctx.arc(smx, smy, MRAD * 0.3, 0, 6.28); ctx.fill();
-                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-                    ctx.beginPath(); ctx.arc(smx, smy, 3, 0, 6.28); ctx.fill();
-                }
-
                 requestAnimationFrame(tick);
             }
 
-            hero.addEventListener('mousemove', e => {
-                const r = hero.getBoundingClientRect();
-                mx = e.clientX - r.left; my = e.clientY - r.top;
-            });
-            hero.addEventListener('mouseleave', () => { mx = -9999; my = -9999; });
+            function onDown(e) {
+                e.preventDefault();
+                const rect = hero.getBoundingClientRect();
+                const px = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+                const py = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+                const idx = hitTest(px, py);
+                if (idx < 0) return;
+                const L = letters[idx];
+                dragging = { L, offX: px - L.x, offY: py - L.y };
+                L.vx = 0; L.vy = 0;
+                canvas.style.cursor = 'grabbing';
+            }
+            function onMove(e) {
+                if (!dragging) {
+                    const rect = hero.getBoundingClientRect();
+                    const px = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+                    const py = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+                    canvas.style.cursor = hitTest(px, py) >= 0 ? 'grab' : '';
+                    return;
+                }
+                const rect = hero.getBoundingClientRect();
+                const px = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+                const py = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+                dragging.L.x = px - dragging.offX;
+                dragging.L.y = py - dragging.offY;
+            }
+            function onUp() {
+                if (dragging) { canvas.style.cursor = 'grab'; dragging = null; }
+            }
+
+            canvas.addEventListener('mousedown', onDown);
+            canvas.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+            canvas.addEventListener('touchstart', onDown, { passive: false });
+            canvas.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onUp);
+
             window.addEventListener('resize', resize);
             document.fonts.ready.then(resize);
             resize();
@@ -182,202 +234,102 @@
         </script>
 
         <main id="tools" class="site-grid" aria-label="Tools">
-            <a href="grade.html" class="site-card" data-cloud="GRADE">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Grade</h2><p>Grid-based drawing with square, honeycomb, brick, diamond, and dot grids.</p></div>
-            </a>
-            <a href="typo.html" class="site-card" data-cloud="TYPO">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Typo</h2><p>Type text and shatter it through geometry-altering filters. Drag-drop your own fonts.</p></div>
-            </a>
-            <a href="elemenyt.html" class="site-card" data-cloud="ELEMENT">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Elemenyt</h2><p>Mycelium-style ink/cut mirror drawing with jagged-edge export.</p></div>
-            </a>
-            <a href="griddy.html" class="site-card" data-cloud="GRIDDY">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Griddy</h2><p>Editable quadrant tile grid with 10 reusable templates.</p></div>
-            </a>
-            <a href="pearls.html" class="site-card" data-cloud="PEARLS">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Pearls</h2><p>Grid blobs, soft circles, and random pearly clumps for fast layout sketches.</p></div>
-            </a>
-            <a href="lines.html" class="site-card" data-cloud="LINES">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Lines</h2><p>Convert images into stark line-based halftones for print and posters.</p></div>
-            </a>
-            <a href="shift.html" class="site-card" data-cloud="SHIFT">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Shift</h2><p>Overlapping grids that shear, offset, and stutter as you drag sliders.</p></div>
-            </a>
-            <a href="ascii.html" class="site-card" data-cloud="ASCII">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>ASCII</h2><p>Blocky ASCII renderings for screenshots, album covers, and terminal art.</p></div>
-            </a>
-            <a href="dots.html" class="site-card" data-cloud="DOTS">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Dots</h2><p>Offset dot grids that wobble, drift, and break alignment on purpose.</p></div>
-            </a>
-            <a href="stripe.html" class="site-card" data-cloud="STRIPE">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Stripe</h2><p>Slice images into animated vertical or horizontal stripe sequences.</p></div>
-            </a>
-            <a href="scan.html" class="site-card" data-cloud="SCAN">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Scan</h2><p>Fake flatbed-scanner drags with stretched text and light streaks.</p></div>
-            </a>
-            <a href="spiral.html" class="site-card" data-cloud="SPIRAL">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Spiral</h2><p>Radial spirals that snap to a grid for vinyl-cover compositions.</p></div>
-            </a>
-            <a href="blocks.html" class="site-card" data-cloud="BLOCKS">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Blocks</h2><p>Big typographic blocks that auto-balance margins and gutters.</p></div>
-            </a>
-            <a href="raster.html" class="site-card" data-cloud="RASTER">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Raster</h2><p>Horizontal slices of images that misalign into glitchy bands.</p></div>
-            </a>
-            <a href="grid.html" class="site-card" data-cloud="GRID">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Grid</h2><p>Snap arbitrary rectangles into strict, multi-column layouts.</p></div>
-            </a>
-            <a href="shader.html" class="site-card" data-cloud="PRISM">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Prism</h2><p>Visual presets with kaleido weave, fractal bloom, ember drift and more.</p></div>
-            </a>
-            <a href="scanline.html" class="site-card" data-cloud="SCANLINE">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Scanline</h2><p>Single-color scanline art tuned for risograph and screenprint.</p></div>
-            </a>
-            <a href="pixel.html" class="site-card" data-cloud="PIXEL">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Pixel</h2><p>Chunky pixel remapping for lo-fi UI mockups and icons.</p></div>
-            </a>
-            <a href="cyber.html" class="site-card" data-cloud="SIGIL">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Sigil</h2><p>Mirrored techno-sigil generator from seeded Bezier fields.</p></div>
-            </a>
-            <a href="cloud.html" class="site-card" data-cloud="CLOUD">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Cloud</h2><p>Soft gradient clouds remapped into custom glyph sets and shapes.</p></div>
-            </a>
-            <a href="ribbon.html" class="site-card" data-cloud="RIBBON">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Ribbon</h2><p>Ribbon-like Bézier paths that weave across a grid of anchor points.</p></div>
-            </a>
-            <a href="stack.html" class="site-card" data-cloud="STACK">
-                <div class="site-card-preview"><canvas class="card-cloud"></canvas></div>
-                <div class="site-card-body"><h2>Stack</h2><p>Vertical stacks of panels that auto-size based on your labels.</p></div>
-            </a>
+            <article class="site-card">
+                <div class="site-card-preview">
+                    <iframe class="tool-preview-frame" src="grade.html?preview=1" title="Grade preview" loading="lazy"></iframe>
+                    <span>GRADE</span>
+                </div>
+                <div class="site-card-body">
+                    <h2>Grade</h2>
+                    <p>Grid-based drawing with square, honeycomb, brick, diamond, and dot grids.</p>
+                    <a href="grade.html" class="site-card-button">Open tool</a>
+                </div>
+            </article>
+
+            <article class="site-card">
+                <div class="site-card-preview">
+                    <iframe class="tool-preview-frame" src="typo.html?preview=1" title="Typo preview" loading="lazy"></iframe>
+                    <span>TYPO</span>
+                </div>
+                <div class="site-card-body">
+                    <h2>Typo</h2>
+                    <p>Type text and shatter it through geometry-altering filters. Drag-drop custom fonts.</p>
+                    <a href="typo.html" class="site-card-button">Open tool</a>
+                </div>
+            </article>
+
+            <article class="site-card">
+                <div class="site-card-preview">
+                    <iframe class="tool-preview-frame" src="elemenyt.html?preview=1" title="Elemenyt preview" loading="lazy"></iframe>
+                    <span>ELEMENYT</span>
+                </div>
+                <div class="site-card-body">
+                    <h2>Elemenyt</h2>
+                    <p>Mycelium-style ink/cut mirror drawing with jagged-edge export.</p>
+                    <a href="elemenyt.html" class="site-card-button">Open tool</a>
+                </div>
+            </article>
+
+            <article class="site-card">
+                <div class="site-card-preview">
+                    <iframe class="tool-preview-frame" src="griddy.html?preview=1" title="Griddy preview" loading="lazy"></iframe>
+                    <span>GRIDDY</span>
+                </div>
+                <div class="site-card-body">
+                    <h2>Griddy</h2>
+                    <p>Editable quadrant tile grid with 10 reusable templates.</p>
+                    <a href="griddy.html" class="site-card-button">Open tool</a>
+                </div>
+            </article>
+
+            <article class="site-card">
+                <div class="site-card-preview">
+                    <iframe class="tool-preview-frame" src="pearls.html?preview=1" title="Pearls preview" loading="lazy"></iframe>
+                    <span>PEARLS</span>
+                </div>
+                <div class="site-card-body">
+                    <h2>Pearls</h2>
+                    <p>Grid blobs, soft circles, and random pearly clumps for fast layout sketches.</p>
+                    <a href="pearls.html" class="site-card-button">Open tool</a>
+                </div>
+            </article>
+
+            <article class="site-card">
+                <div class="site-card-preview">
+                    <iframe class="tool-preview-frame" src="dots.html?preview=1" title="Dots preview" loading="lazy"></iframe>
+                    <span>DOTS</span>
+                </div>
+                <div class="site-card-body">
+                    <h2>Dots</h2>
+                    <p>Offset dot grids that wobble, drift, and break alignment on purpose.</p>
+                    <a href="dots.html" class="site-card-button">Open tool</a>
+                </div>
+            </article>
+
+            <article class="site-card">
+                <div class="site-card-preview">
+                    <iframe class="tool-preview-frame" src="shader.html?preview=1" title="Prism preview" loading="lazy"></iframe>
+                    <span>PRISM</span>
+                </div>
+                <div class="site-card-body">
+                    <h2>Prism</h2>
+                    <p>Visual presets with kaleido weave, fractal bloom, ember drift and more.</p>
+                    <a href="shader.html" class="site-card-button">Open tool</a>
+                </div>
+            </article>
+
+            <article class="site-card">
+                <div class="site-card-preview">
+                    <iframe class="tool-preview-frame" src="cyber.html?preview=1" title="Sigil preview" loading="lazy"></iframe>
+                    <span>SIGIL</span>
+                </div>
+                <div class="site-card-body">
+                    <h2>Sigil</h2>
+                    <p>Mirrored techno-sigil generator from seeded Bezier fields.</p>
+                    <a href="cyber.html" class="site-card-button">Open tool</a>
+                </div>
+            </article>
         </main>
-
-        <script>
-        (function() {
-            const cards = document.querySelectorAll('.site-card[data-cloud]');
-            const dpr = Math.max(1, devicePixelRatio || 1);
-            const tmp = document.createElement('canvas');
-            const tc = tmp.getContext('2d');
-            const allCards = [];
-
-            function sampleWord(cvs, word) {
-                const rect = cvs.parentElement.getBoundingClientRect();
-                const w = rect.width, h = rect.height;
-                if (w < 1 || h < 1) return [];
-                cvs.width = w * dpr; cvs.height = h * dpr;
-                cvs.style.width = w + 'px'; cvs.style.height = h + 'px';
-                tmp.width = cvs.width; tmp.height = cvs.height;
-                tc.setTransform(dpr, 0, 0, dpr, 0, 0);
-                tc.clearRect(0, 0, w, h);
-                const fs = Math.min(w * 0.5, h * 0.6);
-                tc.font = '400 ' + fs + 'px "NG Hofmann", sans-serif';
-                tc.textAlign = 'center';
-                tc.textBaseline = 'middle';
-                tc.fillStyle = '#000';
-                tc.fillText(word, w / 2, h / 2);
-                const img = tc.getImageData(0, 0, tmp.width, tmp.height);
-                const d = img.data, aW = tmp.width, aH = tmp.height;
-                const step = Math.max(3, Math.round(6 * dpr));
-                const pts = [];
-                for (let py = 0; py < aH; py += step) {
-                    for (let px = 0; px < aW; px += step) {
-                        if (d[(py * aW + px) * 4 + 3] < 80) continue;
-                        pts.push({
-                            hx: px / dpr, hy: py / dpr,
-                            x: px / dpr + (Math.random() - 0.5) * 20,
-                            y: py / dpr + (Math.random() - 0.5) * 20,
-                            vx: 0, vy: 0,
-                            r: 0.6 + Math.random() * 0.8,
-                            phase: Math.random() * 6.28,
-                        });
-                    }
-                }
-                return pts;
-            }
-
-            function initCards() {
-                allCards.length = 0;
-                cards.forEach(card => {
-                    const cvs = card.querySelector('.card-cloud');
-                    const word = card.dataset.cloud;
-                    const pts = sampleWord(cvs, word);
-                    allCards.push({ cvs, pts, mx: -9999, my: -9999, hovered: false });
-                    card.addEventListener('mouseenter', function() { this._ci.hovered = true; }.bind({ _ci: allCards[allCards.length - 1] }));
-                    card.addEventListener('mousemove', function(e) {
-                        const r = this._ci.cvs.getBoundingClientRect();
-                        this._ci.mx = e.clientX - r.left;
-                        this._ci.my = e.clientY - r.top;
-                    }.bind({ _ci: allCards[allCards.length - 1] }));
-                    card.addEventListener('mouseleave', function() {
-                        this._ci.hovered = false;
-                        this._ci.mx = -9999; this._ci.my = -9999;
-                    }.bind({ _ci: allCards[allCards.length - 1] }));
-                });
-            }
-
-            function tickCards() {
-                const t = performance.now() * 0.001;
-                for (const c of allCards) {
-                    if (c.pts.length === 0) continue;
-                    const ctx = c.cvs.getContext('2d');
-                    const w = c.cvs.width / dpr, h = c.cvs.height / dpr;
-                    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                    ctx.clearRect(0, 0, w, h);
-
-                    for (const p of c.pts) {
-                        const breath = Math.sin(t * 0.6 + p.phase) * 0.08;
-                        if (c.hovered && c.mx > -999) {
-                            const dx = p.x - c.mx, dy = p.y - c.my;
-                            const dist = Math.sqrt(dx * dx + dy * dy);
-                            if (dist < 60 && dist > 0.1) {
-                                const f = (1 - dist / 60);
-                                p.vx += (dx / dist) * f * 1.2;
-                                p.vy += (dy / dist) * f * 1.2;
-                            }
-                        }
-                        p.vx += (p.hx - p.x) * 0.04 + Math.cos(t * 0.4 + p.phase) * breath;
-                        p.vy += (p.hy - p.y) * 0.04 + Math.sin(t * 0.5 + p.phase) * breath;
-                        p.vx *= 0.88; p.vy *= 0.88;
-                        p.x += p.vx; p.y += p.vy;
-                    }
-
-                    const alpha = c.hovered ? 0.9 : 0.5;
-                    ctx.globalAlpha = alpha;
-                    ctx.fillStyle = '#fff';
-                    for (const p of c.pts) {
-                        ctx.beginPath();
-                        ctx.arc(p.x, p.y, p.r, 0, 6.28);
-                        ctx.fill();
-                    }
-                    ctx.globalAlpha = 1;
-                }
-                requestAnimationFrame(tickCards);
-            }
-
-            document.fonts.ready.then(() => { initCards(); tickCards(); });
-            window.addEventListener('resize', initCards);
-        })();
-        </script>
     </div>
     <script src="page-transition.js"></script>
 </body>

@@ -169,25 +169,25 @@ body.is-leaving {
 .site-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 2px;
-    padding: 0;
+    gap: 12px;
+    padding: 24px 18px 40px;
     background: #000;
 }
 
 .site-card {
-    background: #0a0a0a;
-    color: #ddd;
+    background: #111;
+    color: #ccc;
+    border-radius: 6px;
     overflow: hidden;
+    border: 1px solid #222;
     display: flex;
     flex-direction: column;
-    cursor: pointer;
-    text-decoration: none;
-    transition: background 0.2s;
-    position: relative;
+    transition: border-color 0.2s, transform 0.2s;
 }
 
 .site-card:hover {
-    background: #151515;
+    border-color: #444;
+    transform: translateY(-2px);
 }
 
 .site-card-preview {
@@ -195,27 +195,38 @@ body.is-leaving {
     background: #0a0a0a;
     min-height: 140px;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    align-items: flex-start;
+    justify-content: flex-start;
     padding: 8px;
     overflow: hidden;
 }
 
-.site-card-preview canvas.card-cloud {
+.site-card-preview span {
+    position: relative;
+    z-index: 2;
+    font-family: 'ABC Diatype Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    background: rgba(255,255,255,0.08);
+    color: #aaa;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.tool-preview-frame {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
-}
-
-.site-card-preview span {
-    display: none;
+    border: 0;
+    pointer-events: none;
+    background: #0a0a0a;
 }
 
 .site-card-body {
-    padding: 10px 12px 14px;
+    padding: 10px 10px 12px;
     font-size: 10px;
-    border-top: 1px solid #1a1a1a;
 }
 
 .site-card-body h2 {
@@ -224,18 +235,36 @@ body.is-leaving {
     font-weight: 700;
     margin-bottom: 4px;
     text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #f6f6f4;
+    letter-spacing: 0.06em;
+    color: #eee;
 }
 
 .site-card-body p {
-    margin-bottom: 0;
+    margin-bottom: 8px;
     line-height: 1.4;
     color: #666;
 }
 
 .site-card-button {
-    display: none;
+    display: inline-block;
+    padding: 4px 10px;
+    font-family: inherit;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    border-radius: 999px;
+    border: 1px solid #333;
+    background: transparent;
+    cursor: pointer;
+    text-decoration: none;
+    color: #aaa;
+    transition: background 0.15s, color 0.15s;
+}
+
+.site-card-button:hover {
+    background: #fff;
+    color: #000;
 }
 
 .app {
