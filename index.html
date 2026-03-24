@@ -48,7 +48,7 @@
                 return { widths, glyphH, asc, desc };
             }
 
-            /** Local layout: ink from (0,0) to (bboxW, bboxH). Uniform scale + cover (clip) — no stretch. */
+            /** Local layout: ink from (0,0) to (bboxW, bboxH). Uniform scale — no stretch. */
             function buildNaturalLayout(fs) {
                 const { widths, glyphH } = measureLetters(fs);
                 const o = Math.min(fs * 0.18, Math.min(...widths) * 0.38);
@@ -77,9 +77,9 @@
                 S.fs = fs;
                 S.bboxW = Math.max(lay.bboxW, 1);
                 S.bboxH = Math.max(lay.bboxH, 1);
-                /* Uniform scale, object-fit: cover — fills width & height; clips at hero edges */
-                const sCover = Math.max(W / S.bboxW, H / S.bboxH);
-                S.s = sCover;
+                /* Scale from height: keeps full top/bottom of the word; wide viewports clip sides, not caps */
+                const insetY = 0.9;
+                S.s = (H / S.bboxH) * insetY;
                 S.tx = (W - S.bboxW * S.s) / 2;
                 S.ty = (H - S.bboxH * S.s) / 2;
                 const { widths, hx, hy } = lay;
