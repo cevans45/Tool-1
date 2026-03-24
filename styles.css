@@ -53,10 +53,11 @@ body.is-leaving {
 
 .hero {
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 40px 32px;
+    padding: 12px 8px;
     border-bottom: 1px solid #e5e5e5;
     background: #fff;
     color: #111;
@@ -95,8 +96,8 @@ body.is-leaving {
 
 .hero-sub {
     font-family: 'NG Hofmann', sans-serif;
-    font-size: clamp(13px, 2vw, 22px);
-    letter-spacing: 0.2em;
+    font-size: clamp(18px, 5.5vw, 56px);
+    letter-spacing: 0.18em;
     text-transform: uppercase;
     color: rgba(17, 17, 17, 0.45);
     margin-top: 20px;

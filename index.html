@@ -45,36 +45,51 @@
             }
 
             /**
-             * Edge-to-edge: inner width = W − 2·pad, overlap derived so the word fills it.
-             * Overlap clamped so multiply stays colorful, not one black slab.
+             * Fixed overlap for multiply (not tied to width). Scale + shift so the word
+             * always spans W − 2·pad — avoids the old bug where required overlap grew ~0.8·fs
+             * but maxOv was ~0.22·fs, so only tiny fonts “fit”.
              */
             function layoutAtFs(fs) {
                 const { widths, glyphH } = measureLetters(fs);
-                const pad = Math.max(6, fs * 0.016);
-                const targetInner = W - 2 * pad;
-                let sumW = 0;
-                for (const w of widths) sumW += w;
-                if (sumW < targetInner) return null;
-                const overlap = (sumW - targetInner) / 3;
+                const pad = Math.max(4, fs * 0.01);
                 const minW = Math.min(...widths);
-                const minOv = fs * 0.1;
-                const maxOv = Math.min(fs * 0.22, minW * 0.4);
-                if (overlap < minOv || overlap > maxOv) return null;
-                let left = pad;
+                const o = Math.min(fs * 0.18, minW * 0.38);
+                let x = pad;
                 const hx = [];
                 for (let i = 0; i < 4; i++) {
-                    hx.push(left + widths[i] / 2);
-                    left += widths[i] - overlap;
+                    hx.push(x + widths[i] / 2);
+                    x += widths[i] - o;
                 }
-                const hy = H * 0.41;
-                return { widths, glyphH, overlap, hx, hy, pad };
+                const leftE = hx[0] - widths[0] / 2;
+                const rightE = hx[3] + widths[3] / 2;
+                const gcx = (leftE + rightE) / 2;
+                const natW = Math.max(rightE - leftE, 1);
+                const targetW = W - 2 * pad;
+                const scale = targetW / natW;
+                let hxOut = hx.map(xc => gcx + (xc - gcx) * scale);
+                let minL = Math.min(...hxOut.map((xc, i) => xc - widths[i] / 2));
+                let maxR = Math.max(...hxOut.map((xc, i) => xc + widths[i] / 2));
+                const shift1 = pad - minL;
+                hxOut = hxOut.map(xc => xc + shift1);
+                minL = Math.min(...hxOut.map((xc, i) => xc - widths[i] / 2));
+                maxR = Math.max(...hxOut.map((xc, i) => xc + widths[i] / 2));
+                if (maxR > W - pad) {
+                    const shift2 = W - pad - maxR;
+                    hxOut = hxOut.map(xc => xc + shift2);
+                }
+                for (let i = 0; i < 4; i++) {
+                    if (hxOut[i] - widths[i] / 2 < pad - 1) return null;
+                    if (hxOut[i] + widths[i] / 2 > W - pad + 1) return null;
+                }
+                const hy = H * 0.44;
+                return { widths, glyphH, hx: hxOut, hy, pad };
             }
 
             function fitsReadableWord(fs) {
                 const lay = layoutAtFs(fs);
                 if (!lay) return false;
                 const { glyphH, hy, pad } = lay;
-                if (glyphH > H * 0.84) return false;
+                if (glyphH > H * 0.9) return false;
                 if (hy - glyphH / 2 < pad) return false;
                 if (hy + glyphH / 2 > H - pad) return false;
                 return true;
@@ -83,22 +98,22 @@
             function init() {
                 L.length = 0;
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                let lo = 28;
-                let hi = Math.min(W, H) * 6;
+                let lo = 40;
+                let hi = Math.max(Math.min(W, H) * 14, H * 1.2);
                 let fs = lo;
-                for (let iter = 0; iter < 38; iter++) {
+                for (let iter = 0; iter < 42; iter++) {
                     const mid = (lo + hi) / 2;
                     if (fitsReadableWord(mid)) {
                         fs = mid;
                         lo = mid;
                     } else hi = mid;
                 }
-                for (let step = 0; step < 64; step++) {
-                    const next = fs + 5;
+                for (let step = 0; step < 100; step++) {
+                    const next = fs + 6;
                     if (fitsReadableWord(next)) fs = next;
                     else break;
                 }
-                fs = Math.max(40, fs);
+                fs = Math.max(56, fs);
                 let lay = layoutAtFs(fs);
                 if (!lay) {
                     for (let fb = fs; fb >= 28; fb -= 6) {
