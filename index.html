@@ -30,6 +30,7 @@
             let pmx = 0, pmy = 0;
             let hmx = 0, hmy = 0;
             const L = [];
+            const S = { sx: 1, sy: 1, bboxW: 1, bboxH: 1, fs: 100 };
 
             function measureLetters(fs) {
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -40,107 +41,36 @@
                 const m = ctx.measureText('O');
                 const asc = m.actualBoundingBoxAscent ?? fs * 0.38;
                 const desc = m.actualBoundingBoxDescent ?? fs * 0.38;
-                const glyphH = asc + desc;
+                const glyphH = Math.max(asc + desc, fs * 0.84);
                 return { widths, glyphH, asc, desc };
             }
 
-            /**
-             * Fixed overlap for multiply (not tied to width). Scale + shift so the word
-             * always spans W − 2·pad — avoids the old bug where required overlap grew ~0.8·fs
-             * but maxOv was ~0.22·fs, so only tiny fonts “fit”.
-             */
-            function layoutAtFs(fs) {
+            /** Local layout: ink from (0,0) to (bboxW, bboxH). Draw with ctx scale sx,sy to fill the canvas. */
+            function buildNaturalLayout(fs) {
                 const { widths, glyphH } = measureLetters(fs);
-                const pad = Math.max(2, fs * 0.008);
-                const minW = Math.min(...widths);
-                const o = Math.min(fs * 0.18, minW * 0.38);
-                let x = pad;
+                const o = Math.min(fs * 0.18, Math.min(...widths) * 0.38);
+                let left = 0;
                 const hx = [];
                 for (let i = 0; i < 4; i++) {
-                    hx.push(x + widths[i] / 2);
-                    x += widths[i] - o;
+                    hx.push(left + widths[i] / 2);
+                    left += widths[i] - o;
                 }
-                const leftE = hx[0] - widths[0] / 2;
-                const rightE = hx[3] + widths[3] / 2;
-                const gcx = (leftE + rightE) / 2;
-                const natW = Math.max(rightE - leftE, 1);
-                const targetW = W - 2 * pad;
-                const scale = targetW / natW;
-                let hxOut = hx.map(xc => gcx + (xc - gcx) * scale);
-                let minL = Math.min(...hxOut.map((xc, i) => xc - widths[i] / 2));
-                let maxR = Math.max(...hxOut.map((xc, i) => xc + widths[i] / 2));
-                const shift1 = pad - minL;
-                hxOut = hxOut.map(xc => xc + shift1);
-                minL = Math.min(...hxOut.map((xc, i) => xc - widths[i] / 2));
-                maxR = Math.max(...hxOut.map((xc, i) => xc + widths[i] / 2));
-                if (maxR > W - pad) {
-                    const shift2 = W - pad - maxR;
-                    hxOut = hxOut.map(xc => xc + shift2);
-                }
-                for (let i = 0; i < 4; i++) {
-                    if (hxOut[i] - widths[i] / 2 < pad - 1) return null;
-                    if (hxOut[i] + widths[i] / 2 > W - pad + 1) return null;
-                }
-                const vTop = 0;
-                const hy = vTop + glyphH / 2;
-                return { widths, glyphH, hx: hxOut, hy, pad, vTop };
-            }
-
-            function fitsReadableWord(fs) {
-                const lay = layoutAtFs(fs);
-                if (!lay) return false;
-                const { glyphH, hy, vTop } = lay;
-                if (glyphH > H - vTop) return false;
-                if (hy - glyphH / 2 < vTop - 0.5) return false;
-                if (hy + glyphH / 2 > H + 0.5) return false;
-                return true;
+                const bboxW = left;
+                const bboxH = glyphH;
+                const hy = glyphH / 2;
+                return { widths, glyphH, hx, hy, bboxW, bboxH };
             }
 
             function init() {
                 L.length = 0;
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                let lo = 40;
-                let hi = Math.max(Math.min(W, H) * 14, H * 1.2);
-                let fs = lo;
-                for (let iter = 0; iter < 42; iter++) {
-                    const mid = (lo + hi) / 2;
-                    if (fitsReadableWord(mid)) {
-                        fs = mid;
-                        lo = mid;
-                    } else hi = mid;
-                }
-                for (let step = 0; step < 100; step++) {
-                    const next = fs + 6;
-                    if (fitsReadableWord(next)) fs = next;
-                    else break;
-                }
-                fs = Math.max(56, fs);
-                let lay = layoutAtFs(fs);
-                if (!lay) {
-                    for (let fb = fs; fb >= 28; fb -= 6) {
-                        lay = layoutAtFs(fb);
-                        if (lay) { fs = fb; break; }
-                    }
-                }
-                if (!lay) {
-                    fs = Math.min(W, H) * 0.18;
-                    lay = layoutAtFs(fs);
-                }
-                if (!lay) {
-                    fs = 32;
-                    const m = measureLetters(fs);
-                    const ov = fs * 0.15;
-                    let s = 0;
-                    for (const w of m.widths) s += w;
-                    const span = s - ov * 3;
-                    let cx = (W - span) / 2;
-                    const hxF = [];
-                    for (let i = 0; i < 4; i++) {
-                        hxF.push(cx + m.widths[i] / 2);
-                        cx += m.widths[i] - ov;
-                    }
-                    lay = { widths: m.widths, hx: hxF, hy: m.glyphH / 2 };
-                }
+                const fs = Math.min(880, Math.max(W, H) * 0.58);
+                const lay = buildNaturalLayout(fs);
+                S.fs = fs;
+                S.bboxW = Math.max(lay.bboxW, 1);
+                S.bboxH = Math.max(lay.bboxH, 1);
+                S.sx = W / S.bboxW;
+                S.sy = H / S.bboxH;
                 const { widths, hx, hy } = lay;
                 ctx.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
                 const word = 'OVRT';
@@ -174,7 +104,10 @@
             }
 
             function pointInLetter(l, px, py) {
-                const dx = px - l.x, dy = py - l.y;
+                if (!S.sx || !S.sy) return false;
+                const plx = px / S.sx;
+                const ply = py / S.sy;
+                const dx = plx - l.x, dy = ply - l.y;
                 const c = Math.cos(-l.rot), s = Math.sin(-l.rot);
                 const lx = dx * c - dy * s + l.aw / 2;
                 const ly = dx * s + dy * c + l.ah / 2;
@@ -204,15 +137,10 @@
                     const sq = Math.min(speed * 0.005, 0.08);
                     l.sx += (1 + sq - l.sx) * 0.06;
                     l.sy += (1 - sq * 0.35 - l.sy) * 0.06;
-                    const pad = 8;
-                    const ext = Math.max(
-                        Math.hypot(l.hw, l.hh) * Math.max(l.sx, l.sy) * 1.25 + l.fs * 0.08,
-                        l.fs * 0.58
-                    );
-                    const yRad = l.fs * 0.46;
+                    const m = S.fs * 0.48;
                     const x0 = l.x, y0 = l.y;
-                    l.x = Math.max(ext + pad, Math.min(W - ext - pad, l.x));
-                    l.y = Math.max(yRad + 2, Math.min(H - yRad - 2, l.y));
+                    l.x = Math.max(m, Math.min(S.bboxW - m, l.x));
+                    l.y = Math.max(m, Math.min(S.bboxH - m, l.y));
                     if (Math.abs(l.x - x0) > 0.5) l.vx *= -0.25;
                     if (Math.abs(l.y - y0) > 0.5) l.vy *= -0.25;
                 }
@@ -221,18 +149,20 @@
                 ctx.globalCompositeOperation = 'source-over';
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, W, H);
+                ctx.setTransform(S.sx * dpr, 0, 0, S.sy * dpr, 0, 0);
                 ctx.globalCompositeOperation = 'multiply';
                 for (const l of L) {
                     ctx.save();
                     ctx.translate(l.x, l.y);
                     ctx.rotate(l.rot);
                     ctx.scale(l.sx, l.sy);
-                    ctx.font = '600 ' + l.fs + 'px "NG Hofmann", sans-serif';
+                    ctx.font = '600 ' + S.fs + 'px "NG Hofmann", sans-serif';
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     ctx.fillStyle = l.color;
                     ctx.fillText(l.ch, 0, 0);
                     ctx.restore();
                 }
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 ctx.globalCompositeOperation = 'source-over';
                 requestAnimationFrame(tick);
             }
@@ -253,9 +183,10 @@
                 const idx = hitTest(px, py);
                 if (idx < 0) return false;
                 const l = L[idx];
-                dragging = { l, ox: px - l.x, oy: py - l.y };
+                const lx = px / S.sx, ly = py / S.sy;
+                dragging = { l, ox: lx - l.x, oy: ly - l.y };
                 l.vx = 0; l.vy = 0;
-                pmx = px; pmy = py;
+                pmx = lx; pmy = ly;
                 canvas.style.cursor = 'grabbing';
                 return true;
             }
@@ -263,22 +194,18 @@
             function moveDrag(px, py) {
                 if (!dragging) return;
                 const l = dragging.l;
-                l.x = px - dragging.ox;
-                l.y = py - dragging.oy;
-                const pad = 8;
-                const ext = Math.max(
-                    Math.hypot(l.hw, l.hh) * Math.max(l.sx, l.sy) * 1.25 + l.fs * 0.08,
-                    l.fs * 0.58
-                );
-                const yRad = l.fs * 0.46;
-                l.x = Math.max(ext + pad, Math.min(W - ext - pad, l.x));
-                l.y = Math.max(yRad + 2, Math.min(H - yRad - 2, l.y));
-                l.vx = (px - pmx) * 0.4;
-                l.vy = (py - pmy) * 0.4;
+                const lx = px / S.sx, ly = py / S.sy;
+                l.x = lx - dragging.ox;
+                l.y = ly - dragging.oy;
+                const m = S.fs * 0.48;
+                l.x = Math.max(m, Math.min(S.bboxW - m, l.x));
+                l.y = Math.max(m, Math.min(S.bboxH - m, l.y));
+                l.vx = (lx - pmx) * 0.4;
+                l.vy = (ly - pmy) * 0.4;
                 const grabY = dragging.oy;
                 const hangAngle = Math.atan2(l.vx, Math.max(10, -grabY)) * 0.3;
                 l.rot += (hangAngle - l.rot) * 0.15;
-                pmx = px; pmy = py;
+                pmx = lx; pmy = ly;
             }
 
             canvas.addEventListener('mousedown', e => {
@@ -291,12 +218,12 @@
                     const mdx = p.x - hmx, mdy = p.y - hmy;
                     hmx = p.x; hmy = p.y;
                     const mspeed = Math.sqrt(mdx * mdx + mdy * mdy);
-                    if (mspeed > 2) {
+                    if (mspeed > 2 && S.sx && S.sy) {
                         for (const l of L) {
                             if (pointInLetter(l, p.x, p.y)) {
                                 const push = Math.min(mspeed * 0.02, 0.6);
-                                l.vx += (mdx / mspeed) * push;
-                                l.vy += (mdy / mspeed) * push;
+                                l.vx += (mdx / mspeed) * push / S.sx;
+                                l.vy += (mdy / mspeed) * push / S.sy;
                             }
                         }
                     }
