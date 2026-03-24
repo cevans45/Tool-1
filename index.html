@@ -30,34 +30,50 @@
             let pmx = 0, pmy = 0;
             const L = [];
 
-            function homeFor(i) {
-                const col = i % 2, row = (i / 2) | 0;
-                return { x: W * (col ? 0.72 : 0.28), y: H * (row ? 0.68 : 0.34) };
-            }
-
             function init() {
                 L.length = 0;
-                const fs = Math.min(W * 0.48, H * 0.5);
+                const fs = Math.min(W * 0.22, H * 0.7);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 ctx.font = '400 ' + fs + 'px "NG Hofmann", sans-serif';
+                const word = 'OVRT', gap = fs * 0.08;
+                let totalW = 0;
+                const widths = [];
+                for (const ch of word) { const w = ctx.measureText(ch).width; widths.push(w); totalW += w; }
+                totalW += gap * (word.length - 1);
+                let cx = (W - totalW) / 2;
                 for (let i = 0; i < 4; i++) {
-                    const ch = 'OVRT'[i];
-                    const h = homeFor(i);
-                    const m = ctx.measureText(ch);
-                    const tw = m.width;
-                    const th = fs * 0.8;
+                    const ch = word[i];
+                    const hx = cx + widths[i] / 2;
+                    const hy = H * 0.48;
+                    cx += widths[i] + gap;
+                    const tc = document.createElement('canvas');
+                    const tw = Math.ceil(widths[i] + 20), th = Math.ceil(fs * 1.2);
+                    tc.width = tw; tc.height = th;
+                    const tg = tc.getContext('2d');
+                    tg.font = '400 ' + fs + 'px "NG Hofmann", sans-serif';
+                    tg.textAlign = 'center'; tg.textBaseline = 'middle';
+                    tg.fillStyle = '#fff';
+                    tg.fillText(ch, tw / 2, th / 2);
+                    const id = tg.getImageData(0, 0, tw, th);
+                    const alpha = new Uint8Array(tw * th);
+                    for (let k = 0; k < alpha.length; k++) alpha[k] = id.data[k * 4 + 3];
                     L.push({
-                        ch, x: h.x, y: h.y,
-                        vx: 0, vy: 0, hx: h.x, hy: h.y,
-                        fs, hw: tw / 2, hh: th / 2,
+                        ch, x: hx, y: hy,
+                        vx: 0, vy: 0, hx, hy,
+                        fs, hw: widths[i] / 2, hh: fs * 0.42,
                         sx: 1, sy: 1, rot: 0,
                         phase: Math.random() * 6.28,
+                        alpha, aw: tw, ah: th,
                     });
                 }
             }
 
-            function rectsOverlap(a, b) {
-                return Math.abs(a.x - b.x) < (a.hw + b.hw) &&
-                       Math.abs(a.y - b.y) < (a.hh + b.hh);
+            function pointInLetter(l, px, py) {
+                const lx = px - l.x + l.aw / 2;
+                const ly = py - l.y + l.ah / 2;
+                const ix = Math.round(lx), iy = Math.round(ly);
+                if (ix < 0 || ix >= l.aw || iy < 0 || iy >= l.ah) return false;
+                return l.alpha[iy * l.aw + ix] > 60;
             }
 
             function tick() {
@@ -65,53 +81,46 @@
 
                 for (const l of L) {
                     if (dragging && l === dragging.l) continue;
-                    l.vx += (l.hx - l.x) * 0.002;
-                    l.vy += (l.hy - l.y) * 0.002;
-                    l.vx += Math.sin(t * 0.15 + l.phase) * 0.008;
-                    l.vy += Math.cos(t * 0.2 + l.phase * 1.3) * 0.008;
-                    l.vx *= 0.992; l.vy *= 0.992;
+                    l.vx += (l.hx - l.x) * 0.0015;
+                    l.vy += (l.hy - l.y) * 0.0015;
+                    l.vx += Math.sin(t * 0.12 + l.phase) * 0.005;
+                    l.vy += Math.cos(t * 0.18 + l.phase * 1.3) * 0.005;
+                    l.vx *= 0.993; l.vy *= 0.993;
                     l.x += l.vx; l.y += l.vy;
                 }
 
                 for (let i = 0; i < L.length; i++)
                     for (let j = i + 1; j < L.length; j++) {
                         const a = L[i], b = L[j];
-                        if (!rectsOverlap(a, b)) continue;
-                        const ox = (a.hw + b.hw) - Math.abs(a.x - b.x);
-                        const oy = (a.hh + b.hh) - Math.abs(a.y - b.y);
+                        const dx = b.x - a.x, dy = b.y - a.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        const minDist = (a.hw + b.hw) * 0.85;
+                        if (dist >= minDist || dist < 0.1) continue;
+                        const ov = (minDist - dist) / 2;
+                        const nx = dx / dist, ny = dy / dist;
                         const aLocked = dragging && a === dragging.l;
                         const bLocked = dragging && b === dragging.l;
-                        if (ox < oy) {
-                            const sign = a.x < b.x ? -1 : 1;
-                            const push = ox / 2;
-                            if (!aLocked) { a.x += sign * push; a.vx += sign * 0.5; }
-                            if (!bLocked) { b.x -= sign * push; b.vx -= sign * 0.5; }
-                        } else {
-                            const sign = a.y < b.y ? -1 : 1;
-                            const push = oy / 2;
-                            if (!aLocked) { a.y += sign * push; a.vy += sign * 0.5; }
-                            if (!bLocked) { b.y -= sign * push; b.vy -= sign * 0.5; }
-                        }
+                        if (!aLocked) { a.x -= nx * ov; a.y -= ny * ov; a.vx -= nx * 0.4; a.vy -= ny * 0.4; }
+                        if (!bLocked) { b.x += nx * ov; b.y += ny * ov; b.vx += nx * 0.4; b.vy += ny * 0.4; }
                     }
 
                 for (const l of L) {
                     const speed = Math.sqrt(l.vx * l.vx + l.vy * l.vy);
-                    const sq = Math.min(speed * 0.008, 0.12);
-                    l.sx += (1 + sq - l.sx) * 0.08;
-                    l.sy += (1 - sq * 0.5 - l.sy) * 0.08;
-                    const tRot = speed > 1 ? Math.atan2(l.vy, l.vx) * 0.04 : 0;
-                    l.rot += (tRot - l.rot) * 0.06;
-                    l.rot *= 0.97;
-                    const pad = 10;
-                    if (l.x - l.hw < pad) { l.x = l.hw + pad; l.vx *= -0.4; }
-                    if (l.x + l.hw > W - pad) { l.x = W - l.hw - pad; l.vx *= -0.4; }
-                    if (l.y - l.hh < pad) { l.y = l.hh + pad; l.vy *= -0.4; }
-                    if (l.y + l.hh > H - pad) { l.y = H - l.hh - pad; l.vy *= -0.4; }
+                    const sq = Math.min(speed * 0.006, 0.1);
+                    l.sx += (1 + sq - l.sx) * 0.07;
+                    l.sy += (1 - sq * 0.4 - l.sy) * 0.07;
+                    const tRot = speed > 1 ? Math.atan2(l.vy, l.vx) * 0.03 : 0;
+                    l.rot += (tRot - l.rot) * 0.05;
+                    l.rot *= 0.96;
+                    const pad = 5;
+                    if (l.x - l.hw < pad) { l.x = l.hw + pad; l.vx *= -0.3; }
+                    if (l.x + l.hw > W - pad) { l.x = W - l.hw - pad; l.vx *= -0.3; }
+                    if (l.y - l.hh < pad) { l.y = l.hh + pad; l.vy *= -0.3; }
+                    if (l.y + l.hh > H - pad) { l.y = H - l.hh - pad; l.vy *= -0.3; }
                 }
 
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 ctx.clearRect(0, 0, W, H);
-                const sw = Math.max(1.5, L.length > 0 ? L[0].fs * 0.012 : 2);
                 for (const l of L) {
                     ctx.save();
                     ctx.translate(l.x, l.y);
@@ -119,10 +128,8 @@
                     ctx.scale(l.sx, l.sy);
                     ctx.font = '400 ' + l.fs + 'px "NG Hofmann", sans-serif';
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                    ctx.strokeStyle = '#e8e8e4';
-                    ctx.lineWidth = sw;
-                    ctx.lineJoin = 'round';
-                    ctx.strokeText(l.ch, 0, 0);
+                    ctx.fillStyle = '#e8e8e4';
+                    ctx.fillText(l.ch, 0, 0);
                     ctx.restore();
                 }
                 requestAnimationFrame(tick);
@@ -135,10 +142,8 @@
             }
 
             function hitTest(px, py) {
-                for (let i = L.length - 1; i >= 0; i--) {
-                    const l = L[i];
-                    if (Math.abs(px - l.x) < l.hw && Math.abs(py - l.y) < l.hh) return i;
-                }
+                for (let i = L.length - 1; i >= 0; i--)
+                    if (pointInLetter(L[i], px, py)) return i;
                 return -1;
             }
 
