@@ -107,6 +107,11 @@
                                 <span class="param-value" id="val-ty-scale">18</span>
                             </div>
                             <div class="control-row">
+                                <label for="ty-uniform">Uniform</label>
+                                <input type="range" id="ty-uniform" min="0" max="100" value="0" step="1">
+                                <span class="param-value" id="val-ty-uniform">0</span>
+                            </div>
+                            <div class="control-row">
                                 <label for="ty-jitter">Jitter</label>
                                 <input type="range" id="ty-jitter" min="0" max="100" value="40" step="1">
                                 <span class="param-value" id="val-ty-jitter">40</span>
@@ -188,7 +193,7 @@
     const S = {
         text: 'TYPO', fontSize: 140, letterSpacing: 0, lineHeight: 1.2,
         textAlign: 'center', fontFamily: 'sans-serif', fontFileName: null,
-        mode: 'circles', density: 8, scale: 18, jitter: 40, drift: 20, weight: 6,
+        mode: 'circles', density: 8, scale: 18, uniform: 0, jitter: 40, drift: 20, weight: 6,
         fill: true, strokeW: 1.5, paused: false,
         ink: '#111111', bg: '#f0ede8',
     };
@@ -286,7 +291,7 @@
                 x, y, homeX: x, homeY: y,
                 vx: Math.cos(angle) * speed,
                 vy: Math.sin(angle) * speed,
-                scale: 0.3 + Math.random() * 0.7,
+                scale: (0.2 + Math.random() * 0.8) * (1 - S.uniform / 100) + (S.uniform / 100),
                 phase: Math.random() * Math.PI * 2,
                 escaped: 0,
             });
@@ -406,75 +411,34 @@
         ctx.globalAlpha = 1;
     }
 
-    const fragCanvas = document.createElement('canvas');
-    const fragCtx = fragCanvas.getContext('2d');
-
-    function drawFragShapes(target, maxR) {
-        for (const p of particles) {
-            const r = maxR * p.scale;
-            const sides = 3 + Math.floor(p.scale * 4);
-            const rot = p.phase;
-            target.beginPath();
-            for (let v = 0; v <= sides; v++) {
-                const a = (Math.PI * 2 / sides) * v + rot;
-                target.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r);
-            }
-            target.closePath();
-            target.fill();
+    function drawFragPoly(target, p, r) {
+        const sides = 3 + Math.floor(p.scale * 4);
+        const rot = p.phase;
+        target.beginPath();
+        for (let v = 0; v <= sides; v++) {
+            const a = (Math.PI * 2 / sides) * v + rot;
+            target.lineTo(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r);
         }
+        target.closePath();
+        target.fill();
     }
 
     function drawFragment() {
         const maxR = S.scale * 0.5;
         ctx.globalAlpha = 1;
 
-        if (S.fill) {
-            ctx.fillStyle = S.ink;
-            ctx.lineJoin = 'round';
-            drawFragShapes(ctx, maxR);
-        } else {
-            fragCanvas.width = canvas.width;
-            fragCanvas.height = canvas.height;
-            fragCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            fragCtx.clearRect(0, 0, cssW, cssH);
+        ctx.fillStyle = S.ink;
+        for (const p of particles) {
+            drawFragPoly(ctx, p, maxR * p.scale);
+        }
 
-            fragCtx.fillStyle = '#000';
-            drawFragShapes(fragCtx, maxR);
-
-            const sw = Math.max(1, S.strokeW * dpr);
-            fragCtx.globalCompositeOperation = 'destination-out';
-            fragCtx.drawImage(fragCanvas, sw, 0);
-            fragCtx.drawImage(fragCanvas, -sw, 0);
-            fragCtx.drawImage(fragCanvas, 0, sw);
-            fragCtx.drawImage(fragCanvas, 0, -sw);
-            fragCtx.drawImage(fragCanvas, sw * 0.7, sw * 0.7);
-            fragCtx.drawImage(fragCanvas, -sw * 0.7, sw * 0.7);
-            fragCtx.drawImage(fragCanvas, sw * 0.7, -sw * 0.7);
-            fragCtx.drawImage(fragCanvas, -sw * 0.7, -sw * 0.7);
-            fragCtx.globalCompositeOperation = 'source-over';
-
-            ctx.save();
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.drawImage(fragCanvas, 0, 0);
-            ctx.restore();
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-            const imgData = fragCtx.getImageData(0, 0, fragCanvas.width, fragCanvas.height);
-            const d = imgData.data;
-            const ir = parseInt(S.ink.slice(1, 3), 16);
-            const ig = parseInt(S.ink.slice(3, 5), 16);
-            const ib = parseInt(S.ink.slice(5, 7), 16);
-            for (let i = 0; i < d.length; i += 4) {
-                if (d[i + 3] > 0) {
-                    d[i] = ir; d[i + 1] = ig; d[i + 2] = ib;
-                }
+        if (!S.fill) {
+            ctx.fillStyle = S.bg;
+            const shrink = S.strokeW;
+            for (const p of particles) {
+                const r = Math.max(0.5, maxR * p.scale - shrink);
+                drawFragPoly(ctx, p, r);
             }
-            ctx.save();
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.putImageData(imgData, 0, 0);
-            ctx.restore();
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
     }
 
@@ -641,6 +605,10 @@
     $('ty-scale').addEventListener('input', e => {
         S.scale = +e.target.value; $('val-ty-scale').textContent = S.scale;
         if (!animId) fullRender();
+    });
+    $('ty-uniform').addEventListener('input', e => {
+        S.uniform = +e.target.value; $('val-ty-uniform').textContent = S.uniform;
+        paramChanged();
     });
     $('ty-jitter').addEventListener('input', e => {
         S.jitter = +e.target.value; $('val-ty-jitter').textContent = S.jitter;
