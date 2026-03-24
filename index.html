@@ -26,104 +26,141 @@
             const ctx = canvas.getContext('2d');
             const hero = document.getElementById('hero');
             let W, H, dpr;
-            let mx = -9999, my = -9999;
-            let groups = [];
-            let mouseR;
-            const SP = 10;
-            const DR = 7;
+            let dragging = null;
+            let pmx = 0, pmy = 0;
+            const L = [];
 
-            function raster(ch, fs) {
-                const cw = Math.ceil(fs * 1.2), ch2 = Math.ceil(fs * 1.4);
-                const c = document.createElement('canvas');
-                c.width = cw; c.height = ch2;
-                const g = c.getContext('2d');
-                g.font = '400 ' + fs + 'px "NG Hofmann", sans-serif';
-                g.textAlign = 'center'; g.textBaseline = 'middle';
-                g.fillStyle = '#fff';
-                g.fillText(ch, cw / 2, ch2 / 2);
-                const id = g.getImageData(0, 0, cw, ch2);
-                const a = new Uint8Array(cw * ch2);
-                for (let i = 0; i < a.length; i++) a[i] = id.data[i * 4 + 3];
-                return { a, w: cw, h: ch2 };
+            function homeFor(i) {
+                const col = i % 2, row = (i / 2) | 0;
+                return { x: W * (col ? 0.74 : 0.26), y: H * (row ? 0.66 : 0.36) };
             }
 
-            function makeGrid(alpha, rw, rh, ox, oy) {
-                const gw = Math.floor(rw / SP), gh = Math.floor(rh / SP);
-                const map = new Int32Array(gw * gh).fill(-1);
-                const pts = [];
-                for (let gy = 0; gy < gh; gy++)
-                    for (let gx = 0; gx < gw; gx++) {
-                        const rx = (gx * SP + SP / 2) | 0, ry = (gy * SP + SP / 2) | 0;
-                        if (rx >= rw || ry >= rh || alpha[ry * rw + rx] < 128) continue;
-                        map[gy * gw + gx] = pts.length;
-                        pts.push({
-                            x: rx + ox, y: ry + oy,
-                            vx: 0, vy: 0,
-                            hx: rx + ox, hy: ry + oy,
-                            gx, gy, nb: [], nd: [],
-                        });
-                    }
-                for (const p of pts)
-                    for (const [dx, dy] of [[1,0],[0,1],[1,1],[-1,1]]) {
-                        const nx = p.gx + dx, ny = p.gy + dy;
-                        if (nx < 0 || nx >= gw || ny < 0 || ny >= gh) continue;
-                        const ni = map[ny * gw + nx];
-                        if (ni < 0) continue;
-                        const o = pts[ni], d = Math.hypot(p.hx - o.hx, p.hy - o.hy);
-                        p.nb.push(o); p.nd.push(d);
-                        o.nb.push(p); o.nd.push(d);
-                    }
-                return pts;
-            }
-
-            function step(pts) {
-                const t = performance.now() * 0.001;
-                for (const p of pts) {
-                    p.vx += (p.hx - p.x) * 0.035;
-                    p.vy += (p.hy - p.y) * 0.035;
-                    for (let i = 0; i < p.nb.length; i++) {
-                        const n = p.nb[i], dx = n.x - p.x, dy = n.y - p.y;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-                        if (dist < 0.01) continue;
-                        const f = (dist - p.nd[i]) / dist * 0.12;
-                        p.vx += dx * f; p.vy += dy * f;
-                    }
-                    if (mx > -999) {
-                        const dx = p.x - mx, dy = p.y - my;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-                        if (dist < mouseR && dist > 0.5) {
-                            const push = ((mouseR - dist) / mouseR) * 6;
-                            p.vx += (dx / dist) * push; p.vy += (dy / dist) * push;
-                        }
-                    }
-                    p.vx += Math.sin(t * 0.3 + p.hy * 0.008) * 0.02;
-                    p.vy += Math.cos(t * 0.4 + p.hx * 0.008) * 0.02;
-                    p.vx *= 0.87; p.vy *= 0.87;
-                    p.x += p.vx; p.y += p.vy;
-                }
-            }
-
-            function draw(pts) {
-                ctx.beginPath();
-                for (const p of pts) {
-                    ctx.moveTo(p.x + DR, p.y);
-                    ctx.arc(p.x, p.y, DR, 0, 6.283);
-                }
-                ctx.fill();
-            }
-
-            function buildAll() {
-                groups = [];
-                const word = 'OVRT';
-                const fs = Math.min(W * 0.42, H * 0.42);
+            function init() {
+                L.length = 0;
+                const fs = Math.min(W * 0.36, H * 0.38);
                 for (let i = 0; i < 4; i++) {
-                    const col = i % 2, row = (i / 2) | 0;
-                    const hx = W * (col ? 0.75 : 0.25);
-                    const hy = H * (row ? 0.68 : 0.35);
-                    const r = raster(word[i], fs);
-                    groups.push(makeGrid(r.a, r.w, r.h, hx - r.w / 2, hy - r.h / 2));
+                    const h = homeFor(i);
+                    L.push({
+                        ch: 'OVRT'[i], x: h.x, y: h.y,
+                        vx: 0, vy: 0, hx: h.x, hy: h.y,
+                        fs, r: fs * 0.45,
+                        sx: 1, sy: 1, rot: 0,
+                        phase: Math.random() * 6.28,
+                    });
                 }
             }
+
+            function tick() {
+                const t = performance.now() * 0.001;
+
+                for (const l of L) {
+                    if (dragging && l === dragging.l) continue;
+                    l.vx += (l.hx - l.x) * 0.003;
+                    l.vy += (l.hy - l.y) * 0.003;
+                    l.vx += Math.sin(t * 0.35 + l.phase) * 0.06;
+                    l.vy += Math.cos(t * 0.45 + l.phase * 1.3) * 0.06;
+                    l.vx *= 0.985; l.vy *= 0.985;
+                    l.x += l.vx; l.y += l.vy;
+                }
+
+                for (let i = 0; i < L.length; i++)
+                    for (let j = i + 1; j < L.length; j++) {
+                        const a = L[i], b = L[j];
+                        const dx = b.x - a.x, dy = b.y - a.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        const min = a.r + b.r;
+                        if (dist >= min || dist < 0.1) continue;
+                        const ov = (min - dist) / 2;
+                        const nx = dx / dist, ny = dy / dist;
+                        const aLocked = dragging && a === dragging.l;
+                        const bLocked = dragging && b === dragging.l;
+                        if (!aLocked) { a.x -= nx * ov; a.y -= ny * ov; a.vx -= nx * 1.2; a.vy -= ny * 1.2; }
+                        if (!bLocked) { b.x += nx * ov; b.y += ny * ov; b.vx += nx * 1.2; b.vy += ny * 1.2; }
+                    }
+
+                for (const l of L) {
+                    const speed = Math.sqrt(l.vx * l.vx + l.vy * l.vy);
+                    const sq = Math.min(speed * 0.012, 0.18);
+                    l.sx += (1 + sq - l.sx) * 0.12;
+                    l.sy += (1 - sq * 0.6 - l.sy) * 0.12;
+                    const tRot = speed > 0.5 ? Math.atan2(l.vy, l.vx) * 0.06 : 0;
+                    l.rot += (tRot - l.rot) * 0.08;
+                    if (l.x < l.r) { l.x = l.r; l.vx *= -0.5; }
+                    if (l.x > W - l.r) { l.x = W - l.r; l.vx *= -0.5; }
+                    if (l.y < l.r) { l.y = l.r; l.vy *= -0.5; }
+                    if (l.y > H - l.r) { l.y = H - l.r; l.vy *= -0.5; }
+                }
+
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.clearRect(0, 0, W, H);
+                for (const l of L) {
+                    ctx.save();
+                    ctx.translate(l.x, l.y);
+                    ctx.rotate(l.rot);
+                    ctx.scale(l.sx, l.sy);
+                    ctx.font = '400 ' + l.fs + 'px "NG Hofmann", sans-serif';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillStyle = '#e8e8e4';
+                    ctx.fillText(l.ch, 0, 0);
+                    ctx.restore();
+                }
+                requestAnimationFrame(tick);
+            }
+
+            function getXY(e) {
+                const r = hero.getBoundingClientRect();
+                const src = e.touches ? e.touches[0] : e;
+                return { x: src.clientX - r.left, y: src.clientY - r.top };
+            }
+
+            function hitTest(px, py) {
+                for (let i = L.length - 1; i >= 0; i--)
+                    if (Math.hypot(px - L[i].x, py - L[i].y) < L[i].r) return i;
+                return -1;
+            }
+
+            canvas.addEventListener('mousedown', e => {
+                const p = getXY(e);
+                const idx = hitTest(p.x, p.y);
+                if (idx < 0) return;
+                e.preventDefault();
+                dragging = { l: L[idx], ox: p.x - L[idx].x, oy: p.y - L[idx].y };
+                L[idx].vx = 0; L[idx].vy = 0;
+                pmx = p.x; pmy = p.y;
+                canvas.style.cursor = 'grabbing';
+            });
+            canvas.addEventListener('mousemove', e => {
+                const p = getXY(e);
+                if (!dragging) { canvas.style.cursor = hitTest(p.x, p.y) >= 0 ? 'grab' : ''; return; }
+                dragging.l.x = p.x - dragging.ox;
+                dragging.l.y = p.y - dragging.oy;
+                dragging.l.vx = (p.x - pmx) * 0.4;
+                dragging.l.vy = (p.y - pmy) * 0.4;
+                pmx = p.x; pmy = p.y;
+            });
+            window.addEventListener('mouseup', () => {
+                if (dragging) { canvas.style.cursor = 'grab'; dragging = null; }
+            });
+            canvas.addEventListener('touchstart', e => {
+                const p = getXY(e);
+                const idx = hitTest(p.x, p.y);
+                if (idx < 0) return;
+                e.preventDefault();
+                dragging = { l: L[idx], ox: p.x - L[idx].x, oy: p.y - L[idx].y };
+                L[idx].vx = 0; L[idx].vy = 0;
+                pmx = p.x; pmy = p.y;
+            }, { passive: false });
+            canvas.addEventListener('touchmove', e => {
+                if (!dragging) return;
+                e.preventDefault();
+                const p = getXY(e);
+                dragging.l.x = p.x - dragging.ox;
+                dragging.l.y = p.y - dragging.oy;
+                dragging.l.vx = (p.x - pmx) * 0.4;
+                dragging.l.vy = (p.y - pmy) * 0.4;
+                pmx = p.x; pmy = p.y;
+            }, { passive: false });
+            window.addEventListener('touchend', () => { dragging = null; });
 
             function resize() {
                 const r = hero.getBoundingClientRect();
@@ -131,32 +168,9 @@
                 dpr = Math.max(1, devicePixelRatio || 1);
                 canvas.width = W * dpr; canvas.height = H * dpr;
                 canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
-                mouseR = Math.min(W, H) * 0.1;
-                buildAll();
+                init();
             }
 
-            function tick() {
-                for (let s = 0; s < 2; s++)
-                    for (const g of groups) step(g);
-                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                ctx.clearRect(0, 0, W, H);
-                ctx.fillStyle = '#e8e8e4';
-                for (const g of groups) draw(g);
-                if (mx > -999) {
-                    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.arc(mx, my, mouseR, 0, 6.283);
-                    ctx.stroke();
-                }
-                requestAnimationFrame(tick);
-            }
-
-            canvas.addEventListener('mousemove', e => {
-                const r = hero.getBoundingClientRect();
-                mx = e.clientX - r.left; my = e.clientY - r.top;
-            });
-            canvas.addEventListener('mouseleave', () => { mx = -9999; my = -9999; });
             window.addEventListener('resize', resize);
             document.fonts.ready.then(resize);
             resize();
