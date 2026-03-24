@@ -77,6 +77,24 @@ body.is-leaving {
     z-index: 0;
 }
 
+.hero-sub--in-hero {
+    position: absolute;
+    left: 50%;
+    bottom: max(20px, env(safe-area-inset-bottom, 0px));
+    transform: translateX(-50%);
+    z-index: 2;
+    pointer-events: none;
+    max-width: min(92vw, 520px);
+    padding: 0 16px;
+    font-size: clamp(12px, 2.4vw, 24px);
+    letter-spacing: 0.14em;
+    color: rgba(17, 17, 17, 0.52);
+    text-shadow:
+        0 0 20px #fff,
+        0 0 12px #fff,
+        0 1px 0 #fff;
+}
+
 .site-intro {
     background: #fff;
     border-bottom: 1px solid #e5e5e5;
@@ -123,6 +141,10 @@ body.is-leaving {
     background: rgba(17, 17, 17, 0.12);
     margin-top: 22px;
     border: none;
+}
+
+.site-intro-inner .hero-rule:first-child {
+    margin-top: 0;
 }
 
 .hero-scroll {
