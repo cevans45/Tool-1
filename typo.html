@@ -117,6 +117,7 @@
                                 <label for="ty-drift">Drift</label>
                                 <input type="range" id="ty-drift" min="0" max="100" value="20" step="1">
                                 <span class="param-value" id="val-ty-drift">20</span>
+                                <button type="button" id="ty-drift-reset" class="panel-button" style="flex:0 0 auto;padding:4px 8px;font-size:10px;">RESET</button>
                             </div>
                             <div class="control-row">
                                 <label for="ty-weight">Weight</label>
@@ -668,6 +669,13 @@
     });
     $('ty-drift').addEventListener('input', e => {
         S.drift = +e.target.value; $('val-ty-drift').textContent = S.drift;
+    });
+    $('ty-drift-reset').addEventListener('click', () => {
+        for (const p of particles) {
+            p.x = p.homeX; p.y = p.homeY;
+            p.escaped = 0;
+        }
+        if (!animId) fullRender();
     });
     $('ty-weight').addEventListener('input', e => {
         S.weight = +e.target.value; $('val-ty-weight').textContent = S.weight;
