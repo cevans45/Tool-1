@@ -30,8 +30,6 @@
             let pmx = 0, pmy = 0;
             let hmx = 0, hmy = 0;
             const L = [];
-            const LETTER_HOME_X = [0.14, 0.36, 0.64, 0.86];
-            const LETTER_HOME_Y = [0.475, 0.525, 0.495, 0.505];
 
             function measureLetters(fs) {
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -46,17 +44,34 @@
                 return { widths, glyphH, asc, desc };
             }
 
-            /**
-             * Only vertical fit — horizontal width was capping size. Glyphs may clip left/right; that’s OK for a full-bleed hero.
-             */
-            function fitsHugeVertical(fs) {
-                const { glyphH } = measureLetters(fs);
-                const vpPad = Math.max(0, fs * 0.003);
-                if (glyphH > H - 2 * vpPad) return false;
+            /** One line, centered; overlap tuned for multiply without a solid black stack. */
+            function layoutAtFs(fs) {
+                const { widths, glyphH } = measureLetters(fs);
+                const minW = Math.min(...widths);
+                const overlap = Math.min(fs * 0.19, minW * 0.4);
+                let sum = 0;
+                for (const w of widths) sum += w;
+                const span = sum - overlap * 3;
+                const hy = H * 0.42;
+                let cx = (W - span) / 2;
+                const hx = [];
                 for (let i = 0; i < 4; i++) {
-                    const hy = H * LETTER_HOME_Y[i];
-                    const vAllow = 2 * Math.min(hy - vpPad, H - hy - vpPad);
-                    if (glyphH > vAllow) return false;
+                    hx.push(cx + widths[i] / 2);
+                    cx += widths[i] - overlap;
+                }
+                return { widths, glyphH, span, overlap, hx, hy };
+            }
+
+            function fitsReadableWord(fs) {
+                const pad = Math.max(16, fs * 0.032);
+                const { widths, glyphH, span, hx, hy } = layoutAtFs(fs);
+                if (glyphH > H * 0.7) return false;
+                if (span > W * 0.92) return false;
+                for (let i = 0; i < 4; i++) {
+                    if (hx[i] - widths[i] / 2 < pad) return false;
+                    if (hx[i] + widths[i] / 2 > W - pad) return false;
+                    if (hy - glyphH / 2 < pad) return false;
+                    if (hy + glyphH / 2 > H - pad) return false;
                 }
                 return true;
             }
@@ -64,30 +79,31 @@
             function init() {
                 L.length = 0;
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                let lo = 80;
-                let hi = Math.min(W, H) * 28;
+                let lo = 32;
+                let hi = Math.min(W, H) * 4;
                 let fs = lo;
-                for (let iter = 0; iter < 40; iter++) {
+                for (let iter = 0; iter < 36; iter++) {
                     const mid = (lo + hi) / 2;
-                    if (fitsHugeVertical(mid)) {
+                    if (fitsReadableWord(mid)) {
                         fs = mid;
                         lo = mid;
                     } else hi = mid;
                 }
-                for (let step = 0; step < 140; step++) {
-                    const next = fs + 10;
-                    if (fitsHugeVertical(next)) fs = next;
+                for (let step = 0; step < 48; step++) {
+                    const next = fs + 4;
+                    if (fitsReadableWord(next)) fs = next;
                     else break;
                 }
-                fs = Math.max(120, fs);
-                const { widths } = measureLetters(fs);
+                fs = Math.max(48, fs);
+                const lay = layoutAtFs(fs);
+                const { widths, hx, hy } = lay;
                 ctx.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
                 const word = 'OVRT';
                 const letterColors = ['#00fff8', '#ff00e7', '#ffff00', '#ff00e7'];
                 for (let i = 0; i < 4; i++) {
                     const ch = word[i];
-                    const hx = W * LETTER_HOME_X[i];
-                    const hy = H * LETTER_HOME_Y[i];
+                    const hxI = hx[i];
+                    const hyI = hy;
                     const tc = document.createElement('canvas');
                     const tw = Math.ceil(widths[i] + 30), th = Math.ceil(fs * 1.35);
                     tc.width = tw; tc.height = th;
@@ -100,8 +116,8 @@
                     const alpha = new Uint8Array(tw * th);
                     for (let k = 0; k < alpha.length; k++) alpha[k] = id.data[k * 4 + 3];
                     L.push({
-                        ch, x: hx, y: hy,
-                        vx: 0, vy: 0, hx, hy,
+                        ch, x: hxI, y: hyI,
+                        vx: 0, vy: 0, hx: hxI, hy: hyI,
                         fs, hw: widths[i] / 2, hh: fs * 0.44,
                         rot: 0,
                         sx: 1, sy: 1,
@@ -143,8 +159,11 @@
                     const sq = Math.min(speed * 0.005, 0.08);
                     l.sx += (1 + sq - l.sx) * 0.06;
                     l.sy += (1 - sq * 0.35 - l.sy) * 0.06;
-                    const pad = 6;
-                    const ext = Math.hypot(l.hw, l.hh) * Math.max(l.sx, l.sy) * 1.25 + l.fs * 0.08;
+                    const pad = 8;
+                    const ext = Math.max(
+                        Math.hypot(l.hw, l.hh) * Math.max(l.sx, l.sy) * 1.25 + l.fs * 0.08,
+                        l.fs * 0.46
+                    );
                     const x0 = l.x, y0 = l.y;
                     l.x = Math.max(ext + pad, Math.min(W - ext - pad, l.x));
                     l.y = Math.max(ext + pad, Math.min(H - ext - pad, l.y));
@@ -200,8 +219,11 @@
                 const l = dragging.l;
                 l.x = px - dragging.ox;
                 l.y = py - dragging.oy;
-                const pad = 6;
-                const ext = Math.hypot(l.hw, l.hh) * Math.max(l.sx, l.sy) * 1.25 + l.fs * 0.08;
+                const pad = 8;
+                const ext = Math.max(
+                    Math.hypot(l.hw, l.hh) * Math.max(l.sx, l.sy) * 1.25 + l.fs * 0.08,
+                    l.fs * 0.46
+                );
                 l.x = Math.max(ext + pad, Math.min(W - ext - pad, l.x));
                 l.y = Math.max(ext + pad, Math.min(H - ext - pad, l.y));
                 l.vx = (px - pmx) * 0.4;
