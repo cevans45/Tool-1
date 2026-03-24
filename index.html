@@ -51,15 +51,15 @@
             /** Local layout: ink from (0,0) to (bboxW, bboxH). Uniform scale — no stretch. */
             function buildNaturalLayout(fs) {
                 const { widths, glyphH } = measureLetters(fs);
-                const o = Math.min(fs * 0.26, Math.min(...widths) * 0.48);
+                const o = Math.min(fs * 0.18, Math.min(...widths) * 0.38);
                 let left = 0;
                 const hx = [];
                 for (let i = 0; i < 4; i++) {
                     hx.push(left + widths[i] / 2);
                     left += widths[i] - o;
                 }
-                const padX = fs * 0.05;
-                const padY = fs * 0.15;
+                const padX = fs * 0.1;
+                const padY = fs * 0.11;
                 const coreW = left;
                 const coreH = glyphH;
                 const hxP = hx.map(x => x + padX);
@@ -72,15 +72,14 @@
             function init() {
                 L.length = 0;
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                const fs = Math.min(2400, Math.max(W, H) * 1.35);
+                const fs = Math.min(1320, Math.max(W, H) * 0.95);
                 const lay = buildNaturalLayout(fs);
                 S.fs = fs;
                 S.bboxW = Math.max(lay.bboxW, 1);
                 S.bboxH = Math.max(lay.bboxH, 1);
-                /* Uniform contain: tight horizontal band, looser vertical — full word visible, no stretch */
-                const insetX = 0.58;
-                const insetY = 0.76;
-                S.s = Math.min((W * insetX) / S.bboxW, (H * insetY) / S.bboxH);
+                /* Scale from height: keeps full top/bottom of the word; wide viewports clip sides, not caps */
+                const insetY = 0.9;
+                S.s = (H / S.bboxH) * insetY;
                 S.tx = (W - S.bboxW * S.s) / 2;
                 S.ty = (H - S.bboxH * S.s) / 2;
                 const { widths, hx, hy } = lay;
