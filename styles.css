@@ -57,9 +57,9 @@ body.is-leaving {
     align-items: center;
     justify-content: center;
     padding: 40px 32px;
-    border-bottom: 1px solid #1a1a1a;
-    background: #000;
-    color: #f6f6f4;
+    border-bottom: 1px solid #e5e5e5;
+    background: #fff;
+    color: #111;
     position: relative;
     overflow: hidden;
 }
@@ -98,14 +98,14 @@ body.is-leaving {
     font-size: clamp(13px, 2vw, 22px);
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: rgba(246, 246, 244, 0.35);
+    color: rgba(17, 17, 17, 0.45);
     margin-top: 20px;
 }
 
 .hero-copy {
     font-family: 'ABC Diatype Mono', monospace;
     font-size: 10px;
-    color: rgba(246, 246, 244, 0.35);
+    color: rgba(17, 17, 17, 0.45);
     line-height: 1.6;
     margin-top: 32px;
     max-width: 320px;
@@ -113,14 +113,14 @@ body.is-leaving {
 }
 
 .hero-copy strong {
-    color: rgba(246, 246, 244, 0.6);
+    color: rgba(17, 17, 17, 0.72);
     font-weight: 400;
 }
 
 .hero-rule {
     width: 40px;
     height: 1px;
-    background: rgba(246, 246, 244, 0.15);
+    background: rgba(17, 17, 17, 0.12);
     margin-top: 28px;
     border: none;
 }
@@ -134,7 +134,7 @@ body.is-leaving {
     font-size: 9px;
     letter-spacing: 0.2em;
     text-transform: uppercase;
-    color: rgba(246, 246, 244, 0.2);
+    color: rgba(17, 17, 17, 0.28);
     z-index: 1;
 }
 

@@ -42,6 +42,7 @@
                 for (const ch of word) { const w = ctx.measureText(ch).width; widths.push(w); totalW += w; }
                 totalW += gap * (word.length - 1);
                 let cx = (W - totalW) / 2;
+                const letterColors = ['#00fff8', '#ff00e7', '#ffff00', '#ff00e7'];
                 for (let i = 0; i < 4; i++) {
                     const ch = word[i];
                     const hx = cx + widths[i] / 2;
@@ -66,6 +67,7 @@
                         sx: 1, sy: 1,
                         phase: Math.random() * 6.28,
                         alpha, aw: tw, ah: th,
+                        color: letterColors[i],
                     });
                 }
             }
@@ -124,7 +126,10 @@
                 }
 
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                ctx.clearRect(0, 0, W, H);
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, W, H);
+                ctx.globalCompositeOperation = 'multiply';
                 for (const l of L) {
                     ctx.save();
                     ctx.translate(l.x, l.y);
@@ -132,10 +137,11 @@
                     ctx.scale(l.sx, l.sy);
                     ctx.font = '400 ' + l.fs + 'px "NG Hofmann", sans-serif';
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                    ctx.fillStyle = '#e8e8e4';
+                    ctx.fillStyle = l.color;
                     ctx.fillText(l.ch, 0, 0);
                     ctx.restore();
                 }
+                ctx.globalCompositeOperation = 'source-over';
                 requestAnimationFrame(tick);
             }
 
