@@ -27,201 +27,101 @@
             const hero = document.getElementById('hero');
             let W, H, dpr;
             let mx = -9999, my = -9999;
-            let bodies = [];
+            let groups = [];
             let mouseR;
-            const SUB = 8;
+            const SP = 10;
+            const DR = 7;
 
-            function rasterLetter(ch, fs) {
+            function raster(ch, fs) {
                 const cw = Math.ceil(fs * 1.2), ch2 = Math.ceil(fs * 1.4);
                 const c = document.createElement('canvas');
                 c.width = cw; c.height = ch2;
                 const g = c.getContext('2d');
                 g.font = '400 ' + fs + 'px "NG Hofmann", sans-serif';
-                g.textAlign = 'center';
-                g.textBaseline = 'middle';
+                g.textAlign = 'center'; g.textBaseline = 'middle';
                 g.fillStyle = '#fff';
                 g.fillText(ch, cw / 2, ch2 / 2);
                 const id = g.getImageData(0, 0, cw, ch2);
-                const alpha = new Uint8Array(cw * ch2);
-                for (let i = 0; i < alpha.length; i++) alpha[i] = id.data[i * 4 + 3];
-                return { alpha, w: cw, h: ch2 };
+                const a = new Uint8Array(cw * ch2);
+                for (let i = 0; i < a.length; i++) a[i] = id.data[i * 4 + 3];
+                return { a, w: cw, h: ch2 };
             }
 
-            function findEdges(alpha, w, h) {
-                const out = [];
-                for (let y = 1; y < h - 1; y++)
-                    for (let x = 1; x < w - 1; x++) {
-                        if (alpha[y * w + x] < 128) continue;
-                        if (alpha[y*w+x-1]<128 || alpha[y*w+x+1]<128 ||
-                            alpha[(y-1)*w+x]<128 || alpha[(y+1)*w+x]<128)
-                            out.push(x, y);
+            function makeGrid(alpha, rw, rh, ox, oy) {
+                const gw = Math.floor(rw / SP), gh = Math.floor(rh / SP);
+                const map = new Int32Array(gw * gh).fill(-1);
+                const pts = [];
+                for (let gy = 0; gy < gh; gy++)
+                    for (let gx = 0; gx < gw; gx++) {
+                        const rx = (gx * SP + SP / 2) | 0, ry = (gy * SP + SP / 2) | 0;
+                        if (rx >= rw || ry >= rh || alpha[ry * rw + rx] < 128) continue;
+                        map[gy * gw + gx] = pts.length;
+                        pts.push({
+                            x: rx + ox, y: ry + oy,
+                            vx: 0, vy: 0,
+                            hx: rx + ox, hy: ry + oy,
+                            gx, gy, nb: [], nd: [],
+                        });
                     }
-                return out;
-            }
-
-            function traceChains(ef, w) {
-                const n = ef.length / 2;
-                const lookup = new Map();
-                for (let i = 0; i < n; i++) lookup.set(ef[i*2] + ef[i*2+1] * w, i);
-                const vis = new Uint8Array(n);
-                const chains = [];
-                const dirs = [[1,0],[0,1],[-1,0],[0,-1],[1,1],[-1,1],[-1,-1],[1,-1]];
-                for (let si = 0; si < n; si++) {
-                    if (vis[si]) continue;
-                    const chain = [];
-                    let ci = si;
-                    while (ci >= 0 && !vis[ci]) {
-                        vis[ci] = 1;
-                        const px = ef[ci*2], py = ef[ci*2+1];
-                        chain.push(px, py);
-                        ci = -1;
-                        for (const [dx, dy] of dirs) {
-                            const ni = lookup.get((px+dx) + (py+dy) * w);
-                            if (ni !== undefined && !vis[ni]) { ci = ni; break; }
-                        }
+                for (const p of pts)
+                    for (const [dx, dy] of [[1,0],[0,1],[1,1],[-1,1]]) {
+                        const nx = p.gx + dx, ny = p.gy + dy;
+                        if (nx < 0 || nx >= gw || ny < 0 || ny >= gh) continue;
+                        const ni = map[ny * gw + nx];
+                        if (ni < 0) continue;
+                        const o = pts[ni], d = Math.hypot(p.hx - o.hx, p.hy - o.hy);
+                        p.nb.push(o); p.nd.push(d);
+                        o.nb.push(p); o.nd.push(d);
                     }
-                    if (chain.length >= 60) chains.push(chain);
-                }
-                return chains;
-            }
-
-            function resample(flat, targetN) {
-                const n = flat.length / 2;
-                let len = 0;
-                for (let i = 1; i < n; i++)
-                    len += Math.hypot(flat[i*2]-flat[(i-1)*2], flat[i*2+1]-flat[(i-1)*2+1]);
-                len += Math.hypot(flat[0]-flat[(n-1)*2], flat[1]-flat[(n-1)*2+1]);
-                const spacing = len / targetN;
-                const pts = [{x: flat[0], y: flat[1]}];
-                let acc = 0;
-                for (let i = 1; i <= n && pts.length < targetN; i++) {
-                    const ci = (i % n) * 2, pi = ((i-1) % n) * 2;
-                    acc += Math.hypot(flat[ci]-flat[pi], flat[ci+1]-flat[pi+1]);
-                    if (acc >= spacing) { pts.push({x: flat[ci], y: flat[ci+1]}); acc = 0; }
-                }
                 return pts;
             }
 
-            function makeBody(pts, ox, oy, color, hx, hy) {
-                const n = pts.length;
-                const P = pts.map(p => ({
-                    x: p.x + ox, y: p.y + oy,
-                    px: p.x + ox, py: p.y + oy,
-                }));
-                const C = [];
-                for (let i = 0; i < n; i++) {
-                    for (let skip = 1; skip <= 3; skip++) {
-                        const j = (i + skip) % n;
-                        const d = Math.hypot(P[i].x-P[j].x, P[i].y-P[j].y);
-                        C.push({a:i, b:j, d, s: skip===1 ? 0.7 : skip===2 ? 0.25 : 0.08});
-                    }
-                }
-                let area = 0;
-                for (let i = 0; i < n; i++) {
-                    const j = (i+1) % n;
-                    area += P[i].x * P[j].y - P[j].x * P[i].y;
-                }
-                return { P, C, A: area / 2 * 0.9, n, color, hx, hy };
-            }
-
-            function stepBody(b) {
-                const {P, C, A, n, hx, hy} = b;
+            function step(pts) {
                 const t = performance.now() * 0.001;
-                for (const p of P) {
-                    const vx = (p.x - p.px) * 0.993, vy = (p.y - p.py) * 0.993;
-                    p.px = p.x; p.py = p.y;
-                    p.x += vx; p.y += vy;
-                }
-                let cx = 0, cy = 0;
-                for (const p of P) { cx += p.x; cy += p.y; }
-                cx /= n; cy /= n;
-                const str = 0.0012;
-                for (const p of P) { p.x += (hx - cx) * str; p.y += (hy - cy) * str; }
-                for (const p of P) {
-                    p.x += Math.sin(t * 0.25 + p.x * 0.005) * 0.06;
-                    p.y += Math.cos(t * 0.3 + p.y * 0.005) * 0.06;
-                }
-                if (mx > -999) {
-                    for (const p of P) {
+                for (const p of pts) {
+                    p.vx += (p.hx - p.x) * 0.035;
+                    p.vy += (p.hy - p.y) * 0.035;
+                    for (let i = 0; i < p.nb.length; i++) {
+                        const n = p.nb[i], dx = n.x - p.x, dy = n.y - p.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < 0.01) continue;
+                        const f = (dist - p.nd[i]) / dist * 0.12;
+                        p.vx += dx * f; p.vy += dy * f;
+                    }
+                    if (mx > -999) {
                         const dx = p.x - mx, dy = p.y - my;
-                        const dist = Math.sqrt(dx*dx + dy*dy);
+                        const dist = Math.sqrt(dx * dx + dy * dy);
                         if (dist < mouseR && dist > 0.5) {
-                            const push = ((mouseR - dist) / mouseR) * 5;
-                            p.x += (dx/dist) * push; p.y += (dy/dist) * push;
+                            const push = ((mouseR - dist) / mouseR) * 6;
+                            p.vx += (dx / dist) * push; p.vy += (dy / dist) * push;
                         }
                     }
-                }
-                for (const c of C) {
-                    const pa = P[c.a], pb = P[c.b];
-                    const dx = pb.x-pa.x, dy = pb.y-pa.y;
-                    const dist = Math.sqrt(dx*dx+dy*dy);
-                    if (dist < 0.01) continue;
-                    const diff = (dist - c.d) / dist * c.s * 0.5;
-                    pa.x += dx*diff; pa.y += dy*diff;
-                    pb.x -= dx*diff; pb.y -= dy*diff;
-                }
-                let cur = 0;
-                for (let i = 0; i < n; i++) {
-                    const j = (i+1)%n;
-                    cur += P[i].x*P[j].y - P[j].x*P[i].y;
-                }
-                cur /= 2;
-                const ad = (A - cur) / Math.abs(A || 1);
-                for (let i = 0; i < n; i++) {
-                    const prev = P[(i+n-1)%n], next = P[(i+1)%n];
-                    const lx = next.x-prev.x, ly = next.y-prev.y;
-                    const len = Math.sqrt(lx*lx+ly*ly);
-                    if (len < 0.01) continue;
-                    P[i].x += (-ly/len) * ad;
-                    P[i].y += (lx/len) * ad;
-                }
-                for (const p of P) {
-                    if (p.x < 2) p.x = 2; if (p.x > W-2) p.x = W-2;
-                    if (p.y < 2) p.y = 2; if (p.y > H-2) p.y = H-2;
+                    p.vx += Math.sin(t * 0.3 + p.hy * 0.008) * 0.02;
+                    p.vy += Math.cos(t * 0.4 + p.hx * 0.008) * 0.02;
+                    p.vx *= 0.87; p.vy *= 0.87;
+                    p.x += p.vx; p.y += p.vy;
                 }
             }
 
-            function drawBody(b) {
-                const {P, n, color} = b;
-                if (n < 3) return;
-                ctx.fillStyle = color;
-                ctx.strokeStyle = color;
-                ctx.lineWidth = 3;
-                ctx.lineJoin = 'round';
+            function draw(pts) {
                 ctx.beginPath();
-                ctx.moveTo((P[0].x+P[1].x)/2, (P[0].y+P[1].y)/2);
-                for (let i = 1; i <= n; i++) {
-                    const c = P[i%n], nx = P[(i+1)%n];
-                    ctx.quadraticCurveTo(c.x, c.y, (c.x+nx.x)/2, (c.y+nx.y)/2);
+                for (const p of pts) {
+                    ctx.moveTo(p.x + DR, p.y);
+                    ctx.arc(p.x, p.y, DR, 0, 6.283);
                 }
-                ctx.closePath();
                 ctx.fill();
-                ctx.stroke();
             }
 
             function buildAll() {
-                bodies = [];
+                groups = [];
                 const word = 'OVRT';
-                const fs = Math.min(W * 0.45, H * 0.45);
-                const tmp = document.createElement('canvas');
-                const tc = tmp.getContext('2d');
+                const fs = Math.min(W * 0.42, H * 0.42);
                 for (let i = 0; i < 4; i++) {
-                    const ch = word[i];
-                    const col = i % 2, row = Math.floor(i / 2);
+                    const col = i % 2, row = (i / 2) | 0;
                     const hx = W * (col ? 0.75 : 0.25);
                     const hy = H * (row ? 0.68 : 0.35);
-                    const r = rasterLetter(ch, fs);
-                    const ef = findEdges(r.alpha, r.w, r.h);
-                    const chains = traceChains(ef, r.w);
-                    chains.sort((a, b) => b.length - a.length);
-                    const ox = hx - r.w / 2, oy = hy - r.h / 2;
-                    for (let ci = 0; ci < chains.length; ci++) {
-                        const tN = Math.min(100, Math.max(30, Math.floor(chains[ci].length / 8)));
-                        const pts = resample(chains[ci], tN);
-                        if (pts.length < 10) continue;
-                        const body = makeBody(pts, ox, oy, ci === 0 ? '#e8e8e4' : '#000', hx, hy);
-                        bodies.push(body);
-                    }
+                    const r = raster(word[i], fs);
+                    groups.push(makeGrid(r.a, r.w, r.h, hx - r.w / 2, hy - r.h / 2));
                 }
             }
 
@@ -236,16 +136,17 @@
             }
 
             function tick() {
-                for (let s = 0; s < SUB; s++)
-                    for (const b of bodies) stepBody(b);
+                for (let s = 0; s < 2; s++)
+                    for (const g of groups) step(g);
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 ctx.clearRect(0, 0, W, H);
-                for (const b of bodies) drawBody(b);
+                ctx.fillStyle = '#e8e8e4';
+                for (const g of groups) draw(g);
                 if (mx > -999) {
-                    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+                    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
                     ctx.lineWidth = 1;
                     ctx.beginPath();
-                    ctx.arc(mx, my, mouseR, 0, 6.28);
+                    ctx.arc(mx, my, mouseR, 0, 6.283);
                     ctx.stroke();
                 }
                 requestAnimationFrame(tick);
