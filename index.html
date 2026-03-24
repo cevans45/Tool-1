@@ -51,7 +51,7 @@
              */
             function layoutAtFs(fs) {
                 const { widths, glyphH } = measureLetters(fs);
-                const pad = Math.max(4, fs * 0.01);
+                const pad = Math.max(2, fs * 0.008);
                 const minW = Math.min(...widths);
                 const o = Math.min(fs * 0.18, minW * 0.38);
                 let x = pad;
@@ -81,7 +81,7 @@
                     if (hxOut[i] - widths[i] / 2 < pad - 1) return null;
                     if (hxOut[i] + widths[i] / 2 > W - pad + 1) return null;
                 }
-                const hy = H * 0.44;
+                const hy = H * 0.5;
                 return { widths, glyphH, hx: hxOut, hy, pad };
             }
 
@@ -89,9 +89,10 @@
                 const lay = layoutAtFs(fs);
                 if (!lay) return false;
                 const { glyphH, hy, pad } = lay;
-                if (glyphH > H * 0.9) return false;
-                if (hy - glyphH / 2 < pad) return false;
-                if (hy + glyphH / 2 > H - pad) return false;
+                const vPad = Math.max(0, Math.min(3, fs * 0.003));
+                if (glyphH > H - 2 * vPad) return false;
+                if (hy - glyphH / 2 < vPad) return false;
+                if (hy + glyphH / 2 > H - vPad) return false;
                 return true;
             }
 
@@ -138,7 +139,7 @@
                         hxF.push(cx + m.widths[i] / 2);
                         cx += m.widths[i] - ov;
                     }
-                    lay = { widths: m.widths, hx: hxF, hy: H * 0.42 };
+                    lay = { widths: m.widths, hx: hxF, hy: H * 0.5 };
                 }
                 const { widths, hx, hy } = lay;
                 ctx.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
@@ -206,7 +207,7 @@
                     const pad = 8;
                     const ext = Math.max(
                         Math.hypot(l.hw, l.hh) * Math.max(l.sx, l.sy) * 1.25 + l.fs * 0.08,
-                        l.fs * 0.52
+                        l.fs * 0.58
                     );
                     const x0 = l.x, y0 = l.y;
                     l.x = Math.max(ext + pad, Math.min(W - ext - pad, l.x));
@@ -266,7 +267,7 @@
                 const pad = 8;
                 const ext = Math.max(
                     Math.hypot(l.hw, l.hh) * Math.max(l.sx, l.sy) * 1.25 + l.fs * 0.08,
-                    l.fs * 0.52
+                    l.fs * 0.58
                 );
                 l.x = Math.max(ext + pad, Math.min(W - ext - pad, l.x));
                 l.y = Math.max(ext + pad, Math.min(H - ext - pad, l.y));

@@ -47,6 +47,7 @@ body.is-leaving {
 
 .site-shell {
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     flex-direction: column;
 }
@@ -54,10 +55,12 @@ body.is-leaving {
 .hero {
     min-height: 100vh;
     min-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
     display: flex;
-    align-items: center;
+    align-items: stretch;
     justify-content: center;
-    padding: 12px 8px;
+    padding: 0;
     border-bottom: 1px solid #e5e5e5;
     background: #fff;
     color: #111;
@@ -89,7 +92,7 @@ body.is-leaving {
 
 .hero-inner--bottom {
     position: absolute;
-    bottom: 60px;
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
     left: 50%;
     transform: translateX(-50%);
 }
@@ -128,7 +131,7 @@ body.is-leaving {
 
 .hero-scroll {
     position: absolute;
-    bottom: 28px;
+    bottom: max(8px, env(safe-area-inset-bottom, 0px));
     left: 50%;
     transform: translateX(-50%);
     font-family: 'ABC Diatype Mono', monospace;
