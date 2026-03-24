@@ -156,7 +156,7 @@
                 if (idx < 0) return false;
                 const l = L[idx];
                 dragging = { l, ox: px - l.x, oy: py - l.y };
-                l.vx = 0; l.vy = 0; l.av = 0;
+                l.vx = 0; l.vy = 0;
                 pmx = px; pmy = py;
                 canvas.style.cursor = 'grabbing';
                 return true;
@@ -165,10 +165,13 @@
             function moveDrag(px, py) {
                 if (!dragging) return;
                 const l = dragging.l;
-                const dx = px - pmx, dy = py - pmy;
                 l.x = px - dragging.ox;
                 l.y = py - dragging.oy;
-                l.vx = dx * 0.4; l.vy = dy * 0.4;
+                l.vx = (px - pmx) * 0.4;
+                l.vy = (py - pmy) * 0.4;
+                const grabY = dragging.oy;
+                const hangAngle = Math.atan2(l.vx, Math.max(10, -grabY)) * 0.3;
+                l.rot += (hangAngle - l.rot) * 0.15;
                 pmx = px; pmy = py;
             }
 
@@ -182,10 +185,10 @@
                     const mdx = p.x - hmx, mdy = p.y - hmy;
                     hmx = p.x; hmy = p.y;
                     const mspeed = Math.sqrt(mdx * mdx + mdy * mdy);
-                    if (mspeed > 1) {
+                    if (mspeed > 2) {
                         for (const l of L) {
                             if (pointInLetter(l, p.x, p.y)) {
-                                const push = Math.min(mspeed * 0.12, 3);
+                                const push = Math.min(mspeed * 0.02, 0.6);
                                 l.vx += (mdx / mspeed) * push;
                                 l.vy += (mdy / mspeed) * push;
                             }
