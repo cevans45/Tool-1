@@ -30,31 +30,26 @@
                     <details class="control-window" open>
                         <summary>Type pad</summary>
                         <section class="control-section">
-
                             <div class="control-row" style="flex-direction:column;gap:4px;">
                                 <label for="ty-text">Text</label>
                                 <textarea id="ty-text" rows="3" spellcheck="false"
                                     style="width:100%;resize:vertical;font-family:inherit;font-size:11px;padding:6px 8px;border:1px solid var(--border,#333);border-radius:4px;background:var(--surface-2,#1a1a1a);color:inherit;">TYPO</textarea>
                             </div>
-
                             <div class="control-row" style="margin-top:4px;">
                                 <label for="ty-font-size">Font size</label>
                                 <input type="range" id="ty-font-size" min="20" max="400" value="140" step="1">
                                 <span class="param-value" id="val-ty-font-size">140</span>
                             </div>
-
                             <div class="control-row">
                                 <label for="ty-spacing">Spacing</label>
                                 <input type="range" id="ty-spacing" min="-10" max="40" value="0" step="1">
                                 <span class="param-value" id="val-ty-spacing">0</span>
                             </div>
-
                             <div class="control-row">
                                 <label for="ty-line-h">Line height</label>
                                 <input type="range" id="ty-line-h" min="0.6" max="3.0" value="1.2" step="0.05">
                                 <span class="param-value" id="val-ty-line-h">1.20</span>
                             </div>
-
                             <div class="control-row" style="margin-bottom:8px;">
                                 <label>Align</label>
                                 <div class="mode-switch" style="width:100%;margin:0;">
@@ -63,20 +58,6 @@
                                     <button type="button" class="panel-button" data-align="right">R</button>
                                 </div>
                             </div>
-
-                            <div class="control-row" style="margin-bottom:8px;">
-                                <div class="mode-switch" style="width:100%;margin:0;">
-                                    <button type="button" id="ty-fill-btn" class="panel-button is-active">FILL</button>
-                                    <button type="button" id="ty-outline-btn" class="panel-button">OUTLINE</button>
-                                </div>
-                            </div>
-
-                            <div class="control-row" id="ty-outline-row" style="display:none;">
-                                <label for="ty-outline-w">Outline width</label>
-                                <input type="range" id="ty-outline-w" min="0.5" max="10" value="2" step="0.5">
-                                <span class="param-value" id="val-ty-outline-w">2</span>
-                            </div>
-
                             <div class="control-row" style="margin-top:4px;flex-direction:column;gap:4px;">
                                 <label>Font</label>
                                 <div id="ty-font-label"
@@ -89,53 +70,49 @@
                     </details>
 
                     <details class="control-window" open>
-                        <summary>Reconstruct</summary>
+                        <summary>Construct</summary>
                         <section class="control-section">
                             <div class="control-row">
-                                <label for="ty-filter">Mode</label>
-                                <select id="ty-filter" class="select-input">
-                                    <option value="none" selected>None</option>
-                                    <option value="rough">Rough</option>
-                                    <option value="faceted">Faceted</option>
-                                    <option value="stipple">Stipple</option>
-                                    <option value="hatch">Hatch</option>
-                                    <option value="shatter">Shatter</option>
-                                    <option value="dissolve">Dissolve</option>
-                                    <option value="wire">Wire</option>
+                                <label for="ty-mode">Mode</label>
+                                <select id="ty-mode" class="select-input">
+                                    <option value="none">None</option>
+                                    <option value="net" selected>Net</option>
+                                    <option value="stroke">Stroke</option>
+                                    <option value="fragment">Fragment</option>
+                                    <option value="grain">Grain</option>
+                                    <option value="blob">Blob</option>
                                     <option value="halftone">Halftone</option>
-                                    <option value="pixel">Pixel</option>
-                                    <option value="glitch">Glitch</option>
                                     <option value="shadow">Shadow</option>
                                 </select>
                             </div>
-
                             <div class="control-row">
-                                <label for="ty-fscale">Scale</label>
-                                <input type="range" id="ty-fscale" min="1" max="30" value="8" step="1">
-                                <span class="param-value" id="val-ty-fscale">8</span>
+                                <label for="ty-density">Density</label>
+                                <input type="range" id="ty-density" min="1" max="20" value="8" step="1">
+                                <span class="param-value" id="val-ty-density">8</span>
                             </div>
-
                             <div class="control-row">
-                                <label for="ty-fdensity">Density</label>
-                                <input type="range" id="ty-fdensity" min="1" max="10" value="5" step="0.5">
-                                <span class="param-value" id="val-ty-fdensity">5</span>
+                                <label for="ty-scale">Scale</label>
+                                <input type="range" id="ty-scale" min="1" max="30" value="10" step="1">
+                                <span class="param-value" id="val-ty-scale">10</span>
                             </div>
-
                             <div class="control-row">
-                                <label for="ty-fangle">Angle</label>
-                                <input type="range" id="ty-fangle" min="0" max="180" value="45" step="1">
-                                <span class="param-value" id="val-ty-fangle">45</span>
+                                <label for="ty-jitter">Jitter</label>
+                                <input type="range" id="ty-jitter" min="0" max="100" value="40" step="1">
+                                <span class="param-value" id="val-ty-jitter">40</span>
                             </div>
-
+                            <div class="control-row">
+                                <label for="ty-weight">Weight</label>
+                                <input type="range" id="ty-weight" min="1" max="20" value="6" step="1">
+                                <span class="param-value" id="val-ty-weight">6</span>
+                            </div>
                             <div class="control-row color-row">
                                 <label for="ty-ink">Ink color</label>
-                                <input type="color" id="ty-ink" value="#000000">
+                                <input type="color" id="ty-ink" value="#111111">
                             </div>
                             <div class="control-row color-row">
                                 <label for="ty-bg">Background</label>
-                                <input type="color" id="ty-bg" value="#ffffff">
+                                <input type="color" id="ty-bg" value="#f0ede8">
                             </div>
-
                             <div class="control-row" style="gap:6px;margin-top:8px;">
                                 <button type="button" id="ty-export" class="panel-button">Export PNG</button>
                             </div>
@@ -150,963 +127,627 @@
         .app[aria-label="Typo"] {
             height: calc(100vh - 56px);
             min-height: calc(100vh - 56px);
-            padding: 0;
-            gap: 0;
+            padding: 0; gap: 0;
             align-items: stretch;
             justify-content: flex-start;
         }
-
         .app[aria-label="Typo"] #sketch-container {
-            flex: 1;
-            height: 100%;
-            width: 100%;
-            min-width: 0;
-            pointer-events: auto;
-            position: relative;
+            flex: 1; height: 100%; width: 100%;
+            min-width: 0; pointer-events: auto; position: relative;
         }
-
         .app[aria-label="Typo"] #sketch-container canvas {
-            width: 100%;
-            height: 100%;
-            display: block;
-            touch-action: none;
+            width: 100%; height: 100%; display: block; touch-action: none;
         }
-
-        .app[aria-label="Typo"] .control-panel {
-            width: 280px;
-        }
-
-        .app[aria-label="Typo"] .control-row {
-            gap: 8px;
-        }
-
-        .app[aria-label="Typo"] .control-row label {
-            flex: 0 0 90px;
-        }
-
-        .app[aria-label="Typo"] .panel-body {
-            max-height: none;
-        }
-
+        .app[aria-label="Typo"] .control-panel { width: 280px; }
+        .app[aria-label="Typo"] .control-row { gap: 8px; }
+        .app[aria-label="Typo"] .control-row label { flex: 0 0 90px; }
+        .app[aria-label="Typo"] .panel-body { max-height: none; }
         #drop-overlay {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            font-weight: 700;
-            color: #fff;
-            background: rgba(0, 0, 0, 0.55);
-            border: 3px dashed rgba(255, 255, 255, 0.5);
-            border-radius: 8px;
-            pointer-events: none;
-            z-index: 10;
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 700; color: #fff;
+            background: rgba(0,0,0,0.55);
+            border: 3px dashed rgba(255,255,255,0.5);
+            border-radius: 8px; pointer-events: none; z-index: 10;
         }
     </style>
 
     <script src="page-transition.js"></script>
     <script>
-        if (new URLSearchParams(window.location.search).get('preview') === '1') {
-            document.body.classList.add('is-preview');
+    if (new URLSearchParams(location.search).get('preview') === '1')
+        document.body.classList.add('is-preview');
+
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const srcCanvas = document.createElement('canvas');
+    const srcCtx = srcCanvas.getContext('2d');
+    let cssW = 1, cssH = 1, dpr = 1;
+    const $ = id => document.getElementById(id);
+
+    const S = {
+        text: 'TYPO', fontSize: 140, letterSpacing: 0, lineHeight: 1.2,
+        textAlign: 'center', fontFamily: 'sans-serif', fontFileName: null,
+        mode: 'net', density: 8, scale: 10, jitter: 40, weight: 6,
+        ink: '#111111', bg: '#f0ede8',
+    };
+
+    // ─── Point system ────────────────────────────────────────────
+
+    let pts = [];
+    let connections = [];
+    let alphaData = null;
+    let alphaW = 0, alphaH = 0;
+    let animId = null;
+    let needsRecompute = true;
+
+    function fontStr() { return S.fontSize + 'px ' + S.fontFamily; }
+
+    function drawTextLine(c, text, x, y) {
+        if (S.letterSpacing === 0) { c.fillText(text, x, y); return; }
+        const totalW = measureW(c, text);
+        let cx = x;
+        if (c.textAlign === 'center') cx -= totalW / 2;
+        else if (c.textAlign === 'right') cx -= totalW;
+        const saved = c.textAlign; c.textAlign = 'left';
+        for (let i = 0; i < text.length; i++) {
+            c.fillText(text[i], cx, y);
+            cx += c.measureText(text[i]).width + S.letterSpacing;
         }
+        c.textAlign = saved;
+    }
 
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const srcCanvas = document.createElement('canvas');
-        const srcCtx = srcCanvas.getContext('2d');
-        let cssWidth = 1, cssHeight = 1, dpr = 1;
-
-        const $ = (id) => document.getElementById(id);
-
-        const state = {
-            text: 'TYPO',
-            fontSize: 140,
-            letterSpacing: 0,
-            lineHeight: 1.2,
-            textAlign: 'center',
-            fillMode: true,
-            outlineWidth: 2,
-            fontFamily: 'sans-serif',
-            fontFileName: null,
-            filter: 'none',
-            filterScale: 8,
-            filterDensity: 5,
-            filterAngle: 45,
-            inkColor: '#000000',
-            bgColor: '#ffffff',
-        };
-
-        function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-
-        // ─── Text rendering to offscreen source ──────────────────────
-
-        function fontStr() { return state.fontSize + 'px ' + state.fontFamily; }
-
-        function measureLineWidth(context, text) {
-            if (state.letterSpacing === 0) return context.measureText(text).width;
-            let w = 0;
-            for (let i = 0; i < text.length; i++) {
-                w += context.measureText(text[i]).width;
-                if (i < text.length - 1) w += state.letterSpacing;
-            }
-            return w;
+    function measureW(c, text) {
+        if (S.letterSpacing === 0) return c.measureText(text).width;
+        let w = 0;
+        for (let i = 0; i < text.length; i++) {
+            w += c.measureText(text[i]).width;
+            if (i < text.length - 1) w += S.letterSpacing;
         }
+        return w;
+    }
 
-        function drawTextLine(context, text, x, y, fill) {
-            if (state.letterSpacing === 0) {
-                if (fill) context.fillText(text, x, y);
-                else context.strokeText(text, x, y);
-                return;
-            }
-            const totalW = measureLineWidth(context, text);
-            let cx = x;
-            if (context.textAlign === 'center') cx -= totalW / 2;
-            else if (context.textAlign === 'right') cx -= totalW;
-
-            const saved = context.textAlign;
-            context.textAlign = 'left';
-            for (let i = 0; i < text.length; i++) {
-                if (fill) context.fillText(text[i], cx, y);
-                else context.strokeText(text[i], cx, y);
-                cx += context.measureText(text[i]).width + state.letterSpacing;
-            }
-            context.textAlign = saved;
+    function renderSource() {
+        srcCanvas.width = canvas.width;
+        srcCanvas.height = canvas.height;
+        srcCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        srcCtx.clearRect(0, 0, cssW, cssH);
+        srcCtx.font = fontStr();
+        srcCtx.textAlign = S.textAlign;
+        srcCtx.textBaseline = 'middle';
+        srcCtx.fillStyle = '#000';
+        const lines = S.text.split('\n');
+        const lineH = S.fontSize * S.lineHeight;
+        const totalH = (lines.length - 1) * lineH;
+        const startY = cssH / 2 - totalH / 2;
+        const x = S.textAlign === 'left' ? 40 : S.textAlign === 'right' ? cssW - 40 : cssW / 2;
+        for (let i = 0; i < lines.length; i++) {
+            drawTextLine(srcCtx, lines[i], x, startY + i * lineH);
         }
+    }
 
-        function renderTextTo(context, w, h) {
-            context.font = fontStr();
-            context.textAlign = state.textAlign;
-            context.textBaseline = 'middle';
+    function extractAlpha() {
+        const d = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height).data;
+        alphaW = srcCanvas.width;
+        alphaH = srcCanvas.height;
+        alphaData = new Uint8Array(alphaW * alphaH);
+        for (let i = 0; i < alphaW * alphaH; i++) alphaData[i] = d[i * 4 + 3];
+    }
 
-            const lines = state.text.split('\n');
-            const lineH = state.fontSize * state.lineHeight;
-            const totalH = (lines.length - 1) * lineH;
-            const startY = h / 2 - totalH / 2;
-            const x = state.textAlign === 'left' ? 40
-                : state.textAlign === 'right' ? w - 40 : w / 2;
+    function inside(cx, cy) {
+        const px = Math.round(cx * dpr), py = Math.round(cy * dpr);
+        if (px < 0 || px >= alphaW || py < 0 || py >= alphaH) return false;
+        return alphaData[py * alphaW + px] > 100;
+    }
 
-            for (let i = 0; i < lines.length; i++) {
-                const y = startY + i * lineH;
-                if (state.fillMode) {
-                    context.fillStyle = '#000';
-                    drawTextLine(context, lines[i], x, y, true);
-                } else {
-                    context.strokeStyle = '#000';
-                    context.lineWidth = state.outlineWidth;
-                    context.lineJoin = 'round';
-                    drawTextLine(context, lines[i], x, y, false);
-                }
-            }
-        }
+    function isEdge(px, py) {
+        if (px < 1 || px >= alphaW - 1 || py < 1 || py >= alphaH - 1) return false;
+        const a = alphaData[py * alphaW + px];
+        if (a < 100) return false;
+        return alphaData[(py - 1) * alphaW + px] < 100 ||
+               alphaData[(py + 1) * alphaW + px] < 100 ||
+               alphaData[py * alphaW + px - 1] < 100 ||
+               alphaData[py * alphaW + px + 1] < 100;
+    }
 
-        function renderSource() {
-            srcCanvas.width = canvas.width;
-            srcCanvas.height = canvas.height;
-            srcCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            srcCtx.clearRect(0, 0, cssWidth, cssHeight);
-            renderTextTo(srcCtx, cssWidth, cssHeight);
-        }
+    function recompute() {
+        renderSource();
+        extractAlpha();
 
-        // ─── Contour extraction ──────────────────────────────────────
+        const spacing = Math.max(3, 32 - S.density * 1.4);
+        const step = Math.round(spacing * dpr);
+        pts = [];
 
-        let edgeCache = null;
-        let alphaCache = null;
-        let alphaCacheW = 0;
-        let alphaCacheH = 0;
+        for (let py = 2; py < alphaH - 2; py += step) {
+            for (let px = 2; px < alphaW - 2; px += step) {
+                const a = alphaData[py * alphaW + px];
+                if (a < 100) continue;
+                const edge = isEdge(px, py);
 
-        function extractEdgesAndAlpha() {
-            const imgData = srcCtx.getImageData(0, 0, srcCanvas.width, srcCanvas.height);
-            const data = imgData.data;
-            const w = srcCanvas.width;
-            const h = srcCanvas.height;
+                const gx = (alphaData[py * alphaW + px + 1] - alphaData[py * alphaW + px - 1]) / 510;
+                const gy = (alphaData[(py + 1) * alphaW + px] - alphaData[(py - 1) * alphaW + px]) / 510;
+                const glen = Math.sqrt(gx * gx + gy * gy) || 1;
 
-            const alpha = new Uint8Array(w * h);
-            for (let i = 0; i < w * h; i++) alpha[i] = data[i * 4 + 3];
-
-            alphaCache = alpha;
-            alphaCacheW = w;
-            alphaCacheH = h;
-
-            const edges = [];
-            const step = Math.max(1, Math.round(dpr * 0.8));
-            const threshold = 100;
-
-            for (let y = 2; y < h - 2; y += step) {
-                for (let x = 2; x < w - 2; x += step) {
-                    const a = alpha[y * w + x];
-                    if (a < threshold) continue;
-
-                    const l = alpha[y * w + x - 1];
-                    const r = alpha[y * w + x + 1];
-                    const u = alpha[(y - 1) * w + x];
-                    const d = alpha[(y + 1) * w + x];
-
-                    if (l >= threshold && r >= threshold && u >= threshold && d >= threshold) continue;
-
-                    const gx = (r - l) / 510;
-                    const gy = (d - u) / 510;
-                    const glen = Math.sqrt(gx * gx + gy * gy) || 1;
-
-                    edges.push({
-                        x: x / dpr,
-                        y: y / dpr,
-                        nx: -gx / glen,
-                        ny: -gy / glen,
-                        tx: gy / glen,
-                        ty: -gx / glen,
-                    });
-                }
-            }
-
-            edgeCache = edges;
-        }
-
-        function isInside(cssX, cssY) {
-            const px = Math.round(cssX * dpr);
-            const py = Math.round(cssY * dpr);
-            if (px < 0 || px >= alphaCacheW || py < 0 || py >= alphaCacheH) return false;
-            return alphaCache[py * alphaCacheW + px] > 100;
-        }
-
-        function alphaAt(cssX, cssY) {
-            const px = Math.round(cssX * dpr);
-            const py = Math.round(cssY * dpr);
-            if (px < 0 || px >= alphaCacheW || py < 0 || py >= alphaCacheH) return 0;
-            return alphaCache[py * alphaCacheW + px] / 255;
-        }
-
-        function clearMain() {
-            ctx.fillStyle = state.bgColor;
-            ctx.fillRect(0, 0, cssWidth, cssHeight);
-        }
-
-        // ─── Seeded random for consistent results ────────────────────
-
-        let rngState = 1;
-        function seedRng(s) { rngState = (s | 0) || 1; }
-        function rng() {
-            rngState ^= rngState << 13;
-            rngState ^= rngState >> 17;
-            rngState ^= rngState << 5;
-            return ((rngState >>> 0) / 4294967296);
-        }
-
-        // ─── RECONSTRUCTION FILTERS ──────────────────────────────────
-
-        function filterNone() {
-            clearMain();
-            ctx.font = fontStr();
-            ctx.textAlign = state.textAlign;
-            ctx.textBaseline = 'middle';
-            const lines = state.text.split('\n');
-            const lineH = state.fontSize * state.lineHeight;
-            const totalH = (lines.length - 1) * lineH;
-            const startY = cssHeight / 2 - totalH / 2;
-            const x = state.textAlign === 'left' ? 40
-                : state.textAlign === 'right' ? cssWidth - 40 : cssWidth / 2;
-            for (let i = 0; i < lines.length; i++) {
-                const y = startY + i * lineH;
-                if (state.fillMode) {
-                    ctx.fillStyle = state.inkColor;
-                    drawTextLine(ctx, lines[i], x, y, true);
-                } else {
-                    ctx.strokeStyle = state.inkColor;
-                    ctx.lineWidth = state.outlineWidth;
-                    ctx.lineJoin = 'round';
-                    drawTextLine(ctx, lines[i], x, y, false);
-                }
+                pts.push({
+                    bx: px / dpr, by: py / dpr,
+                    x: px / dpr, y: py / dpr,
+                    tx: gy / glen, ty: -gx / glen,
+                    nx: -gx / glen, ny: -gy / glen,
+                    edge,
+                    phase: Math.random() * Math.PI * 2,
+                    phase2: Math.random() * Math.PI * 2,
+                    size: 0.5 + Math.random() * 0.5,
+                    rot: Math.random() * Math.PI * 2,
+                });
             }
         }
 
-        function filterRough() {
-            clearMain();
-            const edges = edgeCache;
-            if (!edges || edges.length === 0) return;
+        buildConnections();
+        needsRecompute = false;
+    }
 
-            const scale = state.filterScale;
-            const density = state.filterDensity;
-            const passes = Math.max(2, Math.round(density * 1.2));
+    function buildConnections() {
+        const radius = S.scale * 2.5;
+        const cellSize = radius;
+        const grid = {};
 
-            ctx.strokeStyle = state.inkColor;
-            ctx.lineCap = 'round';
-            seedRng(42);
-
-            for (let pass = 0; pass < passes; pass++) {
-                const jitterAmp = scale * 0.3 * (1 + pass * 0.15);
-                const strokeLen = scale * (1.5 + rng() * 2);
-                ctx.lineWidth = 0.6 + rng() * (scale * 0.15);
-                ctx.globalAlpha = 0.5 + rng() * 0.4;
-
-                for (let i = 0; i < edges.length; i++) {
-                    if (rng() > 0.6) continue;
-                    const e = edges[i];
-                    const jx = (rng() - 0.5) * jitterAmp;
-                    const jy = (rng() - 0.5) * jitterAmp;
-                    const len = strokeLen * (0.4 + rng() * 0.8);
-
-                    ctx.beginPath();
-                    ctx.moveTo(e.x + jx - e.tx * len * 0.5, e.y + jy - e.ty * len * 0.5);
-                    ctx.lineTo(e.x + jx + e.tx * len * 0.5, e.y + jy + e.ty * len * 0.5);
-                    ctx.stroke();
-                }
-            }
-
-            seedRng(99);
-            ctx.globalAlpha = 0.25;
-            ctx.lineWidth = 0.5;
-            const interiorStep = Math.max(2, scale * 0.7);
-            for (let y = 0; y < cssHeight; y += interiorStep) {
-                for (let x = 0; x < cssWidth; x += interiorStep) {
-                    if (!isInside(x, y)) continue;
-                    if (rng() > density * 0.08) continue;
-                    const len = scale * (0.3 + rng() * 0.5);
-                    const angle = rng() * Math.PI;
-                    ctx.beginPath();
-                    ctx.moveTo(x - Math.cos(angle) * len, y - Math.sin(angle) * len);
-                    ctx.lineTo(x + Math.cos(angle) * len, y + Math.sin(angle) * len);
-                    ctx.stroke();
-                }
-            }
-            ctx.globalAlpha = 1;
+        for (let i = 0; i < pts.length; i++) {
+            const cx = Math.floor(pts[i].bx / cellSize);
+            const cy = Math.floor(pts[i].by / cellSize);
+            const key = cx + ',' + cy;
+            if (!grid[key]) grid[key] = [];
+            grid[key].push(i);
         }
 
-        function filterFaceted() {
-            clearMain();
-            const edges = edgeCache;
-            if (!edges || edges.length === 0) return;
-
-            const scale = state.filterScale;
-            const density = state.filterDensity;
-
-            ctx.strokeStyle = state.inkColor;
-            ctx.lineCap = 'butt';
-            ctx.lineJoin = 'miter';
-            seedRng(77);
-
-            const groupSize = Math.max(2, Math.round(scale * 0.5));
-            ctx.lineWidth = 0.8 + scale * 0.08;
-            ctx.globalAlpha = 0.85;
-
-            for (let i = 0; i < edges.length; i += groupSize) {
-                const end = Math.min(i + groupSize, edges.length);
-                if (rng() < 0.15) continue;
-
-                ctx.beginPath();
-                for (let j = i; j < end; j++) {
-                    const e = edges[j];
-                    const jx = (rng() - 0.5) * scale * 0.4;
-                    const jy = (rng() - 0.5) * scale * 0.4;
-                    if (j === i) ctx.moveTo(e.x + jx, e.y + jy);
-                    else ctx.lineTo(e.x + jx, e.y + jy);
-                }
-                ctx.stroke();
-            }
-
-            const crossStep = Math.max(3, Math.round(scale * 0.8));
-            const crossLen = scale * 0.6;
-            ctx.lineWidth = 0.4 + scale * 0.03;
-            ctx.globalAlpha = 0.3 + density * 0.05;
-
-            for (let y = 0; y < cssHeight; y += crossStep) {
-                for (let x = 0; x < cssWidth; x += crossStep) {
-                    if (!isInside(x, y)) continue;
-                    if (rng() > density * 0.15) continue;
-
-                    const angle = state.filterAngle * Math.PI / 180 + (rng() - 0.5) * 0.4;
-                    ctx.beginPath();
-                    ctx.moveTo(x - Math.cos(angle) * crossLen, y - Math.sin(angle) * crossLen);
-                    ctx.lineTo(x + Math.cos(angle) * crossLen, y + Math.sin(angle) * crossLen);
-                    ctx.stroke();
-
-                    if (rng() < 0.5) {
-                        const angle2 = angle + Math.PI * 0.5;
-                        ctx.beginPath();
-                        ctx.moveTo(x - Math.cos(angle2) * crossLen * 0.6, y - Math.sin(angle2) * crossLen * 0.6);
-                        ctx.lineTo(x + Math.cos(angle2) * crossLen * 0.6, y + Math.sin(angle2) * crossLen * 0.6);
-                        ctx.stroke();
-                    }
-                }
-            }
-            ctx.globalAlpha = 1;
-        }
-
-        function filterStipple() {
-            clearMain();
-            const scale = state.filterScale;
-            const density = state.filterDensity;
-
-            ctx.fillStyle = state.inkColor;
-            seedRng(55);
-
-            const step = Math.max(1.5, scale * 0.35);
-            const maxDotR = scale * 0.12 + 0.3;
-
-            for (let y = 0; y < cssHeight; y += step) {
-                for (let x = 0; x < cssWidth; x += step) {
-                    const jx = (rng() - 0.5) * step * 0.8;
-                    const jy = (rng() - 0.5) * step * 0.8;
-                    const px = x + jx;
-                    const py = y + jy;
-
-                    const a = alphaAt(px, py);
-                    if (a < 0.15) continue;
-
-                    const edgeDist = edgeDistApprox(px, py);
-                    const edgeBias = Math.max(0, 1 - edgeDist / (scale * 3));
-                    const prob = (0.1 + edgeBias * 0.6) * density * 0.15 * a;
-                    if (rng() > prob) continue;
-
-                    const r = maxDotR * (0.3 + rng() * 0.7 + edgeBias * 0.3);
-                    ctx.globalAlpha = 0.5 + a * 0.4 + edgeBias * 0.1;
-                    ctx.beginPath();
-                    ctx.arc(px, py, r, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-            ctx.globalAlpha = 1;
-        }
-
-        function edgeDistApprox(cssX, cssY) {
-            if (!edgeCache || edgeCache.length === 0) return 999;
-            let minD = 999;
-            const step = Math.max(1, Math.floor(edgeCache.length / 300));
-            for (let i = 0; i < edgeCache.length; i += step) {
-                const e = edgeCache[i];
-                const dx = cssX - e.x;
-                const dy = cssY - e.y;
-                const d = dx * dx + dy * dy;
-                if (d < minD) minD = d;
-            }
-            return Math.sqrt(minD);
-        }
-
-        function filterHatch() {
-            clearMain();
-            const edges = edgeCache;
-            if (!edges || edges.length === 0) return;
-
-            const scale = state.filterScale;
-            const density = state.filterDensity;
-            const baseAngle = state.filterAngle * Math.PI / 180;
-
-            ctx.strokeStyle = state.inkColor;
-            ctx.lineCap = 'round';
-            seedRng(33);
-
-            const step = Math.max(2, scale * 0.6);
-            const lineLen = scale * 1.2;
-
-            for (let y = 0; y < cssHeight; y += step) {
-                for (let x = 0; x < cssWidth; x += step) {
-                    if (!isInside(x, y)) continue;
-
-                    let nearestTx = Math.cos(baseAngle);
-                    let nearestTy = Math.sin(baseAngle);
-                    let minDist = Infinity;
-                    const searchStep = Math.max(1, Math.floor(edges.length / 200));
-                    for (let i = 0; i < edges.length; i += searchStep) {
-                        const e = edges[i];
-                        const d = (x - e.x) * (x - e.x) + (y - e.y) * (y - e.y);
-                        if (d < minDist) {
-                            minDist = d;
-                            nearestTx = e.tx;
-                            nearestTy = e.ty;
+        connections = [];
+        for (let i = 0; i < pts.length; i++) {
+            const cx = Math.floor(pts[i].bx / cellSize);
+            const cy = Math.floor(pts[i].by / cellSize);
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const cell = grid[(cx + dx) + ',' + (cy + dy)];
+                    if (!cell) continue;
+                    for (const j of cell) {
+                        if (j <= i) continue;
+                        const d = Math.hypot(pts[i].bx - pts[j].bx, pts[i].by - pts[j].by);
+                        if (d < radius && d > 0.5) {
+                            connections.push({ a: i, b: j, d });
                         }
                     }
-
-                    const blend = clamp(1 - Math.sqrt(minDist) / (scale * 8), 0.2, 1);
-                    const tx = nearestTx * blend + Math.cos(baseAngle) * (1 - blend);
-                    const ty = nearestTy * blend + Math.sin(baseAngle) * (1 - blend);
-
-                    const len = lineLen * (0.5 + rng() * 0.7);
-                    ctx.lineWidth = 0.4 + rng() * (scale * 0.06);
-                    ctx.globalAlpha = 0.3 + density * 0.06 + rng() * 0.15;
-
-                    ctx.beginPath();
-                    ctx.moveTo(x - tx * len * 0.5, y - ty * len * 0.5);
-                    ctx.lineTo(x + tx * len * 0.5, y + ty * len * 0.5);
-                    ctx.stroke();
-
-                    if (density > 5 && rng() < 0.4) {
-                        const nx = -ty, ny = tx;
-                        const len2 = len * 0.5;
-                        ctx.beginPath();
-                        ctx.moveTo(x - nx * len2 * 0.5, y - ny * len2 * 0.5);
-                        ctx.lineTo(x + nx * len2 * 0.5, y + ny * len2 * 0.5);
-                        ctx.stroke();
-                    }
                 }
             }
-            ctx.globalAlpha = 1;
+        }
+    }
+
+    // ─── Scratchy line (Elemenyt-style) ──────────────────────────
+
+    function scratchLine(x1, y1, x2, y2, dist, thick) {
+        if (dist < 0.5) return;
+        const segs = Math.max(2, Math.floor(dist / 1.5));
+        const dx = x2 - x1, dy = y2 - y1;
+        const nx = -dy / dist, ny = dx / dist;
+
+        ctx.beginPath();
+        ctx.moveTo(x1 + (Math.random() - 0.5) * thick * 0.3,
+                   y1 + (Math.random() - 0.5) * thick * 0.3);
+        for (let s = 1; s <= segs; s++) {
+            const t = s / segs;
+            const jAmp = thick * 0.25;
+            ctx.lineTo(
+                x1 + dx * t + (Math.random() - 0.5) * jAmp * nx,
+                y1 + dy * t + (Math.random() - 0.5) * jAmp * ny
+            );
+        }
+        ctx.stroke();
+    }
+
+    // ─── Drawing modes ───────────────────────────────────────────
+
+    function drawNone() {
+        ctx.font = fontStr();
+        ctx.textAlign = S.textAlign;
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = S.ink;
+        const lines = S.text.split('\n');
+        const lineH = S.fontSize * S.lineHeight;
+        const totalH = (lines.length - 1) * lineH;
+        const startY = cssH / 2 - totalH / 2;
+        const x = S.textAlign === 'left' ? 40 : S.textAlign === 'right' ? cssW - 40 : cssW / 2;
+        for (let i = 0; i < lines.length; i++) {
+            drawTextLine(ctx, lines[i], x, startY + i * lineH);
+        }
+    }
+
+    function drawNet() {
+        const thick = S.weight * 0.15;
+        const maxDist = S.scale * 2.5;
+
+        ctx.strokeStyle = S.ink;
+        ctx.lineCap = 'round';
+
+        for (const c of connections) {
+            const a = pts[c.a], b = pts[c.b];
+            const d = Math.hypot(a.x - b.x, a.y - b.y);
+            if (d > maxDist * 1.3) continue;
+            const fade = Math.max(0.05, 1 - d / maxDist);
+            ctx.globalAlpha = fade * 0.7;
+            ctx.lineWidth = thick * fade * (0.5 + (a.edge || b.edge ? 0.8 : 0.3));
+            scratchLine(a.x, a.y, b.x, b.y, d, thick * 2);
         }
 
-        function filterShatter() {
-            clearMain();
-            const edges = edgeCache;
-            if (!edges || edges.length === 0) return;
+        ctx.globalAlpha = 0.85;
+        for (const p of pts) {
+            if (!p.edge) continue;
+            const r = thick * 0.4 * p.size;
+            ctx.fillStyle = S.ink;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+    }
 
-            const scale = state.filterScale;
-            const density = state.filterDensity;
+    function drawStroke() {
+        const thick = S.weight * 0.3;
 
-            ctx.strokeStyle = state.inkColor;
-            ctx.lineWidth = 0.6 + scale * 0.08;
-            ctx.lineCap = 'round';
-            seedRng(88);
+        ctx.strokeStyle = S.ink;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
-            const fragSize = Math.max(3, Math.round(scale * 1.5));
+        const edgePts = pts.filter(p => p.edge);
 
-            for (let i = 0; i < edges.length; i += fragSize) {
-                const end = Math.min(i + fragSize, edges.length);
-                if (end - i < 2) continue;
+        for (let pass = 0; pass < 3; pass++) {
+            const jAmp = (pass + 1) * thick * 0.2;
+            ctx.lineWidth = thick * (1.2 - pass * 0.3);
+            ctx.globalAlpha = 0.5 - pass * 0.1;
 
-                const displaceAmt = scale * (0.3 + rng() * 0.8) * (density * 0.15);
-                const displaceAngle = rng() * Math.PI * 2;
-                const dx = Math.cos(displaceAngle) * displaceAmt;
-                const dy = Math.sin(displaceAngle) * displaceAmt;
-                const rotAngle = (rng() - 0.5) * 0.3 * (density * 0.1);
+            ctx.beginPath();
+            let penDown = false;
+            for (let i = 0; i < edgePts.length; i++) {
+                const p = edgePts[i];
+                const next = edgePts[i + 1];
+                const jx = (Math.random() - 0.5) * jAmp;
+                const jy = (Math.random() - 0.5) * jAmp;
 
-                const cx = edges[Math.min(i + Math.floor(fragSize / 2), end - 1)].x;
-                const cy = edges[Math.min(i + Math.floor(fragSize / 2), end - 1)].y;
-
-                ctx.globalAlpha = 0.6 + rng() * 0.4;
-                ctx.beginPath();
-
-                for (let j = i; j < end; j++) {
-                    const e = edges[j];
-                    let px = e.x - cx, py = e.y - cy;
-                    const cos = Math.cos(rotAngle), sin = Math.sin(rotAngle);
-                    const rx = px * cos - py * sin + cx + dx;
-                    const ry = px * sin + py * cos + cy + dy;
-
-                    if (j === i) ctx.moveTo(rx, ry);
-                    else ctx.lineTo(rx, ry);
+                if (!next || Math.hypot(p.x - next.x, p.y - next.y) > S.scale * 3) {
+                    if (penDown) ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(p.x + jx, p.y + jy);
+                    penDown = true;
+                } else {
+                    ctx.lineTo(p.x + jx, p.y + jy);
                 }
+            }
+            if (penDown) ctx.stroke();
+        }
+
+        ctx.globalAlpha = 0.2;
+        ctx.lineWidth = thick * 0.4;
+        const fillPts = pts.filter(p => !p.edge);
+        for (const p of fillPts) {
+            if (Math.random() > 0.3) continue;
+            const len = S.scale * 0.8 * p.size;
+            ctx.beginPath();
+            ctx.moveTo(p.x - p.tx * len, p.y - p.ty * len);
+            ctx.lineTo(p.x + p.tx * len, p.y + p.ty * len);
+            ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    function drawFragment() {
+        const sz = S.scale * 0.6;
+        const thick = S.weight * 0.08;
+
+        ctx.strokeStyle = S.ink;
+        ctx.fillStyle = S.ink;
+        ctx.lineWidth = thick;
+        ctx.lineJoin = 'miter';
+
+        for (const p of pts) {
+            const sides = 3 + Math.floor(p.size * 3);
+            const r = sz * (0.4 + p.size * 0.6);
+            const rot = p.rot + p.phase * 0.3;
+            const alpha = p.edge ? 0.7 : 0.35;
+            ctx.globalAlpha = alpha;
+
+            ctx.beginPath();
+            for (let v = 0; v <= sides; v++) {
+                const a = (Math.PI * 2 / sides) * v + rot;
+                const vr = r * (0.7 + Math.sin(a * 3 + p.phase) * 0.3);
+                const vx = p.x + Math.cos(a) * vr;
+                const vy = p.y + Math.sin(a) * vr;
+                if (v === 0) ctx.moveTo(vx, vy);
+                else ctx.lineTo(vx, vy);
+            }
+            ctx.closePath();
+
+            if (p.edge) {
+                ctx.fill();
+            } else {
                 ctx.stroke();
             }
-
-            ctx.globalAlpha = 0.15;
-            ctx.lineWidth = 0.3;
-            const interiorStep = Math.max(3, scale);
-            for (let y = 0; y < cssHeight; y += interiorStep) {
-                for (let x = 0; x < cssWidth; x += interiorStep) {
-                    if (!isInside(x, y)) continue;
-                    if (rng() > density * 0.08) continue;
-                    const sz = scale * 0.3 * rng();
-                    ctx.strokeRect(x + (rng() - 0.5) * scale, y + (rng() - 0.5) * scale, sz, sz);
-                }
-            }
-            ctx.globalAlpha = 1;
         }
+        ctx.globalAlpha = 1;
+    }
 
-        function filterDissolve() {
-            clearMain();
-            const edges = edgeCache;
-            if (!edges || edges.length === 0) return;
+    function drawGrain() {
+        ctx.fillStyle = S.ink;
+        const maxR = S.weight * 0.12;
 
-            const scale = state.filterScale;
-            const density = state.filterDensity;
-
-            ctx.fillStyle = state.inkColor;
-            seedRng(66);
-
-            for (let i = 0; i < edges.length; i++) {
-                if (rng() > 0.7) continue;
-                const e = edges[i];
-                const particleCount = Math.round(1 + density * 0.8);
-
-                for (let p = 0; p < particleCount; p++) {
-                    const dist = rng() * scale * 2.5;
-                    const spread = (rng() - 0.5) * scale * 1.5;
-                    const px = e.x + e.nx * dist + e.tx * spread;
-                    const py = e.y + e.ny * dist + e.ty * spread;
-                    const r = (0.3 + rng() * 0.8) * (1 - dist / (scale * 3));
-                    if (r < 0.1) continue;
-                    ctx.globalAlpha = clamp(0.8 - dist / (scale * 2.5), 0.05, 0.9);
-                    ctx.beginPath();
-                    ctx.arc(px, py, r, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-
-                const inDist = rng() * scale * 0.8;
-                const px2 = e.x - e.nx * inDist;
-                const py2 = e.y - e.ny * inDist;
-                const r2 = 0.5 + rng() * 0.6;
-                ctx.globalAlpha = 0.7;
+        for (const p of pts) {
+            const count = p.edge ? 4 : 2;
+            for (let i = 0; i < count; i++) {
+                const ox = (Math.random() - 0.5) * S.scale * 0.8;
+                const oy = (Math.random() - 0.5) * S.scale * 0.8;
+                const r = maxR * (0.3 + Math.random() * 0.7) * p.size;
+                ctx.globalAlpha = p.edge ? 0.6 + Math.random() * 0.3 : 0.2 + Math.random() * 0.25;
                 ctx.beginPath();
-                ctx.arc(px2, py2, r2, 0, Math.PI * 2);
+                ctx.arc(p.x + ox, p.y + oy, r, 0, Math.PI * 2);
                 ctx.fill();
             }
-            ctx.globalAlpha = 1;
         }
+        ctx.globalAlpha = 1;
+    }
 
-        function filterWire() {
-            clearMain();
-            const edges = edgeCache;
-            if (!edges || edges.length === 0) return;
+    function drawBlob() {
+        ctx.fillStyle = S.ink;
+        const baseR = S.scale * 0.5;
 
-            const scale = state.filterScale;
-            const density = state.filterDensity;
+        for (const p of pts) {
+            if (!p.edge && Math.random() > 0.5) continue;
+            const r = baseR * (0.5 + p.size * 0.8);
+            const wobbleN = 5 + Math.floor(p.size * 4);
+            ctx.globalAlpha = p.edge ? 0.55 : 0.2;
 
-            ctx.strokeStyle = state.inkColor;
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
-            seedRng(22);
+            ctx.beginPath();
+            for (let a = 0; a <= Math.PI * 2; a += Math.PI * 2 / 30) {
+                const wobble = 1 + Math.sin(a * wobbleN + p.phase) * 0.3
+                             + Math.cos(a * (wobbleN + 2) + p.phase2) * 0.15;
+                const vx = p.x + Math.cos(a) * r * wobble;
+                const vy = p.y + Math.sin(a) * r * wobble;
+                if (a === 0) ctx.moveTo(vx, vy);
+                else ctx.lineTo(vx, vy);
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+    }
 
-            const smooth = Math.max(2, Math.round(scale * 0.3));
-
-            for (let pass = 0; pass < Math.round(density * 0.5); pass++) {
-                const jitter = pass * 0.3;
-                ctx.globalAlpha = pass === 0 ? 0.9 : 0.15;
-
+    function drawHalftone() {
+        const sp = Math.max(3, Math.round(S.scale * dpr));
+        ctx.fillStyle = S.ink;
+        for (let cy = Math.floor(sp / 2); cy < alphaH; cy += sp) {
+            for (let cx = Math.floor(sp / 2); cx < alphaW; cx += sp) {
+                let sum = 0, cnt = 0;
+                const r2 = Math.max(1, Math.floor(sp / 2));
+                for (let dy = -r2; dy < r2; dy++) {
+                    for (let dx = -r2; dx < r2; dx++) {
+                        const px = cx + dx, py = cy + dy;
+                        if (px >= 0 && px < alphaW && py >= 0 && py < alphaH) {
+                            sum += alphaData[py * alphaW + px]; cnt++;
+                        }
+                    }
+                }
+                const a = cnt > 0 ? sum / cnt / 255 : 0;
+                if (a < 0.03) continue;
+                const rad = sp * 0.48 * Math.sqrt(a);
                 ctx.beginPath();
-                let penDown = false;
-                for (let i = 0; i < edges.length; i += smooth) {
-                    const e = edges[i];
-                    const next = edges[Math.min(i + smooth, edges.length - 1)];
-                    const dist = Math.hypot(e.x - next.x, e.y - next.y);
-
-                    if (dist > scale * 4) {
-                        penDown = false;
-                        continue;
-                    }
-
-                    const curvature = Math.abs(
-                        Math.atan2(next.ty, next.tx) - Math.atan2(e.ty, e.tx)
-                    );
-                    ctx.lineWidth = clamp(
-                        scale * 0.12 * (0.5 + curvature * 2) + jitter * 0.3,
-                        0.3, scale * 0.5
-                    );
-
-                    const jx = (rng() - 0.5) * jitter;
-                    const jy = (rng() - 0.5) * jitter;
-
-                    if (!penDown) {
-                        ctx.moveTo(e.x + jx, e.y + jy);
-                        penDown = true;
-                    } else {
-                        ctx.lineTo(e.x + jx, e.y + jy);
-                    }
-                }
-                ctx.stroke();
-            }
-            ctx.globalAlpha = 1;
-        }
-
-        // ─── Kept pixel-based filters ────────────────────────────────
-
-        function filterHalftone() {
-            const sp = Math.max(3, Math.round(state.filterScale * dpr));
-            clearMain();
-            ctx.fillStyle = state.inkColor;
-            for (let cy = Math.floor(sp / 2); cy < srcCanvas.height; cy += sp) {
-                for (let cx = Math.floor(sp / 2); cx < srcCanvas.width; cx += sp) {
-                    const a = sampleAlphaBlock(cx, cy, sp);
-                    if (a < 0.03) continue;
-                    const r = sp * 0.48 * Math.sqrt(a);
-                    ctx.beginPath();
-                    ctx.arc(cx / dpr, cy / dpr, r / dpr, 0, Math.PI * 2);
-                    ctx.fill();
-                }
+                ctx.arc(cx / dpr, cy / dpr, rad / dpr, 0, Math.PI * 2);
+                ctx.fill();
             }
         }
+    }
 
-        function sampleAlphaBlock(cx, cy, sp) {
-            if (!alphaCache) return 0;
-            const w = alphaCacheW;
-            let sum = 0, count = 0;
-            const r = Math.max(1, Math.floor(sp / 2));
-            for (let dy = -r; dy < r; dy++) {
-                for (let dx = -r; dx < r; dx++) {
-                    const px = cx + dx, py = cy + dy;
-                    if (px >= 0 && px < w && py >= 0 && py < alphaCacheH) {
-                        sum += alphaCache[py * w + px];
-                        count++;
-                    }
-                }
+    function drawShadow() {
+        const layers = Math.max(1, Math.round(S.density * 0.6));
+        const offX = S.scale * 0.4, offY = S.scale * 0.4;
+        const r = parseInt(S.ink.slice(1, 3), 16);
+        const g = parseInt(S.ink.slice(3, 5), 16);
+        const b = parseInt(S.ink.slice(5, 7), 16);
+        ctx.font = fontStr(); ctx.textAlign = S.textAlign; ctx.textBaseline = 'middle';
+        const lines = S.text.split('\n');
+        const lineH = S.fontSize * S.lineHeight;
+        const totalH = (lines.length - 1) * lineH;
+        const startY = cssH / 2 - totalH / 2;
+        const x = S.textAlign === 'left' ? 40 : S.textAlign === 'right' ? cssW - 40 : cssW / 2;
+        for (let i = layers; i >= 0; i--) {
+            const frac = i / Math.max(1, layers);
+            ctx.save();
+            ctx.translate(offX * frac, offY * frac);
+            const alpha = 0.08 + (1 - frac) * 0.92;
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = `rgba(${r},${g},${b},${alpha})`;
+            for (let li = 0; li < lines.length; li++) {
+                drawTextLine(ctx, lines[li], x, startY + li * lineH);
             }
-            return count > 0 ? sum / count / 255 : 0;
+            ctx.restore();
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    const modes = {
+        none: drawNone, net: drawNet, stroke: drawStroke,
+        fragment: drawFragment, grain: drawGrain, blob: drawBlob,
+        halftone: drawHalftone, shadow: drawShadow,
+    };
+
+    // ─── Animation loop ──────────────────────────────────────────
+
+    function tick() {
+        if (!animId) return;
+
+        const t = performance.now() / 1000;
+        const jAmp = S.jitter * 0.04 * (S.scale * 0.15 + 0.5);
+
+        for (const p of pts) {
+            const jx = Math.sin(t * 2.1 + p.phase) * jAmp
+                      + Math.sin(t * 5.3 + p.phase2) * jAmp * 0.3;
+            const jy = Math.cos(t * 1.7 + p.phase2) * jAmp
+                      + Math.cos(t * 4.1 + p.phase) * jAmp * 0.3;
+            p.x = p.bx + jx;
+            p.y = p.by + jy;
+            p.rot += (Math.sin(t + p.phase) * 0.002) * (S.jitter * 0.01);
         }
 
-        function filterPixel() {
-            const sp = Math.max(2, Math.round(state.filterScale * dpr));
-            clearMain();
-            ctx.imageSmoothingEnabled = false;
-            const tmpC = document.createElement('canvas');
-            const tw = Math.ceil(srcCanvas.width / sp);
-            const th = Math.ceil(srcCanvas.height / sp);
-            tmpC.width = tw; tmpC.height = th;
-            const tc = tmpC.getContext('2d');
-            tc.imageSmoothingEnabled = false;
-            tc.drawImage(srcCanvas, 0, 0, tw, th);
-            ctx.fillStyle = state.bgColor;
-            ctx.fillRect(0, 0, cssWidth, cssHeight);
-            ctx.drawImage(tmpC, 0, 0, tw, th, 0, 0, cssWidth, cssHeight);
-            ctx.imageSmoothingEnabled = true;
-        }
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.fillStyle = S.bg;
+        ctx.fillRect(0, 0, cssW, cssH);
 
-        function filterGlitch() {
-            clearMain();
-            ctx.drawImage(srcCanvas, 0, 0, cssWidth, cssHeight);
-            const sliceCount = Math.max(3, Math.round(state.filterDensity * 2.5));
-            const maxShift = state.filterScale * 3;
-            for (let i = 0; i < sliceCount; i++) {
-                const sy = Math.random() * cssHeight;
-                const sh = 2 + Math.random() * state.filterScale * 2;
-                const shift = (Math.random() - 0.5) * maxShift * 2;
-                ctx.drawImage(canvas, 0, sy * dpr, canvas.width, sh * dpr, shift, sy, cssWidth, sh);
-            }
-            ctx.globalCompositeOperation = 'destination-over';
-            ctx.fillStyle = state.bgColor;
-            ctx.fillRect(0, 0, cssWidth, cssHeight);
-            ctx.globalCompositeOperation = 'source-over';
-        }
+        const fn = modes[S.mode];
+        if (fn) fn();
 
-        function filterShadow() {
-            const offsetX = state.filterScale * 0.5;
-            const offsetY = state.filterScale * 0.5;
-            const layers = Math.max(1, Math.round(state.filterDensity));
-            clearMain();
-            const r = parseInt(state.inkColor.slice(1, 3), 16);
-            const g = parseInt(state.inkColor.slice(3, 5), 16);
-            const b = parseInt(state.inkColor.slice(5, 7), 16);
-            for (let i = layers; i >= 0; i--) {
-                const frac = i / Math.max(1, layers);
-                const ox = offsetX * frac;
-                const oy = offsetY * frac;
-                const alpha = 0.08 + (1 - frac) * 0.92;
-                ctx.save();
-                ctx.translate(ox, oy);
-                ctx.globalAlpha = alpha;
-                ctx.fillStyle = 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
-                ctx.strokeStyle = ctx.fillStyle;
-                ctx.font = fontStr();
-                ctx.textAlign = state.textAlign;
-                ctx.textBaseline = 'middle';
-                const lines = state.text.split('\n');
-                const lineH = state.fontSize * state.lineHeight;
-                const totalH = (lines.length - 1) * lineH;
-                const startY = cssHeight / 2 - totalH / 2;
-                const x = state.textAlign === 'left' ? 40
-                    : state.textAlign === 'right' ? cssWidth - 40 : cssWidth / 2;
-                for (let li = 0; li < lines.length; li++) {
-                    const y = startY + li * lineH;
-                    if (state.fillMode) drawTextLine(ctx, lines[li], x, y, true);
-                    else { ctx.lineWidth = state.outlineWidth; drawTextLine(ctx, lines[li], x, y, false); }
-                }
-                ctx.restore();
-            }
-            ctx.globalAlpha = 1;
-        }
+        animId = requestAnimationFrame(tick);
+    }
 
-        const filterMap = {
-            none: filterNone,
-            rough: filterRough,
-            faceted: filterFaceted,
-            stipple: filterStipple,
-            hatch: filterHatch,
-            shatter: filterShatter,
-            dissolve: filterDissolve,
-            wire: filterWire,
-            halftone: filterHalftone,
-            pixel: filterPixel,
-            glitch: filterGlitch,
-            shadow: filterShadow,
-        };
+    function startAnim() {
+        if (animId) return;
+        animId = requestAnimationFrame(tick);
+    }
 
-        // ─── Main render ─────────────────────────────────────────────
+    function stopAnim() {
+        if (animId) { cancelAnimationFrame(animId); animId = null; }
+    }
 
-        function render() {
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+    function fullRender() {
+        if (needsRecompute) recompute();
+
+        const animated = S.mode !== 'none' && S.mode !== 'shadow' && S.mode !== 'halftone';
+
+        if (animated && S.jitter > 0) {
+            startAnim();
+        } else {
+            stopAnim();
+            for (const p of pts) { p.x = p.bx; p.y = p.by; }
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-            renderSource();
-            extractEdgesAndAlpha();
-
-            const fn = filterMap[state.filter] || filterNone;
-            fn();
+            ctx.fillStyle = S.bg;
+            ctx.fillRect(0, 0, cssW, cssH);
+            const fn = modes[S.mode];
+            if (fn) fn();
         }
+    }
 
-        // ─── Resize ──────────────────────────────────────────────────
-
-        function resize() {
-            const container = document.getElementById('sketch-container');
-            const rect = container.getBoundingClientRect();
-            let w = rect.width, h = rect.height;
-            if (!Number.isFinite(w) || w < 10) w = window.innerWidth;
-            if (!Number.isFinite(h) || h < 10) h = window.innerHeight;
-
-            cssWidth = w;
-            cssHeight = h;
-            dpr = Math.max(1, window.devicePixelRatio || 1);
-
-            canvas.style.width = w + 'px';
-            canvas.style.height = h + 'px';
-            canvas.width = Math.floor(w * dpr);
-            canvas.height = Math.floor(h * dpr);
-
-            render();
+    function paramChanged() {
+        needsRecompute = true;
+        if (animId) {
+            recompute();
+        } else {
+            fullRender();
         }
+    }
 
-        window.addEventListener('resize', () => requestAnimationFrame(resize));
+    function modeChanged() {
+        stopAnim();
+        if (needsRecompute) recompute();
+        fullRender();
+    }
 
-        // ─── Font drag-and-drop ──────────────────────────────────────
+    // ─── Resize ──────────────────────────────────────────────────
 
-        const sketchContainer = document.getElementById('sketch-container');
-        const dropOverlay = $('drop-overlay');
-        let dragCounter = 0;
+    function resize() {
+        const container = document.getElementById('sketch-container');
+        const rect = container.getBoundingClientRect();
+        let w = rect.width, h = rect.height;
+        if (!Number.isFinite(w) || w < 10) w = innerWidth;
+        if (!Number.isFinite(h) || h < 10) h = innerHeight;
+        cssW = w; cssH = h;
+        dpr = Math.max(1, devicePixelRatio || 1);
+        canvas.style.width = w + 'px';
+        canvas.style.height = h + 'px';
+        canvas.width = Math.floor(w * dpr);
+        canvas.height = Math.floor(h * dpr);
+        needsRecompute = true;
+        fullRender();
+    }
 
-        sketchContainer.addEventListener('dragenter', (e) => {
-            e.preventDefault();
-            dragCounter++;
-            dropOverlay.hidden = false;
+    addEventListener('resize', () => requestAnimationFrame(resize));
+
+    // ─── Font drag-and-drop ──────────────────────────────────────
+
+    const sketchC = document.getElementById('sketch-container');
+    const dropOv = $('drop-overlay');
+    let dragN = 0;
+    sketchC.addEventListener('dragenter', e => { e.preventDefault(); dragN++; dropOv.hidden = false; });
+    sketchC.addEventListener('dragleave', () => { dragN--; if (dragN <= 0) { dragN = 0; dropOv.hidden = true; } });
+    sketchC.addEventListener('dragover', e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+    sketchC.addEventListener('drop', async e => {
+        e.preventDefault(); dragN = 0; dropOv.hidden = true;
+        const file = e.dataTransfer.files[0];
+        if (!file || !/\.(ttf|otf|woff2?|TTF|OTF|WOFF2?)$/.test(file.name)) return;
+        try {
+            const buf = await file.arrayBuffer();
+            const name = 'CustomFont_' + Date.now();
+            const face = new FontFace(name, buf);
+            await face.load();
+            document.fonts.add(face);
+            S.fontFamily = name; S.fontFileName = file.name;
+            $('ty-font-label').textContent = file.name;
+            $('ty-font-reset').style.display = '';
+            paramChanged();
+        } catch (err) { console.error('Font load failed:', err); }
+    });
+
+    function exportPNG() {
+        const link = document.createElement('a');
+        link.download = 'typo_export.png';
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
+
+    // ─── UI Wiring ───────────────────────────────────────────────
+
+    $('ty-text').addEventListener('input', e => { S.text = e.target.value; paramChanged(); });
+    $('ty-font-size').addEventListener('input', e => {
+        S.fontSize = +e.target.value; $('val-ty-font-size').textContent = S.fontSize; paramChanged();
+    });
+    $('ty-spacing').addEventListener('input', e => {
+        S.letterSpacing = +e.target.value; $('val-ty-spacing').textContent = S.letterSpacing; paramChanged();
+    });
+    $('ty-line-h').addEventListener('input', e => {
+        S.lineHeight = +e.target.value; $('val-ty-line-h').textContent = S.lineHeight.toFixed(2); paramChanged();
+    });
+    document.querySelectorAll('[data-align]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('[data-align]').forEach(b => b.classList.remove('is-active'));
+            btn.classList.add('is-active');
+            S.textAlign = btn.dataset.align; paramChanged();
         });
-        sketchContainer.addEventListener('dragleave', () => {
-            dragCounter--;
-            if (dragCounter <= 0) { dragCounter = 0; dropOverlay.hidden = true; }
-        });
-        sketchContainer.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'copy';
-        });
-        sketchContainer.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            dragCounter = 0;
-            dropOverlay.hidden = true;
-            const file = e.dataTransfer.files[0];
-            if (!file) return;
-            if (!/\.(ttf|otf|woff2?|TTF|OTF|WOFF2?)$/.test(file.name)) return;
-            try {
-                const buf = await file.arrayBuffer();
-                const name = 'CustomFont_' + Date.now();
-                const face = new FontFace(name, buf);
-                await face.load();
-                document.fonts.add(face);
-                state.fontFamily = name;
-                state.fontFileName = file.name;
-                $('ty-font-label').textContent = file.name;
-                $('ty-font-reset').style.display = '';
-                render();
-            } catch (err) {
-                console.error('Font load failed:', err);
-            }
-        });
+    });
+    $('ty-font-reset').addEventListener('click', () => {
+        S.fontFamily = 'sans-serif'; S.fontFileName = null;
+        $('ty-font-label').textContent = 'System default — drop .ttf/.otf/.woff onto canvas';
+        $('ty-font-reset').style.display = 'none'; paramChanged();
+    });
+    $('ty-mode').addEventListener('change', e => { S.mode = e.target.value; modeChanged(); });
+    $('ty-density').addEventListener('input', e => {
+        S.density = +e.target.value; $('val-ty-density').textContent = S.density; paramChanged();
+    });
+    $('ty-scale').addEventListener('input', e => {
+        S.scale = +e.target.value; $('val-ty-scale').textContent = S.scale;
+        buildConnections();
+        if (!animId) fullRender();
+    });
+    $('ty-jitter').addEventListener('input', e => {
+        S.jitter = +e.target.value; $('val-ty-jitter').textContent = S.jitter;
+        fullRender();
+    });
+    $('ty-weight').addEventListener('input', e => {
+        S.weight = +e.target.value; $('val-ty-weight').textContent = S.weight;
+        if (!animId) fullRender();
+    });
+    $('ty-ink').addEventListener('input', e => { S.ink = e.target.value; if (!animId) fullRender(); });
+    $('ty-bg').addEventListener('input', e => {
+        S.bg = e.target.value;
+        document.querySelector('.app[aria-label="Typo"]').style.backgroundColor = S.bg;
+        if (!animId) fullRender();
+    });
+    $('ty-export').addEventListener('click', exportPNG);
 
-        // ─── Export ──────────────────────────────────────────────────
+    // ─── Init ────────────────────────────────────────────────────
 
-        function exportPNG() {
-            const out = document.createElement('canvas');
-            out.width = canvas.width;
-            out.height = canvas.height;
-            const oc = out.getContext('2d');
-            oc.drawImage(canvas, 0, 0);
-            const link = document.createElement('a');
-            link.download = 'typo_export.png';
-            link.href = out.toDataURL('image/png');
-            link.click();
-        }
-
-        // ─── UI Wiring ──────────────────────────────────────────────
-
-        $('ty-text').addEventListener('input', (e) => { state.text = e.target.value; render(); });
-
-        $('ty-font-size').addEventListener('input', (e) => {
-            state.fontSize = parseInt(e.target.value, 10);
-            $('val-ty-font-size').textContent = state.fontSize;
-            render();
-        });
-
-        $('ty-spacing').addEventListener('input', (e) => {
-            state.letterSpacing = parseInt(e.target.value, 10);
-            $('val-ty-spacing').textContent = state.letterSpacing;
-            render();
-        });
-
-        $('ty-line-h').addEventListener('input', (e) => {
-            state.lineHeight = parseFloat(e.target.value);
-            $('val-ty-line-h').textContent = state.lineHeight.toFixed(2);
-            render();
-        });
-
-        document.querySelectorAll('[data-align]').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                document.querySelectorAll('[data-align]').forEach(b => b.classList.remove('is-active'));
-                btn.classList.add('is-active');
-                state.textAlign = btn.getAttribute('data-align');
-                render();
-            });
-        });
-
-        $('ty-fill-btn').addEventListener('click', () => {
-            state.fillMode = true;
-            $('ty-fill-btn').classList.add('is-active');
-            $('ty-outline-btn').classList.remove('is-active');
-            $('ty-outline-row').style.display = 'none';
-            render();
-        });
-        $('ty-outline-btn').addEventListener('click', () => {
-            state.fillMode = false;
-            $('ty-outline-btn').classList.add('is-active');
-            $('ty-fill-btn').classList.remove('is-active');
-            $('ty-outline-row').style.display = '';
-            render();
-        });
-
-        $('ty-outline-w').addEventListener('input', (e) => {
-            state.outlineWidth = parseFloat(e.target.value);
-            $('val-ty-outline-w').textContent = state.outlineWidth;
-            render();
-        });
-
-        $('ty-font-reset').addEventListener('click', () => {
-            state.fontFamily = 'sans-serif';
-            state.fontFileName = null;
-            $('ty-font-label').textContent = 'System default — drop .ttf/.otf/.woff onto canvas';
-            $('ty-font-reset').style.display = 'none';
-            render();
-        });
-
-        $('ty-filter').addEventListener('change', (e) => { state.filter = e.target.value; render(); });
-
-        $('ty-fscale').addEventListener('input', (e) => {
-            state.filterScale = parseInt(e.target.value, 10);
-            $('val-ty-fscale').textContent = state.filterScale;
-            render();
-        });
-
-        $('ty-fdensity').addEventListener('input', (e) => {
-            state.filterDensity = parseFloat(e.target.value);
-            $('val-ty-fdensity').textContent = state.filterDensity % 1 === 0 ? String(state.filterDensity) : state.filterDensity.toFixed(1);
-            render();
-        });
-
-        $('ty-fangle').addEventListener('input', (e) => {
-            state.filterAngle = parseInt(e.target.value, 10);
-            $('val-ty-fangle').textContent = state.filterAngle;
-            render();
-        });
-
-        $('ty-ink').addEventListener('input', (e) => { state.inkColor = e.target.value; render(); });
-
-        $('ty-bg').addEventListener('input', (e) => {
-            state.bgColor = e.target.value;
-            const app = document.querySelector('.app[aria-label="Typo"]');
-            if (app) app.style.backgroundColor = state.bgColor;
-            render();
-        });
-
-        $('ty-export').addEventListener('click', exportPNG);
-
-        // ─── Init ────────────────────────────────────────────────────
-
-        const app = document.querySelector('.app[aria-label="Typo"]');
-        if (app) app.style.backgroundColor = state.bgColor;
-
-        resize();
-        requestAnimationFrame(resize);
+    document.querySelector('.app[aria-label="Typo"]').style.backgroundColor = S.bg;
+    resize();
+    requestAnimationFrame(resize);
     </script>
 </body>
-
 </html>
