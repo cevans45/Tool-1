@@ -81,7 +81,7 @@
                                     <option value="grid">Grid</option>
                                     <option value="diamonds">Diamonds</option>
                                     <option value="crosses">Crosses</option>
-                                    <option value="lines">Lines</option>
+
                                     <option value="stars">Stars</option>
                                     <option value="net">Net</option>
                                     <option value="fragment">Fragment</option>
@@ -554,26 +554,6 @@
         }
     }
 
-    function drawLines() {
-        const arm = S.scale * 0.5;
-        const thick = S.fill ? S.weight * 0.18 : S.strokeW;
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = S.ink;
-        ctx.lineCap = 'round';
-        ctx.lineWidth = thick;
-
-        for (const p of particles) {
-            const len = arm * p.scale;
-            const ang = p.phase;
-            const dx = Math.cos(ang) * len;
-            const dy = Math.sin(ang) * len;
-            ctx.beginPath();
-            ctx.moveTo(p.x - dx, p.y - dy);
-            ctx.lineTo(p.x + dx, p.y + dy);
-            ctx.stroke();
-        }
-    }
-
     function drawStars() {
         const maxR = S.scale * 0.5;
         ctx.globalAlpha = 1;
@@ -617,7 +597,7 @@
     const modes = {
         none: drawNone, circles: drawCircles, squares: drawSquares,
         grid: drawGrid, diamonds: drawDiamonds, crosses: drawCrosses,
-        lines: drawLines, stars: drawStars, net: drawNet,
+        stars: drawStars, net: drawNet,
         fragment: drawFragment,
     };
 

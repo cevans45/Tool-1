@@ -14,6 +14,13 @@
     font-style: normal;
 }
 
+@font-face {
+    font-family: 'NG Hofmann';
+    src: url('fonts/NG-Hofmann-TRIAL.otf') format('opentype');
+    font-weight: 400;
+    font-style: normal;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -45,38 +52,78 @@ body.is-leaving {
 }
 
 .hero {
-    min-height: 85vh;
+    min-height: 100vh;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px 18px 8px;
+    padding: 40px 32px;
     border-bottom: 1px solid #111;
     background: #080808;
     color: #f6f6f4;
+    position: relative;
+    overflow: hidden;
 }
 
 .hero-inner {
-    max-width: 1040px;
+    max-width: 1200px;
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
 }
 
 .hero-title {
-    font-size: 72px;
-    letter-spacing: 0.2em;
+    font-family: 'NG Hofmann', 'ABC Diatype Mono', sans-serif;
+    font-size: clamp(80px, 18vw, 260px);
+    letter-spacing: -0.03em;
+    line-height: 0.85;
     text-transform: uppercase;
-    margin-bottom: 12px;
+    margin-bottom: 0;
     animation: ovrtPop 900ms ease-out 1;
 }
 
+.hero-sub {
+    font-family: 'NG Hofmann', sans-serif;
+    font-size: clamp(14px, 2.5vw, 28px);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(246, 246, 244, 0.4);
+    margin-top: 16px;
+}
+
 .hero-copy {
-    font-size: 18px;
-    color: #f6f6f4;
+    font-family: 'ABC Diatype Mono', monospace;
+    font-size: 11px;
+    color: rgba(246, 246, 244, 0.5);
     line-height: 1.6;
-    margin-bottom: 18px;
+    margin-top: 40px;
+    max-width: 340px;
+    letter-spacing: 0.04em;
 }
 
 .hero-copy strong {
-    font-weight: 700;
+    color: #f6f6f4;
+    font-weight: 400;
+}
+
+.hero-rule {
+    width: 60px;
+    height: 1px;
+    background: rgba(246, 246, 244, 0.2);
+    margin-top: 32px;
+    border: none;
+}
+
+.hero-scroll {
+    position: absolute;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'ABC Diatype Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(246, 246, 244, 0.25);
 }
 
 #hero-canvas {
@@ -156,9 +203,12 @@ body.is-leaving {
 .site-card-preview span {
     position: relative;
     z-index: 2;
+    font-family: 'NG Hofmann', sans-serif;
+    font-size: 12px;
+    letter-spacing: 0.08em;
     background: #000;
     color: #f0f0f0;
-    padding: 2px 4px;
+    padding: 2px 6px;
 }
 
 .tool-preview-frame {
@@ -177,9 +227,11 @@ body.is-leaving {
 }
 
 .site-card-body h2 {
-    font-size: 12px;
+    font-family: 'NG Hofmann', sans-serif;
+    font-size: 15px;
     margin-bottom: 4px;
     text-transform: uppercase;
+    letter-spacing: 0.02em;
 }
 
 .site-card-body p {
