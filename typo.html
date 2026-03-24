@@ -144,11 +144,15 @@
         .app[aria-label="Typo"] .panel-body { max-height: none; }
         #drop-overlay {
             position: absolute; inset: 0;
-            display: flex; align-items: center; justify-content: center;
+            align-items: center; justify-content: center;
             font-size: 18px; font-weight: 700; color: #fff;
             background: rgba(0,0,0,0.55);
             border: 3px dashed rgba(255,255,255,0.5);
             border-radius: 8px; pointer-events: none; z-index: 10;
+            display: none;
+        }
+        #drop-overlay:not([hidden]) {
+            display: flex;
         }
     </style>
 
@@ -253,8 +257,8 @@
         renderSource();
         extractAlpha();
 
-        const spacing = Math.max(3, 32 - S.density * 1.4);
-        const step = Math.round(spacing * dpr);
+        const spacing = Math.max(2, 22 - S.density * 2);
+        const step = Math.max(2, Math.round(spacing * dpr));
         pts = [];
 
         for (let py = 2; py < alphaH - 2; py += step) {
