@@ -30,10 +30,12 @@
             let pmx = 0, pmy = 0;
             let hmx = 0, hmy = 0;
             const L = [];
+            const LETTER_HOME_X = [0.18, 0.38, 0.62, 0.82];
+            const LETTER_HOME_Y = [0.45, 0.55, 0.48, 0.52];
 
             function measureLetters(fs) {
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                ctx.font = '400 ' + fs + 'px "NG Hofmann", sans-serif';
+                ctx.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
                 const word = 'OVRT';
                 const widths = [];
                 for (const ch of word) widths.push(ctx.measureText(ch).width);
@@ -47,13 +49,11 @@
             /** Max font size: big glyphs, homes spread across the viewport (not one tight cluster). */
             function fitsSpreadLayout(fs) {
                 const { widths, glyphH } = measureLetters(fs);
-                const pad = Math.max(10, fs * 0.04);
-                if (glyphH > H * 0.96) return false;
-                const hxFrac = [0.13, 0.36, 0.64, 0.87];
-                const hyFrac = [0.40, 0.58, 0.46, 0.62];
+                const pad = Math.max(2, fs * 0.012);
+                if (glyphH > H * 0.99) return false;
                 for (let i = 0; i < 4; i++) {
-                    const hx = W * hxFrac[i];
-                    const hy = H * hyFrac[i];
+                    const hx = W * LETTER_HOME_X[i];
+                    const hy = H * LETTER_HOME_Y[i];
                     if (hx - widths[i] / 2 < pad) return false;
                     if (hx + widths[i] / 2 > W - pad) return false;
                     if (hy - glyphH / 2 < pad) return false;
@@ -65,32 +65,35 @@
             function init() {
                 L.length = 0;
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                let lo = 28;
-                let hi = Math.min(W, H) * 5;
+                let lo = 40;
+                let hi = Math.max(W, H) * 6;
                 let fs = lo;
-                for (let iter = 0; iter < 30; iter++) {
+                for (let iter = 0; iter < 34; iter++) {
                     const mid = (lo + hi) / 2;
                     if (fitsSpreadLayout(mid)) {
                         fs = mid;
                         lo = mid;
                     } else hi = mid;
                 }
-                fs = Math.max(40, fs);
+                for (let step = 0; step < 60; step++) {
+                    const next = fs + 6;
+                    if (fitsSpreadLayout(next)) fs = next;
+                    else break;
+                }
+                fs = Math.max(72, fs);
                 const { widths } = measureLetters(fs);
-                ctx.font = '400 ' + fs + 'px "NG Hofmann", sans-serif';
+                ctx.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
                 const word = 'OVRT';
-                const hxFrac = [0.13, 0.36, 0.64, 0.87];
-                const hyFrac = [0.40, 0.58, 0.46, 0.62];
                 const letterColors = ['#00fff8', '#ff00e7', '#ffff00', '#ff00e7'];
                 for (let i = 0; i < 4; i++) {
                     const ch = word[i];
-                    const hx = W * hxFrac[i];
-                    const hy = H * hyFrac[i];
+                    const hx = W * LETTER_HOME_X[i];
+                    const hy = H * LETTER_HOME_Y[i];
                     const tc = document.createElement('canvas');
                     const tw = Math.ceil(widths[i] + 30), th = Math.ceil(fs * 1.35);
                     tc.width = tw; tc.height = th;
                     const tg = tc.getContext('2d');
-                    tg.font = '400 ' + fs + 'px "NG Hofmann", sans-serif';
+                    tg.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
                     tg.textAlign = 'center'; tg.textBaseline = 'middle';
                     tg.fillStyle = '#fff';
                     tg.fillText(ch, tw / 2, th / 2);
@@ -160,7 +163,7 @@
                     ctx.translate(l.x, l.y);
                     ctx.rotate(l.rot);
                     ctx.scale(l.sx, l.sy);
-                    ctx.font = '400 ' + l.fs + 'px "NG Hofmann", sans-serif';
+                    ctx.font = '600 ' + l.fs + 'px "NG Hofmann", sans-serif';
                     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                     ctx.fillStyle = l.color;
                     ctx.fillText(l.ch, 0, 0);
