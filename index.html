@@ -30,8 +30,8 @@
             let pmx = 0, pmy = 0;
             let hmx = 0, hmy = 0;
             const L = [];
-            const LETTER_HOME_X = [0.18, 0.38, 0.62, 0.82];
-            const LETTER_HOME_Y = [0.45, 0.55, 0.48, 0.52];
+            const LETTER_HOME_X = [0.14, 0.36, 0.64, 0.86];
+            const LETTER_HOME_Y = [0.475, 0.525, 0.495, 0.505];
 
             function measureLetters(fs) {
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -46,18 +46,17 @@
                 return { widths, glyphH, asc, desc };
             }
 
-            /** Max font size: big glyphs, homes spread across the viewport (not one tight cluster). */
-            function fitsSpreadLayout(fs) {
-                const { widths, glyphH } = measureLetters(fs);
-                const pad = Math.max(2, fs * 0.012);
-                if (glyphH > H * 0.99) return false;
+            /**
+             * Only vertical fit — horizontal width was capping size. Glyphs may clip left/right; that’s OK for a full-bleed hero.
+             */
+            function fitsHugeVertical(fs) {
+                const { glyphH } = measureLetters(fs);
+                const vpPad = Math.max(0, fs * 0.003);
+                if (glyphH > H - 2 * vpPad) return false;
                 for (let i = 0; i < 4; i++) {
-                    const hx = W * LETTER_HOME_X[i];
                     const hy = H * LETTER_HOME_Y[i];
-                    if (hx - widths[i] / 2 < pad) return false;
-                    if (hx + widths[i] / 2 > W - pad) return false;
-                    if (hy - glyphH / 2 < pad) return false;
-                    if (hy + glyphH / 2 > H - pad) return false;
+                    const vAllow = 2 * Math.min(hy - vpPad, H - hy - vpPad);
+                    if (glyphH > vAllow) return false;
                 }
                 return true;
             }
@@ -65,22 +64,22 @@
             function init() {
                 L.length = 0;
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                let lo = 40;
-                let hi = Math.max(W, H) * 6;
+                let lo = 80;
+                let hi = Math.min(W, H) * 28;
                 let fs = lo;
-                for (let iter = 0; iter < 34; iter++) {
+                for (let iter = 0; iter < 40; iter++) {
                     const mid = (lo + hi) / 2;
-                    if (fitsSpreadLayout(mid)) {
+                    if (fitsHugeVertical(mid)) {
                         fs = mid;
                         lo = mid;
                     } else hi = mid;
                 }
-                for (let step = 0; step < 60; step++) {
-                    const next = fs + 6;
-                    if (fitsSpreadLayout(next)) fs = next;
+                for (let step = 0; step < 140; step++) {
+                    const next = fs + 10;
+                    if (fitsHugeVertical(next)) fs = next;
                     else break;
                 }
-                fs = Math.max(72, fs);
+                fs = Math.max(120, fs);
                 const { widths } = measureLetters(fs);
                 ctx.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
                 const word = 'OVRT';
