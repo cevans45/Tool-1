@@ -106,15 +106,20 @@
                         const nx = dx / dist, ny = dy / dist;
                         const aD = dragging && a === dragging.l;
                         const bD = dragging && b === dragging.l;
+                        const cpx = a.x + nx * a.hw * 0.8;
+                        const cpy = a.y + ny * Math.min(a.hh, Math.abs(dy)) * 0.8;
+                        const imp = 0.35;
                         if (!aD) {
                             a.x -= nx * ov; a.y -= ny * ov;
-                            a.vx -= nx * 0.3; a.vy -= ny * 0.3;
-                            a.av += (nx * dy - ny * dx) * 0.00005;
+                            a.vx -= nx * imp; a.vy -= ny * imp;
+                            const rax = cpx - a.x, ray = cpy - a.y;
+                            a.av += (rax * (-ny) - ray * (-nx)) * imp * 0.0006;
                         }
                         if (!bD) {
                             b.x += nx * ov; b.y += ny * ov;
-                            b.vx += nx * 0.3; b.vy += ny * 0.3;
-                            b.av -= (nx * dy - ny * dx) * 0.00005;
+                            b.vx += nx * imp; b.vy += ny * imp;
+                            const rbx = cpx - b.x, rby = cpy - b.y;
+                            b.av += (rbx * ny - rby * nx) * imp * 0.0006;
                         }
                     }
 
@@ -124,10 +129,10 @@
                     l.sx += (1 + sq - l.sx) * 0.06;
                     l.sy += (1 - sq * 0.35 - l.sy) * 0.06;
                     const pad = 5;
-                    if (l.x - l.hw < pad) { l.x = l.hw + pad; l.vx *= -0.3; l.av += 0.002; }
-                    if (l.x + l.hw > W - pad) { l.x = W - l.hw - pad; l.vx *= -0.3; l.av -= 0.002; }
-                    if (l.y - l.hh < pad) { l.y = l.hh + pad; l.vy *= -0.3; l.av += l.vx * 0.001; }
-                    if (l.y + l.hh > H - pad) { l.y = H - l.hh - pad; l.vy *= -0.3; l.av += l.vx * 0.001; }
+                    if (l.x - l.hw < pad) { l.x = l.hw + pad; l.vx *= -0.3; l.av -= l.vy * 0.002; }
+                    if (l.x + l.hw > W - pad) { l.x = W - l.hw - pad; l.vx *= -0.3; l.av += l.vy * 0.002; }
+                    if (l.y - l.hh < pad) { l.y = l.hh + pad; l.vy *= -0.3; l.av += l.vx * 0.002; }
+                    if (l.y + l.hh > H - pad) { l.y = H - l.hh - pad; l.vy *= -0.3; l.av -= l.vx * 0.002; }
                 }
 
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -176,8 +181,12 @@
                 l.x = px - dragging.ox;
                 l.y = py - dragging.oy;
                 l.vx = dx * 0.4; l.vy = dy * 0.4;
-                const rx = px - l.x, ry = py - l.y;
-                l.av = (rx * dy - ry * dx) * 0.00008;
+                const rx = dragging.ox, ry = dragging.oy;
+                const armLen = Math.sqrt(rx * rx + ry * ry);
+                const maxArm = Math.sqrt(l.hw * l.hw + l.hh * l.hh);
+                const leverage = maxArm > 0 ? armLen / maxArm : 0;
+                const torque = (rx * dy - ry * dx);
+                l.av += torque * leverage * 0.00015;
                 pmx = px; pmy = py;
             }
 
