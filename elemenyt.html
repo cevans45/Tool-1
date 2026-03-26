@@ -1620,6 +1620,9 @@
         setUiTab(urlTab === 'generate' ? 'generate' : 'sketch');
         renderMarkerPreview();
         resize();
+        if (urlTab === 'generate') {
+            generateRandomDrawing({ newSeed: true, pushUndo: false });
+        }
         requestAnimationFrame(resize);
     </script>
 </body>

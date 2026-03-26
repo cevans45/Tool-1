@@ -173,10 +173,10 @@ body.is-leaving {
 .site-grid {
     display: flex;
     flex-direction: column;
-    gap: 64px;
-    padding: 60px 24px 80px;
+    gap: 96px;
+    padding: 80px 24px 120px;
     background: #000;
-    max-width: 1000px;
+    max-width: 1200px;
     margin: 0 auto;
 }
 
@@ -189,7 +189,7 @@ body.is-leaving {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 48px;
+    gap: 64px;
     transition: transform 0.2s;
 }
 
@@ -207,7 +207,7 @@ body.is-leaving {
     display: flex;
     align-items: flex-start;
     justify-content: flex-start;
-    padding: 16px;
+    padding: 24px;
     overflow: hidden;
     transition: border-color 0.3s;
 }
@@ -220,12 +220,12 @@ body.is-leaving {
     position: relative;
     z-index: 2;
     font-family: 'ABC Diatype Mono', monospace;
-    font-size: 10px;
+    font-size: 11px;
     letter-spacing: 0.15em;
     text-transform: uppercase;
     background: rgba(255,255,255,0.08);
     color: #bbb;
-    padding: 4px 8px;
+    padding: 6px 10px;
     border-radius: 4px;
 }
 
@@ -242,23 +242,29 @@ body.is-leaving {
 .site-card-body {
     width: 40%;
     padding: 0;
-    font-size: 14px;
+    font-size: 16px;
+    text-align: left;
+}
+
+.site-card:nth-child(even) .site-card-body {
+    text-align: right;
 }
 
 .site-card-body h2 {
     font-family: 'ABC Diatype Mono', monospace;
-    font-size: 24px;
+    font-size: 36px;
     font-weight: 700;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
     color: #eee;
 }
 
 .site-card-body p {
-    margin-bottom: 24px;
+    margin-bottom: 32px;
     line-height: 1.6;
     color: #888;
+    font-size: 16px;
 }
 
 .site-card-button {
