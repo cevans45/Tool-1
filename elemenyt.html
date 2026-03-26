@@ -1616,7 +1616,8 @@
         updateFilter();
         updateFilterEnabled();
         applyBackgroundColor();
-        setUiTab('sketch');
+        const urlTab = new URLSearchParams(window.location.search).get('tab');
+        setUiTab(urlTab === 'generate' ? 'generate' : 'sketch');
         renderMarkerPreview();
         resize();
         requestAnimationFrame(resize);
