@@ -54,6 +54,17 @@
                     <details class="control-window" open>
                         <summary>Apparition + Beams</summary>
                         <section class="control-section">
+                            <div class="control-row" style="padding-bottom:12px;">
+                                <label>Mirror Mode</label>
+                                <select id="p-mirror" class="select-input">
+                                    <option value="0">Off</option>
+                                    <option value="1">Left / Right</option>
+                                    <option value="2">Up / Down</option>
+                                    <option value="3">3-Way Radial</option>
+                                    <option value="4">4-Way Radial</option>
+                                    <option value="5">5-Way Radial</option>
+                                </select>
+                            </div>
                             <div class="control-row"><label>Count (x1000)</label><input type="range" id="p-count" min="10" max="100" value="50" step="1"><span class="param-value" id="vp-count">50</span></div>
                             <div class="control-row"><label>Speed</label><input type="range" id="p-speed" min="0" max="100" value="30" step="1"><span class="param-value" id="vp-speed">30</span></div>
                             <div class="control-row"><label>Field Noise</label><input type="range" id="p-noise" min="0" max="100" value="40" step="1"><span class="param-value" id="vp-noise">40</span></div>
@@ -230,6 +241,7 @@
     uniform float uFracture;
     uniform float uGlitch;
     uniform float uPointSize;
+    uniform int uMirror;
 
     in vec2 aPosition;
     in float aAge;
@@ -278,6 +290,22 @@
             float g = fract(sin(dot(vec2(uTime, aSeed), vec2(12.9898,78.233))) * 43758.5453);
             if (g > (1.0 - uGlitch * 0.01)) {
                 pos.x += (snoise(vec2(aSeed, uTime)) * 200.0);
+            }
+        }
+
+        // Mirror symmetry using gl_VertexID
+        if (uMirror == 1) { // Left/Right
+            if (gl_VertexID % 2 == 1) pos.x = -pos.x;
+        } else if (uMirror == 2) { // Up/Down
+            if (gl_VertexID % 2 == 1) pos.y = -pos.y;
+        } else if (uMirror >= 3) { // Radial (3, 4, 5-way)
+            int copies = uMirror;
+            int copyIdx = gl_VertexID % copies;
+            if (copyIdx > 0) {
+                float angle = float(copyIdx) * 6.2831853 / float(copies);
+                float c = cos(angle);
+                float s = sin(angle);
+                pos = vec2(pos.x * c - pos.y * s, pos.x * s + pos.y * c);
             }
         }
 
@@ -425,6 +453,7 @@
             ol.uniform("uFracture", val('p-fracture'));
             ol.uniform("uGlitch", val('p-glitch'));
             ol.uniform("uPointSize", val('p-size') * (window.devicePixelRatio || 1) * 0.2); // scale down slider max 50
+            ol.uniform("uMirror", parseInt(el('p-mirror').value, 10));
             
             const colorRGB = hexToRGB(el('p-color').value);
             ol.uniform("uColor", colorRGB);
