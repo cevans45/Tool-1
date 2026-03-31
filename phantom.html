@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phantom — OVRT</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="site-shell">
+        <header class="tool-header">
+            <a href="index.html" class="back-link">← Back to OVRT</a>
+            <span class="tool-title">Phantom</span>
+        </header>
+        <div class="app" aria-label="Phantom" style="background:#000;">
+            <div id="phantom-canvas" style="flex:1;position:relative;overflow:hidden;">
+                <canvas id="cv" style="display:block;width:100%;height:100%;"></canvas>
+            </div>
+            <aside class="control-panel" style="background:rgba(0,0,0,0.92);border-color:#222;">
+                <header class="panel-header" style="border-color:#333;">
+                    <h2 style="color:#888;">Phantom</h2>
+                </header>
+                <div class="panel-body">
+                    <div class="control-row" style="margin-bottom:8px;padding:0 16px 8px;border-bottom:1px solid #222;">
+                        <label for="ph-mode" style="color:#777;">Mode</label>
+                        <select id="ph-mode" class="select-input" style="background:#111;color:#ccc;border-color:#333;">
+                            <option value="apparition" selected>Mirrored Apparition</option>
+                            <option value="cathedral">Beam Cathedral</option>
+                            <option value="fracture">Fracture Ritual</option>
+                        </select>
+                    </div>
+
+                    <!-- Mirrored Apparition -->
+                    <details class="control-window" open id="fx-apparition">
+                        <summary style="color:#777;">Mirrored Apparition</summary>
+                        <section class="control-section" style="color:#888;">
+                            <div class="control-row"><label style="color:#666;">Particle density</label><input type="range" id="ap-density" min="1" max="100" value="60" step="1"><span class="param-value" style="color:#666;" id="v-ap-density">60</span></div>
+                            <div class="control-row"><label style="color:#666;">Figure width</label><input type="range" id="ap-width" min="10" max="100" value="45" step="1"><span class="param-value" style="color:#666;" id="v-ap-width">45</span></div>
+                            <div class="control-row"><label style="color:#666;">Figure height</label><input type="range" id="ap-height" min="10" max="100" value="70" step="1"><span class="param-value" style="color:#666;" id="v-ap-height">70</span></div>
+                            <div class="control-row"><label style="color:#666;">Vertical stretch</label><input type="range" id="ap-stretch" min="0" max="100" value="40" step="1"><span class="param-value" style="color:#666;" id="v-ap-stretch">40</span></div>
+                            <div class="control-row"><label style="color:#666;">Ripple</label><input type="range" id="ap-ripple" min="0" max="100" value="35" step="1"><span class="param-value" style="color:#666;" id="v-ap-ripple">35</span></div>
+                            <div class="control-row"><label style="color:#666;">Distortion</label><input type="range" id="ap-distort" min="0" max="100" value="25" step="1"><span class="param-value" style="color:#666;" id="v-ap-distort">25</span></div>
+                            <div class="control-row"><label style="color:#666;">Shimmer speed</label><input type="range" id="ap-shimmer" min="1" max="100" value="30" step="1"><span class="param-value" style="color:#666;" id="v-ap-shimmer">30</span></div>
+                            <div class="control-row"><label style="color:#666;">Mirror strength</label><input type="range" id="ap-mirror" min="0" max="100" value="90" step="1"><span class="param-value" style="color:#666;" id="v-ap-mirror">90</span></div>
+                            <div class="control-row"><label style="color:#666;">Brightness</label><input type="range" id="ap-bright" min="5" max="100" value="65" step="1"><span class="param-value" style="color:#666;" id="v-ap-bright">65</span></div>
+                            <div class="control-row"><label style="color:#666;">Fade to black</label><input type="range" id="ap-fade" min="0" max="100" value="20" step="1"><span class="param-value" style="color:#666;" id="v-ap-fade">20</span></div>
+                            <div class="control-row"><label style="color:#666;">Trail amount</label><input type="range" id="ap-trail" min="0" max="100" value="75" step="1"><span class="param-value" style="color:#666;" id="v-ap-trail">75</span></div>
+                            <div class="control-row"><label style="color:#666;">Audio pulse</label><input type="range" id="ap-pulse" min="0" max="100" value="30" step="1"><span class="param-value" style="color:#666;" id="v-ap-pulse">30</span></div>
+                        </section>
+                    </details>
+
+                    <!-- Beam Cathedral -->
+                    <details class="control-window" id="fx-cathedral" style="display:none;">
+                        <summary style="color:#777;">Beam Cathedral</summary>
+                        <section class="control-section" style="color:#888;">
+                            <div class="control-row"><label style="color:#666;">Beam width</label><input type="range" id="bc-width" min="1" max="100" value="30" step="1"><span class="param-value" style="color:#666;" id="v-bc-width">30</span></div>
+                            <div class="control-row"><label style="color:#666;">Beam brightness</label><input type="range" id="bc-bright" min="5" max="100" value="70" step="1"><span class="param-value" style="color:#666;" id="v-bc-bright">70</span></div>
+                            <div class="control-row"><label style="color:#666;">Beam count</label><input type="range" id="bc-count" min="1" max="12" value="5" step="1"><span class="param-value" style="color:#666;" id="v-bc-count">5</span></div>
+                            <div class="control-row"><label style="color:#666;">Particle count</label><input type="range" id="bc-particles" min="1" max="100" value="50" step="1"><span class="param-value" style="color:#666;" id="v-bc-particles">50</span></div>
+                            <div class="control-row"><label style="color:#666;">Symmetry</label><input type="range" id="bc-symmetry" min="0" max="100" value="80" step="1"><span class="param-value" style="color:#666;" id="v-bc-symmetry">80</span></div>
+                            <div class="control-row"><label style="color:#666;">Wave speed</label><input type="range" id="bc-wave" min="1" max="100" value="25" step="1"><span class="param-value" style="color:#666;" id="v-bc-wave">25</span></div>
+                            <div class="control-row"><label style="color:#666;">Bloom strength</label><input type="range" id="bc-bloom" min="0" max="100" value="45" step="1"><span class="param-value" style="color:#666;" id="v-bc-bloom">45</span></div>
+                            <div class="control-row"><label style="color:#666;">Glow softness</label><input type="range" id="bc-glow" min="0" max="100" value="50" step="1"><span class="param-value" style="color:#666;" id="v-bc-glow">50</span></div>
+                            <div class="control-row"><label style="color:#666;">Vertical motion</label><input type="range" id="bc-vmotion" min="0" max="100" value="35" step="1"><span class="param-value" style="color:#666;" id="v-bc-vmotion">35</span></div>
+                            <div class="control-row"><label style="color:#666;">Depth fog</label><input type="range" id="bc-fog" min="0" max="100" value="40" step="1"><span class="param-value" style="color:#666;" id="v-bc-fog">40</span></div>
+                            <div class="control-row"><label style="color:#666;">Flicker</label><input type="range" id="bc-flicker" min="0" max="100" value="20" step="1"><span class="param-value" style="color:#666;" id="v-bc-flicker">20</span></div>
+                            <div class="control-row"><label style="color:#666;">Beat response</label><input type="range" id="bc-beat" min="0" max="100" value="30" step="1"><span class="param-value" style="color:#666;" id="v-bc-beat">30</span></div>
+                        </section>
+                    </details>
+
+                    <!-- Fracture Ritual -->
+                    <details class="control-window" id="fx-fracture" style="display:none;">
+                        <summary style="color:#777;">Fracture Ritual</summary>
+                        <section class="control-section" style="color:#888;">
+                            <div class="control-row"><label style="color:#666;">Fracture amount</label><input type="range" id="fr-fracture" min="0" max="100" value="50" step="1"><span class="param-value" style="color:#666;" id="v-fr-fracture">50</span></div>
+                            <div class="control-row"><label style="color:#666;">Glitch intensity</label><input type="range" id="fr-glitch" min="0" max="100" value="40" step="1"><span class="param-value" style="color:#666;" id="v-fr-glitch">40</span></div>
+                            <div class="control-row"><label style="color:#666;">Signal noise</label><input type="range" id="fr-noise" min="0" max="100" value="35" step="1"><span class="param-value" style="color:#666;" id="v-fr-noise">35</span></div>
+                            <div class="control-row"><label style="color:#666;">Reform speed</label><input type="range" id="fr-reform" min="1" max="100" value="40" step="1"><span class="param-value" style="color:#666;" id="v-fr-reform">40</span></div>
+                            <div class="control-row"><label style="color:#666;">Slice count</label><input type="range" id="fr-slices" min="2" max="30" value="12" step="1"><span class="param-value" style="color:#666;" id="v-fr-slices">12</span></div>
+                            <div class="control-row"><label style="color:#666;">Vibration</label><input type="range" id="fr-vibrate" min="0" max="100" value="30" step="1"><span class="param-value" style="color:#666;" id="v-fr-vibrate">30</span></div>
+                            <div class="control-row"><label style="color:#666;">Stutter</label><input type="range" id="fr-stutter" min="0" max="100" value="25" step="1"><span class="param-value" style="color:#666;" id="v-fr-stutter">25</span></div>
+                            <div class="control-row"><label style="color:#666;">Mirror strength</label><input type="range" id="fr-mirror" min="0" max="100" value="85" step="1"><span class="param-value" style="color:#666;" id="v-fr-mirror">85</span></div>
+                            <div class="control-row"><label style="color:#666;">Brightness</label><input type="range" id="fr-bright" min="5" max="100" value="60" step="1"><span class="param-value" style="color:#666;" id="v-fr-bright">60</span></div>
+                            <div class="control-row"><label style="color:#666;">Scanline density</label><input type="range" id="fr-scanline" min="0" max="100" value="40" step="1"><span class="param-value" style="color:#666;" id="v-fr-scanline">40</span></div>
+                            <div class="control-row"><label style="color:#666;">Trail amount</label><input type="range" id="fr-trail" min="0" max="100" value="60" step="1"><span class="param-value" style="color:#666;" id="v-fr-trail">60</span></div>
+                            <div class="control-row"><label style="color:#666;">Beat response</label><input type="range" id="fr-beat" min="0" max="100" value="50" step="1"><span class="param-value" style="color:#666;" id="v-fr-beat">50</span></div>
+                        </section>
+                    </details>
+                </div>
+            </aside>
+        </div>
+    </div>
+    <script src="page-transition.js"></script>
+    <script>
+    if (new URLSearchParams(location.search).get('preview') === '1') {
+        document.body.classList.add('is-preview');
+    }
+
+    (function () {
+        'use strict';
+
+        const cv = document.getElementById('cv');
+        const ctx = cv.getContext('2d');
+        const modeEl = document.getElementById('ph-mode');
+        const fxSections = {
+            apparition: document.getElementById('fx-apparition'),
+            cathedral:  document.getElementById('fx-cathedral'),
+            fracture:   document.getElementById('fx-fracture'),
+        };
+
+        let W = 1, H = 1, dpr = 1;
+        let mode = 'apparition';
+        let t = 0;
+        let lastFrame = 0;
+
+        // ─── Helpers ──────────────────────────────────────────
+        function v(id) { return parseFloat(document.getElementById(id)?.value || 50) / 100; }
+        function vi(id) { return parseInt(document.getElementById(id)?.value || 50, 10); }
+        function clamp(x, lo, hi) { return x < lo ? lo : x > hi ? hi : x; }
+
+        // Simple seeded noise
+        function noise2d(x, y) {
+            const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+            return n - Math.floor(n);
+        }
+        function smoothNoise(x, y) {
+            const ix = Math.floor(x), iy = Math.floor(y);
+            const fx = x - ix, fy = y - iy;
+            const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+            const a = noise2d(ix, iy), b = noise2d(ix + 1, iy);
+            const c = noise2d(ix, iy + 1), d = noise2d(ix + 1, iy + 1);
+            return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+        }
+        function fbm(x, y, oct) {
+            let v = 0, amp = 0.5, freq = 1;
+            for (let i = 0; i < oct; i++) {
+                v += amp * smoothNoise(x * freq, y * freq);
+                amp *= 0.5; freq *= 2;
+            }
+            return v;
+        }
+
+        // ─── Resize ───────────────────────────────────────────
+        function resize() {
+            const parent = cv.parentElement;
+            const r = parent.getBoundingClientRect();
+            W = r.width; H = r.height;
+            dpr = Math.max(1, devicePixelRatio || 1);
+            cv.width = Math.floor(W * dpr);
+            cv.height = Math.floor(H * dpr);
+            cv.style.width = W + 'px';
+            cv.style.height = H + 'px';
+        }
+        window.addEventListener('resize', () => requestAnimationFrame(resize));
+        resize();
+
+        // ─── Mode switching ───────────────────────────────────
+        function setMode(m) {
+            mode = m;
+            for (const k in fxSections) {
+                const el = fxSections[k];
+                if (!el) continue;
+                if (k === m) {
+                    el.style.display = '';
+                    el.open = true;
+                } else {
+                    el.style.display = 'none';
+                }
+            }
+        }
+        modeEl?.addEventListener('change', (e) => setMode(e.target.value));
+
+        // Slider value display
+        document.querySelectorAll('.control-row input[type="range"]').forEach(inp => {
+            const valEl = inp.parentElement.querySelector('.param-value');
+            if (!valEl) return;
+            inp.addEventListener('input', () => { valEl.textContent = inp.value; });
+        });
+
+        // ─── APPARITION ───────────────────────────────────────
+        function renderApparition(dt) {
+            const density = vi('ap-density');
+            const figW = v('ap-width');
+            const figH = v('ap-height');
+            const stretch = v('ap-stretch');
+            const ripple = v('ap-ripple');
+            const distort = v('ap-distort');
+            const shimmer = v('ap-shimmer') * 3;
+            const mirror = v('ap-mirror');
+            const bright = v('ap-bright');
+            const fade = v('ap-fade');
+            const trail = v('ap-trail');
+            const pulse = v('ap-pulse');
+
+            // Trail / fade
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            const fadeAlpha = 0.02 + (1 - trail) * 0.18 + fade * 0.1;
+            ctx.fillStyle = `rgba(0,0,0,${clamp(fadeAlpha, 0.01, 1)})`;
+            ctx.fillRect(0, 0, cv.width, cv.height);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            const cx = W / 2;
+            const cy = H / 2;
+            const baseW = W * 0.15 * (0.3 + figW * 0.7);
+            const baseH = H * 0.35 * (0.3 + figH * 0.7) * (1 + stretch * 0.6);
+
+            // Simulated audio pulse
+            const audioPulse = 1 + pulse * 0.3 * Math.sin(t * 1.8);
+
+            const count = Math.floor(300 + density * 600);
+
+            for (let i = 0; i < count; i++) {
+                const seed = i * 0.618033988749895;
+                const ny = (noise2d(i * 0.1, 0) * 2 - 1);  // -1 to 1 vertical position
+                const yOff = ny * baseH * audioPulse;
+
+                // Figure width varies with height (tapers at top/bottom like a body)
+                const bodyProfile = Math.pow(1 - Math.abs(ny), 0.6) * (0.4 + 0.6 * Math.sin((ny * 0.5 + 0.5) * Math.PI));
+                const localW = baseW * bodyProfile * audioPulse;
+
+                // Noise-based horizontal scatter
+                const noiseX = fbm(seed * 3.7 + t * shimmer * 0.01, ny * 2 + t * 0.02, 3);
+                const nx = (noiseX * 2 - 1) * localW;
+
+                // Ripple displacement
+                const rippleOff = ripple * 8 * Math.sin(ny * 12 + t * shimmer * 0.04 + seed * 5);
+
+                // Distortion
+                const distOff = distort * 15 * fbm(seed + t * 0.03, ny * 3 + t * 0.01, 2) * Math.sin(t * 0.5 + seed);
+
+                const px = cx + nx + rippleOff + distOff;
+                const py = cy + yOff;
+
+                // Brightness per particle
+                const depthFade = 1 - Math.abs(ny) * 0.5;
+                const shimmerFlicker = 0.5 + 0.5 * Math.sin(seed * 100 + t * shimmer * 0.15);
+                const alpha = clamp(bright * depthFade * shimmerFlicker, 0, 1);
+                const size = (0.5 + noiseX * 1.5) * dpr;
+
+                const grey = Math.floor(alpha * 255);
+                ctx.fillStyle = `rgb(${grey},${grey},${grey})`;
+
+                // Draw particle
+                ctx.fillRect(px - size * 0.5, py - size * 0.5, size, size);
+
+                // Mirror
+                if (mirror > 0.01) {
+                    const mx = cx - (px - cx);
+                    const mAlpha = alpha * mirror;
+                    const mg = Math.floor(mAlpha * 255);
+                    ctx.fillStyle = `rgb(${mg},${mg},${mg})`;
+                    ctx.fillRect(mx - size * 0.5, py - size * 0.5, size, size);
+                }
+            }
+
+            // Scanline overlay
+            ctx.fillStyle = 'rgba(0,0,0,0.04)';
+            for (let y = 0; y < H; y += 3) {
+                ctx.fillRect(0, y, W, 1);
+            }
+        }
+
+        // ─── CATHEDRAL ────────────────────────────────────────
+        function renderCathedral(dt) {
+            const beamW = v('bc-width');
+            const beamBright = v('bc-bright');
+            const beamCount = vi('bc-count');
+            const particles = vi('bc-particles');
+            const symmetry = v('bc-symmetry');
+            const waveSpeed = v('bc-wave') * 2;
+            const bloom = v('bc-bloom');
+            const glow = v('bc-glow');
+            const vMotion = v('bc-vmotion');
+            const fog = v('bc-fog');
+            const flicker = v('bc-flicker');
+            const beat = v('bc-beat');
+
+            // Trail fade
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.fillStyle = `rgba(0,0,0,${clamp(0.06 + (1 - glow) * 0.12, 0.02, 0.5)})`;
+            ctx.fillRect(0, 0, cv.width, cv.height);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            const cx = W / 2;
+            const audioPulse = 1 + beat * 0.4 * Math.abs(Math.sin(t * 2.2));
+
+            // Draw beams
+            for (let b = 0; b < beamCount; b++) {
+                const frac = beamCount <= 1 ? 0.5 : b / (beamCount - 1);
+                const spread = W * 0.35;
+                const bx = cx + (frac - 0.5) * spread;
+
+                // Beam flicker
+                const flickerVal = 1 - flicker * 0.5 * (0.5 + 0.5 * Math.sin(t * 8 + b * 7.3));
+                const bWidth = (4 + beamW * 40) * audioPulse;
+                const bAlpha = beamBright * flickerVal;
+
+                // Vertical gradient beam
+                const grad = ctx.createLinearGradient(bx, 0, bx, H);
+                const fogAmount = fog * 0.6;
+                grad.addColorStop(0, `rgba(255,255,255,${clamp(bAlpha * 0.1, 0, 1)})`);
+                grad.addColorStop(0.15, `rgba(255,255,255,${clamp(bAlpha * 0.7, 0, 1)})`);
+                grad.addColorStop(0.5, `rgba(255,255,255,${clamp(bAlpha, 0, 1)})`);
+                grad.addColorStop(0.85, `rgba(255,255,255,${clamp(bAlpha * 0.6 * (1 - fogAmount), 0, 1)})`);
+                grad.addColorStop(1, `rgba(255,255,255,0)`);
+
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.fillStyle = grad;
+                ctx.fillRect(bx - bWidth * 0.5, 0, bWidth, H);
+
+                // Bloom glow around beam
+                if (bloom > 0.01) {
+                    const bloomW = bWidth * (2 + bloom * 6);
+                    const bloomGrad = ctx.createLinearGradient(bx - bloomW * 0.5, 0, bx + bloomW * 0.5, 0);
+                    const ba = bAlpha * bloom * 0.15;
+                    bloomGrad.addColorStop(0, `rgba(255,255,255,0)`);
+                    bloomGrad.addColorStop(0.3, `rgba(255,255,255,${clamp(ba, 0, 1)})`);
+                    bloomGrad.addColorStop(0.5, `rgba(255,255,255,${clamp(ba * 1.5, 0, 1)})`);
+                    bloomGrad.addColorStop(0.7, `rgba(255,255,255,${clamp(ba, 0, 1)})`);
+                    bloomGrad.addColorStop(1, `rgba(255,255,255,0)`);
+                    ctx.fillStyle = bloomGrad;
+                    ctx.fillRect(bx - bloomW * 0.5, 0, bloomW, H);
+                }
+
+                // Mirror beam
+                if (symmetry > 0.01) {
+                    const mx = cx - (bx - cx);
+                    ctx.fillStyle = grad;
+                    ctx.globalAlpha = symmetry;
+                    ctx.fillRect(mx - bWidth * 0.5, 0, bWidth, H);
+                    ctx.globalAlpha = 1;
+                }
+            }
+
+            // Particles around beams
+            ctx.globalCompositeOperation = 'lighter';
+            const pCount = Math.floor(100 + particles * 800);
+            for (let i = 0; i < pCount; i++) {
+                const seed = i * 0.618 + 0.3;
+                const beamIdx = Math.floor(noise2d(i, 0) * beamCount) % beamCount;
+                const frac = beamCount <= 1 ? 0.5 : beamIdx / (beamCount - 1);
+                const spread = W * 0.35;
+                const bx = cx + (frac - 0.5) * spread;
+
+                const scatter = 20 + beamW * 80;
+                const noiseVal = fbm(seed * 2 + t * waveSpeed * 0.01, i * 0.01 + t * 0.005, 3);
+                const px = bx + (noiseVal * 2 - 1) * scatter;
+                const py = noise2d(seed * 3, i * 0.3) * H + Math.sin(t * vMotion * 0.3 + seed * 10) * 30;
+                const pyMod = ((py % H) + H) % H;
+
+                const dist = Math.abs(px - bx) / scatter;
+                const fadeOut = Math.pow(1 - clamp(dist, 0, 1), 2);
+                const alpha = clamp(beamBright * fadeOut * (0.3 + 0.7 * noise2d(seed, t * 0.1)), 0, 1);
+
+                const size = (0.5 + noiseVal * 2) * dpr;
+                const g = Math.floor(alpha * 255);
+                ctx.fillStyle = `rgb(${g},${g},${g})`;
+                ctx.fillRect(px, pyMod, size, size);
+
+                // Symmetric particle
+                if (symmetry > 0.01) {
+                    const mx = cx - (px - cx);
+                    const mg = Math.floor(alpha * symmetry * 255);
+                    ctx.fillStyle = `rgb(${mg},${mg},${mg})`;
+                    ctx.fillRect(mx, pyMod, size, size);
+                }
+            }
+
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        // ─── FRACTURE ─────────────────────────────────────────
+        function renderFracture(dt) {
+            const fracture = v('fr-fracture');
+            const glitch = v('fr-glitch');
+            const noise = v('fr-noise');
+            const reform = v('fr-reform') * 2;
+            const slices = vi('fr-slices');
+            const vibrate = v('fr-vibrate');
+            const stutter = v('fr-stutter');
+            const mirror = v('fr-mirror');
+            const bright = v('fr-bright');
+            const scanline = v('fr-scanline');
+            const trail = v('fr-trail');
+            const beat = v('fr-beat');
+
+            // Trail
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            const fadeAlpha = 0.03 + (1 - trail) * 0.15;
+            ctx.fillStyle = `rgba(0,0,0,${clamp(fadeAlpha, 0.01, 1)})`;
+            ctx.fillRect(0, 0, cv.width, cv.height);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            const cx = W / 2;
+            const cy = H / 2;
+
+            // Fracture cycle: reform and break apart
+            const cycle = Math.sin(t * reform * 0.05);
+            const fracturePhase = clamp(cycle * 0.5 + 0.5, 0, 1); // 0 = together, 1 = apart
+            const currentFracture = fracture * fracturePhase;
+
+            // Audio
+            const audioPulse = 1 + beat * 0.5 * Math.abs(Math.sin(t * 3.1));
+
+            // Stutter: occasionally freeze-frame
+            const stutterActive = stutter > 0.01 && Math.sin(t * 15 + Math.sin(t * 3) * 5) > (1 - stutter * 0.8);
+
+            // Build figure (similar to apparition but harsher)
+            const count = 400 + vi('fr-fracture') * 5;
+            const baseW = W * 0.12;
+            const baseH = H * 0.38;
+
+            for (let i = 0; i < count; i++) {
+                const seed = i * 0.618;
+                const ny = (noise2d(i * 0.1, 0.5) * 2 - 1);
+                const yOff = ny * baseH * audioPulse;
+
+                const bodyProfile = Math.pow(1 - Math.abs(ny), 0.5);
+                const localW = baseW * bodyProfile;
+                const noiseX = fbm(seed * 3 + t * 0.02, ny * 2 + t * 0.01, 3);
+                let px = cx + (noiseX * 2 - 1) * localW;
+                let py = cy + yOff;
+
+                // Fracture: slice displacement
+                const sliceIdx = Math.floor((py / H) * slices);
+                const slicePhase = noise2d(sliceIdx, t * 0.02);
+                const sliceDisplace = currentFracture * (slicePhase - 0.5) * W * 0.3;
+                px += sliceDisplace;
+
+                // Vibration
+                if (!stutterActive) {
+                    px += vibrate * 6 * (noise2d(seed + t * 2, i * 0.01) - 0.5);
+                    py += vibrate * 3 * (noise2d(seed * 2 + t * 2.5, i * 0.02) - 0.5);
+                }
+
+                // Glitch: random horizontal jumps
+                if (glitch > 0.01 && noise2d(i * 0.3, t * 0.5) > (1 - glitch * 0.3)) {
+                    px += (noise2d(i, t) - 0.5) * W * 0.2 * glitch;
+                }
+
+                // Signal noise
+                if (noise > 0.01) {
+                    const noiseAlpha = noise2d(seed + t * 5, py * 0.01);
+                    if (noiseAlpha < noise * 0.3) continue; // drop some particles as noise
+                }
+
+                const alpha = clamp(bright * (0.4 + 0.6 * bodyProfile), 0, 1);
+                const size = (0.5 + noise2d(seed, 0) * 2) * dpr;
+                const g = Math.floor(alpha * 255);
+                ctx.fillStyle = `rgb(${g},${g},${g})`;
+                ctx.fillRect(px, py, size, size);
+
+                // Mirror
+                if (mirror > 0.01) {
+                    const mx = cx - (px - cx);
+                    const mg = Math.floor(alpha * mirror * 255);
+                    ctx.fillStyle = `rgb(${mg},${mg},${mg})`;
+                    ctx.fillRect(mx, py, size, size);
+                }
+            }
+
+            // Scanlines
+            if (scanline > 0.01) {
+                const spacing = Math.max(2, Math.floor(6 - scanline * 4));
+                ctx.fillStyle = `rgba(0,0,0,${clamp(scanline * 0.12, 0, 0.15)})`;
+                for (let y = 0; y < H; y += spacing) {
+                    ctx.fillRect(0, y, W, 1);
+                }
+            }
+
+            // Occasional full-screen glitch flash
+            if (glitch > 0.3 && noise2d(t * 3, 0) > 0.92) {
+                ctx.fillStyle = `rgba(255,255,255,${glitch * 0.06})`;
+                const gy = Math.random() * H;
+                const gh = 2 + Math.random() * 30;
+                ctx.fillRect(0, gy, W, gh);
+            }
+        }
+
+        // ─── Main loop ────────────────────────────────────────
+        function frame(now) {
+            const dt = lastFrame ? (now - lastFrame) * 0.001 : 0.016;
+            lastFrame = now;
+            t += dt;
+
+            switch (mode) {
+                case 'apparition': renderApparition(dt); break;
+                case 'cathedral':  renderCathedral(dt);  break;
+                case 'fracture':   renderFracture(dt);   break;
+            }
+
+            requestAnimationFrame(frame);
+        }
+
+        setMode('apparition');
+        requestAnimationFrame(frame);
+    })();
+    </script>
+</body>
+</html>
