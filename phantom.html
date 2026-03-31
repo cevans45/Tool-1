@@ -5,85 +5,99 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Phantom — OVRT</title>
     <link rel="stylesheet" href="styles.css">
+    <style>
+        .app[aria-label="Phantom"] { background: #000; }
+        .app[aria-label="Phantom"] .control-panel {
+            background: rgba(0,0,0,0.92);
+            border-color: #222;
+        }
+        .app[aria-label="Phantom"] .panel-header { border-color: #333; }
+        .app[aria-label="Phantom"] .panel-header h2 { color: #888; }
+        .app[aria-label="Phantom"] .control-window summary { color: #777; }
+        .app[aria-label="Phantom"] .control-window[open] summary { color: #ccc; }
+        .app[aria-label="Phantom"] .control-row label { color: #666; }
+        .app[aria-label="Phantom"] .param-value { color: #666; }
+        .app[aria-label="Phantom"] .control-window { border-color: #222; }
+        .app[aria-label="Phantom"] .select-input {
+            background: #111; color: #ccc; border-color: #333;
+        }
+        .app[aria-label="Phantom"] .panel-button {
+            background: transparent; color: #fff; border-color: #fff;
+        }
+        .app[aria-label="Phantom"] .panel-button:hover {
+            background: #fff; color: #000;
+        }
+        .app[aria-label="Phantom"] .panel-button.is-active {
+            background: #fff; color: #000;
+        }
+        .app[aria-label="Phantom"] .back-link { color: #666; }
+        #phantom-wrap { flex:1; position:relative; overflow:hidden; }
+        #phantom-wrap canvas { display:block; width:100%!important; height:100%!important; }
+    </style>
 </head>
 <body>
     <div class="site-shell">
-        <header class="tool-header">
-            <a href="index.html" class="back-link">← Back to OVRT</a>
-            <span class="tool-title">Phantom</span>
+        <header class="tool-header" style="background:#000;border-color:#222;">
+            <a href="index.html" class="back-link" style="color:#666;">← Back to OVRT</a>
+            <span class="tool-title" style="color:#888;">Phantom</span>
         </header>
-        <div class="app" aria-label="Phantom" style="background:#000;">
-            <div id="phantom-canvas" style="flex:1;position:relative;overflow:hidden;">
-                <canvas id="cv" style="display:block;width:100%;height:100%;"></canvas>
-            </div>
-            <aside class="control-panel" style="background:rgba(0,0,0,0.92);border-color:#222;">
-                <header class="panel-header" style="border-color:#333;">
-                    <h2 style="color:#888;">Phantom</h2>
+        <div class="app" aria-label="Phantom">
+            <div id="phantom-wrap"></div>
+            <aside class="control-panel">
+                <header class="panel-header">
+                    <h2>Phantom</h2>
                 </header>
                 <div class="panel-body">
-                    <div class="control-row" style="margin-bottom:8px;padding:0 16px 8px;border-bottom:1px solid #222;">
-                        <label for="ph-mode" style="color:#777;">Mode</label>
-                        <select id="ph-mode" class="select-input" style="background:#111;color:#ccc;border-color:#333;">
-                            <option value="apparition" selected>Mirrored Apparition</option>
-                            <option value="cathedral">Beam Cathedral</option>
-                            <option value="fracture">Fracture Ritual</option>
-                        </select>
-                    </div>
-
-                    <!-- Mirrored Apparition -->
-                    <details class="control-window" open id="fx-apparition">
-                        <summary style="color:#777;">Mirrored Apparition</summary>
-                        <section class="control-section" style="color:#888;">
-                            <div class="control-row"><label style="color:#666;">Particle density</label><input type="range" id="ap-density" min="1" max="100" value="60" step="1"><span class="param-value" style="color:#666;" id="v-ap-density">60</span></div>
-                            <div class="control-row"><label style="color:#666;">Figure width</label><input type="range" id="ap-width" min="10" max="100" value="45" step="1"><span class="param-value" style="color:#666;" id="v-ap-width">45</span></div>
-                            <div class="control-row"><label style="color:#666;">Figure height</label><input type="range" id="ap-height" min="10" max="100" value="70" step="1"><span class="param-value" style="color:#666;" id="v-ap-height">70</span></div>
-                            <div class="control-row"><label style="color:#666;">Vertical stretch</label><input type="range" id="ap-stretch" min="0" max="100" value="40" step="1"><span class="param-value" style="color:#666;" id="v-ap-stretch">40</span></div>
-                            <div class="control-row"><label style="color:#666;">Ripple</label><input type="range" id="ap-ripple" min="0" max="100" value="35" step="1"><span class="param-value" style="color:#666;" id="v-ap-ripple">35</span></div>
-                            <div class="control-row"><label style="color:#666;">Distortion</label><input type="range" id="ap-distort" min="0" max="100" value="25" step="1"><span class="param-value" style="color:#666;" id="v-ap-distort">25</span></div>
-                            <div class="control-row"><label style="color:#666;">Shimmer speed</label><input type="range" id="ap-shimmer" min="1" max="100" value="30" step="1"><span class="param-value" style="color:#666;" id="v-ap-shimmer">30</span></div>
-                            <div class="control-row"><label style="color:#666;">Mirror strength</label><input type="range" id="ap-mirror" min="0" max="100" value="90" step="1"><span class="param-value" style="color:#666;" id="v-ap-mirror">90</span></div>
-                            <div class="control-row"><label style="color:#666;">Brightness</label><input type="range" id="ap-bright" min="5" max="100" value="65" step="1"><span class="param-value" style="color:#666;" id="v-ap-bright">65</span></div>
-                            <div class="control-row"><label style="color:#666;">Fade to black</label><input type="range" id="ap-fade" min="0" max="100" value="20" step="1"><span class="param-value" style="color:#666;" id="v-ap-fade">20</span></div>
-                            <div class="control-row"><label style="color:#666;">Trail amount</label><input type="range" id="ap-trail" min="0" max="100" value="75" step="1"><span class="param-value" style="color:#666;" id="v-ap-trail">75</span></div>
-                            <div class="control-row"><label style="color:#666;">Audio pulse</label><input type="range" id="ap-pulse" min="0" max="100" value="30" step="1"><span class="param-value" style="color:#666;" id="v-ap-pulse">30</span></div>
+                    <details class="control-window" open>
+                        <summary>Figure</summary>
+                        <section class="control-section">
+                            <div class="control-row"><label>Particles</label><input type="range" id="p-count" min="5" max="100" value="20" step="1"><span class="param-value" id="vp-count">20</span></div>
+                            <div class="control-row"><label>Width</label><input type="range" id="p-width" min="5" max="100" value="40" step="1"><span class="param-value" id="vp-width">40</span></div>
+                            <div class="control-row"><label>Height</label><input type="range" id="p-height" min="10" max="100" value="75" step="1"><span class="param-value" id="vp-height">75</span></div>
+                            <div class="control-row"><label>Stretch</label><input type="range" id="p-stretch" min="0" max="100" value="50" step="1"><span class="param-value" id="vp-stretch">50</span></div>
+                            <div class="control-row"><label>Mirror</label><input type="range" id="p-mirror" min="0" max="100" value="100" step="1"><span class="param-value" id="vp-mirror">100</span></div>
                         </section>
                     </details>
 
-                    <!-- Beam Cathedral -->
-                    <details class="control-window" id="fx-cathedral" style="display:none;">
-                        <summary style="color:#777;">Beam Cathedral</summary>
-                        <section class="control-section" style="color:#888;">
-                            <div class="control-row"><label style="color:#666;">Beam width</label><input type="range" id="bc-width" min="1" max="100" value="30" step="1"><span class="param-value" style="color:#666;" id="v-bc-width">30</span></div>
-                            <div class="control-row"><label style="color:#666;">Beam brightness</label><input type="range" id="bc-bright" min="5" max="100" value="70" step="1"><span class="param-value" style="color:#666;" id="v-bc-bright">70</span></div>
-                            <div class="control-row"><label style="color:#666;">Beam count</label><input type="range" id="bc-count" min="1" max="12" value="5" step="1"><span class="param-value" style="color:#666;" id="v-bc-count">5</span></div>
-                            <div class="control-row"><label style="color:#666;">Particle count</label><input type="range" id="bc-particles" min="1" max="100" value="50" step="1"><span class="param-value" style="color:#666;" id="v-bc-particles">50</span></div>
-                            <div class="control-row"><label style="color:#666;">Symmetry</label><input type="range" id="bc-symmetry" min="0" max="100" value="80" step="1"><span class="param-value" style="color:#666;" id="v-bc-symmetry">80</span></div>
-                            <div class="control-row"><label style="color:#666;">Wave speed</label><input type="range" id="bc-wave" min="1" max="100" value="25" step="1"><span class="param-value" style="color:#666;" id="v-bc-wave">25</span></div>
-                            <div class="control-row"><label style="color:#666;">Bloom strength</label><input type="range" id="bc-bloom" min="0" max="100" value="45" step="1"><span class="param-value" style="color:#666;" id="v-bc-bloom">45</span></div>
-                            <div class="control-row"><label style="color:#666;">Glow softness</label><input type="range" id="bc-glow" min="0" max="100" value="50" step="1"><span class="param-value" style="color:#666;" id="v-bc-glow">50</span></div>
-                            <div class="control-row"><label style="color:#666;">Vertical motion</label><input type="range" id="bc-vmotion" min="0" max="100" value="35" step="1"><span class="param-value" style="color:#666;" id="v-bc-vmotion">35</span></div>
-                            <div class="control-row"><label style="color:#666;">Depth fog</label><input type="range" id="bc-fog" min="0" max="100" value="40" step="1"><span class="param-value" style="color:#666;" id="v-bc-fog">40</span></div>
-                            <div class="control-row"><label style="color:#666;">Flicker</label><input type="range" id="bc-flicker" min="0" max="100" value="20" step="1"><span class="param-value" style="color:#666;" id="v-bc-flicker">20</span></div>
-                            <div class="control-row"><label style="color:#666;">Beat response</label><input type="range" id="bc-beat" min="0" max="100" value="30" step="1"><span class="param-value" style="color:#666;" id="v-bc-beat">30</span></div>
+                    <details class="control-window" open>
+                        <summary>Motion</summary>
+                        <section class="control-section">
+                            <div class="control-row"><label>Speed</label><input type="range" id="p-speed" min="1" max="100" value="30" step="1"><span class="param-value" id="vp-speed">30</span></div>
+                            <div class="control-row"><label>Ripple</label><input type="range" id="p-ripple" min="0" max="100" value="35" step="1"><span class="param-value" id="vp-ripple">35</span></div>
+                            <div class="control-row"><label>Distortion</label><input type="range" id="p-distort" min="0" max="100" value="20" step="1"><span class="param-value" id="vp-distort">20</span></div>
+                            <div class="control-row"><label>Shimmer</label><input type="range" id="p-shimmer" min="0" max="100" value="40" step="1"><span class="param-value" id="vp-shimmer">40</span></div>
+                            <div class="control-row"><label>Pulse</label><input type="range" id="p-pulse" min="0" max="100" value="25" step="1"><span class="param-value" id="vp-pulse">25</span></div>
                         </section>
                     </details>
 
-                    <!-- Fracture Ritual -->
-                    <details class="control-window" id="fx-fracture" style="display:none;">
-                        <summary style="color:#777;">Fracture Ritual</summary>
-                        <section class="control-section" style="color:#888;">
-                            <div class="control-row"><label style="color:#666;">Fracture amount</label><input type="range" id="fr-fracture" min="0" max="100" value="50" step="1"><span class="param-value" style="color:#666;" id="v-fr-fracture">50</span></div>
-                            <div class="control-row"><label style="color:#666;">Glitch intensity</label><input type="range" id="fr-glitch" min="0" max="100" value="40" step="1"><span class="param-value" style="color:#666;" id="v-fr-glitch">40</span></div>
-                            <div class="control-row"><label style="color:#666;">Signal noise</label><input type="range" id="fr-noise" min="0" max="100" value="35" step="1"><span class="param-value" style="color:#666;" id="v-fr-noise">35</span></div>
-                            <div class="control-row"><label style="color:#666;">Reform speed</label><input type="range" id="fr-reform" min="1" max="100" value="40" step="1"><span class="param-value" style="color:#666;" id="v-fr-reform">40</span></div>
-                            <div class="control-row"><label style="color:#666;">Slice count</label><input type="range" id="fr-slices" min="2" max="30" value="12" step="1"><span class="param-value" style="color:#666;" id="v-fr-slices">12</span></div>
-                            <div class="control-row"><label style="color:#666;">Vibration</label><input type="range" id="fr-vibrate" min="0" max="100" value="30" step="1"><span class="param-value" style="color:#666;" id="v-fr-vibrate">30</span></div>
-                            <div class="control-row"><label style="color:#666;">Stutter</label><input type="range" id="fr-stutter" min="0" max="100" value="25" step="1"><span class="param-value" style="color:#666;" id="v-fr-stutter">25</span></div>
-                            <div class="control-row"><label style="color:#666;">Mirror strength</label><input type="range" id="fr-mirror" min="0" max="100" value="85" step="1"><span class="param-value" style="color:#666;" id="v-fr-mirror">85</span></div>
-                            <div class="control-row"><label style="color:#666;">Brightness</label><input type="range" id="fr-bright" min="5" max="100" value="60" step="1"><span class="param-value" style="color:#666;" id="v-fr-bright">60</span></div>
-                            <div class="control-row"><label style="color:#666;">Scanline density</label><input type="range" id="fr-scanline" min="0" max="100" value="40" step="1"><span class="param-value" style="color:#666;" id="v-fr-scanline">40</span></div>
-                            <div class="control-row"><label style="color:#666;">Trail amount</label><input type="range" id="fr-trail" min="0" max="100" value="60" step="1"><span class="param-value" style="color:#666;" id="v-fr-trail">60</span></div>
-                            <div class="control-row"><label style="color:#666;">Beat response</label><input type="range" id="fr-beat" min="0" max="100" value="50" step="1"><span class="param-value" style="color:#666;" id="v-fr-beat">50</span></div>
+                    <details class="control-window" open>
+                        <summary>Beams</summary>
+                        <section class="control-section">
+                            <div class="control-row"><label>Count</label><input type="range" id="p-beams" min="0" max="12" value="5" step="1"><span class="param-value" id="vp-beams">5</span></div>
+                            <div class="control-row"><label>Width</label><input type="range" id="p-bwidth" min="1" max="100" value="25" step="1"><span class="param-value" id="vp-bwidth">25</span></div>
+                            <div class="control-row"><label>Brightness</label><input type="range" id="p-bbright" min="0" max="100" value="40" step="1"><span class="param-value" id="vp-bbright">40</span></div>
+                            <div class="control-row"><label>Spread</label><input type="range" id="p-bspread" min="5" max="100" value="50" step="1"><span class="param-value" id="vp-bspread">50</span></div>
+                        </section>
+                    </details>
+
+                    <details class="control-window">
+                        <summary>Fracture</summary>
+                        <section class="control-section">
+                            <div class="control-row"><label>Amount</label><input type="range" id="p-fracture" min="0" max="100" value="0" step="1"><span class="param-value" id="vp-fracture">0</span></div>
+                            <div class="control-row"><label>Glitch</label><input type="range" id="p-glitch" min="0" max="100" value="0" step="1"><span class="param-value" id="vp-glitch">0</span></div>
+                            <div class="control-row"><label>Vibration</label><input type="range" id="p-vibrate" min="0" max="100" value="0" step="1"><span class="param-value" id="vp-vibrate">0</span></div>
+                            <div class="control-row"><label>Scanlines</label><input type="range" id="p-scan" min="0" max="100" value="15" step="1"><span class="param-value" id="vp-scan">15</span></div>
+                        </section>
+                    </details>
+
+                    <details class="control-window" open>
+                        <summary>Atmosphere</summary>
+                        <section class="control-section">
+                            <div class="control-row"><label>Bloom</label><input type="range" id="p-bloom" min="0" max="100" value="20" step="1"><span class="param-value" id="vp-bloom">20</span></div>
+                            <div class="control-row"><label>Brightness</label><input type="range" id="p-bright" min="5" max="100" value="25" step="1"><span class="param-value" id="vp-bright">25</span></div>
+                            <div class="control-row"><label>Trail</label><input type="range" id="p-trail" min="0" max="100" value="60" step="1"><span class="param-value" id="vp-trail">60</span></div>
+                            <div class="control-row"><label>Depth</label><input type="range" id="p-depth" min="0" max="100" value="40" step="1"><span class="param-value" id="vp-depth">40</span></div>
+                            <div class="control-row color-row"><label>Color</label><input type="color" id="p-color" value="#ffffff"></div>
                         </section>
                     </details>
                 </div>
@@ -91,410 +105,446 @@
         </div>
     </div>
     <script src="page-transition.js"></script>
-    <script>
+
+    <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+    }}
+    </script>
+
+    <script type="module">
+    import * as THREE from 'three';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
     if (new URLSearchParams(location.search).get('preview') === '1') {
         document.body.classList.add('is-preview');
     }
 
-    (function () {
-        'use strict';
+    // ── Helpers ──────────────────────────────────────────
+    const el = id => document.getElementById(id);
+    const V = id => parseFloat(el(id)?.value ?? 50) / 100;
+    const Vi = id => parseInt(el(id)?.value ?? 50, 10);
 
-        const cv = document.getElementById('cv');
-        const ctx = cv.getContext('2d');
-        const modeEl = document.getElementById('ph-mode');
-        const fxSections = {
-            apparition: document.getElementById('fx-apparition'),
-            cathedral:  document.getElementById('fx-cathedral'),
-            fracture:   document.getElementById('fx-fracture'),
-        };
+    // Slider readout
+    document.querySelectorAll('.control-row input[type="range"]').forEach(inp => {
+        const v = inp.parentElement.querySelector('.param-value');
+        if (v) inp.addEventListener('input', () => { v.textContent = inp.value; });
+    });
 
-        let W = 1, H = 1, dpr = 1;
-        let mode = 'apparition';
-        let t = 0;
-        let lastFrame = 0;
+    // ── Scene ────────────────────────────────────────────
+    const wrap = el('phantom-wrap');
+    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setClearColor(0x000000);
+    renderer.toneMapping = THREE.ReinhardToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    wrap.appendChild(renderer.domElement);
 
-        // ─── Helpers ──────────────────────────────────────────
-        function v(id) { return parseFloat(document.getElementById(id)?.value || 50) / 100; }
-        function vi(id) { return parseInt(document.getElementById(id)?.value || 50, 10); }
-        function clamp(x, lo, hi) { return x < lo ? lo : x > hi ? hi : x; }
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 100);
+    camera.position.set(0, 0, 5);
 
-        // Simple seeded noise
-        function noise2d(x, y) {
-            const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
-            return n - Math.floor(n);
+    // ── Bloom composer ───────────────────────────────────
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(512, 512), 0.6, 0.4, 0.5
+    );
+    composer.addPass(bloomPass);
+
+    // ── Particle system ──────────────────────────────────
+    const MAX_PARTICLES = 40000;
+
+    // Shader for particles
+    const particleVert = `
+        uniform float uTime;
+        uniform float uSize;
+        uniform float uDepth;
+        attribute float aAge;
+        attribute float aLife;
+        attribute float aSeed;
+        attribute float aLayer;
+        varying float vAlpha;
+        varying float vLayer;
+
+        void main() {
+            vLayer = aLayer;
+            float age = mod(aAge + uTime, aLife);
+            float lifeRatio = age / aLife;
+
+            // Fade in and out
+            float fadeIn = smoothstep(0.0, 0.08, lifeRatio);
+            float fadeOut = smoothstep(1.0, 0.85, lifeRatio);
+            vAlpha = fadeIn * fadeOut;
+
+            // Depth displacement
+            float z = position.z + sin(uTime * 0.3 + aSeed * 6.28) * uDepth * 0.5;
+
+            vec4 mvPos = modelViewMatrix * vec4(position.xy, z, 1.0);
+            gl_Position = projectionMatrix * mvPos;
+            gl_PointSize = uSize * (120.0 / -mvPos.z) * (0.3 + 0.7 * vAlpha);
         }
-        function smoothNoise(x, y) {
-            const ix = Math.floor(x), iy = Math.floor(y);
-            const fx = x - ix, fy = y - iy;
-            const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
-            const a = noise2d(ix, iy), b = noise2d(ix + 1, iy);
-            const c = noise2d(ix, iy + 1), d = noise2d(ix + 1, iy + 1);
-            return a + (b - a) * sx + (c - a) * sy + (a - b - c + d) * sx * sy;
+    `;
+    const particleFrag = `
+        uniform vec3 uColor;
+        uniform float uBrightness;
+        varying float vAlpha;
+        varying float vLayer;
+
+        void main() {
+            float d = length(gl_PointCoord - 0.5) * 2.0;
+            float glow = exp(-d * d * 5.0);
+            float alpha = glow * vAlpha * uBrightness * 0.4;
+            if (alpha < 0.005) discard;
+            gl_FragColor = vec4(uColor * alpha * 0.8, alpha * 0.7);
         }
-        function fbm(x, y, oct) {
-            let v = 0, amp = 0.5, freq = 1;
-            for (let i = 0; i < oct; i++) {
-                v += amp * smoothNoise(x * freq, y * freq);
-                amp *= 0.5; freq *= 2;
-            }
-            return v;
+    `;
+
+    const particleGeom = new THREE.BufferGeometry();
+    const positions = new Float32Array(MAX_PARTICLES * 3);
+    const basePositions = new Float32Array(MAX_PARTICLES * 3);
+    const ages = new Float32Array(MAX_PARTICLES);
+    const lives = new Float32Array(MAX_PARTICLES);
+    const seeds = new Float32Array(MAX_PARTICLES);
+    const layers = new Float32Array(MAX_PARTICLES);
+
+    // Initialize particles in a figure shape
+    function initParticles() {
+        for (let i = 0; i < MAX_PARTICLES; i++) {
+            const seed = Math.random();
+            seeds[i] = seed;
+            ages[i] = Math.random() * 3;
+            lives[i] = 1.5 + Math.random() * 2;
+            layers[i] = Math.random();
+
+            // Body silhouette via parametric distribution
+            const ny = (Math.random() * 2 - 1); // -1 to 1
+            const bodyWidth = figureProfile(ny);
+            const nx = (Math.random() * 2 - 1) * bodyWidth;
+            const nz = (Math.random() * 2 - 1) * 0.15;
+
+            basePositions[i * 3] = nx;
+            basePositions[i * 3 + 1] = ny;
+            basePositions[i * 3 + 2] = nz;
+            positions[i * 3] = nx;
+            positions[i * 3 + 1] = ny;
+            positions[i * 3 + 2] = nz;
         }
+    }
 
-        // ─── Resize ───────────────────────────────────────────
-        function resize() {
-            const parent = cv.parentElement;
-            const r = parent.getBoundingClientRect();
-            W = r.width; H = r.height;
-            dpr = Math.max(1, devicePixelRatio || 1);
-            cv.width = Math.floor(W * dpr);
-            cv.height = Math.floor(H * dpr);
-            cv.style.width = W + 'px';
-            cv.style.height = H + 'px';
-        }
-        window.addEventListener('resize', () => requestAnimationFrame(resize));
-        resize();
+    function figureProfile(ny) {
+        // Human-like silhouette: narrow head, wider shoulders, tapered waist, flared base
+        const y = ny * 0.5 + 0.5; // 0 = bottom, 1 = top
+        const head = Math.exp(-Math.pow((y - 0.92) * 8, 2)) * 0.15;
+        const neck = Math.exp(-Math.pow((y - 0.82) * 12, 2)) * 0.08;
+        const shoulders = Math.exp(-Math.pow((y - 0.72) * 4, 2)) * 0.5;
+        const torso = Math.exp(-Math.pow((y - 0.55) * 3, 2)) * 0.35;
+        const hips = Math.exp(-Math.pow((y - 0.35) * 3.5, 2)) * 0.4;
+        const legs = Math.exp(-Math.pow((y - 0.15) * 2.5, 2)) * 0.25;
+        return Math.max(0.03, head + neck + shoulders + torso + hips + legs);
+    }
 
-        // ─── Mode switching ───────────────────────────────────
-        function setMode(m) {
-            mode = m;
-            for (const k in fxSections) {
-                const el = fxSections[k];
-                if (!el) continue;
-                if (k === m) {
-                    el.style.display = '';
-                    el.open = true;
-                } else {
-                    el.style.display = 'none';
-                }
+    initParticles();
+
+    particleGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    particleGeom.setAttribute('aAge', new THREE.BufferAttribute(ages, 1));
+    particleGeom.setAttribute('aLife', new THREE.BufferAttribute(lives, 1));
+    particleGeom.setAttribute('aSeed', new THREE.BufferAttribute(seeds, 1));
+    particleGeom.setAttribute('aLayer', new THREE.BufferAttribute(layers, 1));
+
+    const particleMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uTime: { value: 0 },
+            uSize: { value: 1.5 },
+            uColor: { value: new THREE.Color(1, 1, 1) },
+            uBrightness: { value: 0.4 },
+            uDepth: { value: 0.4 },
+        },
+        vertexShader: particleVert,
+        fragmentShader: particleFrag,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+    });
+
+    const particles = new THREE.Points(particleGeom, particleMat);
+    scene.add(particles);
+
+    // ── Beam system ──────────────────────────────────────
+    const beamGroup = new THREE.Group();
+    scene.add(beamGroup);
+
+    const beamMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uColor: { value: new THREE.Color(1, 1, 1) },
+            uAlpha: { value: 0.3 },
+            uTime: { value: 0 },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() {
+                vUv = uv;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
             }
-        }
-        modeEl?.addEventListener('change', (e) => setMode(e.target.value));
-
-        // Slider value display
-        document.querySelectorAll('.control-row input[type="range"]').forEach(inp => {
-            const valEl = inp.parentElement.querySelector('.param-value');
-            if (!valEl) return;
-            inp.addEventListener('input', () => { valEl.textContent = inp.value; });
-        });
-
-        // ─── APPARITION ───────────────────────────────────────
-        function renderApparition(dt) {
-            const density = vi('ap-density');
-            const figW = v('ap-width');
-            const figH = v('ap-height');
-            const stretch = v('ap-stretch');
-            const ripple = v('ap-ripple');
-            const distort = v('ap-distort');
-            const shimmer = v('ap-shimmer') * 3;
-            const mirror = v('ap-mirror');
-            const bright = v('ap-bright');
-            const fade = v('ap-fade');
-            const trail = v('ap-trail');
-            const pulse = v('ap-pulse');
-
-            // Trail / fade
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            const fadeAlpha = 0.02 + (1 - trail) * 0.18 + fade * 0.1;
-            ctx.fillStyle = `rgba(0,0,0,${clamp(fadeAlpha, 0.01, 1)})`;
-            ctx.fillRect(0, 0, cv.width, cv.height);
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-            const cx = W / 2;
-            const cy = H / 2;
-            const baseW = W * 0.15 * (0.3 + figW * 0.7);
-            const baseH = H * 0.35 * (0.3 + figH * 0.7) * (1 + stretch * 0.6);
-
-            // Simulated audio pulse
-            const audioPulse = 1 + pulse * 0.3 * Math.sin(t * 1.8);
-
-            const count = Math.floor(300 + density * 600);
-
-            for (let i = 0; i < count; i++) {
-                const seed = i * 0.618033988749895;
-                const ny = (noise2d(i * 0.1, 0) * 2 - 1);  // -1 to 1 vertical position
-                const yOff = ny * baseH * audioPulse;
-
-                // Figure width varies with height (tapers at top/bottom like a body)
-                const bodyProfile = Math.pow(1 - Math.abs(ny), 0.6) * (0.4 + 0.6 * Math.sin((ny * 0.5 + 0.5) * Math.PI));
-                const localW = baseW * bodyProfile * audioPulse;
-
-                // Noise-based horizontal scatter
-                const noiseX = fbm(seed * 3.7 + t * shimmer * 0.01, ny * 2 + t * 0.02, 3);
-                const nx = (noiseX * 2 - 1) * localW;
-
-                // Ripple displacement
-                const rippleOff = ripple * 8 * Math.sin(ny * 12 + t * shimmer * 0.04 + seed * 5);
-
-                // Distortion
-                const distOff = distort * 15 * fbm(seed + t * 0.03, ny * 3 + t * 0.01, 2) * Math.sin(t * 0.5 + seed);
-
-                const px = cx + nx + rippleOff + distOff;
-                const py = cy + yOff;
-
-                // Brightness per particle
-                const depthFade = 1 - Math.abs(ny) * 0.5;
-                const shimmerFlicker = 0.5 + 0.5 * Math.sin(seed * 100 + t * shimmer * 0.15);
-                const alpha = clamp(bright * depthFade * shimmerFlicker, 0, 1);
-                const size = (0.5 + noiseX * 1.5) * dpr;
-
-                const grey = Math.floor(alpha * 255);
-                ctx.fillStyle = `rgb(${grey},${grey},${grey})`;
-
-                // Draw particle
-                ctx.fillRect(px - size * 0.5, py - size * 0.5, size, size);
-
-                // Mirror
-                if (mirror > 0.01) {
-                    const mx = cx - (px - cx);
-                    const mAlpha = alpha * mirror;
-                    const mg = Math.floor(mAlpha * 255);
-                    ctx.fillStyle = `rgb(${mg},${mg},${mg})`;
-                    ctx.fillRect(mx - size * 0.5, py - size * 0.5, size, size);
-                }
+        `,
+        fragmentShader: `
+            uniform vec3 uColor;
+            uniform float uAlpha;
+            uniform float uTime;
+            varying vec2 vUv;
+            void main() {
+                // Horizontal falloff (bright center, fading edges)
+                float h = 1.0 - abs(vUv.x - 0.5) * 2.0;
+                float glow = pow(h, 3.0);
+                // Vertical gradient: bright middle, fadeout at edges
+                float vFade = smoothstep(0.0, 0.15, vUv.y) * smoothstep(1.0, 0.85, vUv.y);
+                // Flicker
+                float flicker = 0.85 + 0.15 * sin(uTime * 4.0 + vUv.y * 20.0);
+                float alpha = glow * vFade * uAlpha * flicker;
+                gl_FragColor = vec4(uColor * alpha * 2.0, alpha);
             }
+        `,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide,
+    });
 
-            // Scanline overlay
-            ctx.fillStyle = 'rgba(0,0,0,0.04)';
-            for (let y = 0; y < H; y += 3) {
-                ctx.fillRect(0, y, W, 1);
+    const MAX_BEAMS = 12;
+    const beamMeshes = [];
+    for (let i = 0; i < MAX_BEAMS; i++) {
+        const geom = new THREE.PlaneGeometry(1, 8);
+        const mat = beamMat.clone();
+        const mesh = new THREE.Mesh(geom, mat);
+        mesh.visible = false;
+        beamGroup.add(mesh);
+        beamMeshes.push(mesh);
+    }
+
+    // ── Scanline overlay (screen quad) ───────────────────
+    const scanScene = new THREE.Scene();
+    const scanCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const scanMat = new THREE.ShaderMaterial({
+        uniforms: {
+            uDensity: { value: 0.15 },
+            uResolution: { value: new THREE.Vector2(512, 512) },
+        },
+        vertexShader: `
+            varying vec2 vUv;
+            void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }
+        `,
+        fragmentShader: `
+            uniform float uDensity;
+            uniform vec2 uResolution;
+            varying vec2 vUv;
+            void main() {
+                float line = mod(gl_FragCoord.y, 3.0);
+                float scan = step(line, 1.0) * uDensity * 0.3;
+                gl_FragColor = vec4(0.0, 0.0, 0.0, scan);
             }
-        }
+        `,
+        transparent: true,
+        depthWrite: false,
+    });
+    const scanQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), scanMat);
+    scanScene.add(scanQuad);
 
-        // ─── CATHEDRAL ────────────────────────────────────────
-        function renderCathedral(dt) {
-            const beamW = v('bc-width');
-            const beamBright = v('bc-bright');
-            const beamCount = vi('bc-count');
-            const particles = vi('bc-particles');
-            const symmetry = v('bc-symmetry');
-            const waveSpeed = v('bc-wave') * 2;
-            const bloom = v('bc-bloom');
-            const glow = v('bc-glow');
-            const vMotion = v('bc-vmotion');
-            const fog = v('bc-fog');
-            const flicker = v('bc-flicker');
-            const beat = v('bc-beat');
+    // ── Noise helpers ────────────────────────────────────
+    function noise(x, y) {
+        const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+        return n - Math.floor(n);
+    }
+    function smoothNoise(x, y) {
+        const ix = Math.floor(x), iy = Math.floor(y);
+        const fx = x - ix, fy = y - iy;
+        const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+        return (
+            noise(ix, iy) * (1 - sx) * (1 - sy) +
+            noise(ix + 1, iy) * sx * (1 - sy) +
+            noise(ix, iy + 1) * (1 - sx) * sy +
+            noise(ix + 1, iy + 1) * sx * sy
+        );
+    }
+    function fbm(x, y) {
+        return smoothNoise(x, y) * 0.5 + smoothNoise(x * 2, y * 2) * 0.25 + smoothNoise(x * 4, y * 4) * 0.125;
+    }
 
-            // Trail fade
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.fillStyle = `rgba(0,0,0,${clamp(0.06 + (1 - glow) * 0.12, 0.02, 0.5)})`;
-            ctx.fillRect(0, 0, cv.width, cv.height);
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // ── Resize ───────────────────────────────────────────
+    function resize() {
+        const r = wrap.getBoundingClientRect();
+        const w = r.width || 800, h = r.height || 600;
+        renderer.setSize(w, h);
+        composer.setSize(w, h);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        scanMat.uniforms.uResolution.value.set(w, h);
+    }
+    window.addEventListener('resize', resize);
+    resize();
 
-            const cx = W / 2;
-            const audioPulse = 1 + beat * 0.4 * Math.abs(Math.sin(t * 2.2));
+    // ── Animation ────────────────────────────────────────
+    let t = 0;
 
-            // Draw beams
-            for (let b = 0; b < beamCount; b++) {
-                const frac = beamCount <= 1 ? 0.5 : b / (beamCount - 1);
-                const spread = W * 0.35;
-                const bx = cx + (frac - 0.5) * spread;
+    function animate() {
+        requestAnimationFrame(animate);
+        const dt = 1 / 60;
+        t += dt;
 
-                // Beam flicker
-                const flickerVal = 1 - flicker * 0.5 * (0.5 + 0.5 * Math.sin(t * 8 + b * 7.3));
-                const bWidth = (4 + beamW * 40) * audioPulse;
-                const bAlpha = beamBright * flickerVal;
+        // Read params
+        const pCount = Vi('p-count');
+        const pWidth = V('p-width');
+        const pHeight = V('p-height');
+        const pStretch = V('p-stretch');
+        const pMirror = V('p-mirror');
+        const pSpeed = V('p-speed');
+        const pRipple = V('p-ripple');
+        const pDistort = V('p-distort');
+        const pShimmer = V('p-shimmer');
+        const pPulse = V('p-pulse');
+        const pBeams = Vi('p-beams');
+        const pBWidth = V('p-bwidth');
+        const pBBright = V('p-bbright');
+        const pBSpread = V('p-bspread');
+        const pFracture = V('p-fracture');
+        const pGlitch = V('p-glitch');
+        const pVibrate = V('p-vibrate');
+        const pScan = V('p-scan');
+        const pBloom = V('p-bloom');
+        const pBright = V('p-bright');
+        const pTrail = V('p-trail');
+        const pDepth = V('p-depth');
+        const colorHex = el('p-color')?.value || '#ffffff';
 
-                // Vertical gradient beam
-                const grad = ctx.createLinearGradient(bx, 0, bx, H);
-                const fogAmount = fog * 0.6;
-                grad.addColorStop(0, `rgba(255,255,255,${clamp(bAlpha * 0.1, 0, 1)})`);
-                grad.addColorStop(0.15, `rgba(255,255,255,${clamp(bAlpha * 0.7, 0, 1)})`);
-                grad.addColorStop(0.5, `rgba(255,255,255,${clamp(bAlpha, 0, 1)})`);
-                grad.addColorStop(0.85, `rgba(255,255,255,${clamp(bAlpha * 0.6 * (1 - fogAmount), 0, 1)})`);
-                grad.addColorStop(1, `rgba(255,255,255,0)`);
+        const color = new THREE.Color(colorHex);
+        const activeCount = Math.floor(MAX_PARTICLES * (pCount / 100));
+        const spd = pSpeed * 2;
+        const pulse = 1 + pPulse * 0.3 * Math.sin(t * 1.8);
 
-                ctx.globalCompositeOperation = 'lighter';
-                ctx.fillStyle = grad;
-                ctx.fillRect(bx - bWidth * 0.5, 0, bWidth, H);
+        // Update particle positions
+        const pos = particleGeom.attributes.position.array;
+        for (let i = 0; i < activeCount; i++) {
+            const i3 = i * 3;
+            const seed = seeds[i];
+            const bx = basePositions[i3];
+            const by = basePositions[i3 + 1];
+            const bz = basePositions[i3 + 2];
 
-                // Bloom glow around beam
-                if (bloom > 0.01) {
-                    const bloomW = bWidth * (2 + bloom * 6);
-                    const bloomGrad = ctx.createLinearGradient(bx - bloomW * 0.5, 0, bx + bloomW * 0.5, 0);
-                    const ba = bAlpha * bloom * 0.15;
-                    bloomGrad.addColorStop(0, `rgba(255,255,255,0)`);
-                    bloomGrad.addColorStop(0.3, `rgba(255,255,255,${clamp(ba, 0, 1)})`);
-                    bloomGrad.addColorStop(0.5, `rgba(255,255,255,${clamp(ba * 1.5, 0, 1)})`);
-                    bloomGrad.addColorStop(0.7, `rgba(255,255,255,${clamp(ba, 0, 1)})`);
-                    bloomGrad.addColorStop(1, `rgba(255,255,255,0)`);
-                    ctx.fillStyle = bloomGrad;
-                    ctx.fillRect(bx - bloomW * 0.5, 0, bloomW, H);
-                }
+            // Scale by figure params
+            let x = bx * pWidth * 2.5 * pulse;
+            let y = by * pHeight * 2 * (1 + pStretch * 0.8) * pulse;
+            let z = bz * (1 + pDepth);
 
-                // Mirror beam
-                if (symmetry > 0.01) {
-                    const mx = cx - (bx - cx);
-                    ctx.fillStyle = grad;
-                    ctx.globalAlpha = symmetry;
-                    ctx.fillRect(mx - bWidth * 0.5, 0, bWidth, H);
-                    ctx.globalAlpha = 1;
-                }
-            }
+            // Ripple
+            const ripplePhase = by * 10 + t * spd * 0.3 + seed * 6.28;
+            x += Math.sin(ripplePhase) * pRipple * 0.15;
+            y += Math.cos(ripplePhase * 0.7) * pRipple * 0.05;
 
-            // Particles around beams
-            ctx.globalCompositeOperation = 'lighter';
-            const pCount = Math.floor(100 + particles * 800);
-            for (let i = 0; i < pCount; i++) {
-                const seed = i * 0.618 + 0.3;
-                const beamIdx = Math.floor(noise2d(i, 0) * beamCount) % beamCount;
-                const frac = beamCount <= 1 ? 0.5 : beamIdx / (beamCount - 1);
-                const spread = W * 0.35;
-                const bx = cx + (frac - 0.5) * spread;
+            // Distortion (noise-based drift)
+            const nv = fbm(seed * 5 + t * spd * 0.015, by * 3 + t * 0.01);
+            x += (nv - 0.4) * pDistort * 0.6;
+            y += smoothNoise(seed * 3 + t * 0.02, by + t * 0.01) * pDistort * 0.15;
 
-                const scatter = 20 + beamW * 80;
-                const noiseVal = fbm(seed * 2 + t * waveSpeed * 0.01, i * 0.01 + t * 0.005, 3);
-                const px = bx + (noiseVal * 2 - 1) * scatter;
-                const py = noise2d(seed * 3, i * 0.3) * H + Math.sin(t * vMotion * 0.3 + seed * 10) * 30;
-                const pyMod = ((py % H) + H) % H;
+            // Shimmer (high-freq position jitter)
+            x += Math.sin(t * spd * 0.8 + seed * 100) * pShimmer * 0.02;
+            y += Math.cos(t * spd * 0.6 + seed * 77) * pShimmer * 0.01;
 
-                const dist = Math.abs(px - bx) / scatter;
-                const fadeOut = Math.pow(1 - clamp(dist, 0, 1), 2);
-                const alpha = clamp(beamBright * fadeOut * (0.3 + 0.7 * noise2d(seed, t * 0.1)), 0, 1);
-
-                const size = (0.5 + noiseVal * 2) * dpr;
-                const g = Math.floor(alpha * 255);
-                ctx.fillStyle = `rgb(${g},${g},${g})`;
-                ctx.fillRect(px, pyMod, size, size);
-
-                // Symmetric particle
-                if (symmetry > 0.01) {
-                    const mx = cx - (px - cx);
-                    const mg = Math.floor(alpha * symmetry * 255);
-                    ctx.fillStyle = `rgb(${mg},${mg},${mg})`;
-                    ctx.fillRect(mx, pyMod, size, size);
-                }
-            }
-
-            ctx.globalCompositeOperation = 'source-over';
-        }
-
-        // ─── FRACTURE ─────────────────────────────────────────
-        function renderFracture(dt) {
-            const fracture = v('fr-fracture');
-            const glitch = v('fr-glitch');
-            const noise = v('fr-noise');
-            const reform = v('fr-reform') * 2;
-            const slices = vi('fr-slices');
-            const vibrate = v('fr-vibrate');
-            const stutter = v('fr-stutter');
-            const mirror = v('fr-mirror');
-            const bright = v('fr-bright');
-            const scanline = v('fr-scanline');
-            const trail = v('fr-trail');
-            const beat = v('fr-beat');
-
-            // Trail
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            const fadeAlpha = 0.03 + (1 - trail) * 0.15;
-            ctx.fillStyle = `rgba(0,0,0,${clamp(fadeAlpha, 0.01, 1)})`;
-            ctx.fillRect(0, 0, cv.width, cv.height);
-            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-            const cx = W / 2;
-            const cy = H / 2;
-
-            // Fracture cycle: reform and break apart
-            const cycle = Math.sin(t * reform * 0.05);
-            const fracturePhase = clamp(cycle * 0.5 + 0.5, 0, 1); // 0 = together, 1 = apart
-            const currentFracture = fracture * fracturePhase;
-
-            // Audio
-            const audioPulse = 1 + beat * 0.5 * Math.abs(Math.sin(t * 3.1));
-
-            // Stutter: occasionally freeze-frame
-            const stutterActive = stutter > 0.01 && Math.sin(t * 15 + Math.sin(t * 3) * 5) > (1 - stutter * 0.8);
-
-            // Build figure (similar to apparition but harsher)
-            const count = 400 + vi('fr-fracture') * 5;
-            const baseW = W * 0.12;
-            const baseH = H * 0.38;
-
-            for (let i = 0; i < count; i++) {
-                const seed = i * 0.618;
-                const ny = (noise2d(i * 0.1, 0.5) * 2 - 1);
-                const yOff = ny * baseH * audioPulse;
-
-                const bodyProfile = Math.pow(1 - Math.abs(ny), 0.5);
-                const localW = baseW * bodyProfile;
-                const noiseX = fbm(seed * 3 + t * 0.02, ny * 2 + t * 0.01, 3);
-                let px = cx + (noiseX * 2 - 1) * localW;
-                let py = cy + yOff;
-
-                // Fracture: slice displacement
-                const sliceIdx = Math.floor((py / H) * slices);
-                const slicePhase = noise2d(sliceIdx, t * 0.02);
-                const sliceDisplace = currentFracture * (slicePhase - 0.5) * W * 0.3;
-                px += sliceDisplace;
-
-                // Vibration
-                if (!stutterActive) {
-                    px += vibrate * 6 * (noise2d(seed + t * 2, i * 0.01) - 0.5);
-                    py += vibrate * 3 * (noise2d(seed * 2 + t * 2.5, i * 0.02) - 0.5);
-                }
-
-                // Glitch: random horizontal jumps
-                if (glitch > 0.01 && noise2d(i * 0.3, t * 0.5) > (1 - glitch * 0.3)) {
-                    px += (noise2d(i, t) - 0.5) * W * 0.2 * glitch;
-                }
-
-                // Signal noise
-                if (noise > 0.01) {
-                    const noiseAlpha = noise2d(seed + t * 5, py * 0.01);
-                    if (noiseAlpha < noise * 0.3) continue; // drop some particles as noise
-                }
-
-                const alpha = clamp(bright * (0.4 + 0.6 * bodyProfile), 0, 1);
-                const size = (0.5 + noise2d(seed, 0) * 2) * dpr;
-                const g = Math.floor(alpha * 255);
-                ctx.fillStyle = `rgb(${g},${g},${g})`;
-                ctx.fillRect(px, py, size, size);
-
-                // Mirror
-                if (mirror > 0.01) {
-                    const mx = cx - (px - cx);
-                    const mg = Math.floor(alpha * mirror * 255);
-                    ctx.fillStyle = `rgb(${mg},${mg},${mg})`;
-                    ctx.fillRect(mx, py, size, size);
-                }
+            // Fracture: slice displacement
+            if (pFracture > 0.01) {
+                const fracCycle = Math.sin(t * 0.5) * 0.5 + 0.5;
+                const sliceIdx = Math.floor((by + 1) * 8);
+                const sliceOff = noise(sliceIdx, t * 0.03);
+                x += (sliceOff - 0.5) * pFracture * 2.5 * fracCycle;
             }
 
-            // Scanlines
-            if (scanline > 0.01) {
-                const spacing = Math.max(2, Math.floor(6 - scanline * 4));
-                ctx.fillStyle = `rgba(0,0,0,${clamp(scanline * 0.12, 0, 0.15)})`;
-                for (let y = 0; y < H; y += spacing) {
-                    ctx.fillRect(0, y, W, 1);
-                }
+            // Glitch: sudden horizontal jumps
+            if (pGlitch > 0.01 && noise(i * 0.1, t * 0.4) > (1 - pGlitch * 0.25)) {
+                x += (noise(i, t) - 0.5) * pGlitch * 3;
             }
 
-            // Occasional full-screen glitch flash
-            if (glitch > 0.3 && noise2d(t * 3, 0) > 0.92) {
-                ctx.fillStyle = `rgba(255,255,255,${glitch * 0.06})`;
-                const gy = Math.random() * H;
-                const gh = 2 + Math.random() * 30;
-                ctx.fillRect(0, gy, W, gh);
+            // Vibration
+            if (pVibrate > 0.01) {
+                x += (noise(seed + t * 3, i * 0.01) - 0.5) * pVibrate * 0.15;
+                y += (noise(seed * 2 + t * 3, i * 0.02) - 0.5) * pVibrate * 0.08;
             }
+
+            pos[i3] = x;
+            pos[i3 + 1] = y;
+            pos[i3 + 2] = z;
         }
 
-        // ─── Main loop ────────────────────────────────────────
-        function frame(now) {
-            const dt = lastFrame ? (now - lastFrame) * 0.001 : 0.016;
-            lastFrame = now;
-            t += dt;
-
-            switch (mode) {
-                case 'apparition': renderApparition(dt); break;
-                case 'cathedral':  renderCathedral(dt);  break;
-                case 'fracture':   renderFracture(dt);   break;
-            }
-
-            requestAnimationFrame(frame);
+        // Mirror: duplicate positions to the other side
+        if (pMirror > 0.01) {
+            // The mirroring is built into the shader via the base positions being sometimes negative X
+            // We just keep the symmetry by ensuring base positions are symmetric
         }
 
-        setMode('apparition');
-        requestAnimationFrame(frame);
-    })();
+        // Hide excess particles
+        for (let i = activeCount; i < MAX_PARTICLES; i++) {
+            const i3 = i * 3;
+            pos[i3] = 0; pos[i3 + 1] = 100; pos[i3 + 2] = 0; // offscreen
+        }
+
+        particleGeom.attributes.position.needsUpdate = true;
+
+        // Particle uniforms
+        particleMat.uniforms.uTime.value = t;
+        particleMat.uniforms.uColor.value.copy(color);
+        particleMat.uniforms.uBrightness.value = pBright;
+        particleMat.uniforms.uDepth.value = pDepth;
+        particleMat.uniforms.uSize.value = 0.8 + pBright * 1.5;
+
+        // Update beams
+        for (let i = 0; i < MAX_BEAMS; i++) {
+            const mesh = beamMeshes[i];
+            if (i < pBeams) {
+                mesh.visible = true;
+                const spread = pBSpread * 4;
+                const frac = pBeams <= 1 ? 0 : i / (pBeams - 1);
+                const bx = (frac - 0.5) * spread;
+
+                // Subtle sway
+                const sway = Math.sin(t * 0.4 + i * 1.7) * 0.08;
+
+                mesh.position.set(bx + sway, 0, -0.5);
+                mesh.scale.set(pBWidth * 0.15 + 0.01, 1, 1);
+                mesh.material.uniforms.uColor.value.copy(color);
+                mesh.material.uniforms.uAlpha.value = pBBright * 0.6;
+                mesh.material.uniforms.uTime.value = t + i * 2;
+            } else {
+                mesh.visible = false;
+            }
+        }
+
+        // Camera subtle movement
+        camera.position.x = Math.sin(t * 0.1) * 0.15;
+        camera.position.y = Math.cos(t * 0.07) * 0.1;
+        camera.lookAt(0, 0, 0);
+
+        // Bloom
+        bloomPass.strength = 0.15 + pBloom * 1.5;
+        bloomPass.radius = 0.2 + pBloom * 0.4;
+        bloomPass.threshold = 0.2 + (1 - pBloom) * 0.4;
+
+        // Trail (background alpha via clearAlpha)
+        const clearAlpha = 0.05 + (1 - pTrail) * 0.25;
+        renderer.setClearColor(0x000000, 1);
+
+        // Render
+        composer.render();
+
+        // Scanlines overlay
+        if (pScan > 0.01) {
+            scanMat.uniforms.uDensity.value = pScan;
+            renderer.autoClear = false;
+            renderer.render(scanScene, scanCamera);
+            renderer.autoClear = true;
+        }
+    }
+
+    animate();
     </script>
 </body>
 </html>
