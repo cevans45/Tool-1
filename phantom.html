@@ -81,11 +81,21 @@
                     </details>
 
                     <details class="control-window" open>
-                        <summary>Style</summary>
+                        <summary>Style & FX</summary>
                         <section class="control-section">
+                            <div class="control-row" style="padding-bottom:12px;">
+                                <label>Particle Shape</label>
+                                <select id="p-shape" class="select-input">
+                                    <option value="0">Circle</option>
+                                    <option value="1">Pixelly / Square</option>
+                                    <option value="2">X's</option>
+                                    <option value="3">O / Ring</option>
+                                </select>
+                            </div>
                             <div class="control-row"><label>Point Size</label><input type="range" id="p-size" min="1" max="50" value="10" step="1"><span class="param-value" id="vp-size">10</span></div>
-                            <div class="control-row"><label>Trail Alpha</label><input type="range" id="p-trail" min="0" max="100" value="25" step="1"><span class="param-value" id="vp-trail">25</span></div>
-                            <div class="control-row color-row"><label>Color</label><input type="color" id="p-color" value="#ffffff"></div>
+                            <div class="control-row"><label>Effect Blur</label><input type="range" id="p-blur" min="0" max="20" value="0" step="1"><span class="param-value" id="vp-blur">0</span></div>
+                            <div class="control-row color-row"><label>Point Color</label><input type="color" id="p-color" value="#ffffff"></div>
+                            <div class="control-row color-row"><label>Background</label><input type="color" id="p-bg" value="#000000"></div>
                         </section>
                     </details>
                 </div>
@@ -330,17 +340,39 @@
     precision highp float;
 
     uniform vec3 uColor;
+    uniform int uShape;
     in float vAlpha;
     out vec4 fragColor;
 
     void main() {
-        // Soft circle
+        float alpha = vAlpha;
         vec2 uv = gl_PointCoord.xy - 0.5;
-        float d = length(uv);
-        float circle = smoothstep(0.5, 0.2, d);
-        if (circle < 0.01) discard;
 
-        fragColor = vec4(uColor, vAlpha * circle);
+        if (uShape == 0) {
+            // Circle
+            float d = length(uv);
+            float circle = smoothstep(0.5, 0.4, d);
+            if (circle < 0.01) discard;
+            alpha *= circle;
+        } else if (uShape == 1) {
+            // Square / Pixel
+            // no alpha discard based on radius
+        } else if (uShape == 2) {
+            // X shape
+            float line1 = smoothstep(0.15, 0.05, abs(uv.x - uv.y));
+            float line2 = smoothstep(0.15, 0.05, abs(uv.x + uv.y));
+            float cross = max(line1, line2);
+            if (cross < 0.01) discard;
+            alpha *= cross;
+        } else if (uShape == 3) {
+            // O / Ring
+            float d = length(uv);
+            float ring = smoothstep(0.5, 0.4, d) - smoothstep(0.3, 0.2, d);
+            if (ring < 0.01) discard;
+            alpha *= ring;
+        }
+
+        fragColor = vec4(uColor, alpha);
     }
     `;
 
@@ -408,8 +440,11 @@
     window.addEventListener('resize', () => {
         width = wrap.clientWidth;
         height = wrap.clientHeight;
-        ol.resize(width, height);
+        const dpr = window.devicePixelRatio || 1;
+        ol.resize(width * dpr, height * dpr);
     });
+    // Trigger initial resize for retina scaling
+    window.dispatchEvent(new Event('resize'));
 
     // Main render loop
     ol.render(() => {
@@ -421,9 +456,13 @@
         const renderAmount = min(MAX_AMOUNT, countParam);
 
         // Frame clear
-        ol.clearColor(0, 0, 0, 1);
+        const bgRGB = hexToRGB(el('p-bg').value);
+        ol.clearColor(bgRGB[0], bgRGB[1], bgRGB[2], 1);
         ol.clearDepth();
         ol.clear();
+        
+        ol.canvas.style.filter = 'blur(' + val('p-blur') + 'px)';
+        el('phantom-wrap').parentNode.style.background = el('p-bg').value;
 
         // Update pass
         ol.use({ program: updateProgram }).run(() => {
@@ -452,8 +491,10 @@
             // Render params
             ol.uniform("uFracture", val('p-fracture'));
             ol.uniform("uGlitch", val('p-glitch'));
-            ol.uniform("uPointSize", val('p-size') * (window.devicePixelRatio || 1) * 0.2); // scale down slider max 50
+            const dpr = window.devicePixelRatio || 1;
+            ol.uniform("uPointSize", val('p-size') * dpr * 0.4); 
             ol.uniform("uMirror", parseInt(el('p-mirror').value, 10));
+            ol.uniform("uShape", parseInt(el('p-shape').value, 10));
             
             const colorRGB = hexToRGB(el('p-color').value);
             ol.uniform("uColor", colorRGB);
