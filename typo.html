@@ -30,6 +30,11 @@
                     <details class="control-window" open>
                         <summary>Type pad</summary>
                         <section class="control-section">
+                            <label class="checkbox-label" style="margin-bottom:8px;">
+                                <input type="checkbox" id="ty-show-alpha">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Show Alphabet</span>
+                            </label>
                             <div class="control-row" style="flex-direction:column;gap:4px;">
                                 <label for="ty-text">Text</label>
                                 <textarea id="ty-text" rows="3" spellcheck="false"
@@ -37,17 +42,17 @@
                             </div>
                             <div class="control-row" style="margin-top:4px;">
                                 <label for="ty-font-size">Font size</label>
-                                <input type="range" id="ty-font-size" min="20" max="400" value="140" step="1">
+                                <input type="range" id="ty-font-size" min="20" max="800" value="140" step="1">
                                 <span class="param-value" id="val-ty-font-size">140</span>
                             </div>
                             <div class="control-row">
                                 <label for="ty-spacing">Spacing</label>
-                                <input type="range" id="ty-spacing" min="-10" max="40" value="0" step="1">
+                                <input type="range" id="ty-spacing" min="-50" max="250" value="0" step="1">
                                 <span class="param-value" id="val-ty-spacing">0</span>
                             </div>
                             <div class="control-row">
                                 <label for="ty-line-h">Line height</label>
-                                <input type="range" id="ty-line-h" min="0.6" max="3.0" value="1.2" step="0.05">
+                                <input type="range" id="ty-line-h" min="0.1" max="8.0" value="1.2" step="0.05">
                                 <span class="param-value" id="val-ty-line-h">1.20</span>
                             </div>
                             <div class="control-row" style="margin-bottom:8px;">
@@ -96,7 +101,7 @@
                             </div>
                             <div class="control-row" style="margin-top:4px;">
                                 <label for="ty-stroke-w">Outline</label>
-                                <input type="range" id="ty-stroke-w" min="0.5" max="6" value="1.5" step="0.1">
+                                <input type="range" id="ty-stroke-w" min="0.5" max="24" value="1.5" step="0.1">
                                 <span class="param-value" id="val-ty-stroke-w">1.5</span>
                             </div>
                             <div class="control-row" style="margin-top:4px;">
@@ -104,12 +109,12 @@
                             </div>
                             <div class="control-row">
                                 <label for="ty-density">Density</label>
-                                <input type="range" id="ty-density" min="1" max="20" value="8" step="1">
+                                <input type="range" id="ty-density" min="1" max="60" value="8" step="1">
                                 <span class="param-value" id="val-ty-density">8</span>
                             </div>
                             <div class="control-row">
                                 <label for="ty-scale">Scale</label>
-                                <input type="range" id="ty-scale" min="2" max="40" value="18" step="1">
+                                <input type="range" id="ty-scale" min="2" max="200" value="18" step="1">
                                 <span class="param-value" id="val-ty-scale">18</span>
                             </div>
                             <div class="control-row">
@@ -119,18 +124,18 @@
                             </div>
                             <div class="control-row">
                                 <label for="ty-jitter">Jitter</label>
-                                <input type="range" id="ty-jitter" min="0" max="100" value="40" step="1">
+                                <input type="range" id="ty-jitter" min="0" max="500" value="40" step="1">
                                 <span class="param-value" id="val-ty-jitter">40</span>
                             </div>
                             <div class="control-row">
                                 <label for="ty-drift">Drift</label>
-                                <input type="range" id="ty-drift" min="0" max="100" value="20" step="1">
+                                <input type="range" id="ty-drift" min="0" max="500" value="20" step="1">
                                 <span class="param-value" id="val-ty-drift">20</span>
                                 <button type="button" id="ty-drift-reset" class="panel-button" style="flex:0 0 auto;padding:4px 8px;font-size:10px;">RESET</button>
                             </div>
                             <div class="control-row">
                                 <label for="ty-weight">Weight</label>
-                                <input type="range" id="ty-weight" min="1" max="20" value="6" step="1">
+                                <input type="range" id="ty-weight" min="1" max="100" value="6" step="1">
                                 <span class="param-value" id="val-ty-weight">6</span>
                             </div>
                             <div class="control-row color-row">
@@ -197,12 +202,19 @@
     const $ = id => document.getElementById(id);
 
     const S = {
-        text: 'TYPO', fontSize: 140, letterSpacing: 0, lineHeight: 1.2,
+        text: 'TYPO', showAlphabet: false, fontSize: 140, letterSpacing: 0, lineHeight: 1.2,
         textAlign: 'center', fontFamily: 'sans-serif', fontFileName: null,
         mode: 'circles', density: 8, scale: 18, uniform: 0, jitter: 40, drift: 20, weight: 6,
         fill: true, strokeW: 1.5, paused: false,
         ink: '#111111', bg: '#f0ede8',
     };
+
+    function getActiveText() {
+        if (S.showAlphabet) {
+            return "A B C D E F G H I\nJ K L M N O P Q R\nS T U V W X Y Z\na b c d e f g h i\nj k l m n o p q r\ns t u v w x y z\n0 1 2 3 4 5 6 7 8 9\n! ? @ # % & * ( )";
+        }
+        return S.text;
+    }
 
     // ─── Alpha mask ───────────────────────────────────────────────
 
@@ -247,7 +259,7 @@
         srcCtx.textAlign = S.textAlign;
         srcCtx.textBaseline = 'middle';
         srcCtx.fillStyle = '#000';
-        const lines = S.text.split('\n');
+        const lines = getActiveText().split('\n');
         const lineH = S.fontSize * S.lineHeight;
         const totalH = (lines.length - 1) * lineH;
         const startY = cssH / 2 - totalH / 2;
@@ -356,7 +368,7 @@
         ctx.textAlign = S.textAlign;
         ctx.textBaseline = 'middle';
         ctx.fillStyle = S.ink;
-        const lines = S.text.split('\n');
+        const lines = getActiveText().split('\n');
         const lineH = S.fontSize * S.lineHeight;
         const totalH = (lines.length - 1) * lineH;
         const startY = cssH / 2 - totalH / 2;
@@ -708,6 +720,17 @@
     }
 
     // ─── UI Wiring ───────────────────────────────────────────────
+
+    const showAlphaEl = $('ty-show-alpha');
+    if (showAlphaEl) {
+        showAlphaEl.addEventListener('change', e => { 
+            S.showAlphabet = e.target.checked; 
+            $('ty-text').disabled = S.showAlphabet;
+            if (S.showAlphabet) $('ty-text').style.opacity = '0.5';
+            else $('ty-text').style.opacity = '1';
+            paramChanged(); 
+        });
+    }
 
     $('ty-text').addEventListener('input', e => { S.text = e.target.value; paramChanged(); });
     $('ty-font-size').addEventListener('input', e => {
