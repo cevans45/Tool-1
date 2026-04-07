@@ -383,6 +383,84 @@
         // Strokes grow from their OUTER EDGES toward nearby strokes.
         // Growth is based on edge-to-edge distance, not center-to-center.
 
+        function drawStickyParticle(cx, cy, r) {
+            if (state.marker === 'grid') {
+                const gridSize = Math.max(4, Math.floor(state.brushSize * 1.2));
+                const jx = (Math.random() - 0.5) * r;
+                const jy = (Math.random() - 0.5) * r;
+                const gx = Math.round((cx + jx) / gridSize) * gridSize;
+                const gy = Math.round((cy + jy) / gridSize) * gridSize;
+                const s = Math.max(0.9, r * 1.5);
+                const pts = mirroredPoints(gx, gy);
+                for (let pi = 0; pi < pts.length; pi++) {
+                    ctx.fillRect(pts[pi].x - s / 2, pts[pi].y - s / 2, s, s);
+                }
+            } else if (state.marker === 'line') {
+                const ang = Math.random() * Math.PI * 2;
+                const len = r * 2.5;
+                const p1x = cx - Math.cos(ang) * len * 0.5;
+                const p1y = cy - Math.sin(ang) * len * 0.5;
+                const p2x = cx + Math.cos(ang) * len * 0.5;
+                const p2y = cy + Math.sin(ang) * len * 0.5;
+                const lines = mirroredLines(p1x, p1y, p2x, p2y);
+                ctx.lineWidth = Math.max(0.15, r * 0.5);
+                ctx.beginPath();
+                for (let li = 0; li < lines.length; li++) {
+                    ctx.moveTo(lines[li].x1, lines[li].y1);
+                    ctx.lineTo(lines[li].x2, lines[li].y2);
+                }
+                ctx.stroke();
+            } else if (state.marker === 'sprinkle') {
+                const cnt = 2;
+                for (let j = 0; j < cnt; j++) {
+                    const px = cx + (Math.random() - 0.5) * r * 2;
+                    const py = cy + (Math.random() - 0.5) * r * 2;
+                    const sr = Math.max(0.3, r * (0.3 + Math.random() * 0.4));
+                    const pts = mirroredPoints(px, py);
+                    for (let pi = 0; pi < pts.length; pi++) {
+                        ctx.beginPath();
+                        ctx.arc(pts[pi].x, pts[pi].y, sr, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            } else if (state.marker === 'grain') {
+                const cnt = 3;
+                for (let j = 0; j < cnt; j++) {
+                    const px = cx + (Math.random() - 0.5) * r * 1.5;
+                    const py = cy + (Math.random() - 0.5) * r * 1.5;
+                    const gr = Math.max(0.2, r * (0.15 + Math.random() * 0.25));
+                    const pts = mirroredPoints(px, py);
+                    for (let pi = 0; pi < pts.length; pi++) {
+                        ctx.beginPath();
+                        ctx.arc(pts[pi].x, pts[pi].y, gr, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            } else if (state.marker === 'inkblot') {
+                const pts = mirroredPoints(cx, cy);
+                for (let pi = 0; pi < pts.length; pi++) {
+                    const mp = pts[pi];
+                    ctx.beginPath();
+                    ctx.arc(mp.x, mp.y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                    if (Math.random() < 0.4) {
+                        const ang = Math.random() * Math.PI * 2;
+                        const off = r * 0.9;
+                        ctx.beginPath();
+                        ctx.arc(mp.x + Math.cos(ang) * off, mp.y + Math.sin(ang) * off, r * 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            } else {
+                const pts = mirroredPoints(cx, cy);
+                for (let pi = 0; pi < pts.length; pi++) {
+                    ctx.beginPath();
+                    ctx.arc(pts[pi].x, pts[pi].y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
         function particleGrowth(p, idx) {
             const t = state.stickyStrength / 10; // 0-1 normalized strength
             if (t <= 0) return;
@@ -403,6 +481,7 @@
             const isInk = state.mode === 'ink';
             ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
             ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+            ctx.strokeStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
 
             for (let i = searchStart; i < endSearch; i++) {
                 const prev = state.points[i];
@@ -454,12 +533,7 @@
                     const taperA = Math.pow(1 - tA / Math.max(0.01, growReach), 0.6);
                     const rA = Math.max(0.5, strokeR * (0.2 + t * 0.4) * taperA * Math.pow(closeness, 0.5));
 
-                    const ptsA = mirroredPoints(axg, ayg);
-                    for (let pi = 0; pi < ptsA.length; pi++) {
-                        ctx.beginPath();
-                        ctx.arc(ptsA[pi].x, ptsA[pi].y, rA, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
+                    drawStickyParticle(axg, ayg, rA);
 
                     // ── Growth from edge B toward edge A (symmetrical) ──
                     const tB = (1 - frac) * growReach;
@@ -469,12 +543,7 @@
                     const taperB = Math.pow(1 - tB / Math.max(0.01, growReach), 0.6);
                     const rB = Math.max(0.5, strokeR * (0.2 + t * 0.4) * taperB * Math.pow(closeness, 0.5));
 
-                    const ptsB = mirroredPoints(bxg, byg);
-                    for (let pi = 0; pi < ptsB.length; pi++) {
-                        ctx.beginPath();
-                        ctx.arc(ptsB[pi].x, ptsB[pi].y, rB, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
+                    drawStickyParticle(bxg, byg, rB);
 
                     // ── Occasional side-branch for organic look ──
                     if (Math.random() < closeness * 0.4) {
@@ -483,12 +552,8 @@
                         const brx = edgeAx + (edgeBx - edgeAx) * branchT + perpX * branchOff;
                         const bry = edgeAy + (edgeBy - edgeAy) * branchT + perpY * branchOff;
                         const brR = Math.max(0.4, rA * 0.6);
-                        const brPts = mirroredPoints(brx, bry);
-                        for (let pi = 0; pi < brPts.length; pi++) {
-                            ctx.beginPath();
-                            ctx.arc(brPts[pi].x, brPts[pi].y, brR, 0, Math.PI * 2);
-                            ctx.fill();
-                        }
+                        
+                        drawStickyParticle(brx, bry, brR);
                     }
                 }
             }
