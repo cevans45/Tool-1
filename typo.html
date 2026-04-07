@@ -216,6 +216,13 @@
         return S.text;
     }
 
+    function getActiveFontSize() {
+        if (S.showAlphabet) {
+            return Math.min(S.fontSize, Math.max(14, Math.min(cssW / 20, cssH / 10)));
+        }
+        return S.fontSize;
+    }
+
     // ─── Alpha mask ───────────────────────────────────────────────
 
     let alphaData = null;
@@ -224,7 +231,7 @@
     let animId = null;
     let needsRecompute = true;
 
-    function fontStr() { return S.fontSize + 'px ' + S.fontFamily; }
+    function fontStr() { return getActiveFontSize() + 'px ' + S.fontFamily; }
 
     function drawTextLine(c, text, x, y) {
         if (S.letterSpacing === 0) { c.fillText(text, x, y); return; }
@@ -260,7 +267,7 @@
         srcCtx.textBaseline = 'middle';
         srcCtx.fillStyle = '#000';
         const lines = getActiveText().split('\n');
-        const lineH = S.fontSize * S.lineHeight;
+        const lineH = getActiveFontSize() * S.lineHeight;
         const totalH = (lines.length - 1) * lineH;
         const startY = cssH / 2 - totalH / 2;
         const x = S.textAlign === 'left' ? 40 : S.textAlign === 'right' ? cssW - 40 : cssW / 2;
@@ -369,7 +376,7 @@
         ctx.textBaseline = 'middle';
         ctx.fillStyle = S.ink;
         const lines = getActiveText().split('\n');
-        const lineH = S.fontSize * S.lineHeight;
+        const lineH = getActiveFontSize() * S.lineHeight;
         const totalH = (lines.length - 1) * lineH;
         const startY = cssH / 2 - totalH / 2;
         const x = S.textAlign === 'left' ? 40 : S.textAlign === 'right' ? cssW - 40 : cssW / 2;
