@@ -1206,7 +1206,24 @@
             ctx.globalCompositeOperation = 'source-over';
         }
 
-        function addPoint(x, y) {
+        function withPointOverrides(pt, fn) {
+            const originalRandom = Math.random;
+            let rngState = pt.seed;
+            Math.random = () => {
+                rngState = (1664525 * rngState + 1013904223) >>> 0;
+                return rngState / 4294967296;
+            };
+
+            const originalMarker = state.marker;
+            state.marker = pt.marker || state.marker;
+
+            fn();
+
+            Math.random = originalRandom;
+            state.marker = originalMarker;
+        }
+
+        function addPoint(x, y, markerVal, seedVal) {
             const prevIdx = state.points.length - 1;
             const prevPt = prevIdx >= 0 ? state.points[prevIdx] : null;
 
@@ -1228,7 +1245,14 @@
             }
             state.lastDrawTime = now;
 
-            const p = { x, y, cumDist: state.strokeCumDist, speed: state.lastDrawSpeed };
+            const p = { 
+                x, 
+                y, 
+                cumDist: state.strokeCumDist, 
+                speed: state.lastDrawSpeed,
+                marker: markerVal || state.marker,
+                seed: seedVal != null ? seedVal : ((Math.random() * 0xFFFFFFFF) >>> 0)
+            };
             state.points.push(p);
             const idx = state.points.length - 1;
 
@@ -1244,19 +1268,21 @@
                 state.currentSpeed = 0;
             }
 
-            const lastIdx = idx - 1;
-            if (lastIdx >= 0) {
-                const prev = state.points[lastIdx];
-                if (prev) {
-                    const distPrev = Math.hypot(p.x - prev.x, p.y - prev.y);
-                    if (distPrev) {
-                        state.edges.push({ a: lastIdx, b: idx });
-                        scratchLine(prev.x, prev.y, p.x, p.y, distPrev, 0, 0);
+            withPointOverrides(p, () => {
+                const lastIdx = idx - 1;
+                if (lastIdx >= 0) {
+                    const prev = state.points[lastIdx];
+                    if (prev) {
+                        const distPrev = Math.hypot(p.x - prev.x, p.y - prev.y);
+                        if (distPrev) {
+                            state.edges.push({ a: lastIdx, b: idx });
+                            scratchLine(prev.x, prev.y, p.x, p.y, distPrev, 0, 0);
+                        }
                     }
                 }
-            }
 
-            applyStickyMode(p, idx);
+                applyStickyMode(p, idx);
+            });
         }
 
         function startDrawing(e) {
@@ -1315,24 +1341,26 @@
                 const pt = state.points[i];
                 if (!pt) break;
 
-                if (i > startIdx) {
-                    const prev = state.points[i - 1];
-                    if (prev) {
-                        const segDist = Math.hypot(pt.x - prev.x, pt.y - prev.y);
-                        state.strokeCumDist += segDist;
-                        state.currentTaper = {
-                            cumDist1: state.strokeCumDist - segDist,
-                            cumDist2: state.strokeCumDist,
-                            totalDist: totalDist
-                        };
-                        state.currentSpeed = pt.speed || 0;
-                        if (segDist) {
-                            scratchLine(prev.x, prev.y, pt.x, pt.y, segDist, 0, 0);
+                withPointOverrides(pt, () => {
+                    if (i > startIdx) {
+                        const prev = state.points[i - 1];
+                        if (prev) {
+                            const segDist = Math.hypot(pt.x - prev.x, pt.y - prev.y);
+                            state.strokeCumDist += segDist;
+                            state.currentTaper = {
+                                cumDist1: state.strokeCumDist - segDist,
+                                cumDist2: state.strokeCumDist,
+                                totalDist: totalDist
+                            };
+                            state.currentSpeed = pt.speed || 0;
+                            if (segDist) {
+                                scratchLine(prev.x, prev.y, pt.x, pt.y, segDist, 0, 0);
+                            }
                         }
                     }
-                }
 
-                applyStickyMode(pt, i);
+                    applyStickyMode(pt, i);
+                });
             }
 
             state.strokeTotalDist = 1e9;
@@ -1407,7 +1435,7 @@
                     continue;
                 }
                 if (strokeDists) state.strokeTotalDist = strokeDists[i] || 1e9;
-                addPoint(p.x, p.y);
+                addPoint(p.x, p.y, p.marker, p.seed);
             }
         }
 
