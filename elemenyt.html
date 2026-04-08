@@ -395,21 +395,7 @@
                 for (let pi = 0; pi < pts.length; pi++) {
                     ctx.fillRect(pts[pi].x - s / 2, pts[pi].y - s / 2, s, s);
                 }
-            } else if (state.marker === 'line') {
-                const ang = Math.random() * Math.PI * 2;
-                const len = r * 2.5;
-                const p1x = cx - Math.cos(ang) * len * 0.5;
-                const p1y = cy - Math.sin(ang) * len * 0.5;
-                const p2x = cx + Math.cos(ang) * len * 0.5;
-                const p2y = cy + Math.sin(ang) * len * 0.5;
-                const lines = mirroredLines(p1x, p1y, p2x, p2y);
-                ctx.lineWidth = Math.max(0.15, r * 0.5);
-                ctx.beginPath();
-                for (let li = 0; li < lines.length; li++) {
-                    ctx.moveTo(lines[li].x1, lines[li].y1);
-                    ctx.lineTo(lines[li].x2, lines[li].y2);
-                }
-                ctx.stroke();
+
             } else if (state.marker === 'sprinkle') {
                 const cnt = 2;
                 for (let j = 0; j < cnt; j++) {
