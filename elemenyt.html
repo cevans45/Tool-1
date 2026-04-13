@@ -149,6 +149,10 @@
                                 <input type="color" id="el-ink-color" value="#000000">
                             </div>
                             <div class="control-row color-row">
+                                <label for="el-outline-color">Outline color</label>
+                                <input type="color" id="el-outline-color" value="#000000">
+                            </div>
+                            <div class="control-row color-row">
                                 <label for="el-fill-color">Fill color</label>
                                 <input type="color" id="el-fill-color" value="#000000">
                             </div>
@@ -189,7 +193,11 @@
                 <feMorphology id="jagged-dilate" operator="dilate" radius="1.0" in="solidBlob" result="fatBlob" />
                 <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
                 <feFlood id="jagged-flood" flood-color="#000000" result="color" />
-                <feComposite in="color" in2="outline" operator="in" />
+                <feComposite in="color" in2="outline" operator="in" result="coloredOutline" />
+                <feMerge>
+                    <feMergeNode in="coloredOutline" />
+                    <feMergeNode in="solidBlob" />
+                </feMerge>
             </filter>
         </defs>
     </svg>
@@ -302,6 +310,7 @@
         const markerIconsWrap = el('el-marker-icons');
         const fillEnabledEl = el('el-fill-enabled');
         const inkColorEl = el('el-ink-color');
+        const outlineColorEl = el('el-outline-color');
         const fillColorEl = el('el-fill-color');
         const bgColorEl = el('el-bg-color');
         const outlineEl = el('el-outline');
@@ -343,6 +352,7 @@
 
             fillEnabled: false,
             inkColor: '#000000',
+            outlineColor: '#000000',
             fillColor: '#000000',
             bgColor: '#ffffff',
 
@@ -723,7 +733,7 @@
             dilate?.setAttribute('radius', String(state.outlineRadius));
 
             const flood = document.getElementById('jagged-flood');
-            flood?.setAttribute('flood-color', currentInkColor());
+            flood?.setAttribute('flood-color', state.outlineColor);
 
             updateFilterEnabled();
         }
@@ -1641,6 +1651,12 @@
 
         inkColorEl?.addEventListener('input', (e) => {
             state.inkColor = e.target.value;
+            if (!state.fillEnabled) updateFilter();
+            rerenderGenerateCurrent();
+        });
+
+        outlineColorEl?.addEventListener('input', (e) => {
+            state.outlineColor = e.target.value;
             if (!state.fillEnabled) updateFilter();
             rerenderGenerateCurrent();
         });
