@@ -199,8 +199,8 @@
       const w = canvas.width || canvas.clientWidth || 1024;
       const h = canvas.height || canvas.clientHeight || 1024;
       const text =
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-        `<image href="${png}" width="${w}" height="${h}" />` +
+        `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
+        `<image xlink:href="${png}" href="${png}" width="${w}" height="${h}" />` +
         `</svg>`;
       const blob = new Blob([text], { type: 'image/svg+xml;charset=utf-8' });
       const blobUrl = URL.createObjectURL(blob);
