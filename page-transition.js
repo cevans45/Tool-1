@@ -170,10 +170,20 @@
     ctx.fillStyle = bgColor;
     ctx.fillRect(0, 0, out.width, out.height);
 
-    const filter = window.getComputedStyle(canvas).filter;
+    let filterLayer = canvas;
+    let computedFilter = 'none';
+    while (filterLayer && filterLayer.nodeType === 1) {
+      const f = window.getComputedStyle(filterLayer).filter;
+      if (f && f !== 'none' && f !== '') {
+        computedFilter = f;
+        break;
+      }
+      filterLayer = filterLayer.parentNode;
+    }
+
     ctx.save();
-    if (filter && filter !== 'none') {
-      ctx.filter = filter;
+    if (computedFilter !== 'none') {
+      ctx.filter = computedFilter;
     }
     ctx.drawImage(canvas, 0, 0);
     ctx.restore();
