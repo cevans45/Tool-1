@@ -147,11 +147,46 @@
     });
   }
 
+  function getCompositedCanvas(canvas) {
+    const out = document.createElement('canvas');
+    out.width = canvas.width;
+    out.height = canvas.height;
+    const ctx = out.getContext('2d');
+    
+    let bgLayer = canvas;
+    let bgColor = 'rgba(0, 0, 0, 0)';
+    while (bgLayer && bgLayer.nodeType === 1) {
+      const bg = window.getComputedStyle(bgLayer).backgroundColor;
+      if (bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' && bg !== '') {
+        bgColor = bg;
+        break;
+      }
+      bgLayer = bgLayer.parentNode;
+    }
+    if (bgColor === 'rgba(0, 0, 0, 0)' || bgColor === 'transparent') {
+      bgColor = '#ffffff';
+    }
+
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, out.width, out.height);
+
+    const filter = window.getComputedStyle(canvas).filter;
+    ctx.save();
+    if (filter && filter !== 'none') {
+      ctx.filter = filter;
+    }
+    ctx.drawImage(canvas, 0, 0);
+    ctx.restore();
+
+    return out;
+  }
+
   async function exportPNG() {
     const canvas = pickCanvas();
     const svg = pickSvg();
     if (canvas) {
-      saveDataUrl(canvas.toDataURL('image/png'), 'png');
+      const comp = getCompositedCanvas(canvas);
+      saveDataUrl(comp.toDataURL('image/png'), 'png');
       return;
     }
     if (svg) {
@@ -166,7 +201,8 @@
     const canvas = pickCanvas();
     const svg = pickSvg();
     if (canvas) {
-      saveDataUrl(canvas.toDataURL('image/jpeg', 0.95), 'jpg');
+      const comp = getCompositedCanvas(canvas);
+      saveDataUrl(comp.toDataURL('image/jpeg', 0.95), 'jpg');
       return;
     }
     if (svg) {
@@ -195,9 +231,10 @@
 
     const canvas = pickCanvas();
     if (canvas) {
-      const png = canvas.toDataURL('image/png');
-      const w = canvas.width || canvas.clientWidth || 1024;
-      const h = canvas.height || canvas.clientHeight || 1024;
+      const comp = getCompositedCanvas(canvas);
+      const png = comp.toDataURL('image/png');
+      const w = comp.width || comp.clientWidth || 1024;
+      const h = comp.height || comp.clientHeight || 1024;
       const text =
         `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
         `<image xlink:href="${png}" href="${png}" width="${w}" height="${h}" />` +
