@@ -1705,8 +1705,27 @@
             renderFromPoints(state.points);
             ctx = oldCtx;
             
-            // C2S outputs clean vector paths without background
-            return sctx.getSerializedSvg(true);
+            let svgStr = sctx.getSerializedSvg(true);
+            
+            if (!state.fillEnabled) {
+                const defsStr = `<defs>
+<filter id="jagged-edge" color-interpolation-filters="sRGB">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
+    <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40" result="solidBlob" />
+    <feMorphology id="jagged-dilate" operator="dilate" radius="${state.outlineRadius}" in="solidBlob" result="fatBlob" />
+    <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
+    <feFlood id="jagged-flood" flood-color="${state.outlineColor}" result="color" />
+    <feComposite in="color" in2="outline" operator="in" result="coloredOutline" />
+    <feMerge>
+        <feMergeNode in="coloredOutline" />
+        <feMergeNode in="solidBlob" />
+    </feMerge>
+</filter>
+</defs>`;
+                svgStr = svgStr.replace(/<svg([^>]+)>/, `<svg$1>\n${defsStr}\n<g filter="url(#jagged-edge)">`);
+                svgStr = svgStr.replace(/<\/svg>$/, `</g></svg>`);
+            }
+            return svgStr;
         };
 
         window.addEventListener('keydown', (e) => {

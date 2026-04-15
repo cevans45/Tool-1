@@ -1517,8 +1517,24 @@ window.exportTrueSVG = function() {
               renderPathsToBufferFromHalf ? renderPathsToBuffer(paths) : null;
             }
             
-            const svgContent = drawBuffer.elt.outerHTML;
+            let svgContent = drawBuffer.elt.outerHTML;
             drawBuffer = oldBuf;
+            
+            if (!params.drawMode) {
+                const defsStr = `<defs>
+<filter id="jagged-edge" color-interpolation-filters="sRGB">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
+    <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40" result="solidBlob" />
+    <feMorphology operator="dilate" radius="1.0" in="solidBlob" result="fatBlob" />
+    <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
+    <feFlood flood-color="#000000" result="color" />
+    <feComposite in="color" in2="outline" operator="in" />
+</filter>
+</defs>`;
+                svgContent = svgContent.replace(/<svg([^>]+)>/, `<svg$1>\n${defsStr}\n<g filter="url(#jagged-edge)">`);
+                svgContent = svgContent.replace(/<\/svg>$/, `</g></svg>`);
+            }
+            
             resolve(svgContent);
         } catch(e) {
             console.error(e);
