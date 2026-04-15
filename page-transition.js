@@ -223,24 +223,36 @@
     alert('No drawable canvas/SVG found on this page.');
   }
 
+  function triggerSvgDownload(svgStr) {
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename('svg');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(blobUrl);
+  }
+
   async function exportSVG() {
     if (typeof window.exportTrueSVG === 'function') {
       try {
-         const svgStr = await window.exportTrueSVG();
-         if (svgStr) {
-           const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-           const blobUrl = URL.createObjectURL(blob);
-           const a = document.createElement('a');
-           a.href = blobUrl;
-           a.download = filename('svg');
-           document.body.appendChild(a);
-           a.click();
-           a.remove();
-           URL.revokeObjectURL(blobUrl);
-           return;
-         }
-      } catch(e) {
-         console.error('True SVG export failed, falling back:', e);
+        const maybe = window.exportTrueSVG();
+        // Avoid `await` on non-Promise returns: `await` always defers at least one
+        // microtask and can drop user activation, so blob downloads are blocked.
+        if (maybe != null && typeof maybe.then === 'function') {
+          const svgStr = await maybe;
+          if (svgStr) {
+            triggerSvgDownload(svgStr);
+            return;
+          }
+        } else if (maybe) {
+          triggerSvgDownload(maybe);
+          return;
+        }
+      } catch (e) {
+        console.error('True SVG export failed, falling back:', e);
       }
     }
 
