@@ -487,14 +487,16 @@
                 document.head.appendChild(s);
             });
         }
+        stopAnim();
+        if (needsRecompute) recompute();
         const sctx = new C2S(canvas.width, canvas.height);
         const oldCtx = ctx;
         ctx = sctx;
-        
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.fillStyle = S.bg;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        fullRender();
+        ctx.fillRect(0, 0, cssW, cssH);
+        const fn = modes[S.mode];
+        if (fn) fn();
         ctx = oldCtx;
         return sctx.getSerializedSvg(true);
     };

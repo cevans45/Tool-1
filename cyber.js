@@ -615,6 +615,12 @@ function drawWithOutlineFill(ctx, conns, doMirror) {
     params.strokeStyle = savedStrokeStyle;
     params.drawOperation = 'ink';
     drawConnections(ctx, full, null, 0);
+  } else if (!params.outlineEnabled) {
+    // Fill OFF + Outline OFF: stroke-only ink (otherwise nothing is drawn).
+    params.sketchRoughness = savedRoughness;
+    params.strokeStyle = savedStrokeStyle;
+    params.drawOperation = 'ink';
+    drawConnections(ctx, full, null, 0);
   }
 
   params.drawOperation = savedOp;
@@ -784,6 +790,11 @@ function renderPathsToBufferFromHalf(halfPaths) {
     }
   }
   if (params.fillEnabled) {
+    params.sketchRoughness = savedRoughness;
+    params.strokeStyle = savedStrokeStyle;
+    params.drawOperation = 'ink';
+    drawConnections(ctx, mirrored, null, 0);
+  } else if (!params.outlineEnabled) {
     params.sketchRoughness = savedRoughness;
     params.strokeStyle = savedStrokeStyle;
     params.drawOperation = 'ink';
@@ -1493,6 +1504,22 @@ function bindControls() {
 window.exportTrueSVG = function() {
     return new Promise((resolve) => {
         try {
+            // Fill OFF uses destination-out (hollow/outline); p5's SVG renderer often emits an empty or broken file.
+            // Export a flattened snapshot so the file matches the screen.
+            if (!params.fillEnabled) {
+                redraw();
+                const snap = get(0, 0, width, height);
+                const dataUrl = snap.canvas.toDataURL('image/png');
+                const w = width;
+                const h = height;
+                const svg =
+                    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
+                    `<image href="${dataUrl}" xlink:href="${dataUrl}" width="${w}" height="${h}" />` +
+                    `</svg>`;
+                resolve(svg);
+                return;
+            }
+
             const svgBuf = createGraphics(width, height, SVG);
             const oldBuf = drawBuffer;
             drawBuffer = svgBuf;
@@ -1531,8 +1558,9 @@ window.exportTrueSVG = function() {
     <feComposite in="color" in2="outline" operator="in" />
 </filter>
 </defs>`;
-                svgContent = svgContent.replace(/<svg([^>]+)>/, `<svg$1>\n${defsStr}\n<g filter="url(#jagged-edge)">`);
-                svgContent = svgContent.replace(/<\/svg>$/, `</g></svg>`);
+                svgContent = svgContent.replace(/<svg([^>]*)>/i, `<svg$1>\n${defsStr}\n<g filter="url(#jagged-edge)">`);
+                const lc = svgContent.lastIndexOf('</svg>');
+                if (lc !== -1) svgContent = svgContent.slice(0, lc) + '</g>' + svgContent.slice(lc);
             }
             
             resolve(svgContent);
