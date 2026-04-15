@@ -1699,14 +1699,20 @@
             ctx = oldCtx;
             let svgStr = sctx.getSerializedSvg(true);
             const mode = state.fillEnabled ? 'fill' : 'no-fill';
+            const fillAttr = state.fillColor;
+            const inkAttr = state.inkColor;
+            const brushAttr = state.brushSize;
+            const outlineR = state.outlineRadius;
+            const outlineCol = state.outlineColor;
+
             if (!state.fillEnabled) {
                 const defsStr = `<defs>
 <filter id="jagged-edge" color-interpolation-filters="sRGB">
     <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
     <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40" result="solidBlob" />
-    <feMorphology id="jagged-dilate" operator="dilate" radius="${state.outlineRadius}" in="solidBlob" result="fatBlob" />
+    <feMorphology id="jagged-dilate" operator="dilate" radius="${outlineR}" in="solidBlob" result="fatBlob" />
     <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
-    <feFlood id="jagged-flood" flood-color="${state.outlineColor}" result="color" />
+    <feFlood id="jagged-flood" flood-color="${outlineCol}" result="color" />
     <feComposite in="color" in2="outline" operator="in" result="coloredOutline" />
     <feMerge>
         <feMergeNode in="coloredOutline" />
@@ -1714,11 +1720,16 @@
     </feMerge>
 </filter>
 </defs>`;
-                svgStr = svgStr.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}" data-ovrt-outline-radius="${state.outlineRadius}" data-ovrt-outline-color="${state.outlineColor}">\n${defsStr}\n<g filter="url(#jagged-edge)">`);
+                const metaAttrs = ` data-ovrt-render="${mode}" data-ovrt-stroke-color="${inkAttr}" data-ovrt-brush-size="${brushAttr}" data-ovrt-outline-thickness="${outlineR}" data-ovrt-outline-color="${outlineCol}"`;
+                svgStr = svgStr.replace(/<svg([^>]*)>/i, `<svg$1${metaAttrs}>\n${defsStr}\n<g filter="url(#jagged-edge)">`);
                 const lastClose = svgStr.lastIndexOf('</svg>');
                 if (lastClose !== -1) svgStr = svgStr.slice(0, lastClose) + '</g>' + svgStr.slice(lastClose);
             } else {
-                svgStr = svgStr.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}" data-ovrt-outline-radius="${state.outlineRadius}" data-ovrt-outline-color="${state.outlineColor}">`);
+                const fillDesc = `<desc>Elemenyt mirror — Fill on: strokes use fill color ${fillAttr} (not ink ${inkAttr}); brush size ${brushAttr}; outline thickness (slider) ${outlineR}; outline color ${outlineCol}; marker ${state.marker}</desc>`;
+                const metaFill = ` data-ovrt-render="${mode}" data-ovrt-fill-color="${fillAttr}" data-ovrt-ink-color="${inkAttr}" data-ovrt-brush-size="${brushAttr}" data-ovrt-outline-thickness="${outlineR}" data-ovrt-outline-color="${outlineCol}" data-ovrt-marker="${state.marker}"`;
+                svgStr = svgStr.replace(/<svg([^>]*)>/i, `<svg$1${metaFill}>${fillDesc}<g fill="${fillAttr}" stroke="none">`);
+                const lastCloseFill = svgStr.lastIndexOf('</svg>');
+                if (lastCloseFill !== -1) svgStr = svgStr.slice(0, lastCloseFill) + '</g>' + svgStr.slice(lastCloseFill);
             }
             return svgStr;
         };
