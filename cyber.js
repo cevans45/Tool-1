@@ -585,7 +585,11 @@ function drawConnections(ctx, connections, colorOverride, widthAdd) {
   }
 }
 
-function drawWithOutlineFill(ctx, conns, doMirror) {
+/**
+ * @param {boolean} [svgExportSkipCut] — When true (SVG export, fill off): skip destination-out cut so
+ *   vector output stays non-empty; outline pass keeps full scratch-line detail + outline thickness.
+ */
+function drawWithOutlineFill(ctx, conns, doMirror, svgExportSkipCut) {
   const ow = params.outlineWidth * 2;
   const savedOp = params.drawOperation;
   const savedRoughness = params.sketchRoughness;
@@ -604,7 +608,7 @@ function drawWithOutlineFill(ctx, conns, doMirror) {
 
     // When Fill is OFF, we hollow using destination-out so the result is a ring.
     // Keep the same geometry (tm=1 + roughness forced) for more uniform thickness.
-    if (!params.fillEnabled) {
+    if (!params.fillEnabled && !svgExportSkipCut) {
       params.drawOperation = 'cut';
       drawConnections(ctx, outlineConns, null, 0);
     }
@@ -622,6 +626,7 @@ function drawWithOutlineFill(ctx, conns, doMirror) {
     params.drawOperation = 'ink';
     drawConnections(ctx, full, null, 0);
   }
+  // Fill OFF + Outline ON + svgExportSkipCut: outline strokes only (thick + connection detail); filter approximates ring.
 
   params.drawOperation = savedOp;
   params.sketchRoughness = savedRoughness;
@@ -758,12 +763,12 @@ function pathsToConnections(pathList) {
   return conns;
 }
 
-function renderPathsToBuffer(pathList) {
+function renderPathsToBuffer(pathList, svgExportSkipCut) {
   drawBuffer.clear();
   const ctx = drawBuffer.drawingContext;
   const savedOp = params.drawOperation;
   const conns = pathsToConnections(pathList);
-  drawWithOutlineFill(ctx, conns, false);
+  drawWithOutlineFill(ctx, conns, false, svgExportSkipCut);
   params.drawOperation = savedOp;
 }
 
@@ -1502,16 +1507,16 @@ function bindControls() {
 }
 
 /**
- * Pure vector SVG via p5 SVG renderer. destination-out (hollow strokes) does not serialize reliably,
- * so we render solid ink to the SVG buffer then wrap with the jagged filter when fill is off.
+ * Pure vector SVG via p5 SVG renderer.
+ * - Fill ON: same strokes as the screen (outline + ink passes, full connection scratch detail).
+ * - Fill OFF: skip destination-out (does not serialize); keep outline pass + outline thickness + segment detail;
+ *   optional SVG filter uses outline color and outline width for the ring look.
  */
 window.exportTrueSVG = function() {
   return new Promise((resolve) => {
-    const saveFill = params.fillEnabled;
-    const saveOutline = params.outlineEnabled;
     try {
-      params.fillEnabled = true;
-      params.outlineEnabled = false;
+      const saveFill = params.fillEnabled;
+      const skipCut = !saveFill;
 
       const svgBuf = createGraphics(width, height, SVG);
       const oldBuf = drawBuffer;
@@ -1530,41 +1535,46 @@ window.exportTrueSVG = function() {
             conns.push({ px: prev.x, py: prev.y, x: p.x, y: p.y, d, tm: 1 });
           }
         }
-        drawWithOutlineFill(drawBuffer.drawingContext, conns, true);
+        drawWithOutlineFill(drawBuffer.drawingContext, conns, true, skipCut);
       } else {
-        renderPathsToBuffer(paths);
+        renderPathsToBuffer(paths, skipCut);
       }
 
       let svgContent = svgBuf.elt.outerHTML;
       drawBuffer = oldBuf;
 
       const mode = saveFill ? 'fill' : 'no-fill';
+      const ow = params.outlineWidth;
+      const oc = params.outlineColor;
 
-      if (!saveFill) {
+      if (!saveFill && params.outlineEnabled) {
+        const dilateR = Math.max(0.25, ow * 0.45);
         const defsStr = `<defs>
 <filter id="jagged-edge" color-interpolation-filters="sRGB">
     <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
     <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40" result="solidBlob" />
-    <feMorphology operator="dilate" radius="1.0" in="solidBlob" result="fatBlob" />
+    <feMorphology operator="dilate" radius="${dilateR}" in="solidBlob" result="fatBlob" />
     <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
-    <feFlood flood-color="${params.outlineColor}" result="color" />
+    <feFlood flood-color="${oc}" result="color" />
     <feComposite in="color" in2="outline" operator="in" />
 </filter>
 </defs>`;
-        svgContent = svgContent.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}">\n${defsStr}\n<g filter="url(#jagged-edge)">`);
+        const meta = ` data-ovrt-render="${mode}" data-ovrt-outline-width="${ow}" data-ovrt-outline-color="${oc}"`;
+        svgContent = svgContent.replace(/<svg([^>]*)>/i, `<svg$1${meta}>\n${defsStr}\n<g filter="url(#jagged-edge)">`);
         const lc = svgContent.lastIndexOf('</svg>');
         if (lc !== -1) svgContent = svgContent.slice(0, lc) + '</g>' + svgContent.slice(lc);
+      } else if (!saveFill) {
+        const meta = ` data-ovrt-render="${mode}" data-ovrt-outline-enabled="0"`;
+        svgContent = svgContent.replace(/<svg([^>]*)>/i, `<svg$1${meta}>`);
       } else {
-        svgContent = svgContent.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}">`);
+        const meta = ` data-ovrt-render="${mode}" data-ovrt-outline-width="${ow}" data-ovrt-outline-enabled="${params.outlineEnabled ? '1' : '0'}"`;
+        svgContent = svgContent.replace(/<svg([^>]*)>/i, `<svg$1${meta}>`);
       }
 
       resolve(svgContent);
     } catch (e) {
       console.error(e);
       resolve(null);
-    } finally {
-      params.fillEnabled = saveFill;
-      params.outlineEnabled = saveOutline;
     }
   });
 };

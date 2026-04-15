@@ -501,7 +501,8 @@
         ctx = oldCtx;
         let svg = sctx.getSerializedSvg(true);
         const mode = S.fill ? 'fill' : 'no-fill';
-        svg = svg.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}">`);
+        const strokeMeta = S.fill ? '' : ` data-ovrt-stroke-width="${S.strokeW}"`;
+        svg = svg.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}" data-ovrt-weight="${S.weight}"${strokeMeta}>`);
         return svg;
     };
 

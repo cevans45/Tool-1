@@ -1714,11 +1714,11 @@
     </feMerge>
 </filter>
 </defs>`;
-                svgStr = svgStr.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}">\n${defsStr}\n<g filter="url(#jagged-edge)">`);
+                svgStr = svgStr.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}" data-ovrt-outline-radius="${state.outlineRadius}" data-ovrt-outline-color="${state.outlineColor}">\n${defsStr}\n<g filter="url(#jagged-edge)">`);
                 const lastClose = svgStr.lastIndexOf('</svg>');
                 if (lastClose !== -1) svgStr = svgStr.slice(0, lastClose) + '</g>' + svgStr.slice(lastClose);
             } else {
-                svgStr = svgStr.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}">`);
+                svgStr = svgStr.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}" data-ovrt-outline-radius="${state.outlineRadius}" data-ovrt-outline-color="${state.outlineColor}">`);
             }
             return svgStr;
         };
