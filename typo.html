@@ -195,7 +195,7 @@
         document.body.classList.add('is-preview');
 
     const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
+    let ctx = canvas.getContext('2d');
     const srcCanvas = document.createElement('canvas');
     const srcCtx = srcCanvas.getContext('2d');
     let cssW = 1, cssH = 1, dpr = 1;
@@ -466,6 +466,35 @@
             }
         }
     }
+
+    function onResize() {
+        if (!S.auto) return;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        // Don't resize if mobile keyboard pops up and changes height slightly
+        if (Math.abs(w - ww) > 20 || Math.abs(h - wh) > 100) {
+            init(true); // Attempt to preserve particles
+        }
+    }
+    
+    window.exportTrueSVG = async function() {
+        if (!window.C2S) {
+            await new Promise((resolve) => {
+                const s = document.createElement('script');
+                s.src = 'https://unpkg.com/canvas2svg@1.0.19/canvas2svg.js';
+                s.onload = resolve;
+                document.head.appendChild(s);
+            });
+        }
+        const sctx = new C2S(canvas.width, canvas.height);
+        const oldCtx = ctx;
+        ctx = sctx;
+        fullRender();
+        ctx = oldCtx;
+        return sctx.getSerializedSvg(true);
+    };
+
+    window.addEventListener('resize', onResize);
 
     function drawSquares() {
         const maxS = S.scale * 0.9;

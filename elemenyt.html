@@ -281,7 +281,7 @@
         }
 
         const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        let ctx = canvas.getContext('2d', { willReadFrequently: true });
         let cssWidth = 1;
         let cssHeight = 1;
         let dpr = 1;
@@ -1687,6 +1687,26 @@
 
         clearBtn?.addEventListener('click', clearAll);
         exportBtn?.addEventListener('click', exportWithFilter);
+
+        window.exportTrueSVG = async function() {
+            if (!window.C2S) {
+                await new Promise(r => {
+                    const s = document.createElement('script');
+                    s.src = 'https://unpkg.com/canvas2svg@1.0.19/canvas2svg.js';
+                    s.onload = r;
+                    document.head.appendChild(s);
+                });
+            }
+            const sctx = new C2S(canvas.width, canvas.height);
+            const oldCtx = ctx;
+            ctx = sctx;
+            // Redraw everything to the new C2S context
+            renderFromPoints(state.points);
+            ctx = oldCtx;
+            
+            // C2S outputs clean vector paths without background
+            return sctx.getSerializedSvg(true);
+        };
 
         window.addEventListener('keydown', (e) => {
             const key = (e.key || '').toLowerCase();

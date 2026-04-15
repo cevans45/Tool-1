@@ -224,6 +224,26 @@
   }
 
   async function exportSVG() {
+    if (typeof window.exportTrueSVG === 'function') {
+      try {
+         const svgStr = await window.exportTrueSVG();
+         if (svgStr) {
+           const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+           const blobUrl = URL.createObjectURL(blob);
+           const a = document.createElement('a');
+           a.href = blobUrl;
+           a.download = filename('svg');
+           document.body.appendChild(a);
+           a.click();
+           a.remove();
+           URL.revokeObjectURL(blobUrl);
+           return;
+         }
+      } catch(e) {
+         console.error('True SVG export failed, falling back:', e);
+      }
+    }
+
     const svg = pickSvg();
     if (svg) {
       const { text } = svgToData(svg);

@@ -1489,3 +1489,40 @@ function bindControls() {
     inkSketch.addEventListener('change', () => requestUpdate(true));
   }
 }
+
+window.exportTrueSVG = function() {
+    return new Promise((resolve) => {
+        try {
+            const svgBuf = createGraphics(width, height, SVG);
+            const oldBuf = drawBuffer;
+            drawBuffer = svgBuf;
+            
+            if (params.drawMode) {
+              drawBuffer.clear();
+              const dynamicConnect = params.sketchReach;
+              const conns = [];
+              for (let i = 0; i < drawPoints.length - 1; i++) {
+                const prev = drawPoints[i];
+                const p = drawPoints[i+1];
+                if (!prev || !p) continue;
+                const d = Math.hypot(p.x - prev.x, p.y - prev.y);
+                if (d < dynamicConnect) {
+                  conns.push({ px: prev.x, py: prev.y, x: p.x, y: p.y, d, tm: 1 });
+                }
+              }
+              // Temporarily turn off fill/outline to just export raw strokes if needed
+              // wait, drawWithOutlineFill handles outline mode geometry correctly.
+              drawWithOutlineFill(drawBuffer.drawingContext, conns, true);
+            } else {
+              renderPathsToBufferFromHalf ? renderPathsToBuffer(paths) : null;
+            }
+            
+            const svgContent = drawBuffer.elt.outerHTML;
+            drawBuffer = oldBuf;
+            resolve(svgContent);
+        } catch(e) {
+            console.error(e);
+            resolve(null);
+        }
+    });
+};
