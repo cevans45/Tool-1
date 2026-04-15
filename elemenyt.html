@@ -1552,13 +1552,6 @@
             link.click();
         }
 
-        function escapeXmlAttr(str) {
-            return String(str)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/"/g, '&quot;');
-        }
-
         // Mouse + touch
         canvas.addEventListener('mousedown', startDrawing);
         canvas.addEventListener('mousemove', drawMove);
@@ -1689,21 +1682,45 @@
         clearBtn?.addEventListener('click', clearAll);
         exportBtn?.addEventListener('click', exportWithFilter);
 
-        window.exportTrueSVG = function() {
-            const dataUrl = getCompositeExportDataUrl();
-            const w = canvas.width;
-            const h = canvas.height;
+        window.exportTrueSVG = async function() {
+            if (!window.C2S) {
+                await new Promise((r) => {
+                    const s = document.createElement('script');
+                    s.src = 'https://cdn.jsdelivr.net/npm/canvas2svg@1.0.16/canvas2svg.js';
+                    s.onload = r;
+                    s.onerror = () => r(new Error('Failed to load canvas2svg'));
+                    document.head.appendChild(s);
+                });
+            }
+            const sctx = new C2S(canvas.width, canvas.height);
+            const oldCtx = ctx;
+            ctx = sctx;
+            renderFromPoints(state.points);
+            ctx = oldCtx;
+            let svgStr = sctx.getSerializedSvg(true);
             const mode = state.fillEnabled ? 'fill' : 'no-fill';
-            const href = escapeXmlAttr(dataUrl);
-            const title = state.fillEnabled ? 'Elemenyt mirror (fill)' : 'Elemenyt mirror (no-fill)';
-            return (
-                '<?xml version="1.0" encoding="UTF-8"?>\n' +
-                `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ` +
-                `width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" data-ovrt-render="${mode}">` +
-                `<title>${escapeXmlAttr(title)}</title>` +
-                `<image href="${href}" xlink:href="${href}" width="${w}" height="${h}" />` +
-                `</svg>`
-            );
+            if (!state.fillEnabled) {
+                const defsStr = `<defs>
+<filter id="jagged-edge" color-interpolation-filters="sRGB">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
+    <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40" result="solidBlob" />
+    <feMorphology id="jagged-dilate" operator="dilate" radius="${state.outlineRadius}" in="solidBlob" result="fatBlob" />
+    <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
+    <feFlood id="jagged-flood" flood-color="${state.outlineColor}" result="color" />
+    <feComposite in="color" in2="outline" operator="in" result="coloredOutline" />
+    <feMerge>
+        <feMergeNode in="coloredOutline" />
+        <feMergeNode in="solidBlob" />
+    </feMerge>
+</filter>
+</defs>`;
+                svgStr = svgStr.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}">\n${defsStr}\n<g filter="url(#jagged-edge)">`);
+                const lastClose = svgStr.lastIndexOf('</svg>');
+                if (lastClose !== -1) svgStr = svgStr.slice(0, lastClose) + '</g>' + svgStr.slice(lastClose);
+            } else {
+                svgStr = svgStr.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}">`);
+            }
+            return svgStr;
         };
 
         window.addEventListener('keydown', (e) => {
