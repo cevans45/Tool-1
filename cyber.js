@@ -1501,72 +1501,36 @@ function bindControls() {
   }
 }
 
-window.exportTrueSVG = function() {
-    return new Promise((resolve) => {
-        try {
-            // Fill OFF uses destination-out (hollow/outline); p5's SVG renderer often emits an empty or broken file.
-            // Export a flattened snapshot so the file matches the screen.
-            if (!params.fillEnabled) {
-                redraw();
-                const snap = get(0, 0, width, height);
-                const dataUrl = snap.canvas.toDataURL('image/png');
-                const w = width;
-                const h = height;
-                const svg =
-                    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-                    `<image href="${dataUrl}" xlink:href="${dataUrl}" width="${w}" height="${h}" />` +
-                    `</svg>`;
-                resolve(svg);
-                return;
-            }
+function escapeXmlAttrCyber(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/"/g, '&quot;');
+}
 
-            const svgBuf = createGraphics(width, height, SVG);
-            const oldBuf = drawBuffer;
-            drawBuffer = svgBuf;
-            
-            if (params.drawMode) {
-              drawBuffer.clear();
-              const dynamicConnect = params.sketchReach;
-              const conns = [];
-              for (let i = 0; i < drawPoints.length - 1; i++) {
-                const prev = drawPoints[i];
-                const p = drawPoints[i+1];
-                if (!prev || !p) continue;
-                const d = Math.hypot(p.x - prev.x, p.y - prev.y);
-                if (d < dynamicConnect) {
-                  conns.push({ px: prev.x, py: prev.y, x: p.x, y: p.y, d, tm: 1 });
-                }
-              }
-              // Temporarily turn off fill/outline to just export raw strokes if needed
-              // wait, drawWithOutlineFill handles outline mode geometry correctly.
-              drawWithOutlineFill(drawBuffer.drawingContext, conns, true);
-            } else {
-              renderPathsToBufferFromHalf ? renderPathsToBuffer(paths) : null;
-            }
-            
-            let svgContent = drawBuffer.elt.outerHTML;
-            drawBuffer = oldBuf;
-            
-            if (!params.drawMode) {
-                const defsStr = `<defs>
-<filter id="jagged-edge" color-interpolation-filters="sRGB">
-    <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
-    <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40" result="solidBlob" />
-    <feMorphology operator="dilate" radius="1.0" in="solidBlob" result="fatBlob" />
-    <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
-    <feFlood flood-color="#000000" result="color" />
-    <feComposite in="color" in2="outline" operator="in" />
-</filter>
-</defs>`;
-                svgContent = svgContent.replace(/<svg([^>]*)>/i, `<svg$1>\n${defsStr}\n<g filter="url(#jagged-edge)">`);
-                const lc = svgContent.lastIndexOf('</svg>');
-                if (lc !== -1) svgContent = svgContent.slice(0, lc) + '</g>' + svgContent.slice(lc);
-            }
-            
-            resolve(svgContent);
-        } catch(e) {
-            console.error(e);
-            resolve(null);
-        }
-    });
+/** PNG snapshot of the main canvas — matches the screen; fill vs no-fill differ in pixels + data-ovrt-render. */
+window.exportTrueSVG = function() {
+  return new Promise((resolve) => {
+    try {
+      redraw();
+      const snap = get(0, 0, width, height);
+      const dataUrl = snap.canvas.toDataURL('image/png');
+      const w = width;
+      const h = height;
+      const mode = params.fillEnabled ? 'fill' : 'no-fill';
+      const href = escapeXmlAttrCyber(dataUrl);
+      const title = params.fillEnabled ? 'Cyber sigil (fill)' : 'Cyber sigil (no-fill)';
+      const svg =
+        '<?xml version="1.0" encoding="UTF-8"?>\n' +
+        `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ` +
+        `width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" data-ovrt-render="${mode}">` +
+        `<title>${escapeXmlAttrCyber(title)}</title>` +
+        `<image href="${href}" xlink:href="${href}" width="${w}" height="${h}" />` +
+        `</svg>`;
+      resolve(svg);
+    } catch (e) {
+      console.error(e);
+      resolve(null);
+    }
+  });
 };

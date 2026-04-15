@@ -477,28 +477,36 @@
         }
     }
     
-    window.exportTrueSVG = async function() {
-        if (!window.C2S) {
-            await new Promise((resolve) => {
-                const s = document.createElement('script');
-                s.src = 'https://cdn.jsdelivr.net/npm/canvas2svg@1.0.16/canvas2svg.js';
-                s.onload = resolve;
-                s.onerror = () => resolve(new Error('Failed to load canvas2svg'));
-                document.head.appendChild(s);
-            });
-        }
+    function escapeXmlAttr(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    /** SVG wraps a PNG of the actual canvas — matches on-screen pixels; fill vs stroke differ in image + data-ovrt-render. */
+    window.exportTrueSVG = function() {
         stopAnim();
         if (needsRecompute) recompute();
-        const sctx = new C2S(canvas.width, canvas.height);
-        const oldCtx = ctx;
-        ctx = sctx;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.fillStyle = S.bg;
         ctx.fillRect(0, 0, cssW, cssH);
         const fn = modes[S.mode];
         if (fn) fn();
-        ctx = oldCtx;
-        return sctx.getSerializedSvg(true);
+        const dataUrl = canvas.toDataURL('image/png');
+        const w = canvas.width;
+        const h = canvas.height;
+        const mode = S.fill ? 'fill' : 'no-fill';
+        const href = escapeXmlAttr(dataUrl);
+        const title = S.fill ? 'Typo (fill)' : 'Typo (stroke)';
+        return (
+            '<?xml version="1.0" encoding="UTF-8"?>\n' +
+            `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ` +
+            `width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" data-ovrt-render="${mode}">` +
+            `<title>${escapeXmlAttr(title)}</title>` +
+            `<image href="${href}" xlink:href="${href}" width="${w}" height="${h}" />` +
+            `</svg>`
+        );
     };
 
     window.addEventListener('resize', onResize);
