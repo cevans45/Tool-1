@@ -232,7 +232,8 @@
     document.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(blobUrl);
+    // Revoking immediately can cancel the download — the browser may read the blob asynchronously.
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
   }
 
   async function exportSVG() {
@@ -267,7 +268,7 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(blobUrl);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
       return;
     }
 
@@ -289,7 +290,7 @@
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(blobUrl);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
       return;
     }
 
@@ -333,9 +334,15 @@
       btn.style.padding = '8px 10px';
       btn.style.font = '600 12px/1 system-ui, -apple-system, Segoe UI, sans-serif';
       btn.style.cursor = 'pointer';
-      btn.addEventListener('click', async () => {
+      btn.addEventListener('click', () => {
         try {
-          await onClick();
+          const ret = onClick();
+          if (ret != null && typeof ret.then === 'function') {
+            ret.catch((err) => {
+              console.error(err);
+              alert('Export failed. Try again.');
+            });
+          }
         } catch (err) {
           console.error(err);
           alert('Export failed. Try again.');
