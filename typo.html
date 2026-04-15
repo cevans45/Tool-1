@@ -481,8 +481,9 @@
         if (!window.C2S) {
             await new Promise((resolve) => {
                 const s = document.createElement('script');
-                s.src = 'https://unpkg.com/canvas2svg@1.0.19/canvas2svg.js';
+                s.src = 'https://cdn.jsdelivr.net/npm/canvas2svg@1.0.16/canvas2svg.js';
                 s.onload = resolve;
+                s.onerror = () => resolve(new Error('Failed to load canvas2svg'));
                 document.head.appendChild(s);
             });
         }
