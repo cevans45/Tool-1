@@ -87,7 +87,7 @@
             /** Local layout: ink from (0,0) to (bboxW, bboxH). Draw with ctx scale sx,sy to fill the canvas. */
             function buildNaturalLayout(fs) {
                 const { widths, glyphH } = measureLetters(fs);
-                const letterGap = fs * 0.09;
+                const letterGap = fs * 0.18;
                 let left = 0;
                 const hx = [];
                 for (let i = 0; i < N; i++) {
