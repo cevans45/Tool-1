@@ -143,7 +143,8 @@
                     return;
                 }
                 if (eff === 'double') {
-                    ctx2.globalAlpha = 0.42;
+                    ctx2.globalAlpha = 0.38;
+                    ctx2.fillStyle = fillRgb;
                     ctx2.fillText(ch, fs * 0.018, fs * 0.028);
                     ctx2.globalAlpha = 1;
                     ctx2.fillText(ch, 0, 0);
@@ -158,15 +159,17 @@
                 return alpha[iy * tw + ix] > 80;
             }
 
-            function spawnLetterParticles(alpha, tw, th, density, mode) {
+            /** @param densityPct 0.6–1.0 = 60–100% of max particle budget (biased high when sampling in init) */
+            function spawnLetterParticles(alpha, tw, th, density, mode, densityPct) {
+                const pct = Math.min(1, Math.max(0.6, densityPct));
                 // Same base formula as Typo (ty-density max 60): 60 + density² * 4
                 let count = Math.round(60 + density * density * 4);
                 if (mode === 'net') {
-                    // Net is O(n²) to draw; still allow a dense mesh without freezing
                     count = Math.min(140, count);
                 } else {
                     count = Math.min(1200, Math.max(60, count));
                 }
+                count = Math.max(mode === 'net' ? 24 : 48, Math.floor(count * pct));
                 const particles = [];
                 let attempts = 0;
                 const maxAttempts = count * 120;
@@ -422,7 +425,7 @@
                 S.tx = (W - S.bboxW * S.s) / 2;
                 S.ty = (H - S.bboxH * S.s) / 2;
                 const { widths, hx, hy } = lay;
-                const letterColors = ['#00fff8', '#ff00e7', '#ffff00', '#ff00e7'];
+                const ink = '#0a0a0a';
                 for (let i = 0; i < N; i++) {
                     const ch = WORD[i];
                     const hxI = hx[i];
@@ -443,7 +446,9 @@
                     for (let k = 0; k < alpha.length; k++) alpha[k] = id.data[k * 4 + 3];
                     const slot = FONT_SLOTS[sIdx];
                     const density = 60;
-                    const particles = spawnLetterParticles(alpha, tw, th, density, slot.typoMode);
+                    // 60–100% of max count, skewed toward the dense end
+                    const densityPct = 0.6 + 0.4 * Math.pow(Math.random(), 0.4);
+                    const particles = spawnLetterParticles(alpha, tw, th, density, slot.typoMode, densityPct);
                     L.push({
                         ch, x: hxI, y: hyI,
                         vx: 0, vy: 0, hx: hxI, hy: hyI,
@@ -452,7 +457,7 @@
                         sx: 1, sy: 1,
                         phase: Math.random() * 6.28,
                         alpha, aw: tw, ah: th,
-                        color: letterColors[i],
+                        color: ink,
                         particles,
                         typoScale: Math.max(8, fs * 0.095),
                         typoWeight: 5,
@@ -460,6 +465,43 @@
                         jitter: 36,
                         drift: 18,
                     });
+                }
+            }
+
+            /** Keep letter centroids from overlapping (soft-body radii from glyph half-extents). */
+            function separateLetters() {
+                const gap = S.fs * 0.04;
+                for (let pass = 0; pass < 4; pass++) {
+                    for (let i = 0; i < L.length; i++) {
+                        for (let j = i + 1; j < L.length; j++) {
+                            const a = L[i], b = L[j];
+                            const dx = b.x - a.x, dy = b.y - a.y;
+                            const dist = Math.hypot(dx, dy) || 1e-6;
+                            const ra = Math.hypot(a.hw, a.hh) + gap;
+                            const rb = Math.hypot(b.hw, b.hh) + gap;
+                            const minD = ra + rb;
+                            if (dist >= minD) continue;
+                            const push = (minD - dist) * 0.52;
+                            const nx = dx / dist, ny = dy / dist;
+                            if (dragging && a === dragging.l) {
+                                b.x += nx * push * 2;
+                                b.y += ny * push * 2;
+                            } else if (dragging && b === dragging.l) {
+                                a.x -= nx * push * 2;
+                                a.y -= ny * push * 2;
+                            } else {
+                                a.x -= nx * push;
+                                a.y -= ny * push;
+                                b.x += nx * push;
+                                b.y += ny * push;
+                            }
+                        }
+                    }
+                }
+                const m = S.fs * 0.48;
+                for (const l of L) {
+                    l.x = Math.max(m, Math.min(S.bboxW - m, l.x));
+                    l.y = Math.max(m, Math.min(S.bboxH - m, l.y));
                 }
             }
 
@@ -510,6 +552,8 @@
                     if (Math.abs(l.x - x0) > 0.5) l.vx *= -0.25;
                     if (Math.abs(l.y - y0) > 0.5) l.vy *= -0.25;
                 }
+
+                separateLetters();
 
                 for (const l of L) stepLetterParticles(l);
 
