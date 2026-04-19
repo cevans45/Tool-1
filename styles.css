@@ -21,12 +21,14 @@
     font-style: normal;
 }
 
-/* Subheader: add fonts/Arnold.woff2 (or .woff) for local Arnold; Bebas Neue is the web fallback. */
+/* Subheader: place your Arnold files in /fonts (any one format is enough). */
 @font-face {
     font-family: 'Arnold';
     src: local('Arnold'),
          url('fonts/Arnold.woff2') format('woff2'),
-         url('fonts/Arnold.woff') format('woff');
+         url('fonts/Arnold.woff') format('woff'),
+         url('fonts/Arnold.otf') format('opentype'),
+         url('fonts/Arnold.ttf') format('truetype');
     font-weight: 400;
     font-style: normal;
     font-display: swap;
@@ -123,22 +125,31 @@ body.is-leaving {
     font-weight: 400;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    fill: none;
     stroke-linejoin: round;
     stroke-linecap: round;
-    paint-order: stroke fill;
     vector-effect: non-scaling-stroke;
 }
 
-/* Outer stroke (offset path), then inner stroke for a crisp edge */
-.hero-sub-outline {
-    stroke: rgba(17, 17, 17, 0.28);
-    stroke-width: 3.25px;
+/*
+ * Illustrator-style offset path (sticker): widest black stroke → narrower white stroke
+ * on the same outlines → black fill on top. The white band reads as padding between
+ * the letters and the outer contour; outer black is the offset outline.
+ */
+.hero-sub-stroke-outer {
+    fill: none;
+    stroke: #111;
+    stroke-width: 6px;
 }
 
-.hero-sub-outline-inner {
-    stroke: rgba(17, 17, 17, 0.62);
-    stroke-width: 1.35px;
+.hero-sub-stroke-mid {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 4.5px;
+}
+
+.hero-sub-fill {
+    fill: #111;
+    stroke: none;
 }
 
 .hero-copy {
