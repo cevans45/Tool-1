@@ -15,6 +15,27 @@
             <canvas id="hero-canvas"></canvas>
             <div class="hero-inner hero-inner--bottom">
                 <svg class="hero-sub" viewBox="0 0 2400 180" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="hero-sub-title">
+                    <defs>
+                        <!-- WebKit often needs @font-face inside the SVG for <text> to use the webfont; same urls as styles.css -->
+                        <style><![CDATA[
+                            @font-face {
+                                font-family: Arnold;
+                                src: url("fonts/Arnold.woff2") format("woff2"),
+                                     url("fonts/Arnold.woff") format("woff"),
+                                     url("fonts/Arnold.otf") format("opentype"),
+                                     url("fonts/Arnold.ttf") format("truetype"),
+                                     url("fonts/Arnold-Regular.woff2") format("woff2"),
+                                     url("fonts/Arnold-Regular.woff") format("woff"),
+                                     url("fonts/Arnold-Regular.otf") format("opentype"),
+                                     url("fonts/Arnold-Regular.ttf") format("truetype"),
+                                     url("fonts/Arnold/Arnold.woff2") format("woff2"),
+                                     url("fonts/Arnold/Arnold-Regular.woff2") format("woff2");
+                                font-weight: 400;
+                                font-style: normal;
+                                font-display: swap;
+                            }
+                        ]]></style>
+                    </defs>
                     <title id="hero-sub-title">Open Visual Responsive Tools</title>
                     <!-- Offset-path / sticker stack: outer black ring → white buffer → solid fill (same centerline on all three) -->
                     <text class="hero-sub-text hero-sub-stroke-outer" x="1200" y="92" text-anchor="middle" dominant-baseline="middle" aria-hidden="true">OPEN VISUAL RESPONSIVE TOOLS</text>
