@@ -21,25 +21,19 @@
     font-style: normal;
 }
 
-/*
- * Arnold: add one of these under /fonts/ (same folder as index.html).
- * Browsers try each url until one loads; name must match your file (case-sensitive on servers).
- */
 @font-face {
     font-family: 'Arnold';
-    src: local('Arnold'),
-         url('fonts/Arnold.woff2') format('woff2'),
-         url('fonts/Arnold.woff') format('woff'),
-         url('fonts/Arnold.otf') format('opentype'),
-         url('fonts/Arnold.ttf') format('truetype'),
-         url('fonts/Arnold-Regular.woff2') format('woff2'),
-         url('fonts/Arnold-Regular.woff') format('woff'),
-         url('fonts/Arnold-Regular.otf') format('opentype'),
-         url('fonts/Arnold-Regular.ttf') format('truetype'),
-         url('fonts/Arnold/Arnold.woff2') format('woff2'),
-         url('fonts/Arnold/Arnold-Regular.woff2') format('woff2');
+    src: url('fonts/ArnoldTestv03.otf') format('opentype');
     font-weight: 400;
     font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Arnold';
+    src: url('fonts/ArnoldItalicTestv03.otf') format('opentype');
+    font-weight: 400;
+    font-style: italic;
     font-display: swap;
 }
 
@@ -126,11 +120,11 @@ body.is-leaving {
     height: auto;
     margin-top: 20px;
     overflow: visible;
-    font-family: Arnold, 'Bebas Neue', sans-serif;
+    font-family: 'Arnold', 'Bebas Neue', sans-serif;
 }
 
 .hero-sub-text {
-    font-family: Arnold, 'Bebas Neue', sans-serif;
+    font-family: 'Arnold', 'Bebas Neue', sans-serif;
     font-size: clamp(22px, 5.2vw, 56px);
     font-weight: 400;
     letter-spacing: 0.18em;
