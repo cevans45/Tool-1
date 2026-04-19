@@ -30,6 +30,7 @@
             const hero = document.getElementById('hero');
             let W, H, dpr;
             const L = [];
+            let letterFontIdx = [];
             const S = { s: 1, tx: 0, ty: 0, bboxW: 1, bboxH: 1, fs: 100 };
             let lastCycleKey = -1;
             const WORD = 'OVRT';
@@ -40,26 +41,32 @@
              * overlapTight / overlapFrac tune negative tracking per face (Typo-like tight lockup).
              */
             const FONT_SLOTS = [
-                { label: 'Badger', style: 'normal', weight: '400', family: '"Bangers", cursive', overlapTight: 0.12, overlapFrac: 0.30, effect: 'stroke', typoMode: 'circles' },
-                { label: 'Hofmann', style: 'normal', weight: '600', family: '"NG Hofmann", sans-serif', overlapTight: 0.17, overlapFrac: 0.36, effect: 'fill', typoMode: 'squares' },
-                { label: 'Display', style: 'normal', weight: '700', family: '"DM Sans", sans-serif', overlapTight: 0.12, overlapFrac: 0.28, effect: 'shadow', typoMode: 'grid' },
-                { label: 'Galapagos', style: 'normal', weight: '700', family: '"Space Grotesk", sans-serif', overlapTight: 0.14, overlapFrac: 0.28, effect: 'stroke-light', typoMode: 'diamonds' },
-                { label: 'Maxi Plus', style: 'normal', weight: '400', family: '"Bebas Neue", sans-serif', overlapTight: 0.08, overlapFrac: 0.18, effect: 'double', typoMode: 'crosses' },
-                { label: 'Averia Italic', style: 'italic', weight: '400', family: '"Averia Serif Libre", serif', overlapTight: 0.16, overlapFrac: 0.32, effect: 'fill', typoMode: 'stars' },
-                { label: 'Fraktur', style: 'normal', weight: '400', family: 'UnifrakturMaguntia, fantasy', overlapTight: 0.15, overlapFrac: 0.30, effect: 'stroke-heavy', typoMode: 'stars' },
-                { label: 'Brush', style: 'normal', weight: '400', family: '"Permanent Marker", cursive', overlapTight: 0.11, overlapFrac: 0.26, effect: 'shadow-soft', typoMode: 'fragment' },
+                { label: 'Badger', style: 'normal', weight: '400', family: '"Bangers", cursive', overlapTight: 0.12, overlapFrac: 0.30, effect: 'stroke' },
+                { label: 'Hofmann', style: 'normal', weight: '600', family: '"NG Hofmann", sans-serif', overlapTight: 0.17, overlapFrac: 0.36, effect: 'fill' },
+                { label: 'Display', style: 'normal', weight: '700', family: '"DM Sans", sans-serif', overlapTight: 0.12, overlapFrac: 0.28, effect: 'shadow' },
+                { label: 'Galapagos', style: 'normal', weight: '700', family: '"Space Grotesk", sans-serif', overlapTight: 0.14, overlapFrac: 0.28, effect: 'stroke-light' },
+                { label: 'Maxi Plus', style: 'normal', weight: '400', family: '"Bebas Neue", sans-serif', overlapTight: 0.08, overlapFrac: 0.18, effect: 'double' },
+                { label: 'Averia Italic', style: 'italic', weight: '400', family: '"Averia Serif Libre", serif', overlapTight: 0.16, overlapFrac: 0.32, effect: 'fill' },
+                { label: 'Fraktur', style: 'normal', weight: '400', family: 'UnifrakturMaguntia, fantasy', overlapTight: 0.15, overlapFrac: 0.30, effect: 'stroke-heavy' },
+                { label: 'Brush', style: 'normal', weight: '400', family: '"Permanent Marker", cursive', overlapTight: 0.11, overlapFrac: 0.26, effect: 'shadow-soft' },
             ];
+
+            /** Typo particle styles; paired independently from font per letter. */
+            const TYPO_MODES = ['circles', 'squares', 'grid', 'diamonds', 'crosses', 'stars', 'fragment'];
 
             function cycleKey() {
                 return Math.floor(performance.now() / 5000);
             }
 
-            function baseSlot() {
-                return cycleKey() % FONT_SLOTS.length;
+            function pickRandomTypoMode() {
+                return TYPO_MODES[Math.floor(Math.random() * TYPO_MODES.length)];
             }
 
-            function slotForLetter(i) {
-                return (baseSlot() + i) % FONT_SLOTS.length;
+            function shuffleLetterFonts() {
+                letterFontIdx.length = 0;
+                for (let i = 0; i < N; i++) {
+                    letterFontIdx.push(Math.floor(Math.random() * FONT_SLOTS.length));
+                }
             }
 
             function fontCss(slotIdx, fs) {
@@ -72,7 +79,7 @@
                 const widths = [];
                 let maxGlyphH = 0;
                 for (let i = 0; i < N; i++) {
-                    const s = slotForLetter(i);
+                    const s = letterFontIdx[i];
                     ctx.font = fontCss(s, fs);
                     const m = ctx.measureText(WORD[i]);
                     widths.push(m.width);
@@ -87,11 +94,11 @@
             /** Local layout: ink from (0,0) to (bboxW, bboxH). Draw with ctx scale sx,sy to fill the canvas. */
             function buildNaturalLayout(fs) {
                 const { widths, glyphH } = measureLetters(fs);
-                const letterGap = fs * 0.28;
+                const letterGap = fs * 0.22;
                 let left = 0;
                 const hx = [];
                 for (let i = 0; i < N; i++) {
-                    const slot = FONT_SLOTS[slotForLetter(i)];
+                    const slot = FONT_SLOTS[letterFontIdx[i]];
                     const o = Math.min(fs * slot.overlapTight, widths[i] * slot.overlapFrac);
                     hx.push(left + widths[i] / 2);
                     left += widths[i] - o + letterGap;
@@ -468,11 +475,11 @@
                 fragment: drawTypoFragment,
             };
 
-            function drawLetterTypo(ctx2, l, slotIdx) {
-                const mode = FONT_SLOTS[slotIdx].typoMode;
+            function drawLetterTypo(ctx2, l, fontIdx) {
+                const mode = l.typoMode;
                 const fn = TYPO_DRAW[mode];
                 if (!fn || !l.particles || l.particles.length === 0) {
-                    drawLetterGlyph(ctx2, l.ch, slotIdx, S.fs, l);
+                    drawLetterGlyph(ctx2, l.ch, fontIdx, S.fs, l);
                     return;
                 }
                 fn(ctx2, l);
@@ -480,6 +487,7 @@
 
             function init() {
                 L.length = 0;
+                shuffleLetterFonts();
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 const fs = Math.min(280, Math.max(W, H) * 0.26);
                 const lay = buildNaturalLayout(fs);
@@ -500,7 +508,8 @@
                     const ch = WORD[i];
                     const hxI = hx[i];
                     const hyI = hy;
-                    const sIdx = slotForLetter(i);
+                    const fontIdx = letterFontIdx[i];
+                    const typoMode = pickRandomTypoMode();
                     const tw = Math.ceil(widths[i] + fs * 0.42);
                     const th = Math.ceil(fs * 1.42);
                     const tc = document.createElement('canvas');
@@ -509,16 +518,15 @@
                     const tg = tc.getContext('2d');
                     tg.save();
                     tg.translate(tw / 2, th / 2);
-                    drawLetterGlyph(tg, ch, sIdx, fs, '#fff');
+                    drawLetterGlyph(tg, ch, fontIdx, fs, '#fff');
                     tg.restore();
                     const id = tg.getImageData(0, 0, tw, th);
                     const alpha = new Uint8Array(tw * th);
                     for (let k = 0; k < alpha.length; k++) alpha[k] = id.data[k * 4 + 3];
-                    const slot = FONT_SLOTS[sIdx];
                     const density = 60;
                     // 60–100% of max count, skewed toward the dense end
                     const densityPct = 0.6 + 0.4 * Math.pow(Math.random(), 0.4);
-                    const particles = spawnLetterParticles(alpha, tw, th, density, slot.typoMode, densityPct);
+                    const particles = spawnLetterParticles(alpha, tw, th, density, typoMode, densityPct);
                     L.push({
                         ch, x: hxI, y: hyI,
                         vx: 0, vy: 0, hx: hxI, hy: hyI,
@@ -530,9 +538,10 @@
                         color: ink,
                         solidFill: Math.random() < 0.12,
                         particles,
+                        fontIdx,
                         typoScale: Math.max(8, fs * 0.095),
                         typoWeight: 5,
-                        typoMode: slot.typoMode,
+                        typoMode,
                         jitter: 40,
                         drift: 14,
                     });
@@ -562,10 +571,9 @@
                 ctx.globalCompositeOperation = 'source-over';
                 for (let li = 0; li < L.length; li++) {
                     const l = L[li];
-                    const sIdx = slotForLetter(li);
                     ctx.save();
                     ctx.translate(l.x, l.y);
-                    drawLetterTypo(ctx, l, sIdx);
+                    drawLetterTypo(ctx, l, l.fontIdx);
                     ctx.restore();
                 }
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
