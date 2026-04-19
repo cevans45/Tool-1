@@ -14,7 +14,11 @@
         <section class="hero" id="hero">
             <canvas id="hero-canvas"></canvas>
             <div class="hero-inner hero-inner--bottom">
-                <p class="hero-sub">Open Visual Responsive Tools</p>
+                <svg class="hero-sub" viewBox="0 0 2000 140" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="hero-sub-title">
+                    <title id="hero-sub-title">Open Visual Responsive Tools</title>
+                    <text class="hero-sub-text hero-sub-outline" x="1000" y="78" text-anchor="middle" dominant-baseline="middle" aria-hidden="true">OPEN VISUAL RESPONSIVE TOOLS</text>
+                    <text class="hero-sub-text hero-sub-outline-inner" x="1000" y="78" text-anchor="middle" dominant-baseline="middle" aria-hidden="true">OPEN VISUAL RESPONSIVE TOOLS</text>
+                </svg>
                 <hr class="hero-rule">
                 <p class="hero-copy">
                     A growing set of visual instruments — draw, distort, generate, repeat.
@@ -52,7 +56,7 @@
             ];
 
             /** Typo particle styles; paired independently from font per letter. */
-            const TYPO_MODES = ['circles', 'squares', 'grid', 'diamonds', 'crosses', 'stars', 'fragment'];
+            const TYPO_MODES = ['circles', 'squares', 'grid', 'diamonds', 'stars', 'fragment'];
 
             function cycleKey() {
                 return Math.floor(performance.now() / 5000);

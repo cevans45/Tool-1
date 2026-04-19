@@ -21,6 +21,17 @@
     font-style: normal;
 }
 
+/* Subheader: add fonts/Arnold.woff2 (or .woff) for local Arnold; Bebas Neue is the web fallback. */
+@font-face {
+    font-family: 'Arnold';
+    src: local('Arnold'),
+         url('fonts/Arnold.woff2') format('woff2'),
+         url('fonts/Arnold.woff') format('woff');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -99,12 +110,35 @@ body.is-leaving {
 }
 
 .hero-sub {
-    font-family: 'NG Hofmann', sans-serif;
-    font-size: clamp(18px, 5.5vw, 56px);
+    display: block;
+    width: min(96vw, 960px);
+    height: auto;
+    margin-top: 20px;
+    overflow: visible;
+}
+
+.hero-sub-text {
+    font-family: 'Arnold', 'Bebas Neue', sans-serif;
+    font-size: clamp(22px, 5.2vw, 56px);
+    font-weight: 400;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: rgba(17, 17, 17, 0.45);
-    margin-top: 20px;
+    fill: none;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    paint-order: stroke fill;
+    vector-effect: non-scaling-stroke;
+}
+
+/* Outer stroke (offset path), then inner stroke for a crisp edge */
+.hero-sub-outline {
+    stroke: rgba(17, 17, 17, 0.28);
+    stroke-width: 3.25px;
+}
+
+.hero-sub-outline-inner {
+    stroke: rgba(17, 17, 17, 0.62);
+    stroke-width: 1.35px;
 }
 
 .hero-copy {
