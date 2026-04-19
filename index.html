@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OVRT — Open Visual Responsive Tools</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Averia+Serif+Libre:ital@0;1&family=Bangers&family=Bebas+Neue&family=Great+Vibes&family=Permanent+Marker&family=Space+Grotesk:wght@700&family=UnifrakturMaguntia&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -31,27 +34,67 @@
             let hmx = 0, hmy = 0;
             const L = [];
             const S = { s: 1, tx: 0, ty: 0, bboxW: 1, bboxH: 1, fs: 100 };
+            let lastCycleKey = -1;
+            const WORD = 'OVRT';
+            const N = WORD.length;
+
+            /**
+             * Named styles (Badger … Brush). Webfonts + local NG Hofmann.
+             * overlapTight / overlapFrac tune negative tracking per face (Typo-like tight lockup).
+             */
+            const FONT_SLOTS = [
+                { label: 'Badger', style: 'normal', weight: '400', family: '"Bangers", cursive', overlapTight: 0.12, overlapFrac: 0.30, effect: 'stroke' },
+                { label: 'Hofmann', style: 'normal', weight: '600', family: '"NG Hofmann", sans-serif', overlapTight: 0.17, overlapFrac: 0.36, effect: 'fill' },
+                { label: 'Sloop', style: 'normal', weight: '400', family: '"Great Vibes", cursive', overlapTight: 0.22, overlapFrac: 0.40, effect: 'shadow' },
+                { label: 'Galapagos', style: 'normal', weight: '700', family: '"Space Grotesk", sans-serif', overlapTight: 0.14, overlapFrac: 0.28, effect: 'stroke-light' },
+                { label: 'Maxi Plus', style: 'normal', weight: '400', family: '"Bebas Neue", sans-serif', overlapTight: 0.08, overlapFrac: 0.18, effect: 'double' },
+                { label: 'Averia Italic', style: 'italic', weight: '400', family: '"Averia Serif Libre", serif', overlapTight: 0.16, overlapFrac: 0.32, effect: 'fill' },
+                { label: 'Fraktur', style: 'normal', weight: '400', family: 'UnifrakturMaguntia, fantasy', overlapTight: 0.15, overlapFrac: 0.30, effect: 'stroke-heavy' },
+                { label: 'Brush', style: 'normal', weight: '400', family: '"Permanent Marker", cursive', overlapTight: 0.11, overlapFrac: 0.26, effect: 'shadow-soft' },
+            ];
+
+            function cycleKey() {
+                return Math.floor(performance.now() / 5000);
+            }
+
+            function baseSlot() {
+                return cycleKey() % FONT_SLOTS.length;
+            }
+
+            function slotForLetter(i) {
+                return (baseSlot() + i) % FONT_SLOTS.length;
+            }
+
+            function fontCss(slotIdx, fs) {
+                const o = FONT_SLOTS[slotIdx];
+                return `${o.style} ${o.weight} ${fs}px ${o.family}`;
+            }
 
             function measureLetters(fs) {
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                ctx.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
-                const word = 'OVRT';
                 const widths = [];
-                for (const ch of word) widths.push(ctx.measureText(ch).width);
-                const m = ctx.measureText('O');
-                const asc = m.actualBoundingBoxAscent ?? fs * 0.38;
-                const desc = m.actualBoundingBoxDescent ?? fs * 0.38;
-                const glyphH = Math.max(asc + desc, fs * 0.84);
-                return { widths, glyphH, asc, desc };
+                let maxGlyphH = 0;
+                for (let i = 0; i < N; i++) {
+                    const s = slotForLetter(i);
+                    ctx.font = fontCss(s, fs);
+                    const m = ctx.measureText(WORD[i]);
+                    widths.push(m.width);
+                    const asc = m.actualBoundingBoxAscent ?? fs * 0.72;
+                    const desc = m.actualBoundingBoxDescent ?? fs * 0.22;
+                    maxGlyphH = Math.max(maxGlyphH, asc + desc);
+                }
+                const glyphH = Math.max(maxGlyphH, fs * 0.88);
+                return { widths, glyphH };
             }
 
             /** Local layout: ink from (0,0) to (bboxW, bboxH). Draw with ctx scale sx,sy to fill the canvas. */
             function buildNaturalLayout(fs) {
                 const { widths, glyphH } = measureLetters(fs);
-                const o = Math.min(fs * 0.18, Math.min(...widths) * 0.38);
                 let left = 0;
                 const hx = [];
-                for (let i = 0; i < 4; i++) {
+                for (let i = 0; i < N; i++) {
+                    const slot = FONT_SLOTS[slotForLetter(i)];
+                    const o = Math.min(fs * slot.overlapTight, widths[i] * slot.overlapFrac);
                     hx.push(left + widths[i] / 2);
                     left += widths[i] - o;
                 }
@@ -59,6 +102,54 @@
                 const bboxH = glyphH;
                 const hy = glyphH / 2;
                 return { widths, glyphH, hx, hy, bboxW, bboxH };
+            }
+
+            function drawLetterGlyph(ctx2, ch, slotIdx, fs, fillRgb) {
+                const slot = FONT_SLOTS[slotIdx];
+                ctx2.font = fontCss(slotIdx, fs);
+                ctx2.textAlign = 'center';
+                ctx2.textBaseline = 'middle';
+                ctx2.fillStyle = fillRgb;
+                const eff = slot.effect;
+                if (eff === 'stroke' || eff === 'stroke-light' || eff === 'stroke-heavy') {
+                    const lw = eff === 'stroke-heavy' ? fs * 0.055 : eff === 'stroke-light' ? fs * 0.028 : fs * 0.038;
+                    ctx2.lineJoin = 'round';
+                    ctx2.lineWidth = Math.max(1, lw);
+                    ctx2.strokeStyle = 'rgba(0,0,0,0.28)';
+                    ctx2.strokeText(ch, 0, 0);
+                    ctx2.fillText(ch, 0, 0);
+                    return;
+                }
+                if (eff === 'shadow') {
+                    ctx2.shadowColor = 'rgba(0,0,0,0.22)';
+                    ctx2.shadowBlur = fs * 0.07;
+                    ctx2.shadowOffsetX = fs * 0.025;
+                    ctx2.shadowOffsetY = fs * 0.035;
+                    ctx2.fillText(ch, 0, 0);
+                    ctx2.shadowBlur = 0;
+                    ctx2.shadowOffsetX = 0;
+                    ctx2.shadowOffsetY = 0;
+                    return;
+                }
+                if (eff === 'shadow-soft') {
+                    ctx2.shadowColor = 'rgba(0,0,0,0.14)';
+                    ctx2.shadowBlur = fs * 0.05;
+                    ctx2.shadowOffsetX = fs * 0.02;
+                    ctx2.shadowOffsetY = fs * 0.03;
+                    ctx2.fillText(ch, 0, 0);
+                    ctx2.shadowBlur = 0;
+                    ctx2.shadowOffsetX = 0;
+                    ctx2.shadowOffsetY = 0;
+                    return;
+                }
+                if (eff === 'double') {
+                    ctx2.globalAlpha = 0.42;
+                    ctx2.fillText(ch, fs * 0.018, fs * 0.028);
+                    ctx2.globalAlpha = 1;
+                    ctx2.fillText(ch, 0, 0);
+                    return;
+                }
+                ctx2.fillText(ch, 0, 0);
             }
 
             function init() {
@@ -77,21 +168,21 @@
                 S.tx = (W - S.bboxW * S.s) / 2;
                 S.ty = (H - S.bboxH * S.s) / 2;
                 const { widths, hx, hy } = lay;
-                ctx.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
-                const word = 'OVRT';
                 const letterColors = ['#00fff8', '#ff00e7', '#ffff00', '#ff00e7'];
-                for (let i = 0; i < 4; i++) {
-                    const ch = word[i];
+                for (let i = 0; i < N; i++) {
+                    const ch = WORD[i];
                     const hxI = hx[i];
                     const hyI = hy;
+                    const sIdx = slotForLetter(i);
+                    const tw = Math.ceil(widths[i] + fs * 0.42);
+                    const th = Math.ceil(fs * 1.42);
                     const tc = document.createElement('canvas');
-                    const tw = Math.ceil(widths[i] + 30), th = Math.ceil(fs * 1.35);
                     tc.width = tw; tc.height = th;
                     const tg = tc.getContext('2d');
-                    tg.font = '600 ' + fs + 'px "NG Hofmann", sans-serif';
-                    tg.textAlign = 'center'; tg.textBaseline = 'middle';
-                    tg.fillStyle = '#fff';
-                    tg.fillText(ch, tw / 2, th / 2);
+                    tg.save();
+                    tg.translate(tw / 2, th / 2);
+                    drawLetterGlyph(tg, ch, sIdx, fs, '#fff');
+                    tg.restore();
                     const id = tg.getImageData(0, 0, tw, th);
                     const alpha = new Uint8Array(tw * th);
                     for (let k = 0; k < alpha.length; k++) alpha[k] = id.data[k * 4 + 3];
@@ -122,6 +213,12 @@
             }
 
             function tick() {
+                const ck = cycleKey();
+                if (ck !== lastCycleKey) {
+                    lastCycleKey = ck;
+                    init();
+                }
+
                 const t = performance.now() * 0.001;
 
                 for (const l of L) {
@@ -156,15 +253,14 @@
                 ctx.fillRect(0, 0, W, H);
                 ctx.setTransform(S.s * dpr, 0, 0, S.s * dpr, S.tx * dpr, S.ty * dpr);
                 ctx.globalCompositeOperation = 'multiply';
-                for (const l of L) {
+                for (let li = 0; li < L.length; li++) {
+                    const l = L[li];
+                    const sIdx = slotForLetter(li);
                     ctx.save();
                     ctx.translate(l.x, l.y);
                     ctx.rotate(l.rot);
                     ctx.scale(l.sx, l.sy);
-                    ctx.font = '600 ' + S.fs + 'px "NG Hofmann", sans-serif';
-                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                    ctx.fillStyle = l.color;
-                    ctx.fillText(l.ch, 0, 0);
+                    drawLetterGlyph(ctx, l.ch, sIdx, S.fs, l.color);
                     ctx.restore();
                 }
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -263,6 +359,7 @@
             window.addEventListener('resize', resize);
             document.fonts.ready.then(resize);
             resize();
+            lastCycleKey = cycleKey();
             requestAnimationFrame(tick);
         })();
         </script>
