@@ -6,7 +6,7 @@
     <title>OVRT — Open Visual Responsive Tools</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Averia+Serif+Libre:ital@0;1&family=Bangers&family=Bebas+Neue&family=Great+Vibes&family=Permanent+Marker&family=Space+Grotesk:wght@700&family=UnifrakturMaguntia&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Averia+Serif+Libre:ital@0;1&family=Bangers&family=Bebas+Neue&family=DM+Sans:wght@700&family=Permanent+Marker&family=Space+Grotesk:wght@700&family=UnifrakturMaguntia&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -42,7 +42,7 @@
             const FONT_SLOTS = [
                 { label: 'Badger', style: 'normal', weight: '400', family: '"Bangers", cursive', overlapTight: 0.12, overlapFrac: 0.30, effect: 'stroke', typoMode: 'circles' },
                 { label: 'Hofmann', style: 'normal', weight: '600', family: '"NG Hofmann", sans-serif', overlapTight: 0.17, overlapFrac: 0.36, effect: 'fill', typoMode: 'squares' },
-                { label: 'Sloop', style: 'normal', weight: '400', family: '"Great Vibes", cursive', overlapTight: 0.22, overlapFrac: 0.40, effect: 'shadow', typoMode: 'grid' },
+                { label: 'Display', style: 'normal', weight: '700', family: '"DM Sans", sans-serif', overlapTight: 0.12, overlapFrac: 0.28, effect: 'shadow', typoMode: 'grid' },
                 { label: 'Galapagos', style: 'normal', weight: '700', family: '"Space Grotesk", sans-serif', overlapTight: 0.14, overlapFrac: 0.28, effect: 'stroke-light', typoMode: 'diamonds' },
                 { label: 'Maxi Plus', style: 'normal', weight: '400', family: '"Bebas Neue", sans-serif', overlapTight: 0.08, overlapFrac: 0.18, effect: 'double', typoMode: 'crosses' },
                 { label: 'Averia Italic', style: 'italic', weight: '400', family: '"Averia Serif Libre", serif', overlapTight: 0.16, overlapFrac: 0.32, effect: 'fill', typoMode: 'stars' },
@@ -169,6 +169,42 @@
                     });
                 }
                 return particles;
+            }
+
+            /** Very slow in-letter particle motion (subtle jitter). */
+            function stepLetterParticles(l) {
+                if (!l.particles || !l.particles.length) return;
+                const { alpha, aw: tw, ah: th, jitter, drift } = l;
+                const speedMul = Math.max(0.012, jitter * 0.0011);
+                const driftChance = drift * 0.0018;
+                const driftRange = drift * 0.35;
+                for (const p of l.particles) {
+                    const nx = p.x + p.vx * speedMul;
+                    const ny = p.y + p.vy * speedMul;
+                    const xOut = !letterInside(alpha, tw, th, nx, p.y);
+                    const yOut = !letterInside(alpha, tw, th, p.x, ny);
+                    if (xOut) {
+                        if (p.escaped < driftRange && Math.random() < driftChance) p.escaped += speedMul;
+                        else {
+                            p.vx *= -1;
+                            if (p.escaped > 0) p.escaped -= speedMul * 0.5;
+                        }
+                    } else if (p.escaped > 0) p.escaped -= speedMul * 0.3;
+                    if (yOut) {
+                        if (p.escaped < driftRange && Math.random() < driftChance) p.escaped += speedMul;
+                        else {
+                            p.vy *= -1;
+                            if (p.escaped > 0) p.escaped -= speedMul * 0.5;
+                        }
+                    } else if (p.escaped > 0) p.escaped -= speedMul * 0.3;
+                    p.x += p.vx * speedMul;
+                    p.y += p.vy * speedMul;
+                    if (p.x < -20 || p.x > tw + 20 || p.y < -20 || p.y > th + 20) {
+                        p.x = p.homeX; p.y = p.homeY;
+                        p.escaped = 0;
+                        p.vx *= -1; p.vy *= -1;
+                    }
+                }
             }
 
             function drawFragPolyHero(target, p, r) {
@@ -444,7 +480,7 @@
             function init() {
                 L.length = 0;
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                const fs = Math.min(320, Math.max(W, H) * 0.28);
+                const fs = Math.min(180, Math.max(W, H) * 0.17);
                 const lay = buildNaturalLayout(fs);
                 S.fs = fs;
                 S.bboxW = Math.max(lay.bboxW, 1);
@@ -495,8 +531,8 @@
                         typoScale: Math.max(8, fs * 0.095),
                         typoWeight: 5,
                         typoMode: slot.typoMode,
-                        jitter: 36,
-                        drift: 18,
+                        jitter: 40,
+                        drift: 14,
                     });
                 }
             }
@@ -513,6 +549,7 @@
                     l.y = l.hy;
                     l.rot = 0;
                     l.sx = l.sy = 1;
+                    stepLetterParticles(l);
                 }
 
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
