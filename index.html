@@ -480,15 +480,16 @@
             function init() {
                 L.length = 0;
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                const fs = Math.min(180, Math.max(W, H) * 0.17);
+                const fs = Math.min(120, Math.max(W, H) * 0.11);
                 const lay = buildNaturalLayout(fs);
                 S.fs = fs;
                 S.bboxW = Math.max(lay.bboxW, 1);
                 S.bboxH = Math.max(lay.bboxH, 1);
                 const fitX = W / S.bboxW;
                 const fitY = H / S.bboxH;
-                const widthLimit = fitX * 0.92;
-                const heightBoost = fitY * 1.05;
+                /* Layout scales to fit bbox; lower fractions = smaller word on screen (not edge-to-edge). */
+                const widthLimit = fitX * 0.48;
+                const heightBoost = fitY * 0.52;
                 S.s = Math.min(widthLimit, heightBoost);
                 S.tx = (W - S.bboxW * S.s) / 2;
                 S.ty = (H - S.bboxH * S.s) / 2;
