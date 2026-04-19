@@ -29,9 +29,6 @@
             const ctx = canvas.getContext('2d');
             const hero = document.getElementById('hero');
             let W, H, dpr;
-            let dragging = null;
-            let pmx = 0, pmy = 0;
-            let hmx = 0, hmy = 0;
             const L = [];
             const S = { s: 1, tx: 0, ty: 0, bboxW: 1, bboxH: 1, fs: 100 };
             let lastCycleKey = -1;
@@ -104,53 +101,35 @@
                 return { widths, glyphH, hx, hy, bboxW, bboxH };
             }
 
-            function drawLetterGlyph(ctx2, ch, slotIdx, fs, fillRgb) {
+            /** Mask: paint '#fff'. Display: pass letter state object l — black outline + white fill most of the time. */
+            function drawLetterGlyph(ctx2, ch, slotIdx, fs, paint) {
                 const slot = FONT_SLOTS[slotIdx];
                 ctx2.font = fontCss(slotIdx, fs);
                 ctx2.textAlign = 'center';
                 ctx2.textBaseline = 'middle';
-                ctx2.fillStyle = fillRgb;
-                const eff = slot.effect;
-                if (eff === 'stroke' || eff === 'stroke-light' || eff === 'stroke-heavy') {
-                    const lw = eff === 'stroke-heavy' ? fs * 0.055 : eff === 'stroke-light' ? fs * 0.028 : fs * 0.038;
-                    ctx2.lineJoin = 'round';
-                    ctx2.lineWidth = Math.max(1, lw);
-                    ctx2.strokeStyle = 'rgba(0,0,0,0.28)';
-                    ctx2.strokeText(ch, 0, 0);
+                if (paint === '#fff' || paint === '#ffffff') {
+                    ctx2.fillStyle = '#ffffff';
                     ctx2.fillText(ch, 0, 0);
                     return;
                 }
-                if (eff === 'shadow') {
-                    ctx2.shadowColor = 'rgba(0,0,0,0.22)';
-                    ctx2.shadowBlur = fs * 0.07;
-                    ctx2.shadowOffsetX = fs * 0.025;
-                    ctx2.shadowOffsetY = fs * 0.035;
-                    ctx2.fillText(ch, 0, 0);
-                    ctx2.shadowBlur = 0;
-                    ctx2.shadowOffsetX = 0;
-                    ctx2.shadowOffsetY = 0;
-                    return;
-                }
-                if (eff === 'shadow-soft') {
-                    ctx2.shadowColor = 'rgba(0,0,0,0.14)';
-                    ctx2.shadowBlur = fs * 0.05;
-                    ctx2.shadowOffsetX = fs * 0.02;
-                    ctx2.shadowOffsetY = fs * 0.03;
-                    ctx2.fillText(ch, 0, 0);
-                    ctx2.shadowBlur = 0;
-                    ctx2.shadowOffsetX = 0;
-                    ctx2.shadowOffsetY = 0;
-                    return;
-                }
-                if (eff === 'double') {
-                    ctx2.globalAlpha = 0.38;
-                    ctx2.fillStyle = fillRgb;
-                    ctx2.fillText(ch, fs * 0.018, fs * 0.028);
-                    ctx2.globalAlpha = 1;
+                const l = paint;
+                const ink = l.color || '#0a0a0a';
+                if (l.solidFill) {
+                    ctx2.fillStyle = ink;
                     ctx2.fillText(ch, 0, 0);
                     return;
                 }
+                const lw = fs * 0.042;
+                ctx2.lineJoin = 'round';
+                ctx2.lineWidth = Math.max(1, lw);
+                ctx2.strokeStyle = ink;
+                ctx2.strokeText(ch, 0, 0);
+                ctx2.fillStyle = '#ffffff';
                 ctx2.fillText(ch, 0, 0);
+            }
+
+            function strokeInset() {
+                return Math.max(1.2, S.fs * 0.019);
             }
 
             function letterInside(alpha, tw, th, x, y) {
@@ -192,41 +171,6 @@
                 return particles;
             }
 
-            function stepLetterParticles(l) {
-                if (!l.particles || !l.particles.length) return;
-                const { alpha, aw: tw, ah: th, jitter, drift } = l;
-                const speedMul = jitter * 0.03;
-                const driftChance = drift * 0.01;
-                const driftRange = drift * 0.6;
-                for (const p of l.particles) {
-                    const nx = p.x + p.vx * speedMul;
-                    const ny = p.y + p.vy * speedMul;
-                    const xOut = !letterInside(alpha, tw, th, nx, p.y);
-                    const yOut = !letterInside(alpha, tw, th, p.x, ny);
-                    if (xOut) {
-                        if (p.escaped < driftRange && Math.random() < driftChance) p.escaped += speedMul;
-                        else {
-                            p.vx *= -1;
-                            if (p.escaped > 0) p.escaped -= speedMul * 0.5;
-                        }
-                    } else if (p.escaped > 0) p.escaped -= speedMul * 0.3;
-                    if (yOut) {
-                        if (p.escaped < driftRange && Math.random() < driftChance) p.escaped += speedMul;
-                        else {
-                            p.vy *= -1;
-                            if (p.escaped > 0) p.escaped -= speedMul * 0.5;
-                        }
-                    } else if (p.escaped > 0) p.escaped -= speedMul * 0.3;
-                    p.x += p.vx * speedMul;
-                    p.y += p.vy * speedMul;
-                    if (p.x < -20 || p.x > tw + 20 || p.y < -20 || p.y > th + 20) {
-                        p.x = p.homeX; p.y = p.homeY;
-                        p.escaped = 0;
-                        p.vx *= -1; p.vy *= -1;
-                    }
-                }
-            }
-
             function drawFragPolyHero(target, p, r) {
                 const sides = 3 + Math.floor(p.scale * 4);
                 const rot = p.phase;
@@ -248,6 +192,7 @@
             function drawTypoCircles(ctx2, l) {
                 const scale = l.typoScale;
                 const maxR = scale * 0.5;
+                const inset = strokeInset();
                 ctx2.fillStyle = l.color;
                 ctx2.globalAlpha = 1;
                 for (const p of l.particles) {
@@ -256,11 +201,22 @@
                     ctx2.arc(cx(l, p), cy(l, p), r, 0, Math.PI * 2);
                     ctx2.fill();
                 }
+                if (!l.solidFill) {
+                    ctx2.fillStyle = '#ffffff';
+                    for (const p of l.particles) {
+                        const r = maxR * p.scale;
+                        const inner = Math.max(0.4, r - inset);
+                        ctx2.beginPath();
+                        ctx2.arc(cx(l, p), cy(l, p), inner, 0, Math.PI * 2);
+                        ctx2.fill();
+                    }
+                }
             }
 
             function drawTypoSquares(ctx2, l) {
                 const scale = l.typoScale;
                 const maxS = scale * 0.9;
+                const inset = strokeInset();
                 ctx2.fillStyle = l.color;
                 for (const p of l.particles) {
                     const s = maxS * p.scale;
@@ -270,11 +226,24 @@
                     ctx2.fillRect(-s / 2, -s / 2, s, s);
                     ctx2.restore();
                 }
+                if (!l.solidFill) {
+                    ctx2.fillStyle = '#ffffff';
+                    for (const p of l.particles) {
+                        const s = maxS * p.scale;
+                        const inner = Math.max(0.5, s - inset * 2);
+                        ctx2.save();
+                        ctx2.translate(cx(l, p), cy(l, p));
+                        ctx2.rotate(p.phase * 0.15);
+                        ctx2.fillRect(-inner / 2, -inner / 2, inner, inner);
+                        ctx2.restore();
+                    }
+                }
             }
 
             function drawTypoGrid(ctx2, l) {
                 const scale = l.typoScale;
                 const cellSize = Math.max(3, scale * 0.7);
+                const inset = strokeInset();
                 ctx2.fillStyle = l.color;
                 for (const p of l.particles) {
                     const gx = Math.round(p.x / cellSize) * cellSize;
@@ -284,11 +253,24 @@
                     const py = gy - l.ah / 2;
                     ctx2.fillRect(px - s / 2, py - s / 2, s, s);
                 }
+                if (!l.solidFill) {
+                    ctx2.fillStyle = '#ffffff';
+                    for (const p of l.particles) {
+                        const gx = Math.round(p.x / cellSize) * cellSize;
+                        const gy = Math.round(p.y / cellSize) * cellSize;
+                        const s = cellSize * 0.9;
+                        const inner = Math.max(0.5, s - inset * 2);
+                        const px = gx - l.aw / 2;
+                        const py = gy - l.ah / 2;
+                        ctx2.fillRect(px - inner / 2, py - inner / 2, inner, inner);
+                    }
+                }
             }
 
             function drawTypoDiamonds(ctx2, l) {
                 const scale = l.typoScale;
                 const maxR = scale * 0.5;
+                const inset = strokeInset();
                 ctx2.fillStyle = l.color;
                 for (const p of l.particles) {
                     const r = maxR * p.scale;
@@ -301,6 +283,22 @@
                     ctx2.lineTo(x - rw, y);
                     ctx2.closePath();
                     ctx2.fill();
+                }
+                if (!l.solidFill) {
+                    ctx2.fillStyle = '#ffffff';
+                    for (const p of l.particles) {
+                        const r = maxR * p.scale;
+                        const r2 = Math.max(0.35, r - inset);
+                        const rw = r2 * 0.7;
+                        const x = cx(l, p), y = cy(l, p);
+                        ctx2.beginPath();
+                        ctx2.moveTo(x, y - r2);
+                        ctx2.lineTo(x + rw, y);
+                        ctx2.lineTo(x, y + r2);
+                        ctx2.lineTo(x - rw, y);
+                        ctx2.closePath();
+                        ctx2.fill();
+                    }
                 }
             }
 
@@ -327,6 +325,7 @@
             function drawTypoStars(ctx2, l) {
                 const scale = l.typoScale;
                 const maxR = scale * 0.5;
+                const inset = strokeInset();
                 ctx2.fillStyle = l.color;
                 for (const p of l.particles) {
                     const outer = maxR * p.scale;
@@ -345,6 +344,27 @@
                     }
                     ctx2.closePath();
                     ctx2.fill();
+                }
+                if (!l.solidFill) {
+                    ctx2.fillStyle = '#ffffff';
+                    for (const p of l.particles) {
+                        const outer = Math.max(0.4, maxR * p.scale - inset);
+                        const innerR = outer * 0.4;
+                        const pts = 5;
+                        const rot = p.phase;
+                        const x = cx(l, p), y = cy(l, p);
+                        ctx2.beginPath();
+                        for (let i = 0; i <= pts * 2; i++) {
+                            const a = (Math.PI * 2 / (pts * 2)) * i + rot;
+                            const rad = i % 2 === 0 ? outer : innerR;
+                            const sx = x + Math.cos(a) * rad;
+                            const sy = y + Math.sin(a) * rad;
+                            if (i === 0) ctx2.moveTo(sx, sy);
+                            else ctx2.lineTo(sx, sy);
+                        }
+                        ctx2.closePath();
+                        ctx2.fill();
+                    }
                 }
             }
 
@@ -378,6 +398,7 @@
             function drawTypoFragment(ctx2, l) {
                 const scale = l.typoScale;
                 const maxR = scale * 0.5;
+                const inset = strokeInset();
                 ctx2.fillStyle = l.color;
                 for (const p of l.particles) {
                     const x = cx(l, p), y = cy(l, p);
@@ -385,6 +406,17 @@
                     ctx2.translate(x, y);
                     drawFragPolyHero(ctx2, { x: 0, y: 0, scale: p.scale, phase: p.phase }, maxR * p.scale);
                     ctx2.restore();
+                }
+                if (!l.solidFill) {
+                    ctx2.fillStyle = '#ffffff';
+                    for (const p of l.particles) {
+                        const x = cx(l, p), y = cy(l, p);
+                        const r = Math.max(0.35, maxR * p.scale - inset);
+                        ctx2.save();
+                        ctx2.translate(x, y);
+                        drawFragPolyHero(ctx2, { x: 0, y: 0, scale: p.scale, phase: p.phase }, r);
+                        ctx2.restore();
+                    }
                 }
             }
 
@@ -403,7 +435,7 @@
                 const mode = FONT_SLOTS[slotIdx].typoMode;
                 const fn = TYPO_DRAW[mode];
                 if (!fn || !l.particles || l.particles.length === 0) {
-                    drawLetterGlyph(ctx2, l.ch, slotIdx, S.fs, l.color);
+                    drawLetterGlyph(ctx2, l.ch, slotIdx, S.fs, l);
                     return;
                 }
                 fn(ctx2, l);
@@ -412,7 +444,7 @@
             function init() {
                 L.length = 0;
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                const fs = Math.min(880, Math.max(W, H) * 0.58);
+                const fs = Math.min(320, Math.max(W, H) * 0.28);
                 const lay = buildNaturalLayout(fs);
                 S.fs = fs;
                 S.bboxW = Math.max(lay.bboxW, 1);
@@ -458,6 +490,7 @@
                         phase: Math.random() * 6.28,
                         alpha, aw: tw, ah: th,
                         color: ink,
+                        solidFill: Math.random() < 0.12,
                         particles,
                         typoScale: Math.max(8, fs * 0.095),
                         typoWeight: 5,
@@ -468,56 +501,6 @@
                 }
             }
 
-            /** Keep letter centroids from overlapping (soft-body radii from glyph half-extents). */
-            function separateLetters() {
-                const gap = S.fs * 0.04;
-                for (let pass = 0; pass < 4; pass++) {
-                    for (let i = 0; i < L.length; i++) {
-                        for (let j = i + 1; j < L.length; j++) {
-                            const a = L[i], b = L[j];
-                            const dx = b.x - a.x, dy = b.y - a.y;
-                            const dist = Math.hypot(dx, dy) || 1e-6;
-                            const ra = Math.hypot(a.hw, a.hh) + gap;
-                            const rb = Math.hypot(b.hw, b.hh) + gap;
-                            const minD = ra + rb;
-                            if (dist >= minD) continue;
-                            const push = (minD - dist) * 0.52;
-                            const nx = dx / dist, ny = dy / dist;
-                            if (dragging && a === dragging.l) {
-                                b.x += nx * push * 2;
-                                b.y += ny * push * 2;
-                            } else if (dragging && b === dragging.l) {
-                                a.x -= nx * push * 2;
-                                a.y -= ny * push * 2;
-                            } else {
-                                a.x -= nx * push;
-                                a.y -= ny * push;
-                                b.x += nx * push;
-                                b.y += ny * push;
-                            }
-                        }
-                    }
-                }
-                const m = S.fs * 0.48;
-                for (const l of L) {
-                    l.x = Math.max(m, Math.min(S.bboxW - m, l.x));
-                    l.y = Math.max(m, Math.min(S.bboxH - m, l.y));
-                }
-            }
-
-            function pointInLetter(l, px, py) {
-                if (!S.s) return false;
-                const plx = (px - S.tx) / S.s;
-                const ply = (py - S.ty) / S.s;
-                const dx = plx - l.x, dy = ply - l.y;
-                const c = Math.cos(-l.rot), s = Math.sin(-l.rot);
-                const lx = dx * c - dy * s + l.aw / 2;
-                const ly = dx * s + dy * c + l.ah / 2;
-                const ix = Math.round(lx), iy = Math.round(ly);
-                if (ix < 0 || ix >= l.aw || iy < 0 || iy >= l.ah) return false;
-                return l.alpha[iy * l.aw + ix] > 60;
-            }
-
             function tick() {
                 const ck = cycleKey();
                 if (ck !== lastCycleKey) {
@@ -525,137 +508,30 @@
                     init();
                 }
 
-                const t = performance.now() * 0.001;
-
                 for (const l of L) {
-                    if (dragging && l === dragging.l) continue;
-                    l.vx += (l.hx - l.x) * 0.0009;
-                    l.vy += (l.hy - l.y) * 0.0009;
-                    l.vx += Math.sin(t * 0.1 + l.phase) * 0.003;
-                    l.vy += Math.cos(t * 0.15 + l.phase * 1.3) * 0.003;
-                    l.vx *= 0.994; l.vy *= 0.994;
-                    l.x += l.vx; l.y += l.vy;
-                    const tRot = Math.atan2(l.vy, l.vx) * 0.02;
-                    l.rot += (tRot - l.rot) * 0.04;
-                    l.rot *= 0.97;
+                    l.x = l.hx;
+                    l.y = l.hy;
+                    l.rot = 0;
+                    l.sx = l.sy = 1;
                 }
-
-                for (const l of L) {
-                    const speed = Math.sqrt(l.vx * l.vx + l.vy * l.vy);
-                    const sq = Math.min(speed * 0.005, 0.08);
-                    l.sx += (1 + sq - l.sx) * 0.06;
-                    l.sy += (1 - sq * 0.35 - l.sy) * 0.06;
-                    const m = S.fs * 0.48;
-                    const x0 = l.x, y0 = l.y;
-                    l.x = Math.max(m, Math.min(S.bboxW - m, l.x));
-                    l.y = Math.max(m, Math.min(S.bboxH - m, l.y));
-                    if (Math.abs(l.x - x0) > 0.5) l.vx *= -0.25;
-                    if (Math.abs(l.y - y0) > 0.5) l.vy *= -0.25;
-                }
-
-                separateLetters();
-
-                for (const l of L) stepLetterParticles(l);
 
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 ctx.globalCompositeOperation = 'source-over';
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, W, H);
                 ctx.setTransform(S.s * dpr, 0, 0, S.s * dpr, S.tx * dpr, S.ty * dpr);
-                ctx.globalCompositeOperation = 'multiply';
+                ctx.globalCompositeOperation = 'source-over';
                 for (let li = 0; li < L.length; li++) {
                     const l = L[li];
                     const sIdx = slotForLetter(li);
                     ctx.save();
                     ctx.translate(l.x, l.y);
-                    ctx.rotate(l.rot);
-                    ctx.scale(l.sx, l.sy);
                     drawLetterTypo(ctx, l, sIdx);
                     ctx.restore();
                 }
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                ctx.globalCompositeOperation = 'source-over';
                 requestAnimationFrame(tick);
             }
-
-            function getXY(e) {
-                const r = hero.getBoundingClientRect();
-                const src = e.touches ? e.touches[0] : e;
-                return { x: src.clientX - r.left, y: src.clientY - r.top };
-            }
-
-            function hitTest(px, py) {
-                for (let i = L.length - 1; i >= 0; i--)
-                    if (pointInLetter(L[i], px, py)) return i;
-                return -1;
-            }
-
-            function startDrag(px, py) {
-                const idx = hitTest(px, py);
-                if (idx < 0) return false;
-                const l = L[idx];
-                const lx = (px - S.tx) / S.s, ly = (py - S.ty) / S.s;
-                dragging = { l, ox: lx - l.x, oy: ly - l.y };
-                l.vx = 0; l.vy = 0;
-                pmx = lx; pmy = ly;
-                canvas.style.cursor = 'grabbing';
-                return true;
-            }
-
-            function moveDrag(px, py) {
-                if (!dragging) return;
-                const l = dragging.l;
-                const lx = (px - S.tx) / S.s, ly = (py - S.ty) / S.s;
-                l.x = lx - dragging.ox;
-                l.y = ly - dragging.oy;
-                const m = S.fs * 0.48;
-                l.x = Math.max(m, Math.min(S.bboxW - m, l.x));
-                l.y = Math.max(m, Math.min(S.bboxH - m, l.y));
-                l.vx = (lx - pmx) * 0.4;
-                l.vy = (ly - pmy) * 0.4;
-                const grabY = dragging.oy;
-                const hangAngle = Math.atan2(l.vx, Math.max(10, -grabY)) * 0.3;
-                l.rot += (hangAngle - l.rot) * 0.15;
-                pmx = lx; pmy = ly;
-            }
-
-            canvas.addEventListener('mousedown', e => {
-                const p = getXY(e);
-                if (startDrag(p.x, p.y)) e.preventDefault();
-            });
-            canvas.addEventListener('mousemove', e => {
-                const p = getXY(e);
-                if (!dragging) {
-                    const mdx = p.x - hmx, mdy = p.y - hmy;
-                    hmx = p.x; hmy = p.y;
-                    const mspeed = Math.sqrt(mdx * mdx + mdy * mdy);
-                    if (mspeed > 2 && S.s) {
-                        for (const l of L) {
-                            if (pointInLetter(l, p.x, p.y)) {
-                                const push = Math.min(mspeed * 0.02, 0.6);
-                                l.vx += (mdx / mspeed) * push / S.s;
-                                l.vy += (mdy / mspeed) * push / S.s;
-                            }
-                        }
-                    }
-                    canvas.style.cursor = hitTest(p.x, p.y) >= 0 ? 'grab' : '';
-                    return;
-                }
-                moveDrag(p.x, p.y);
-            });
-            window.addEventListener('mouseup', () => {
-                if (dragging) { canvas.style.cursor = 'grab'; dragging = null; }
-            });
-            canvas.addEventListener('touchstart', e => {
-                const p = getXY(e);
-                if (startDrag(p.x, p.y)) e.preventDefault();
-            }, { passive: false });
-            canvas.addEventListener('touchmove', e => {
-                if (!dragging) return;
-                e.preventDefault();
-                moveDrag(getXY(e).x, getXY(e).y);
-            }, { passive: false });
-            window.addEventListener('touchend', () => { dragging = null; });
 
             function resize() {
                 const r = hero.getBoundingClientRect();
@@ -663,6 +539,7 @@
                 dpr = Math.max(1, devicePixelRatio || 1);
                 canvas.width = W * dpr; canvas.height = H * dpr;
                 canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+                canvas.style.pointerEvents = 'none';
                 init();
             }
 
