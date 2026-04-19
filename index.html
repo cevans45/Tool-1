@@ -46,7 +46,7 @@
                 { label: 'Galapagos', style: 'normal', weight: '700', family: '"Space Grotesk", sans-serif', overlapTight: 0.14, overlapFrac: 0.28, effect: 'stroke-light', typoMode: 'diamonds' },
                 { label: 'Maxi Plus', style: 'normal', weight: '400', family: '"Bebas Neue", sans-serif', overlapTight: 0.08, overlapFrac: 0.18, effect: 'double', typoMode: 'crosses' },
                 { label: 'Averia Italic', style: 'italic', weight: '400', family: '"Averia Serif Libre", serif', overlapTight: 0.16, overlapFrac: 0.32, effect: 'fill', typoMode: 'stars' },
-                { label: 'Fraktur', style: 'normal', weight: '400', family: 'UnifrakturMaguntia, fantasy', overlapTight: 0.15, overlapFrac: 0.30, effect: 'stroke-heavy', typoMode: 'net' },
+                { label: 'Fraktur', style: 'normal', weight: '400', family: 'UnifrakturMaguntia, fantasy', overlapTight: 0.15, overlapFrac: 0.30, effect: 'stroke-heavy', typoMode: 'stars' },
                 { label: 'Brush', style: 'normal', weight: '400', family: '"Permanent Marker", cursive', overlapTight: 0.11, overlapFrac: 0.26, effect: 'shadow-soft', typoMode: 'fragment' },
             ];
 
@@ -87,7 +87,7 @@
             /** Local layout: ink from (0,0) to (bboxW, bboxH). Draw with ctx scale sx,sy to fill the canvas. */
             function buildNaturalLayout(fs) {
                 const { widths, glyphH } = measureLetters(fs);
-                const letterGap = fs * 0.18;
+                const letterGap = fs * 0.28;
                 let left = 0;
                 const hx = [];
                 for (let i = 0; i < N; i++) {
@@ -120,9 +120,9 @@
                     ctx2.fillText(ch, 0, 0);
                     return;
                 }
-                const lw = fs * 0.042;
+                const lw = fs * 0.026;
                 ctx2.lineJoin = 'round';
-                ctx2.lineWidth = Math.max(1, lw);
+                ctx2.lineWidth = Math.max(0.85, lw);
                 ctx2.strokeStyle = ink;
                 ctx2.strokeText(ch, 0, 0);
                 ctx2.fillStyle = '#ffffff';
@@ -130,7 +130,7 @@
             }
 
             function strokeInset() {
-                return Math.max(1.2, S.fs * 0.019);
+                return Math.max(0.9, S.fs * 0.012);
             }
 
             function letterInside(alpha, tw, th, x, y) {
