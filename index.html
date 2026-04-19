@@ -43,14 +43,14 @@
              * overlapTight / overlapFrac tune negative tracking per face (Typo-like tight lockup).
              */
             const FONT_SLOTS = [
-                { label: 'Badger', style: 'normal', weight: '400', family: '"Bangers", cursive', overlapTight: 0.12, overlapFrac: 0.30, effect: 'stroke' },
-                { label: 'Hofmann', style: 'normal', weight: '600', family: '"NG Hofmann", sans-serif', overlapTight: 0.17, overlapFrac: 0.36, effect: 'fill' },
-                { label: 'Sloop', style: 'normal', weight: '400', family: '"Great Vibes", cursive', overlapTight: 0.22, overlapFrac: 0.40, effect: 'shadow' },
-                { label: 'Galapagos', style: 'normal', weight: '700', family: '"Space Grotesk", sans-serif', overlapTight: 0.14, overlapFrac: 0.28, effect: 'stroke-light' },
-                { label: 'Maxi Plus', style: 'normal', weight: '400', family: '"Bebas Neue", sans-serif', overlapTight: 0.08, overlapFrac: 0.18, effect: 'double' },
-                { label: 'Averia Italic', style: 'italic', weight: '400', family: '"Averia Serif Libre", serif', overlapTight: 0.16, overlapFrac: 0.32, effect: 'fill' },
-                { label: 'Fraktur', style: 'normal', weight: '400', family: 'UnifrakturMaguntia, fantasy', overlapTight: 0.15, overlapFrac: 0.30, effect: 'stroke-heavy' },
-                { label: 'Brush', style: 'normal', weight: '400', family: '"Permanent Marker", cursive', overlapTight: 0.11, overlapFrac: 0.26, effect: 'shadow-soft' },
+                { label: 'Badger', style: 'normal', weight: '400', family: '"Bangers", cursive', overlapTight: 0.12, overlapFrac: 0.30, effect: 'stroke', typoMode: 'circles' },
+                { label: 'Hofmann', style: 'normal', weight: '600', family: '"NG Hofmann", sans-serif', overlapTight: 0.17, overlapFrac: 0.36, effect: 'fill', typoMode: 'squares' },
+                { label: 'Sloop', style: 'normal', weight: '400', family: '"Great Vibes", cursive', overlapTight: 0.22, overlapFrac: 0.40, effect: 'shadow', typoMode: 'grid' },
+                { label: 'Galapagos', style: 'normal', weight: '700', family: '"Space Grotesk", sans-serif', overlapTight: 0.14, overlapFrac: 0.28, effect: 'stroke-light', typoMode: 'diamonds' },
+                { label: 'Maxi Plus', style: 'normal', weight: '400', family: '"Bebas Neue", sans-serif', overlapTight: 0.08, overlapFrac: 0.18, effect: 'double', typoMode: 'crosses' },
+                { label: 'Averia Italic', style: 'italic', weight: '400', family: '"Averia Serif Libre", serif', overlapTight: 0.16, overlapFrac: 0.32, effect: 'fill', typoMode: 'stars' },
+                { label: 'Fraktur', style: 'normal', weight: '400', family: 'UnifrakturMaguntia, fantasy', overlapTight: 0.15, overlapFrac: 0.30, effect: 'stroke-heavy', typoMode: 'net' },
+                { label: 'Brush', style: 'normal', weight: '400', family: '"Permanent Marker", cursive', overlapTight: 0.11, overlapFrac: 0.26, effect: 'shadow-soft', typoMode: 'fragment' },
             ];
 
             function cycleKey() {
@@ -152,6 +152,255 @@
                 ctx2.fillText(ch, 0, 0);
             }
 
+            function letterInside(alpha, tw, th, x, y) {
+                const ix = Math.round(x), iy = Math.round(y);
+                if (ix < 0 || ix >= tw || iy < 0 || iy >= th) return false;
+                return alpha[iy * tw + ix] > 80;
+            }
+
+            function spawnLetterParticles(alpha, tw, th, density, mode) {
+                let count = Math.round(28 + density * density * 1.8);
+                if (mode === 'net') count = Math.min(34, count);
+                else count = Math.min(200, Math.max(28, count));
+                const particles = [];
+                let attempts = 0;
+                const maxAttempts = count * 90;
+                while (particles.length < count && attempts < maxAttempts) {
+                    const x = 3 + Math.random() * (tw - 6);
+                    const y = 3 + Math.random() * (th - 6);
+                    attempts++;
+                    if (!letterInside(alpha, tw, th, x, y)) continue;
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 0.3 + Math.random() * 0.8;
+                    particles.push({
+                        x, y, homeX: x, homeY: y,
+                        vx: Math.cos(angle) * speed,
+                        vy: Math.sin(angle) * speed,
+                        scale: (0.25 + Math.random() * 0.75) * 0.92 + 0.08,
+                        phase: Math.random() * Math.PI * 2,
+                        escaped: 0,
+                    });
+                }
+                return particles;
+            }
+
+            function stepLetterParticles(l) {
+                if (!l.particles || !l.particles.length) return;
+                const { alpha, aw: tw, ah: th, jitter, drift } = l;
+                const speedMul = jitter * 0.03;
+                const driftChance = drift * 0.01;
+                const driftRange = drift * 0.6;
+                for (const p of l.particles) {
+                    const nx = p.x + p.vx * speedMul;
+                    const ny = p.y + p.vy * speedMul;
+                    const xOut = !letterInside(alpha, tw, th, nx, p.y);
+                    const yOut = !letterInside(alpha, tw, th, p.x, ny);
+                    if (xOut) {
+                        if (p.escaped < driftRange && Math.random() < driftChance) p.escaped += speedMul;
+                        else {
+                            p.vx *= -1;
+                            if (p.escaped > 0) p.escaped -= speedMul * 0.5;
+                        }
+                    } else if (p.escaped > 0) p.escaped -= speedMul * 0.3;
+                    if (yOut) {
+                        if (p.escaped < driftRange && Math.random() < driftChance) p.escaped += speedMul;
+                        else {
+                            p.vy *= -1;
+                            if (p.escaped > 0) p.escaped -= speedMul * 0.5;
+                        }
+                    } else if (p.escaped > 0) p.escaped -= speedMul * 0.3;
+                    p.x += p.vx * speedMul;
+                    p.y += p.vy * speedMul;
+                    if (p.x < -20 || p.x > tw + 20 || p.y < -20 || p.y > th + 20) {
+                        p.x = p.homeX; p.y = p.homeY;
+                        p.escaped = 0;
+                        p.vx *= -1; p.vy *= -1;
+                    }
+                }
+            }
+
+            function drawFragPolyHero(target, p, r) {
+                const sides = 3 + Math.floor(p.scale * 4);
+                const rot = p.phase;
+                target.beginPath();
+                for (let v = 0; v <= sides; v++) {
+                    const a = (Math.PI * 2 / sides) * v + rot;
+                    const gx = p.x + Math.cos(a) * r;
+                    const gy = p.y + Math.sin(a) * r;
+                    if (v === 0) target.moveTo(gx, gy);
+                    else target.lineTo(gx, gy);
+                }
+                target.closePath();
+                target.fill();
+            }
+
+            function cx(l, p) { return p.x - l.aw / 2; }
+            function cy(l, p) { return p.y - l.ah / 2; }
+
+            function drawTypoCircles(ctx2, l) {
+                const scale = l.typoScale;
+                const maxR = scale * 0.5;
+                ctx2.fillStyle = l.color;
+                ctx2.globalAlpha = 1;
+                for (const p of l.particles) {
+                    const r = maxR * p.scale;
+                    ctx2.beginPath();
+                    ctx2.arc(cx(l, p), cy(l, p), r, 0, Math.PI * 2);
+                    ctx2.fill();
+                }
+            }
+
+            function drawTypoSquares(ctx2, l) {
+                const scale = l.typoScale;
+                const maxS = scale * 0.9;
+                ctx2.fillStyle = l.color;
+                for (const p of l.particles) {
+                    const s = maxS * p.scale;
+                    ctx2.save();
+                    ctx2.translate(cx(l, p), cy(l, p));
+                    ctx2.rotate(p.phase * 0.15);
+                    ctx2.fillRect(-s / 2, -s / 2, s, s);
+                    ctx2.restore();
+                }
+            }
+
+            function drawTypoGrid(ctx2, l) {
+                const scale = l.typoScale;
+                const cellSize = Math.max(3, scale * 0.7);
+                ctx2.fillStyle = l.color;
+                for (const p of l.particles) {
+                    const gx = Math.round(p.x / cellSize) * cellSize;
+                    const gy = Math.round(p.y / cellSize) * cellSize;
+                    const s = cellSize * 0.9;
+                    const px = gx - l.aw / 2;
+                    const py = gy - l.ah / 2;
+                    ctx2.fillRect(px - s / 2, py - s / 2, s, s);
+                }
+            }
+
+            function drawTypoDiamonds(ctx2, l) {
+                const scale = l.typoScale;
+                const maxR = scale * 0.5;
+                ctx2.fillStyle = l.color;
+                for (const p of l.particles) {
+                    const r = maxR * p.scale;
+                    const x = cx(l, p), y = cy(l, p);
+                    const rw = r * 0.7;
+                    ctx2.beginPath();
+                    ctx2.moveTo(x, y - r);
+                    ctx2.lineTo(x + rw, y);
+                    ctx2.lineTo(x, y + r);
+                    ctx2.lineTo(x - rw, y);
+                    ctx2.closePath();
+                    ctx2.fill();
+                }
+            }
+
+            function drawTypoCrosses(ctx2, l) {
+                const scale = l.typoScale;
+                const arm = scale * 0.4;
+                const thick = l.typoWeight * 0.2;
+                ctx2.strokeStyle = l.color;
+                ctx2.lineCap = 'round';
+                ctx2.globalAlpha = 1;
+                ctx2.lineWidth = Math.max(1, thick);
+                for (const p of l.particles) {
+                    const len = arm * p.scale;
+                    const x = cx(l, p), y = cy(l, p);
+                    ctx2.beginPath();
+                    ctx2.moveTo(x - len, y);
+                    ctx2.lineTo(x + len, y);
+                    ctx2.moveTo(x, y - len);
+                    ctx2.lineTo(x, y + len);
+                    ctx2.stroke();
+                }
+            }
+
+            function drawTypoStars(ctx2, l) {
+                const scale = l.typoScale;
+                const maxR = scale * 0.5;
+                ctx2.fillStyle = l.color;
+                for (const p of l.particles) {
+                    const outer = maxR * p.scale;
+                    const inner = outer * 0.4;
+                    const pts = 5;
+                    const rot = p.phase;
+                    const x = cx(l, p), y = cy(l, p);
+                    ctx2.beginPath();
+                    for (let i = 0; i <= pts * 2; i++) {
+                        const a = (Math.PI * 2 / (pts * 2)) * i + rot;
+                        const rad = i % 2 === 0 ? outer : inner;
+                        const sx = x + Math.cos(a) * rad;
+                        const sy = y + Math.sin(a) * rad;
+                        if (i === 0) ctx2.moveTo(sx, sy);
+                        else ctx2.lineTo(sx, sy);
+                    }
+                    ctx2.closePath();
+                    ctx2.fill();
+                }
+            }
+
+            function drawTypoNet(ctx2, l) {
+                const scale = l.typoScale;
+                const connDist = scale * 3;
+                const lineW = l.typoWeight * 0.15;
+                ctx2.strokeStyle = l.color;
+                ctx2.lineCap = 'round';
+                const parts = l.particles;
+                for (let i = 0; i < parts.length; i++) {
+                    const a = parts[i];
+                    const ax = cx(l, a), ay = cy(l, a);
+                    for (let j = i + 1; j < parts.length; j++) {
+                        const b = parts[j];
+                        const bx = cx(l, b), by = cy(l, b);
+                        const d = Math.hypot(ax - bx, ay - by);
+                        if (d > connDist) continue;
+                        const fade = 1 - d / connDist;
+                        ctx2.globalAlpha = fade * 0.55;
+                        ctx2.lineWidth = lineW * (0.35 + fade * 0.65);
+                        ctx2.beginPath();
+                        ctx2.moveTo(ax, ay);
+                        ctx2.lineTo(bx, by);
+                        ctx2.stroke();
+                    }
+                }
+                ctx2.globalAlpha = 1;
+            }
+
+            function drawTypoFragment(ctx2, l) {
+                const scale = l.typoScale;
+                const maxR = scale * 0.5;
+                ctx2.fillStyle = l.color;
+                for (const p of l.particles) {
+                    const x = cx(l, p), y = cy(l, p);
+                    ctx2.save();
+                    ctx2.translate(x, y);
+                    drawFragPolyHero(ctx2, { x: 0, y: 0, scale: p.scale, phase: p.phase }, maxR * p.scale);
+                    ctx2.restore();
+                }
+            }
+
+            const TYPO_DRAW = {
+                circles: drawTypoCircles,
+                squares: drawTypoSquares,
+                grid: drawTypoGrid,
+                diamonds: drawTypoDiamonds,
+                crosses: drawTypoCrosses,
+                stars: drawTypoStars,
+                net: drawTypoNet,
+                fragment: drawTypoFragment,
+            };
+
+            function drawLetterTypo(ctx2, l, slotIdx) {
+                const mode = FONT_SLOTS[slotIdx].typoMode;
+                const fn = TYPO_DRAW[mode];
+                if (!fn || !l.particles || l.particles.length === 0) {
+                    drawLetterGlyph(ctx2, l.ch, slotIdx, S.fs, l.color);
+                    return;
+                }
+                fn(ctx2, l);
+            }
+
             function init() {
                 L.length = 0;
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -177,7 +426,8 @@
                     const tw = Math.ceil(widths[i] + fs * 0.42);
                     const th = Math.ceil(fs * 1.42);
                     const tc = document.createElement('canvas');
-                    tc.width = tw; tc.height = th;
+                    tc.width = tw;
+                    tc.height = th;
                     const tg = tc.getContext('2d');
                     tg.save();
                     tg.translate(tw / 2, th / 2);
@@ -186,6 +436,9 @@
                     const id = tg.getImageData(0, 0, tw, th);
                     const alpha = new Uint8Array(tw * th);
                     for (let k = 0; k < alpha.length; k++) alpha[k] = id.data[k * 4 + 3];
+                    const slot = FONT_SLOTS[sIdx];
+                    const density = 6;
+                    const particles = spawnLetterParticles(alpha, tw, th, density, slot.typoMode);
                     L.push({
                         ch, x: hxI, y: hyI,
                         vx: 0, vy: 0, hx: hxI, hy: hyI,
@@ -195,6 +448,12 @@
                         phase: Math.random() * 6.28,
                         alpha, aw: tw, ah: th,
                         color: letterColors[i],
+                        particles,
+                        typoScale: Math.max(8, fs * 0.095),
+                        typoWeight: 5,
+                        typoMode: slot.typoMode,
+                        jitter: 36,
+                        drift: 18,
                     });
                 }
             }
@@ -247,6 +506,8 @@
                     if (Math.abs(l.y - y0) > 0.5) l.vy *= -0.25;
                 }
 
+                for (const l of L) stepLetterParticles(l);
+
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 ctx.globalCompositeOperation = 'source-over';
                 ctx.fillStyle = '#ffffff';
@@ -260,7 +521,7 @@
                     ctx.translate(l.x, l.y);
                     ctx.rotate(l.rot);
                     ctx.scale(l.sx, l.sy);
-                    drawLetterGlyph(ctx, l.ch, sIdx, S.fs, l.color);
+                    drawLetterTypo(ctx, l, sIdx);
                     ctx.restore();
                 }
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
