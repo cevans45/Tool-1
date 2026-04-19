@@ -159,12 +159,17 @@
             }
 
             function spawnLetterParticles(alpha, tw, th, density, mode) {
-                let count = Math.round(28 + density * density * 1.8);
-                if (mode === 'net') count = Math.min(34, count);
-                else count = Math.min(200, Math.max(28, count));
+                // Same base formula as Typo (ty-density max 60): 60 + density² * 4
+                let count = Math.round(60 + density * density * 4);
+                if (mode === 'net') {
+                    // Net is O(n²) to draw; still allow a dense mesh without freezing
+                    count = Math.min(140, count);
+                } else {
+                    count = Math.min(1200, Math.max(60, count));
+                }
                 const particles = [];
                 let attempts = 0;
-                const maxAttempts = count * 90;
+                const maxAttempts = count * 120;
                 while (particles.length < count && attempts < maxAttempts) {
                     const x = 3 + Math.random() * (tw - 6);
                     const y = 3 + Math.random() * (th - 6);
@@ -437,7 +442,7 @@
                     const alpha = new Uint8Array(tw * th);
                     for (let k = 0; k < alpha.length; k++) alpha[k] = id.data[k * 4 + 3];
                     const slot = FONT_SLOTS[sIdx];
-                    const density = 6;
+                    const density = 60;
                     const particles = spawnLetterParticles(alpha, tw, th, density, slot.typoMode);
                     L.push({
                         ch, x: hxI, y: hyI,
