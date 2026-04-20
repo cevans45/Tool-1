@@ -185,13 +185,13 @@
                 return particles;
             }
 
-            /** Very slow in-letter particle motion (subtle jitter). */
+            /** In-letter particle motion (jitter inside the glyph mask). */
             function stepLetterParticles(l) {
                 if (!l.particles || !l.particles.length) return;
                 const { alpha, aw: tw, ah: th, jitter, drift } = l;
-                const speedMul = Math.max(0.012, jitter * 0.0011);
-                const driftChance = drift * 0.0018;
-                const driftRange = drift * 0.35;
+                const speedMul = Math.max(0.035, jitter * 0.0042);
+                const driftChance = drift * 0.005;
+                const driftRange = drift * 0.55;
                 for (const p of l.particles) {
                     const nx = p.x + p.vx * speedMul;
                     const ny = p.y + p.vy * speedMul;
@@ -548,8 +548,9 @@
                         typoScale: Math.max(8, fs * 0.095),
                         typoWeight: 5,
                         typoMode,
-                        jitter: 40,
-                        drift: 14,
+                        jitter: 52,
+                        drift: 22,
+                        offX: 0, offY: 0, bvx: 0, bvy: 0,
                     });
                 }
             }
@@ -561,10 +562,23 @@
                     init();
                 }
 
+                const t = performance.now() * 0.001;
                 for (const l of L) {
-                    l.x = l.hx;
-                    l.y = l.hy;
-                    l.rot = 0;
+                    const spring = 0.024;
+                    const damp = 0.93;
+                    const noise = 0.85;
+                    const maxOff = 26;
+                    const ax = -l.offX * spring + (Math.random() - 0.5) * noise;
+                    const ay = -l.offY * spring + (Math.random() - 0.5) * noise;
+                    l.bvx = (l.bvx + ax) * damp;
+                    l.bvy = (l.bvy + ay) * damp;
+                    l.offX += l.bvx;
+                    l.offY += l.bvy;
+                    l.offX = Math.max(-maxOff, Math.min(maxOff, l.offX));
+                    l.offY = Math.max(-maxOff, Math.min(maxOff, l.offY));
+                    l.x = l.hx + l.offX;
+                    l.y = l.hy + l.offY;
+                    l.rot = l.offX * 0.0018 + l.offY * 0.0014 + Math.sin(t * 1.1 + l.phase) * 0.018;
                     l.sx = l.sy = 1;
                     stepLetterParticles(l);
                 }
@@ -579,6 +593,7 @@
                     const l = L[li];
                     ctx.save();
                     ctx.translate(l.x, l.y);
+                    ctx.rotate(l.rot);
                     drawLetterTypo(ctx, l, l.fontIdx);
                     ctx.restore();
                 }
