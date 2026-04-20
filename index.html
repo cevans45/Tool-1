@@ -189,10 +189,9 @@
             function stepLetterParticles(l) {
                 if (!l.particles || !l.particles.length) return;
                 const { alpha, aw: tw, ah: th, jitter, drift } = l;
-                /* Keep in-glyph motion subtle (letter drift is the main motion). */
-                const speedMul = Math.max(0.0045, jitter * 0.00065);
-                const driftChance = drift * 0.0022;
-                const driftRange = drift * 0.4;
+                const speedMul = Math.max(0.014, jitter * 0.0024);
+                const driftChance = drift * 0.005;
+                const driftRange = drift * 0.58;
                 for (const p of l.particles) {
                     const nx = p.x + p.vx * speedMul;
                     const ny = p.y + p.vy * speedMul;
@@ -549,8 +548,8 @@
                         typoScale: Math.max(8, fs * 0.095),
                         typoWeight: 5,
                         typoMode,
-                        jitter: 52,
-                        drift: 22,
+                        jitter: 68,
+                        drift: 32,
                         offX: 0, offY: 0,
                     });
                 }
