@@ -53,6 +53,7 @@
                 <div class="panel-body">
                     <details class="control-window" open>
                         <summary>Apparition + Beams</summary>
+                        <p style="font-size:10px;color:#777;margin:0 0 10px 0;line-height:1.35;">Sliders 1–10: most change is in 1–5; 5–10 adds the last ~28%.</p>
                         <section class="control-section">
                             <div class="control-row" style="padding-bottom:12px;">
                                 <label>Mirror Mode</label>
@@ -65,18 +66,18 @@
                                     <option value="5">5-Way Radial</option>
                                 </select>
                             </div>
-                            <div class="control-row"><label>Count (x1000)</label><input type="range" id="p-count" min="10" max="100" value="50" step="1"><span class="param-value" id="vp-count">50</span></div>
-                            <div class="control-row"><label>Speed</label><input type="range" id="p-speed" min="0" max="100" value="30" step="1"><span class="param-value" id="vp-speed">30</span></div>
-                            <div class="control-row"><label>Field Noise</label><input type="range" id="p-noise" min="0" max="100" value="40" step="1"><span class="param-value" id="vp-noise">40</span></div>
-                            <div class="control-row"><label>Beams Amount</label><input type="range" id="p-beams" min="0" max="100" value="30" step="1"><span class="param-value" id="vp-beams">30</span></div>
+                            <div class="control-row"><label>Count (x1000)</label><input type="range" id="p-count" min="1" max="10" value="3.5" step="0.1"><span class="param-value" id="vp-count">3.5</span></div>
+                            <div class="control-row"><label>Speed</label><input type="range" id="p-speed" min="1" max="10" value="3.2" step="0.1"><span class="param-value" id="vp-speed">3.2</span></div>
+                            <div class="control-row"><label>Field Noise</label><input type="range" id="p-noise" min="1" max="10" value="3.2" step="0.1"><span class="param-value" id="vp-noise">3.2</span></div>
+                            <div class="control-row"><label>Beams Amount</label><input type="range" id="p-beams" min="1" max="10" value="2.8" step="0.1"><span class="param-value" id="vp-beams">2.8</span></div>
                         </section>
                     </details>
 
                     <details class="control-window" open>
                         <summary>Fracture & Glitch</summary>
                         <section class="control-section">
-                            <div class="control-row"><label>Fracture slices</label><input type="range" id="p-fracture" min="0" max="100" value="20" step="1"><span class="param-value" id="vp-fracture">20</span></div>
-                            <div class="control-row"><label>Glitch Intensity</label><input type="range" id="p-glitch" min="0" max="100" value="0" step="1"><span class="param-value" id="vp-glitch">0</span></div>
+                            <div class="control-row"><label>Fracture slices</label><input type="range" id="p-fracture" min="1" max="10" value="2.2" step="0.1"><span class="param-value" id="vp-fracture">2.2</span></div>
+                            <div class="control-row"><label>Glitch Intensity</label><input type="range" id="p-glitch" min="1" max="10" value="1" step="0.1"><span class="param-value" id="vp-glitch">1.0</span></div>
                         </section>
                     </details>
 
@@ -102,8 +103,8 @@
                                     <option value="3">O / Ring</option>
                                 </select>
                             </div>
-                            <div class="control-row"><label>Point Size</label><input type="range" id="p-size" min="1" max="50" value="10" step="1"><span class="param-value" id="vp-size">10</span></div>
-                            <div class="control-row"><label>Effect Blur</label><input type="range" id="p-blur" min="0" max="20" value="0" step="1"><span class="param-value" id="vp-blur">0</span></div>
+                            <div class="control-row"><label>Point Size</label><input type="range" id="p-size" min="1" max="10" value="2" step="0.1"><span class="param-value" id="vp-size">2.0</span></div>
+                            <div class="control-row"><label>Effect Blur</label><input type="range" id="p-blur" min="1" max="10" value="1" step="0.1"><span class="param-value" id="vp-blur">1.0</span></div>
                             <div class="control-row color-row"><label>Point Color</label><input type="color" id="p-color" value="#ffffff"></div>
                             <div class="control-row color-row"><label>Background</label><input type="color" id="p-bg" value="#000000"></div>
                         </section>
@@ -122,12 +123,41 @@
     const min = Math.min;
 
     const el = id => document.getElementById(id);
-    const val = id => parseFloat(el(id)?.value ?? 50);
+    const val = id => parseFloat(el(id)?.value ?? 5);
 
-    // Slider readouts
+    /**
+     * Slider 1–10 → internal 0–100. ~72% of the useful range sits between dial 1 and 5;
+     * 5–10 stretches the top ~28% (easier to tune subtle / low settings).
+     */
+    function dialTo100(raw) {
+        const x = Math.max(1, Math.min(10, raw));
+        if (x <= 5) {
+            return ((x - 1) / 4) * 72;
+        }
+        return 72 + ((x - 5) / 5) * 28;
+    }
+
+    function dialPointSize(raw) {
+        return 1 + (dialTo100(raw) / 100) * 49;
+    }
+
+    function dialBlurPx(raw) {
+        return (dialTo100(raw) / 100) * 20;
+    }
+
+    /** Particle count: 10k … 100k from dial 1…10 */
+    function dialParticleThousands(raw) {
+        return 10 + (dialTo100(raw) / 100) * 90;
+    }
+
+    // Slider readouts (1 decimal)
     document.querySelectorAll('.control-row input[type="range"]').forEach(inp => {
         const v = inp.parentElement.querySelector('.param-value');
-        if (v) inp.addEventListener('input', () => { v.textContent = inp.value; });
+        if (v) {
+            const fmt = () => { v.textContent = Number(inp.value).toFixed(1); };
+            inp.addEventListener('input', fmt);
+            fmt();
+        }
     });
 
     const hexToRGB = (hex) => {
@@ -568,7 +598,7 @@
         const timeDelta = time - lastTime;
         lastTime = time;
 
-        const countParam = val('p-count') * 1000; 
+        const countParam = dialParticleThousands(val('p-count')) * 1000;
         const renderAmount = min(MAX_AMOUNT, countParam);
         const au = stepAudio();
 
@@ -578,7 +608,7 @@
         ol.clearDepth();
         ol.clear();
         
-        ol.canvas.style.filter = 'blur(' + val('p-blur') + 'px)';
+        ol.canvas.style.filter = 'blur(' + dialBlurPx(val('p-blur')) + 'px)';
         el('phantom-wrap').parentNode.style.background = el('p-bg').value;
 
         // Update pass
@@ -589,9 +619,9 @@
                 ol.uniform("uResolution", [width, height]);
                 
                 // Params
-                ol.uniform("uSpeed", val('p-speed'));
-                ol.uniform("uNoiseStr", val('p-noise'));
-                ol.uniform("uBeams", val('p-beams'));
+                ol.uniform("uSpeed", dialTo100(val('p-speed')));
+                ol.uniform("uNoiseStr", dialTo100(val('p-noise')));
+                ol.uniform("uBeams", dialTo100(val('p-beams')));
                 ol.uniform("uAudioPitch", au.pitch);
                 ol.uniform("uAudioLevel", au.level);
                 ol.uniform("uAudioActive", au.active);
@@ -609,10 +639,10 @@
             ol.uniform("uTime", time);
             
             // Render params
-            ol.uniform("uFracture", val('p-fracture'));
-            ol.uniform("uGlitch", val('p-glitch'));
+            ol.uniform("uFracture", dialTo100(val('p-fracture')));
+            ol.uniform("uGlitch", dialTo100(val('p-glitch')));
             const dpr = window.devicePixelRatio || 1;
-            ol.uniform("uPointSize", val('p-size') * dpr * 0.4); 
+            ol.uniform("uPointSize", dialPointSize(val('p-size')) * dpr * 0.4); 
             ol.uniform("uMirror", parseInt(el('p-mirror').value, 10));
             ol.uniform("uShape", parseInt(el('p-shape').value, 10));
             
