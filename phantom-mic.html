@@ -86,7 +86,10 @@
                     <details class="control-window" open>
                         <summary>Audio Status</summary>
                         <section class="control-section">
-                            <p id="p-mic-status" style="font-size:11px;color:#0f0;line-height:1.4;margin:0;"><span class="mic-status-live">● LIVE</span> — Microphone active. Motion follows bass, mids, brightness & volume.</p>
+                            <div class="control-row" style="padding-bottom:8px;">
+                                <button type="button" id="p-mic-btn" class="panel-button">Enable Microphone</button>
+                            </div>
+                            <p id="p-mic-status" style="font-size:11px;color:#888;line-height:1.4;margin:0;">Click to request microphone access. Motion driven by live audio.</p>
                         </section>
                     </details>
 
@@ -345,7 +348,7 @@
         if (kickTrigger > 0.08) {
             speedEnvelope = Math.min(1, speedEnvelope + kickTrigger * 2.2);
         } else {
-            speedEnvelope *= 0.88;
+            speedEnvelope = Math.max(0, speedEnvelope * 0.88);
         }
 
         return {
@@ -380,18 +383,36 @@
             timeBuf = new Float32Array(analyser.fftSize);
             src.connect(analyser);
             micActive = true;
+            const btn = el('p-mic-btn');
+            if (btn) {
+                btn.textContent = 'Microphone On';
+                btn.classList.add('is-active');
+            }
             const st = el('p-mic-status');
-            if (st) st.innerHTML = '<span class="mic-status-live">● LIVE</span> — Microphone connected. Motion fully driven by audio.';
+            if (st) st.innerHTML = '<span style="color:#0f0;">● LIVE</span> — Microphone connected. Motion fully driven by audio.';
         } catch (e) {
+            const btn = el('p-mic-btn');
+            if (btn) btn.textContent = 'Try again';
             const st = el('p-mic-status');
             if (st) st.textContent = 'Microphone unavailable: ' + (e && e.message ? e.message : 'denied');
         }
     }
 
-    // Auto-setup mic on page load
-    window.addEventListener('load', () => {
-        setupMic();
+    // Auto-setup mic on page load, but don't block rendering
+    window.addEventListener('load', async () => {
+        // Give the page time to render first
+        setTimeout(() => {
+            setupMic().catch(err => {
+                console.warn('Mic setup failed:', err);
+            });
+        }, 100);
     });
+    
+    // Also add button for manual trigger
+    const micBtn = el('p-mic-btn');
+    if (micBtn) {
+        micBtn.addEventListener('click', () => setupMic());
+    }
 
     // Shaders (identical to phantom.html)
     const UPDATE_VERT = `#version 300 es
