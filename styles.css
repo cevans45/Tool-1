@@ -42,7 +42,7 @@ body {
     background: #000;
     color: #ccc;
     opacity: 0;
-    transition: opacity 600ms ease;
+    transition: opacity 1200ms ease;
 }
 
 body.is-ready {
@@ -234,7 +234,7 @@ body.is-leaving {
     align-items: center;
     gap: 64px;
     text-decoration: none;
-    transition: transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+    transition: transform 1.5s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .site-card:hover {
