@@ -450,54 +450,64 @@
                 vVel = vec2(0.0);
             }
         } else {
-            // Update: with live audio, motion is mostly band + envelope driven; curl is a thin texture
-             vec2 vel = aVel;
-             float au = uAudioActive;
-             float boost = mix(1.0,
-                (0.75 + 0.22 * uAudioBass + 0.18 * uAudioMid) * (0.85 + 0.4 * uAudioLevelFast),
-                au);
-             float midSwirl = mix(1.0, 0.78 + 0.32 * uAudioMid, au);
+            // Update: motion ONLY when audio is active
+            vec2 vel = aVel;
+            float au = uAudioActive;
 
-             // Curl noise — quiet when audio is on so the sound-led terms read clearly
-             float curlAmt = uNoiseStr * 11.0 * boost * midSwirl * mix(1.0, 0.14, au);
-             vec2 flow = curlNoise(aPosition * 0.002
-                 + vec2(uAudioMid * 0.08, -uTime * 0.35)
-                 + vec2(uAudioPitch * 0.06, uAudioBass * 0.1) * au);
-             vel += flow * curlAmt;
+            if (au < 0.5) {
+                // No audio: gentle damping and slow drift back to origin (hold the shape)
+                vel *= 0.92;
+                vel.x -= aPosition.x * 0.02 * uTimeDelta;
+                vel.y -= aPosition.y * 0.015 * uTimeDelta;
+            } else {
+                // Audio active: strong band-driven motion
+                float boost = (0.75 + 0.22 * uAudioBass + 0.18 * uAudioMid) * (0.85 + 0.4 * uAudioLevelFast);
+                float midSwirl = 0.78 + 0.32 * uAudioMid;
 
-             // Primary motion: deterministic field tied to bands + fast level (reads as "following the music")
-             float t = uTime;
-             float drive = (0.45 + 0.9 * uAudioLevelFast) * au;
-             float wMid = (2.8 + 9.0 * uAudioMid) * au;
-             float wBs = (2.2 + 7.5 * uAudioBass) * au;
-             float ph = t * (2.0 + 6.5 * uAudioLevelFast) * au + aSeed * 6.28318;
-             vec2 audioField = vec2(
-                 sin(ph + aPosition.y * 0.0028 + uAudioPitch * 6.28) * wMid * (0.35 + uAudioMid),
-                 cos(ph * 0.93 - aPosition.x * 0.0025 + uAudioCentroid * 5.0) * wBs * (0.35 + uAudioBass)
-             );
-             vel += audioField * drive * uTimeDelta * 7.0;
+                // Curl noise only when audio is on (adds texture to the motion)
+                float curlAmt = uNoiseStr * 11.0 * boost * midSwirl;
+                vec2 flow = curlNoise(aPosition * 0.002
+                    + vec2(uAudioMid * 0.08, -uTime * 0.35)
+                    + vec2(uAudioPitch * 0.06, uAudioBass * 0.1));
+                vel += flow * curlAmt;
 
-             vec2 hiShake = vec2(
-                 sin(t * (11.0 + 24.0 * uAudioHigh) + aPosition.y * 0.011) * uAudioHigh,
-                 cos(t * (9.0 + 20.0 * uAudioCentroid) + aPosition.x * 0.012) * uAudioHigh
-             ) * au * (0.55 + 0.95 * uAudioLevelFast);
-             vel += hiShake * 22.0 * uTimeDelta;
+                // Primary motion: deterministic field tied to bands + fast level
+                float t = uTime;
+                float drive = (0.45 + 0.9 * uAudioLevelFast);
+                float wMid = (2.8 + 9.0 * uAudioMid);
+                float wBs = (2.2 + 7.5 * uAudioBass);
+                float ph = t * (2.0 + 6.5 * uAudioLevelFast) + aSeed * 6.28318;
+                vec2 audioField = vec2(
+                    sin(ph + aPosition.y * 0.0028 + uAudioPitch * 6.28) * wMid * (0.35 + uAudioMid),
+                    cos(ph * 0.93 - aPosition.x * 0.0025 + uAudioCentroid * 5.0) * wBs * (0.35 + uAudioBass)
+                );
+                vel += audioField * drive * uTimeDelta * 7.0;
 
-             // Transients: quick kicks (direction varies per particle)
-             vec2 kick = vec2(cos(aSeed * 37.13), sin(aSeed * 41.07));
-             vel += kick * uAudioTransient * (55.0 + 95.0 * uAudioLevelFast) * au * uTimeDelta;
+                // Highs: shimmer (fast jitter)
+                vec2 hiShake = vec2(
+                    sin(t * (11.0 + 24.0 * uAudioHigh) + aPosition.y * 0.011) * uAudioHigh,
+                    cos(t * (9.0 + 20.0 * uAudioCentroid) + aPosition.x * 0.012) * uAudioHigh
+                ) * (0.55 + 0.95 * uAudioLevelFast);
+                vel += hiShake * 22.0 * uTimeDelta;
 
-             // Bass: vertical sway with level; lateral bias from pitch
-             vel.y -= aPosition.y * (0.11 + 0.14 * uAudioLevelFast) * uAudioBass * au * uTimeDelta * 35.0;
-             vel.x += (uAudioPitch - 0.5) * 28.0 * uAudioMid * au * uTimeDelta;
+                // Transients: kicks
+                vec2 kick = vec2(cos(aSeed * 37.13), sin(aSeed * 41.07));
+                vel += kick * uAudioTransient * (55.0 + 95.0 * uAudioLevelFast) * uTimeDelta;
 
-             // Gentle centering — weaker when loud so beat pushes win
-             float cx = mix(0.5, 0.28, au * uAudioLevelFast);
-             vel.x -= aPosition.x * cx * uNoiseStr * mix(1.0, boost, au * 0.5);
+                // Bass: vertical sway
+                vel.y -= aPosition.y * (0.11 + 0.14 * uAudioLevelFast) * uAudioBass * uTimeDelta * 35.0;
+                vel.x += (uAudioPitch - 0.5) * 28.0 * uAudioMid * uTimeDelta;
 
-             float spd = uSpeed * 0.05 * mix(1.0, 0.62 + 0.28 * uAudioLevelFast + 0.14 * uAudioBass, au);
-             vPosition = aPosition + vel * uTimeDelta * spd;
-             vVel = vel * 0.95;
+                // Gentle centering — weaker when loud
+                float cx = mix(0.5, 0.28, uAudioLevelFast);
+                vel.x -= aPosition.x * cx * uNoiseStr * boost * 0.5;
+
+                float spd = uSpeed * 0.05 * (0.62 + 0.28 * uAudioLevelFast + 0.14 * uAudioBass);
+                vel *= spd;
+            }
+
+            vPosition = aPosition + vel * uTimeDelta;
+            vVel = vel * 0.95;
         }
     }
     `;
