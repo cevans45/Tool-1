@@ -189,7 +189,8 @@
             function stepLetterParticles(l) {
                 if (!l.particles || !l.particles.length) return;
                 const { alpha, aw: tw, ah: th, jitter, drift } = l;
-                const speedMul = Math.max(0.01, jitter * 0.00135);
+                /* Keep in-glyph motion subtle (letter drift is the main motion). */
+                const speedMul = Math.max(0.0045, jitter * 0.00065);
                 const driftChance = drift * 0.0022;
                 const driftRange = drift * 0.4;
                 for (const p of l.particles) {
@@ -562,12 +563,12 @@
                     init();
                 }
 
-                /* Slow eased drift: smooth targets from layered sines, lerp each frame (ease-out toward target). */
-                const tt = performance.now() * 0.000165;
-                const amp = 12;
-                const maxOff = 17;
-                const easePos = 0.028;
-                const easeRot = 0.048;
+                /* Letter drift: faster eased follow; rotation oscillates on its own + follows motion a little. */
+                const tt = performance.now() * 0.00058;
+                const amp = 24;
+                const maxOff = 32;
+                const easePos = 0.095;
+                const easeRot = 0.11;
                 for (const l of L) {
                     const desiredX = Math.sin(tt * 0.38 + l.phase) * amp + Math.sin(tt * 0.13 + l.phase * 1.85) * amp * 0.36;
                     const desiredY = Math.cos(tt * 0.34 + l.phase * 2.02) * amp * 0.68 + Math.sin(tt * 0.095 + l.phase * 0.72) * amp * 0.32;
@@ -577,7 +578,11 @@
                     l.offY = Math.max(-maxOff, Math.min(maxOff, l.offY));
                     l.x = l.hx + l.offX;
                     l.y = l.hy + l.offY;
-                    const desiredRot = l.offX * 0.00075 + l.offY * 0.00055 + Math.sin(tt * 0.22 + l.phase) * 0.0038;
+                    const desiredRot =
+                        Math.sin(tt * 1.15 + l.phase) * 0.13 +
+                        Math.sin(tt * 0.68 + l.phase * 2.2) * 0.075 +
+                        l.offX * 0.00085 +
+                        l.offY * 0.00065;
                     l.rot += (desiredRot - l.rot) * easeRot;
                     l.sx = l.sy = 1;
                     stepLetterParticles(l);
