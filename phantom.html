@@ -81,6 +81,16 @@
                     </details>
 
                     <details class="control-window" open>
+                        <summary>Audio reactive</summary>
+                        <section class="control-section">
+                            <div class="control-row" style="padding-bottom:8px;">
+                                <button type="button" id="p-mic" class="panel-button">Enable microphone</button>
+                            </div>
+                            <p id="p-mic-status" style="font-size:11px;color:#888;line-height:1.4;margin:0;">Uses mic input: estimated pitch and loudness shape the particles. Works after a click (browser permission).</p>
+                        </section>
+                    </details>
+
+                    <details class="control-window" open>
                         <summary>Style & FX</summary>
                         <section class="control-section">
                             <div class="control-row" style="padding-bottom:12px;">
@@ -127,6 +137,93 @@
         return [r, g, b];
     };
 
+    const isPreview = new URLSearchParams(location.search).get('preview') === '1';
+    let audioCtx = null;
+    let analyser = null;
+    let smoothPitch = 0.5;
+    let smoothLevel = 0.35;
+    let freqBuf = new Float32Array(1024);
+    let timeBuf = new Float32Array(2048);
+
+    function stepAudio() {
+        if (isPreview || !analyser || !audioCtx) {
+            return { pitch: 0.5, level: 0.35, active: 0 };
+        }
+        if (freqBuf.length !== analyser.frequencyBinCount) {
+            freqBuf = new Float32Array(analyser.frequencyBinCount);
+        }
+        if (timeBuf.length !== analyser.fftSize) {
+            timeBuf = new Float32Array(analyser.fftSize);
+        }
+        analyser.getFloatFrequencyData(freqBuf);
+        const nyquist = audioCtx.sampleRate * 0.5;
+        const n = freqBuf.length;
+        const i0 = Math.max(2, Math.floor(65 / nyquist * n));
+        const i1 = Math.min(n - 1, Math.ceil(4800 / nyquist * n));
+        let maxDb = -Infinity;
+        let maxI = i0;
+        for (let i = i0; i <= i1; i++) {
+            if (freqBuf[i] > maxDb) {
+                maxDb = freqBuf[i];
+                maxI = i;
+            }
+        }
+        let pitchNorm = 0.5;
+        if (maxDb > -80 && maxI > 0) {
+            const hz = (maxI / n) * nyquist;
+            pitchNorm = (Math.log2(Math.max(hz, 64)) - Math.log2(64)) / (Math.log2(4000) - Math.log2(64));
+            pitchNorm = Math.max(0, Math.min(1, pitchNorm));
+        }
+        analyser.getFloatTimeDomainData(timeBuf);
+        let rms = 0;
+        for (let i = 0; i < timeBuf.length; i++) rms += timeBuf[i] * timeBuf[i];
+        rms = Math.sqrt(rms / timeBuf.length);
+        const levelNorm = Math.min(1, rms * 11);
+        smoothPitch += (pitchNorm - smoothPitch) * 0.13;
+        smoothLevel += (levelNorm - smoothLevel) * 0.2;
+        return { pitch: smoothPitch, level: smoothLevel, active: 1 };
+    }
+
+    async function setupMic() {
+        if (isPreview) return;
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+            });
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') await audioCtx.resume();
+            const src = audioCtx.createMediaStreamSource(stream);
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 2048;
+            analyser.smoothingTimeConstant = 0.45;
+            freqBuf = new Float32Array(analyser.frequencyBinCount);
+            timeBuf = new Float32Array(analyser.fftSize);
+            src.connect(analyser);
+            const st = el('p-mic-status');
+            if (st) st.textContent = 'Live — dominant frequency ↔ pitch; loudness ↔ intensity.';
+            const btn = el('p-mic');
+            if (btn) {
+                btn.textContent = 'Microphone on';
+                btn.classList.add('is-active');
+            }
+        } catch (e) {
+            const st = el('p-mic-status');
+            if (st) st.textContent = 'Microphone unavailable: ' + (e && e.message ? e.message : 'denied');
+        }
+    }
+
+    if (isPreview) {
+        const btn = el('p-mic');
+        if (btn) {
+            btn.disabled = true;
+            btn.textContent = 'Preview (audio off)';
+        }
+        const st = el('p-mic-status');
+        if (st) st.textContent = 'Open this page directly to enable the microphone.';
+    } else {
+        el('p-mic')?.addEventListener('click', () => setupMic());
+    }
+
     // Shaders
     const UPDATE_VERT = `#version 300 es
     precision highp float;
@@ -139,6 +236,9 @@
     uniform float uSpeed;
     uniform float uNoiseStr;
     uniform float uBeams;
+    uniform float uAudioPitch;
+    uniform float uAudioLevel;
+    uniform float uAudioActive;
 
     in vec2 aPosition;
     in float aAge;
@@ -208,7 +308,8 @@
                 float bx = beamIdx * 0.2 * uResolution.x;
                 float by = (rnd1 - 0.5) * uResolution.y * 1.5;
                 vPosition = vec2(bx, by);
-                vVel = vec2(0.0, uSpeed * 100.0);
+                float beamDrive = mix(1.0, 0.55 + 0.95 * uAudioPitch, uAudioActive);
+                vVel = vec2(0.0, uSpeed * 100.0 * beamDrive * mix(1.0, 0.45 + 1.1 * uAudioLevel, uAudioActive));
             } else {
                 // Body particle
                 float ny = rnd1 * 2.0 - 1.0; 
@@ -221,16 +322,18 @@
         } else {
             // Update
              vec2 vel = aVel;
+             float audioBoost = mix(1.0, (0.42 + 1.16 * uAudioPitch) * (0.32 + 1.28 * uAudioLevel), uAudioActive);
              
              // Base noise movement
-             vec2 flow = curlNoise(aPosition * 0.002 + vec2(0.0, -uTime * 0.5));
-             vel += flow * uNoiseStr * 15.0;
+             vec2 flow = curlNoise(aPosition * 0.002 + vec2(0.0, -uTime * 0.5) + vec2(uAudioPitch * 0.4 * uAudioActive));
+             vel += flow * uNoiseStr * 15.0 * audioBoost;
 
              // Attraction to origin or symmetry
-             vel.x -= aPosition.x * 0.5 * uNoiseStr; 
+             vel.x -= aPosition.x * 0.5 * uNoiseStr * mix(1.0, audioBoost, uAudioActive); 
 
-             // Apply speed modifier
-             vPosition = aPosition + vel * uTimeDelta * (uSpeed * 0.05);
+             // Apply speed modifier (pitch nudges overall motion)
+             float spd = uSpeed * 0.05 * mix(1.0, 0.72 + 0.56 * uAudioPitch, uAudioActive);
+             vPosition = aPosition + vel * uTimeDelta * spd;
              vVel = vel * 0.95; // dampening
         }
     }
@@ -252,6 +355,9 @@
     uniform float uGlitch;
     uniform float uPointSize;
     uniform int uMirror;
+    uniform float uAudioPitch;
+    uniform float uAudioLevel;
+    uniform float uAudioActive;
 
     in vec2 aPosition;
     in float aAge;
@@ -288,10 +394,11 @@
     void main() {
         vec2 pos = aPosition;
 
-        // Fracture displacement (horizontal tearing)
+        // Fracture displacement (horizontal tearing) — stronger when audio drives pitch
         if (uFracture > 0.0) {
             float slice = floor((pos.y / uResolution.y) * 10.0 + uTime * 2.0);
-            float offset = snoise(vec2(slice, uTime * 0.5)) * uResolution.x * 0.1 * (uFracture * 0.01);
+            float pitchTear = mix(1.0, 0.65 + 0.9 * uAudioPitch, uAudioActive);
+            float offset = snoise(vec2(slice, uTime * 0.5)) * uResolution.x * 0.1 * (uFracture * 0.01) * pitchTear;
             pos.x += offset;
         }
 
@@ -327,8 +434,10 @@
 
         gl_Position = vec4(clipPos, 0.0, 1.0);
         
-        // Size
-        gl_PointSize = uPointSize * (aLife - aAge) / aLife;
+        // Size — swell with level, shimmer slightly with pitch
+        float ageS = (aLife - aAge) / aLife;
+        float audioSize = mix(1.0, (0.72 + 0.62 * uAudioPitch) * (0.55 + 0.95 * uAudioLevel), uAudioActive);
+        gl_PointSize = uPointSize * ageS * audioSize;
 
         // Fade out based on age
         float ageRatio = aAge / aLife;
@@ -341,6 +450,8 @@
 
     uniform vec3 uColor;
     uniform int uShape;
+    uniform float uAudioPitch;
+    uniform float uAudioActive;
     in float vAlpha;
     out vec4 fragColor;
 
@@ -372,7 +483,12 @@
             alpha *= ring;
         }
 
-        fragColor = vec4(uColor, alpha);
+        vec3 c = uColor;
+        c.r += uAudioPitch * 0.14 * uAudioActive;
+        c.g += (1.0 - uAudioPitch) * 0.06 * uAudioActive;
+        c.b += uAudioPitch * 0.1 * uAudioActive;
+        c = clamp(c, vec3(0.0), vec3(1.0));
+        fragColor = vec4(c, alpha);
     }
     `;
 
@@ -454,6 +570,7 @@
 
         const countParam = val('p-count') * 1000; 
         const renderAmount = min(MAX_AMOUNT, countParam);
+        const au = stepAudio();
 
         // Frame clear
         const bgRGB = hexToRGB(el('p-bg').value);
@@ -475,6 +592,9 @@
                 ol.uniform("uSpeed", val('p-speed'));
                 ol.uniform("uNoiseStr", val('p-noise'));
                 ol.uniform("uBeams", val('p-beams'));
+                ol.uniform("uAudioPitch", au.pitch);
+                ol.uniform("uAudioLevel", au.level);
+                ol.uniform("uAudioActive", au.active);
 
                 ol.points(0, renderAmount);
             });
@@ -498,6 +618,9 @@
             
             const colorRGB = hexToRGB(el('p-color').value);
             ol.uniform("uColor", colorRGB);
+            ol.uniform("uAudioPitch", au.pitch);
+            ol.uniform("uAudioLevel", au.level);
+            ol.uniform("uAudioActive", au.active);
 
             ol.points(0, renderAmount);
         });
