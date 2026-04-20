@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phantom (Microphone) — OVRT</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .app[aria-label="Phantom"] { background: #000; }
+        .app[aria-label="Phantom"] .control-panel {
+            background: rgba(0,0,0,0.92);
+            border-color: #222;
+        }
+        .app[aria-label="Phantom"] .panel-header { border-color: #333; }
+        .app[aria-label="Phantom"] .panel-header h2 { color: #aaa; }
+        
+        /* White buttons / UI as requested */
+        .app[aria-label="Phantom"] .control-window summary { color: #fff; }
+        .app[aria-label="Phantom"] .control-window[open] summary { color: #fff; }
+        .app[aria-label="Phantom"] .control-row label { color: #ddd; }
+        .app[aria-label="Phantom"] .param-value { color: #ddd; }
+        .app[aria-label="Phantom"] .control-window { border-color: #333; }
+        
+        .app[aria-label="Phantom"] .select-input {
+            background: #111; color: #fff; border-color: #555;
+        }
+        .app[aria-label="Phantom"] .panel-button {
+            background: transparent; color: #fff; border-color: #fff;
+        }
+        .app[aria-label="Phantom"] .panel-button:hover {
+            background: #fff; color: #000;
+        }
+        .app[aria-label="Phantom"] .panel-button.is-active {
+            background: #fff; color: #000;
+        }
+        .app[aria-label="Phantom"] .back-link { color: #aaa; }
+        #phantom-wrap { flex:1; position:relative; overflow:hidden; }
+        canvas { display:block; width:100%!important; height:100%!important; }
+        .mic-status-live { color: #0f0; }
+    </style>
+</head>
+<body>
+    <div class="site-shell">
+        <header class="tool-header" style="background:#000;border-color:#222;">
+            <a href="index.html" class="back-link" style="color:#aaa;">← Back to OVRT</a>
+            <span class="tool-title" style="color:#fff;">Phantom (Live Microphone)</span>
+        </header>
+        <div class="app" aria-label="Phantom">
+            <div id="phantom-wrap"></div>
+            <aside class="control-panel">
+                <header class="panel-header">
+                    <h2 style="color:#fff;">Phantom</h2>
+                </header>
+                <div class="panel-body">
+                    <details class="control-window" open>
+                        <summary>Apparition + Beams</summary>
+                        <p style="font-size:10px;color:#777;margin:0 0 10px 0;line-height:1.35;">Motion driven entirely by audio. Sliders 1–10: most change is in 1–5; 5–10 adds the last ~28%.</p>
+                        <section class="control-section">
+                            <div class="control-row" style="padding-bottom:12px;">
+                                <label>Mirror Mode</label>
+                                <select id="p-mirror" class="select-input">
+                                    <option value="0">Off</option>
+                                    <option value="1">Left / Right</option>
+                                    <option value="2">Up / Down</option>
+                                    <option value="3">3-Way Radial</option>
+                                    <option value="4">4-Way Radial</option>
+                                    <option value="5">5-Way Radial</option>
+                                </select>
+                            </div>
+                            <div class="control-row"><label>Count (x1000)</label><input type="range" id="p-count" min="1" max="10" value="4.5" step="0.1"><span class="param-value" id="vp-count">4.5</span></div>
+                            <div class="control-row"><label>Speed Baseline</label><input type="range" id="p-speed" min="1" max="10" value="4" step="0.1"><span class="param-value" id="vp-speed">4.0</span></div>
+                            <div class="control-row"><label>Field Noise Baseline</label><input type="range" id="p-noise" min="1" max="10" value="4" step="0.1"><span class="param-value" id="vp-noise">4.0</span></div>
+                            <div class="control-row"><label>Beams Amount</label><input type="range" id="p-beams" min="1" max="10" value="3.5" step="0.1"><span class="param-value" id="vp-beams">3.5</span></div>
+                        </section>
+                    </details>
+
+                    <details class="control-window" open>
+                        <summary>Fracture & Glitch</summary>
+                        <section class="control-section">
+                            <div class="control-row"><label>Fracture slices</label><input type="range" id="p-fracture" min="1" max="10" value="2.2" step="0.1"><span class="param-value" id="vp-fracture">2.2</span></div>
+                            <div class="control-row"><label>Glitch Intensity</label><input type="range" id="p-glitch" min="1" max="10" value="1" step="0.1"><span class="param-value" id="vp-glitch">1.0</span></div>
+                        </section>
+                    </details>
+
+                    <details class="control-window" open>
+                        <summary>Audio Status</summary>
+                        <section class="control-section">
+                            <p id="p-mic-status" style="font-size:11px;color:#0f0;line-height:1.4;margin:0;"><span class="mic-status-live">● LIVE</span> — Microphone active. Motion follows bass, mids, brightness & volume.</p>
+                        </section>
+                    </details>
+
+                    <details class="control-window" open>
+                        <summary>Style & FX</summary>
+                        <section class="control-section">
+                            <div class="control-row" style="padding-bottom:12px;">
+                                <label>Particle Shape</label>
+                                <select id="p-shape" class="select-input">
+                                    <option value="0">Circle</option>
+                                    <option value="1">Pixelly / Square</option>
+                                    <option value="2">X's</option>
+                                    <option value="3">O / Ring</option>
+                                </select>
+                            </div>
+                            <div class="control-row"><label>Point Size</label><input type="range" id="p-size" min="1" max="10" value="2.2" step="0.1"><span class="param-value" id="vp-size">2.2</span></div>
+                            <div class="control-row"><label>Effect Blur</label><input type="range" id="p-blur" min="1" max="10" value="1" step="0.1"><span class="param-value" id="vp-blur">1.0</span></div>
+                            <div class="control-row color-row"><label>Point Color</label><input type="color" id="p-color" value="#ffffff"></div>
+                            <div class="control-row color-row"><label>Background</label><input type="color" id="p-bg" value="#000000"></div>
+                        </section>
+                    </details>
+                </div>
+            </aside>
+        </div>
+    </div>
+    <script src="page-transition.js"></script>
+
+    <script type="module">
+    import Olon, { Data } from "https://cdn.jsdelivr.net/npm/olon@0.0.0/src/Olon.js";
+
+    const random = (min=0, max=1) => Math.random() * (max - min) + min;
+    const floor = Math.floor;
+    const min = Math.min;
+
+    const el = id => document.getElementById(id);
+    const val = id => parseFloat(el(id)?.value ?? 5);
+
+    /**
+     * Slider 1–10 → internal 0–100. ~72% of the useful range sits between dial 1 and 5;
+     * 5–10 stretches the top ~28% (easier to tune subtle / low settings).
+     */
+    function dialTo100(raw) {
+        const x = Math.max(1, Math.min(10, raw));
+        if (x <= 5) {
+            return ((x - 1) / 4) * 72;
+        }
+        return 72 + ((x - 5) / 5) * 28;
+    }
+
+    /** With live mic, Speed / Field Noise follow loudness and spectrum (dials stay the baseline). */
+    function audioModulateNoiseSpeed(noiseDial100, speedDial100, au) {
+        if (!au.active) {
+            return { noise: noiseDial100, speed: speedDial100 };
+        }
+        const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+        const spMul = clamp(0.36 + 0.78 * au.levelFast + 0.26 * au.bass + 0.12 * au.transient, 0.4, 1.52);
+        const nsMul = clamp(0.34 + 0.5 * au.mid + 0.36 * au.high + 0.14 * au.centroid + 0.22 * au.transient, 0.38, 1.58);
+        return {
+            speed: clamp(speedDial100 * spMul, 0, 115),
+            noise: clamp(noiseDial100 * nsMul, 0, 115),
+        };
+    }
+
+    function dialPointSize(raw) {
+        return 1 + (dialTo100(raw) / 100) * 49;
+    }
+
+    function dialBlurPx(raw) {
+        return (dialTo100(raw) / 100) * 20;
+    }
+
+    /** Particle count: 10k … 100k from dial 1…10 */
+    function dialParticleThousands(raw) {
+        return 10 + (dialTo100(raw) / 100) * 90;
+    }
+
+    // Slider readouts (1 decimal)
+    document.querySelectorAll('.control-row input[type="range"]').forEach(inp => {
+        const v = inp.parentElement.querySelector('.param-value');
+        if (v) {
+            const fmt = () => { v.textContent = Number(inp.value).toFixed(1); };
+            inp.addEventListener('input', fmt);
+            fmt();
+        }
+    });
+
+    const hexToRGB = (hex) => {
+        const r = parseInt(hex.slice(1, 3), 16) / 255;
+        const g = parseInt(hex.slice(3, 5), 16) / 255;
+        const b = parseInt(hex.slice(5, 7), 16) / 255;
+        return [r, g, b];
+    };
+
+    let audioCtx = null;
+    let analyser = null;
+    let smoothPitch = 0.5;
+    let smoothLevel = 0.35;
+    let smoothBass = 0.35;
+    let smoothMid = 0.35;
+    let smoothHigh = 0.35;
+    let smoothCentroid = 0.5;
+    let smoothTransient = 0;
+    let smoothLevelFast = 0.35;
+    let prevRawLevel = 0;
+    let freqBuf = new Float32Array(1024);
+    let timeBuf = new Float32Array(2048);
+    let micActive = false;
+
+    function binHz(hz, nyquist, n) {
+        return Math.max(0, Math.min(n - 1, Math.round((hz / nyquist) * n)));
+    }
+
+    /** dB-ish float FFT → 0–1, tunable floor/ceil */
+    function bandNormDb(freqBuf, i0, i1, floorDb = -78, ceilDb = -38) {
+        let sum = 0;
+        let c = 0;
+        for (let i = i0; i <= i1; i++) {
+            sum += freqBuf[i];
+            c++;
+        }
+        if (!c) return 0;
+        const avg = sum / c;
+        return Math.max(0, Math.min(1, (avg - floorDb) / (ceilDb - floorDb)));
+    }
+
+    function stepAudio() {
+        if (!micActive || !analyser || !audioCtx) {
+            return {
+                pitch: 0.5, level: 0.35, levelFast: 0.35, bass: 0.35, mid: 0.35, high: 0.35,
+                centroid: 0.5, transient: 0, active: 0,
+            };
+        }
+        if (freqBuf.length !== analyser.frequencyBinCount) {
+            freqBuf = new Float32Array(analyser.frequencyBinCount);
+        }
+        if (timeBuf.length !== analyser.fftSize) {
+            timeBuf = new Float32Array(analyser.fftSize);
+        }
+        analyser.getFloatFrequencyData(freqBuf);
+        const nyquist = audioCtx.sampleRate * 0.5;
+        const n = freqBuf.length;
+
+        const iB0 = binHz(40, nyquist, n);
+        const iB1 = binHz(220, nyquist, n);
+        const iM0 = binHz(220, nyquist, n);
+        const iM1 = binHz(2000, nyquist, n);
+        const iH0 = binHz(2000, nyquist, n);
+        const iH1 = binHz(9000, nyquist, n);
+
+        let bassN = bandNormDb(freqBuf, iB0, iB1, -80, -42);
+        let midN = bandNormDb(freqBuf, iM0, iM1, -82, -40);
+        let highN = bandNormDb(freqBuf, iH0, iH1, -85, -38);
+
+        // Spectral centroid (brightness) → 0–1
+        let cNum = 0;
+        let cDen = 0;
+        const ci0 = 2;
+        const ci1 = n - 1;
+        for (let i = ci0; i <= ci1; i++) {
+            const lin = Math.pow(10, freqBuf[i] * 0.05);
+            cNum += i * lin;
+            cDen += lin;
+        }
+        let centNorm = 0.5;
+        if (cDen > 1e-6) {
+            const cBin = cNum / cDen;
+            const hz = (cBin / n) * nyquist;
+            centNorm = (Math.log2(Math.max(hz, 80)) - Math.log2(80)) / (Math.log2(6000) - Math.log2(80));
+            centNorm = Math.max(0, Math.min(1, centNorm));
+        }
+
+        const i0 = Math.max(2, binHz(65, nyquist, n));
+        const i1 = Math.min(n - 1, Math.ceil(4800 / nyquist * n));
+        let maxDb = -Infinity;
+        let maxI = i0;
+        for (let i = i0; i <= i1; i++) {
+            if (freqBuf[i] > maxDb) {
+                maxDb = freqBuf[i];
+                maxI = i;
+            }
+        }
+        let pitchNorm = 0.5;
+        if (maxDb > -80 && maxI > 0) {
+            const hz = (maxI / n) * nyquist;
+            pitchNorm = (Math.log2(Math.max(hz, 64)) - Math.log2(64)) / (Math.log2(4000) - Math.log2(64));
+            pitchNorm = Math.max(0, Math.min(1, pitchNorm));
+        }
+
+        analyser.getFloatTimeDomainData(timeBuf);
+        let rms = 0;
+        for (let i = 0; i < timeBuf.length; i++) rms += timeBuf[i] * timeBuf[i];
+        rms = Math.sqrt(rms / timeBuf.length);
+        const levelNorm = Math.min(1, rms * 10);
+        const delta = Math.max(0, levelNorm - prevRawLevel);
+        prevRawLevel = levelNorm;
+        const transientRaw = Math.min(1, delta * 12);
+
+        smoothPitch += (pitchNorm - smoothPitch) * 0.14;
+        smoothLevel += (levelNorm - smoothLevel) * 0.14;
+        smoothLevelFast += (levelNorm - smoothLevelFast) * 0.45;
+        smoothBass += (bassN - smoothBass) * 0.22;
+        smoothMid += (midN - smoothMid) * 0.2;
+        smoothHigh += (highN - smoothHigh) * 0.22;
+        smoothCentroid += (centNorm - smoothCentroid) * 0.14;
+        smoothTransient += (transientRaw - smoothTransient) * 0.28;
+
+        return {
+            pitch: smoothPitch,
+            level: smoothLevel,
+            levelFast: smoothLevelFast,
+            bass: smoothBass,
+            mid: smoothMid,
+            high: smoothHigh,
+            centroid: smoothCentroid,
+            transient: smoothTransient,
+            active: 1,
+        };
+    }
+
+    async function setupMic() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+            });
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state === 'suspended') await audioCtx.resume();
+            const src = audioCtx.createMediaStreamSource(stream);
+            analyser = audioCtx.createAnalyser();
+            analyser.fftSize = 2048;
+            analyser.smoothingTimeConstant = 0.28;
+            freqBuf = new Float32Array(analyser.frequencyBinCount);
+            timeBuf = new Float32Array(analyser.fftSize);
+            src.connect(analyser);
+            micActive = true;
+            const st = el('p-mic-status');
+            if (st) st.innerHTML = '<span class="mic-status-live">● LIVE</span> — Microphone connected. Motion fully driven by audio.';
+        } catch (e) {
+            const st = el('p-mic-status');
+            if (st) st.textContent = 'Microphone unavailable: ' + (e && e.message ? e.message : 'denied');
+        }
+    }
+
+    // Auto-setup mic on page load
+    window.addEventListener('load', () => {
+        setupMic();
+    });
+
+    // Shaders (identical to phantom.html)
+    const UPDATE_VERT = `#version 300 es
+    precision highp float;
+
+    uniform float uTime;
+    uniform float uTimeDelta;
+    uniform vec2 uRandom;
+    uniform vec2 uResolution;
+    
+    uniform float uSpeed;
+    uniform float uNoiseStr;
+    uniform float uBeams;
+    uniform float uAudioPitch;
+    uniform float uAudioLevel;
+    uniform float uAudioLevelFast;
+    uniform float uAudioBass;
+    uniform float uAudioMid;
+    uniform float uAudioHigh;
+    uniform float uAudioCentroid;
+    uniform float uAudioTransient;
+    uniform float uAudioActive;
+
+    in vec2 aPosition;
+    in float aAge;
+    in float aLife;
+    in vec2 aVel;
+    in float aSeed;
+
+    out vec2 vPosition;
+    out float vAge;
+    out float vLife;
+    out vec2 vVel;
+    out float vSeed;
+
+    // Simplex noise helper
+    vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+    float snoise(vec2 v){
+        const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+        vec2 i  = floor(v + dot(v, C.yy) );
+        vec2 x0 = v -   i + dot(i, C.xx);
+        vec2 i1; i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+        vec4 x12 = x0.xyxy + C.xxzz;
+        x12.xy -= i1;
+        i = mod(i, 289.0);
+        vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
+        vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+        m = m*m ; m = m*m ;
+        vec3 x = 2.0 * fract(p * C.www) - 1.0;
+        vec3 h = abs(x) - 0.5;
+        vec3 ox = floor(x + 0.5);
+        vec3 a0 = x - ox;
+        m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+        vec3 g;
+        g.x  = a0.x  * x0.x  + h.x  * x0.y;
+        g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+        return 130.0 * dot(m, g);
+    }
+
+    // Curl noise
+    vec2 curlNoise(vec2 p) {
+        float e = 0.01;
+        float dx = snoise(p + vec2(e, 0.0)) - snoise(p - vec2(e, 0.0));
+        float dy = snoise(p + vec2(0.0, e)) - snoise(p - vec2(0.0, e));
+        return vec2(dy, -dx) / (2.0 * e);
+    }
+
+    void main() {
+        vAge = aAge + uTimeDelta;
+        vLife = aLife;
+        vSeed = aSeed;
+        
+        // Body profile shape (normalized -1 to 1)
+        float profile = pow(1.0 - abs(aSeed * 2.0 - 1.0), 0.5); 
+
+        if (vAge >= aLife) {
+            // Respawn
+            vAge = 0.0;
+            vLife = aLife; // keep same life length or could randomize
+
+            // Randomizer for respawn
+            float rnd1 = fract(sin(dot(vec2(vSeed, uTime), vec2(12.9898, 78.233))) * 43758.5453);
+            float rnd2 = fract(sin(dot(vec2(uTime, vSeed), vec2(39.346, 11.135))) * 43758.5453);
+
+            // Is this a beam particle or a body particle?
+            if (rnd1 < uBeams * 0.01) {
+                // Beam particle - snap to specific vertical columns
+                float beamIdx = floor(rnd2 * 5.0) - 2.0; // 5 beams: -2, -1, 0, 1, 2
+                float bx = beamIdx * 0.2 * uResolution.x;
+                float by = (rnd1 - 0.5) * uResolution.y * 1.5;
+                vPosition = vec2(bx, by);
+                float bassBeam = mix(1.0, 0.65 + 0.55 * uAudioBass, uAudioActive);
+                float lvlBeam = mix(1.0, 0.65 + 0.55 * uAudioLevelFast, uAudioActive);
+                vVel = vec2(0.0, uSpeed * 100.0 * bassBeam * lvlBeam);
+            } else {
+                // Body particle
+                float ny = rnd1 * 2.0 - 1.0; 
+                float w = 0.4 * pow(1.0 - abs(ny), 0.6) + 0.1; // figure silhouette width
+                float nx = (rnd2 * 2.0 - 1.0) * w * uResolution.x * 0.5;
+                
+                vPosition = vec2(nx, ny * uResolution.y * 0.4);
+                vVel = vec2(0.0);
+            }
+        } else {
+            // Update: motion ONLY when audio is active
+            vec2 vel = aVel;
+            float au = uAudioActive;
+
+            if (au < 0.5) {
+                // No audio: gentle damping and slow drift back to origin (hold the shape)
+                vel *= 0.92;
+                vel.x -= aPosition.x * 0.02 * uTimeDelta;
+                vel.y -= aPosition.y * 0.015 * uTimeDelta;
+            } else {
+                // Audio active: strong band-driven motion
+                float boost = (0.75 + 0.22 * uAudioBass + 0.18 * uAudioMid) * (0.85 + 0.4 * uAudioLevelFast);
+                float midSwirl = 0.78 + 0.32 * uAudioMid;
+
+                // Curl noise only when audio is on (adds texture to the motion)
+                float curlAmt = uNoiseStr * 11.0 * boost * midSwirl;
+                vec2 flow = curlNoise(aPosition * 0.002
+                    + vec2(uAudioMid * 0.08, -uTime * 0.35)
+                    + vec2(uAudioPitch * 0.06, uAudioBass * 0.1));
+                vel += flow * curlAmt;
+
+                // Primary motion: deterministic field tied to bands + fast level
+                float t = uTime;
+                float drive = (0.45 + 0.9 * uAudioLevelFast);
+                float wMid = (2.8 + 9.0 * uAudioMid);
+                float wBs = (2.2 + 7.5 * uAudioBass);
+                float ph = t * (2.0 + 6.5 * uAudioLevelFast) + aSeed * 6.28318;
+                vec2 audioField = vec2(
+                    sin(ph + aPosition.y * 0.0028 + uAudioPitch * 6.28) * wMid * (0.35 + uAudioMid),
+                    cos(ph * 0.93 - aPosition.x * 0.0025 + uAudioCentroid * 5.0) * wBs * (0.35 + uAudioBass)
+                );
+                vel += audioField * drive * uTimeDelta * 7.0;
+
+                // Highs: shimmer (fast jitter)
+                vec2 hiShake = vec2(
+                    sin(t * (11.0 + 24.0 * uAudioHigh) + aPosition.y * 0.011) * uAudioHigh,
+                    cos(t * (9.0 + 20.0 * uAudioCentroid) + aPosition.x * 0.012) * uAudioHigh
+                ) * (0.55 + 0.95 * uAudioLevelFast);
+                vel += hiShake * 22.0 * uTimeDelta;
+
+                // Transients: kicks
+                vec2 kick = vec2(cos(aSeed * 37.13), sin(aSeed * 41.07));
+                vel += kick * uAudioTransient * (55.0 + 95.0 * uAudioLevelFast) * uTimeDelta;
+
+                // Bass: vertical sway
+                vel.y -= aPosition.y * (0.11 + 0.14 * uAudioLevelFast) * uAudioBass * uTimeDelta * 35.0;
+                vel.x += (uAudioPitch - 0.5) * 28.0 * uAudioMid * uTimeDelta;
+
+                // Gentle centering — weaker when loud
+                float cx = mix(0.5, 0.28, uAudioLevelFast);
+                vel.x -= aPosition.x * cx * uNoiseStr * boost * 0.5;
+
+                float spd = uSpeed * 0.05 * (0.62 + 0.28 * uAudioLevelFast + 0.14 * uAudioBass);
+                vel *= spd;
+            }
+
+            vPosition = aPosition + vel * uTimeDelta;
+            vVel = vel * 0.95;
+        }
+    }
+    `;
+
+    const UPDATE_FRAG = `#version 300 es
+    precision mediump float;
+    void main() { discard; }
+    `;
+
+    const RENDER_VERT = `#version 300 es
+    precision highp float;
+
+    uniform vec2 uResolution;
+    uniform float uTime;
+    
+    // uniforms for distortion
+    uniform float uFracture;
+    uniform float uGlitch;
+    uniform float uPointSize;
+    uniform int uMirror;
+    uniform float uAudioPitch;
+    uniform float uAudioLevel;
+    uniform float uAudioLevelFast;
+    uniform float uAudioBass;
+    uniform float uAudioMid;
+    uniform float uAudioHigh;
+    uniform float uAudioCentroid;
+    uniform float uAudioTransient;
+    uniform float uAudioActive;
+
+    in vec2 aPosition;
+    in float aAge;
+    in float aLife;
+    in vec2 aVel;
+    in float aSeed;
+
+    out float vAlpha;
+
+    // Simplex noise
+    vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+    float snoise(vec2 v){
+        const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+        vec2 i  = floor(v + dot(v, C.yy) );
+        vec2 x0 = v -   i + dot(i, C.xx);
+        vec2 i1; i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+        vec4 x12 = x0.xyxy + C.xxzz;
+        x12.xy -= i1;
+        i = mod(i, 289.0);
+        vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 )) + i.x + vec3(0.0, i1.x, 1.0 ));
+        vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+        m = m*m ; m = m*m ;
+        vec3 x = 2.0 * fract(p * C.www) - 1.0;
+        vec3 h = abs(x) - 0.5;
+        vec3 ox = floor(x + 0.5);
+        vec3 a0 = x - ox;
+        m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+        vec3 g;
+        g.x  = a0.x  * x0.x  + h.x  * x0.y;
+        g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+        return 130.0 * dot(m, g);
+    }
+
+    void main() {
+        vec2 pos = aPosition;
+
+        // Fracture: light audio accent on top of UI dial
+        if (uFracture > 0.0) {
+            float slice = floor((pos.y / uResolution.y) * 10.0 + uTime * (2.0 + uAudioCentroid * 1.0) * uAudioActive);
+            float tear = mix(1.0, 0.82 + 0.22 * uAudioMid + 0.12 * uAudioTransient, uAudioActive);
+            float offset = snoise(vec2(slice, uTime * 0.5)) * uResolution.x * 0.1 * (uFracture * 0.01) * tear;
+            pos.x += offset;
+        }
+
+        // Glitch: transients nudge probability slightly
+        if (uGlitch > 0.0) {
+            float g = fract(sin(dot(vec2(uTime, aSeed), vec2(12.9898,78.233))) * 43758.5453);
+            float thresh = (1.0 - uGlitch * 0.01);
+            thresh -= uAudioTransient * 0.1 * uAudioActive;
+            if (g > thresh) {
+                pos.x += (snoise(vec2(aSeed, uTime)) * (140.0 + uAudioHigh * 40.0 * uAudioActive));
+            }
+        }
+
+        // Mirror symmetry using gl_VertexID
+        if (uMirror == 1) { // Left/Right
+            if (gl_VertexID % 2 == 1) pos.x = -pos.x;
+        } else if (uMirror == 2) { // Up/Down
+            if (gl_VertexID % 2 == 1) pos.y = -pos.y;
+        } else if (uMirror >= 3) { // Radial (3, 4, 5-way)
+            int copies = uMirror;
+            int copyIdx = gl_VertexID % copies;
+            if (copyIdx > 0) {
+                float angle = float(copyIdx) * 6.2831853 / float(copies);
+                float c = cos(angle);
+                float s = sin(angle);
+                pos = vec2(pos.x * c - pos.y * s, pos.x * s + pos.y * c);
+            }
+        }
+
+        // Clip space assumes position is centered at (0,0) and resolution is width/height
+        vec2 clipPos = (pos / (uResolution * 0.5));
+        
+        // Reverse Y so it's not upside down
+        clipPos.y *= -1.0;
+
+        gl_Position = vec4(clipPos, 0.0, 1.0);
+        
+        // Size: subtle swell from level + a hint of bass / highs
+        float ageS = (aLife - aAge) / aLife;
+        float lvMix = mix(uAudioLevel, uAudioLevelFast, 0.7);
+        float audioSize = mix(1.0,
+            (0.88 + 0.12 * uAudioBass + 0.08 * uAudioHigh) * (0.72 + 0.38 * lvMix) * (0.94 + 0.06 * uAudioCentroid),
+            uAudioActive);
+        gl_PointSize = uPointSize * ageS * audioSize;
+
+        // Fade out based on age
+        float ageRatio = aAge / aLife;
+        vAlpha = smoothstep(0.0, 0.1, ageRatio) * smoothstep(1.0, 0.8, ageRatio);
+    }
+    `;
+
+    const RENDER_FRAG = `#version 300 es
+    precision highp float;
+
+    uniform vec3 uColor;
+    uniform int uShape;
+    uniform float uAudioPitch;
+    uniform float uAudioBass;
+    uniform float uAudioMid;
+    uniform float uAudioHigh;
+    uniform float uAudioCentroid;
+    uniform float uAudioTransient;
+    uniform float uAudioActive;
+    in float vAlpha;
+    out vec4 fragColor;
+
+    void main() {
+        float alpha = vAlpha;
+        vec2 uv = gl_PointCoord.xy - 0.5;
+
+        if (uShape == 0) {
+            // Circle
+            float d = length(uv);
+            float circle = smoothstep(0.5, 0.4, d);
+            if (circle < 0.01) discard;
+            alpha *= circle;
+        } else if (uShape == 1) {
+            // Square / Pixel
+            // no alpha discard based on radius
+        } else if (uShape == 2) {
+            // X shape
+            float line1 = smoothstep(0.15, 0.05, abs(uv.x - uv.y));
+            float line2 = smoothstep(0.15, 0.05, abs(uv.x + uv.y));
+            float cross = max(line1, line2);
+            if (cross < 0.01) discard;
+            alpha *= cross;
+        } else if (uShape == 3) {
+            // O / Ring
+            float d = length(uv);
+            float ring = smoothstep(0.5, 0.4, d) - smoothstep(0.3, 0.2, d);
+            if (ring < 0.01) discard;
+            alpha *= ring;
+        }
+
+        vec3 c = uColor;
+        c.r += (uAudioBass * 0.06 + uAudioTransient * 0.04) * uAudioActive;
+        c.g += uAudioMid * 0.05 * uAudioActive;
+        c.b += (uAudioHigh * 0.055 + uAudioCentroid * 0.03) * uAudioActive;
+        c += vec3(uAudioPitch * 0.02) * uAudioActive;
+        c = clamp(c, vec3(0.0), vec3(1.0));
+        fragColor = vec4(c, alpha);
+    }
+    `;
+
+    // ── Olon Setup ──
+    const wrap = el('phantom-wrap');
+    let width = wrap.clientWidth || 800;
+    let height = wrap.clientHeight || 800;
+
+    const ol = Olon(width, height);
+    wrap.appendChild(ol.canvas);
+    ol.canvas.style.display = 'block';
+
+    // Additive blending for particles
+    ol.blend({
+        sfactor: ol.SRC_ALPHA,
+        dfactor: ol.ONE, // Additive blending for light effects
+    });
+    ol.enableBlend();
+
+    const TFV = ["vPosition", "vAge", "vLife", "vVel", "vSeed"];
+    const updateProgram = ol.createProgram(UPDATE_VERT, UPDATE_FRAG, TFV);
+    const renderProgram = ol.createProgram(RENDER_VERT, RENDER_FRAG);
+
+    const attributes = [
+        { name: "aPosition", unit: "f32", size: 2 },
+        { name: "aAge", unit: "f32", size: 1 },
+        { name: "aLife", unit: "f32", size: 1 },
+        { name: "aVel", unit: "f32", size: 2 },
+        { name: "aSeed", unit: "f32", size: 1 }
+    ];
+
+    const MAX_AMOUNT = 100000;
+    const MIN_AGE = 1.0;
+    const MAX_AGE = 3.0;
+    
+    const particleData = [];
+    for (let i = 0; i < MAX_AMOUNT; i++) {
+        const life = random(MIN_AGE, MAX_AGE);
+        // initial state doesn't matter much, they'll respawn
+        particleData.push(0, 0); // aPosition
+        particleData.push(life + 1); // aAge (starts dead to force respawn)
+        particleData.push(life); // aLife
+        particleData.push(0, 0); // aVel
+        particleData.push(random()); // aSeed
+    }
+    const initData = Data(particleData);
+
+    // Two buffers for Transform Feedback ping-pong
+    const buffer0 = ol.createBuffer(initData, ol.STREAM_DRAW);
+    const buffer1 = ol.createBuffer(initData, ol.STREAM_DRAW);
+
+    const vao0 = ol.createVAO(updateProgram, { buffer: buffer0, stride: 4 * 7, attributes });
+    const vao1 = ol.createVAO(updateProgram, { buffer: buffer1, stride: 4 * 7, attributes });
+    
+    const renderVao0 = ol.createVAO(renderProgram, { buffer: buffer0, stride: 4 * 7, attributes });
+    const renderVao1 = ol.createVAO(renderProgram, { buffer: buffer1, stride: 4 * 7, attributes });
+
+    const buffers = [buffer0, buffer1];
+    const updateVaos = [vao0, vao1];
+    const renderVaos = [renderVao0, renderVao1];
+    
+    let [read, write] = [0, 1];
+    let lastTime = 0;
+
+    window.addEventListener('resize', () => {
+        width = wrap.clientWidth;
+        height = wrap.clientHeight;
+        const dpr = window.devicePixelRatio || 1;
+        ol.resize(width * dpr, height * dpr);
+    });
+    // Trigger initial resize for retina scaling
+    window.dispatchEvent(new Event('resize'));
+
+    // Main render loop
+    ol.render(() => {
+        const time = ol.frame / 60;
+        const timeDelta = time - lastTime;
+        lastTime = time;
+
+        const countParam = dialParticleThousands(val('p-count')) * 1000;
+        const renderAmount = min(MAX_AMOUNT, countParam);
+        const au = stepAudio();
+        const noiseSpeed = audioModulateNoiseSpeed(dialTo100(val('p-noise')), dialTo100(val('p-speed')), au);
+
+        // Frame clear
+        const bgRGB = hexToRGB(el('p-bg').value);
+        ol.clearColor(bgRGB[0], bgRGB[1], bgRGB[2], 1);
+        ol.clearDepth();
+        ol.clear();
+        
+        ol.canvas.style.filter = 'blur(' + dialBlurPx(val('p-blur')) + 'px)';
+        el('phantom-wrap').parentNode.style.background = el('p-bg').value;
+
+        // Update pass
+        ol.use({ program: updateProgram }).run(() => {
+            ol.transformFeedback(updateVaos[read], buffers[write], ol.POINTS, () => {
+                ol.uniform("uTimeDelta", timeDelta);
+                ol.uniform("uTime", time);
+                ol.uniform("uResolution", [width, height]);
+                
+                // Params
+                ol.uniform("uSpeed", noiseSpeed.speed);
+                ol.uniform("uNoiseStr", noiseSpeed.noise);
+                ol.uniform("uBeams", dialTo100(val('p-beams')));
+                ol.uniform("uAudioPitch", au.pitch);
+                ol.uniform("uAudioLevel", au.level);
+                ol.uniform("uAudioLevelFast", au.levelFast);
+                ol.uniform("uAudioBass", au.bass);
+                ol.uniform("uAudioMid", au.mid);
+                ol.uniform("uAudioHigh", au.high);
+                ol.uniform("uAudioCentroid", au.centroid);
+                ol.uniform("uAudioTransient", au.transient);
+                ol.uniform("uAudioActive", au.active);
+
+                ol.points(0, renderAmount);
+            });
+        });
+
+        // Render pass
+        ol.use({
+            program: renderProgram,
+            VAO: renderVaos[write],
+        }).run(() => {
+            ol.uniform("uResolution", [width, height]);
+            ol.uniform("uTime", time);
+            
+            // Render params
+            ol.uniform("uFracture", dialTo100(val('p-fracture')));
+            ol.uniform("uGlitch", dialTo100(val('p-glitch')));
+            const dpr = window.devicePixelRatio || 1;
+            ol.uniform("uPointSize", dialPointSize(val('p-size')) * dpr * 0.4); 
+            ol.uniform("uMirror", parseInt(el('p-mirror').value, 10));
+            ol.uniform("uShape", parseInt(el('p-shape').value, 10));
+            
+            const colorRGB = hexToRGB(el('p-color').value);
+            ol.uniform("uColor", colorRGB);
+            ol.uniform("uAudioPitch", au.pitch);
+            ol.uniform("uAudioLevel", au.level);
+            ol.uniform("uAudioLevelFast", au.levelFast);
+            ol.uniform("uAudioBass", au.bass);
+            ol.uniform("uAudioMid", au.mid);
+            ol.uniform("uAudioHigh", au.high);
+            ol.uniform("uAudioCentroid", au.centroid);
+            ol.uniform("uAudioTransient", au.transient);
+            ol.uniform("uAudioActive", au.active);
+
+            ol.points(0, renderAmount);
+        });
+
+        // Swap buffers
+        let temp = read;
+        read = write;
+        write = temp;
+    });
+    </script>
+</body>
+</html>
