@@ -137,6 +137,20 @@
         return 72 + ((x - 5) / 5) * 28;
     }
 
+    /** With live mic, Speed / Field Noise follow loudness and spectrum (dials stay the baseline). */
+    function audioModulateNoiseSpeed(noiseDial100, speedDial100, au) {
+        if (!au.active) {
+            return { noise: noiseDial100, speed: speedDial100 };
+        }
+        const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+        const spMul = clamp(0.36 + 0.78 * au.levelFast + 0.26 * au.bass + 0.12 * au.transient, 0.4, 1.52);
+        const nsMul = clamp(0.34 + 0.5 * au.mid + 0.36 * au.high + 0.14 * au.centroid + 0.22 * au.transient, 0.38, 1.58);
+        return {
+            speed: clamp(speedDial100 * spMul, 0, 115),
+            noise: clamp(noiseDial100 * nsMul, 0, 115),
+        };
+    }
+
     function dialPointSize(raw) {
         return 1 + (dialTo100(raw) / 100) * 49;
     }
@@ -309,7 +323,7 @@
             timeBuf = new Float32Array(analyser.fftSize);
             src.connect(analyser);
             const st = el('p-mic-status');
-            if (st) st.textContent = 'Live — motion follows mids/bass/brightness; size and kicks track loudness.';
+            if (st) st.textContent = 'Live — Speed & Field Noise follow level/bands while the dials set the baseline.';
             const btn = el('p-mic');
             if (btn) {
                 btn.textContent = 'Microphone on';
@@ -737,6 +751,7 @@
         const countParam = dialParticleThousands(val('p-count')) * 1000;
         const renderAmount = min(MAX_AMOUNT, countParam);
         const au = stepAudio();
+        const noiseSpeed = audioModulateNoiseSpeed(dialTo100(val('p-noise')), dialTo100(val('p-speed')), au);
 
         // Frame clear
         const bgRGB = hexToRGB(el('p-bg').value);
@@ -755,8 +770,8 @@
                 ol.uniform("uResolution", [width, height]);
                 
                 // Params
-                ol.uniform("uSpeed", dialTo100(val('p-speed')));
-                ol.uniform("uNoiseStr", dialTo100(val('p-noise')));
+                ol.uniform("uSpeed", noiseSpeed.speed);
+                ol.uniform("uNoiseStr", noiseSpeed.noise);
                 ol.uniform("uBeams", dialTo100(val('p-beams')));
                 ol.uniform("uAudioPitch", au.pitch);
                 ol.uniform("uAudioLevel", au.level);
