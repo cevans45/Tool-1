@@ -144,23 +144,17 @@
                     ctx2.fillText(ch, 0, 0);
                     return;
                 }
-                const lw = outlineStrokePx(fs);
+                const lw = fs * 0.026;
                 ctx2.lineJoin = 'round';
-                ctx2.lineWidth = lw;
+                ctx2.lineWidth = Math.max(0.85, lw);
                 ctx2.strokeStyle = ink;
                 ctx2.strokeText(ch, 0, 0);
                 ctx2.fillStyle = '#ffffff';
                 ctx2.fillText(ch, 0, 0);
             }
 
-            /** One outline thickness for every letter + all typo modes (layout units). */
-            function outlineStrokePx(fs) {
-                const f = fs != null ? fs : S.fs;
-                return Math.max(1, f * 0.024);
-            }
-
             function strokeInset() {
-                return outlineStrokePx();
+                return Math.max(0.9, S.fs * 0.012);
             }
 
             function letterInside(alpha, tw, th, x, y) {
@@ -372,10 +366,11 @@
             function drawTypoCrosses(ctx2, l) {
                 const scale = l.typoScale;
                 const arm = scale * 0.4;
+                const thick = l.typoWeight * 0.2;
                 ctx2.strokeStyle = l.color;
                 ctx2.lineCap = 'round';
                 ctx2.globalAlpha = 1;
-                ctx2.lineWidth = outlineStrokePx();
+                ctx2.lineWidth = Math.max(1, thick);
                 for (const p of l.particles) {
                     const len = arm * p.scale;
                     const x = cx(l, p), y = cy(l, p);
@@ -437,7 +432,7 @@
             function drawTypoNet(ctx2, l) {
                 const scale = l.typoScale;
                 const connDist = scale * 3;
-                const lineW = outlineStrokePx();
+                const lineW = l.typoWeight * 0.15;
                 ctx2.strokeStyle = l.color;
                 ctx2.lineCap = 'round';
                 const parts = l.particles;
@@ -451,7 +446,7 @@
                         if (d > connDist) continue;
                         const fade = 1 - d / connDist;
                         ctx2.globalAlpha = fade * 0.55;
-                        ctx2.lineWidth = lineW;
+                        ctx2.lineWidth = lineW * (0.35 + fade * 0.65);
                         ctx2.beginPath();
                         ctx2.moveTo(ax, ay);
                         ctx2.lineTo(bx, by);
@@ -562,6 +557,7 @@
                         particles,
                         fontIdx,
                         typoScale: Math.max(8, fs * 0.095),
+                        typoWeight: 5,
                         typoMode,
                         jitter: 82,
                         drift: 40,
