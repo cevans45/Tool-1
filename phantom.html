@@ -177,6 +177,7 @@
     let smoothHigh = 0.35;
     let smoothCentroid = 0.5;
     let smoothTransient = 0;
+    let smoothLevelFast = 0.35;
     let prevRawLevel = 0;
     let freqBuf = new Float32Array(1024);
     let timeBuf = new Float32Array(2048);
@@ -201,7 +202,7 @@
     function stepAudio() {
         if (isPreview || !analyser || !audioCtx) {
             return {
-                pitch: 0.5, level: 0.35, bass: 0.35, mid: 0.35, high: 0.35,
+                pitch: 0.5, level: 0.35, levelFast: 0.35, bass: 0.35, mid: 0.35, high: 0.35,
                 centroid: 0.5, transient: 0, active: 0,
             };
         }
@@ -270,17 +271,19 @@
         prevRawLevel = levelNorm;
         const transientRaw = Math.min(1, delta * 12);
 
-        smoothPitch += (pitchNorm - smoothPitch) * 0.1;
+        smoothPitch += (pitchNorm - smoothPitch) * 0.14;
         smoothLevel += (levelNorm - smoothLevel) * 0.14;
-        smoothBass += (bassN - smoothBass) * 0.14;
-        smoothMid += (midN - smoothMid) * 0.12;
-        smoothHigh += (highN - smoothHigh) * 0.14;
-        smoothCentroid += (centNorm - smoothCentroid) * 0.1;
-        smoothTransient += (transientRaw - smoothTransient) * 0.22;
+        smoothLevelFast += (levelNorm - smoothLevelFast) * 0.45;
+        smoothBass += (bassN - smoothBass) * 0.22;
+        smoothMid += (midN - smoothMid) * 0.2;
+        smoothHigh += (highN - smoothHigh) * 0.22;
+        smoothCentroid += (centNorm - smoothCentroid) * 0.14;
+        smoothTransient += (transientRaw - smoothTransient) * 0.28;
 
         return {
             pitch: smoothPitch,
             level: smoothLevel,
+            levelFast: smoothLevelFast,
             bass: smoothBass,
             mid: smoothMid,
             high: smoothHigh,
@@ -301,12 +304,12 @@
             const src = audioCtx.createMediaStreamSource(stream);
             analyser = audioCtx.createAnalyser();
             analyser.fftSize = 2048;
-            analyser.smoothingTimeConstant = 0.45;
+            analyser.smoothingTimeConstant = 0.28;
             freqBuf = new Float32Array(analyser.frequencyBinCount);
             timeBuf = new Float32Array(analyser.fftSize);
             src.connect(analyser);
             const st = el('p-mic-status');
-            if (st) st.textContent = 'Live — bass drives vertical motion, mids = swirl, highs = shimmer, attacks = glitch.';
+            if (st) st.textContent = 'Live — motion follows mids/bass/brightness; size and kicks track loudness.';
             const btn = el('p-mic');
             if (btn) {
                 btn.textContent = 'Microphone on';
@@ -344,6 +347,7 @@
     uniform float uBeams;
     uniform float uAudioPitch;
     uniform float uAudioLevel;
+    uniform float uAudioLevelFast;
     uniform float uAudioBass;
     uniform float uAudioMid;
     uniform float uAudioHigh;
@@ -420,7 +424,7 @@
                 float by = (rnd1 - 0.5) * uResolution.y * 1.5;
                 vPosition = vec2(bx, by);
                 float bassBeam = mix(1.0, 0.65 + 0.55 * uAudioBass, uAudioActive);
-                float lvlBeam = mix(1.0, 0.72 + 0.45 * uAudioLevel, uAudioActive);
+                float lvlBeam = mix(1.0, 0.65 + 0.55 * uAudioLevelFast, uAudioActive);
                 vVel = vec2(0.0, uSpeed * 100.0 * bassBeam * lvlBeam);
             } else {
                 // Body particle
@@ -432,33 +436,54 @@
                 vVel = vec2(0.0);
             }
         } else {
-            // Update
+            // Update: with live audio, motion is mostly band + envelope driven; curl is a thin texture
              vec2 vel = aVel;
-             float audioBoost = mix(1.0,
-                (0.72 + 0.28 * uAudioBass + 0.18 * uAudioMid) * (0.82 + 0.35 * uAudioLevel),
-                uAudioActive);
-             float midSwirl = mix(1.0, 0.82 + 0.28 * uAudioMid, uAudioActive);
+             float au = uAudioActive;
+             float boost = mix(1.0,
+                (0.75 + 0.22 * uAudioBass + 0.18 * uAudioMid) * (0.85 + 0.4 * uAudioLevelFast),
+                au);
+             float midSwirl = mix(1.0, 0.78 + 0.32 * uAudioMid, au);
 
-             // Mids drive curl; bass / pitch nudge phase only slightly
+             // Curl noise — quiet when audio is on so the sound-led terms read clearly
+             float curlAmt = uNoiseStr * 11.0 * boost * midSwirl * mix(1.0, 0.14, au);
              vec2 flow = curlNoise(aPosition * 0.002
-                 + vec2(uAudioMid * 0.22, -uTime * 0.5)
-                 + vec2(uAudioPitch * 0.18 + uAudioBass * 0.12, uAudioBass * 0.25) * uAudioActive);
-             vel += flow * uNoiseStr * 11.0 * audioBoost * midSwirl;
+                 + vec2(uAudioMid * 0.08, -uTime * 0.35)
+                 + vec2(uAudioPitch * 0.06, uAudioBass * 0.1) * au);
+             vel += flow * curlAmt;
 
-             // Highs: light shimmer (scaled down)
-             float hf = uAudioHigh * uAudioActive;
-             vel.x += sin(uTime * (5.0 + uAudioCentroid * 6.0) + aPosition.y * 0.009 + aSeed * 6.283) * hf * 16.0 * uTimeDelta;
-             vel.y += cos(uTime * (4.0 + uAudioHigh * 8.0) + aPosition.x * 0.01) * hf * 11.0 * uTimeDelta;
+             // Primary motion: deterministic field tied to bands + fast level (reads as "following the music")
+             float t = uTime;
+             float drive = (0.45 + 0.9 * uAudioLevelFast) * au;
+             float wMid = (2.8 + 9.0 * uAudioMid) * au;
+             float wBs = (2.2 + 7.5 * uAudioBass) * au;
+             float ph = t * (2.0 + 6.5 * uAudioLevelFast) * au + aSeed * 6.28318;
+             vec2 audioField = vec2(
+                 sin(ph + aPosition.y * 0.0028 + uAudioPitch * 6.28) * wMid * (0.35 + uAudioMid),
+                 cos(ph * 0.93 - aPosition.x * 0.0025 + uAudioCentroid * 5.0) * wBs * (0.35 + uAudioBass)
+             );
+             vel += audioField * drive * uTimeDelta * 7.0;
 
-             // Bass: subtle vertical breathe
-             vel.y -= aPosition.y * 0.1 * uNoiseStr * uAudioBass * uAudioActive;
+             vec2 hiShake = vec2(
+                 sin(t * (11.0 + 24.0 * uAudioHigh) + aPosition.y * 0.011) * uAudioHigh,
+                 cos(t * (9.0 + 20.0 * uAudioCentroid) + aPosition.x * 0.012) * uAudioHigh
+             ) * au * (0.55 + 0.95 * uAudioLevelFast);
+             vel += hiShake * 22.0 * uTimeDelta;
 
-             // Attraction to origin or symmetry
-             vel.x -= aPosition.x * 0.5 * uNoiseStr * mix(1.0, audioBoost, uAudioActive * 0.65);
+             // Transients: quick kicks (direction varies per particle)
+             vec2 kick = vec2(cos(aSeed * 37.13), sin(aSeed * 41.07));
+             vel += kick * uAudioTransient * (55.0 + 95.0 * uAudioLevelFast) * au * uTimeDelta;
 
-             float spd = uSpeed * 0.05 * mix(1.0, 0.78 + 0.12 * uAudioBass + 0.1 * uAudioCentroid, uAudioActive);
+             // Bass: vertical sway with level; lateral bias from pitch
+             vel.y -= aPosition.y * (0.11 + 0.14 * uAudioLevelFast) * uAudioBass * au * uTimeDelta * 35.0;
+             vel.x += (uAudioPitch - 0.5) * 28.0 * uAudioMid * au * uTimeDelta;
+
+             // Gentle centering — weaker when loud so beat pushes win
+             float cx = mix(0.5, 0.28, au * uAudioLevelFast);
+             vel.x -= aPosition.x * cx * uNoiseStr * mix(1.0, boost, au * 0.5);
+
+             float spd = uSpeed * 0.05 * mix(1.0, 0.62 + 0.28 * uAudioLevelFast + 0.14 * uAudioBass, au);
              vPosition = aPosition + vel * uTimeDelta * spd;
-             vVel = vel * 0.95; // dampening
+             vVel = vel * 0.95;
         }
     }
     `;
@@ -481,6 +506,7 @@
     uniform int uMirror;
     uniform float uAudioPitch;
     uniform float uAudioLevel;
+    uniform float uAudioLevelFast;
     uniform float uAudioBass;
     uniform float uAudioMid;
     uniform float uAudioHigh;
@@ -567,8 +593,9 @@
         
         // Size: subtle swell from level + a hint of bass / highs
         float ageS = (aLife - aAge) / aLife;
+        float lvMix = mix(uAudioLevel, uAudioLevelFast, 0.7);
         float audioSize = mix(1.0,
-            (0.88 + 0.12 * uAudioBass + 0.08 * uAudioHigh) * (0.78 + 0.32 * uAudioLevel) * (0.94 + 0.06 * uAudioCentroid),
+            (0.88 + 0.12 * uAudioBass + 0.08 * uAudioHigh) * (0.72 + 0.38 * lvMix) * (0.94 + 0.06 * uAudioCentroid),
             uAudioActive);
         gl_PointSize = uPointSize * ageS * audioSize;
 
@@ -733,6 +760,7 @@
                 ol.uniform("uBeams", dialTo100(val('p-beams')));
                 ol.uniform("uAudioPitch", au.pitch);
                 ol.uniform("uAudioLevel", au.level);
+                ol.uniform("uAudioLevelFast", au.levelFast);
                 ol.uniform("uAudioBass", au.bass);
                 ol.uniform("uAudioMid", au.mid);
                 ol.uniform("uAudioHigh", au.high);
@@ -764,6 +792,7 @@
             ol.uniform("uColor", colorRGB);
             ol.uniform("uAudioPitch", au.pitch);
             ol.uniform("uAudioLevel", au.level);
+            ol.uniform("uAudioLevelFast", au.levelFast);
             ol.uniform("uAudioBass", au.bass);
             ol.uniform("uAudioMid", au.mid);
             ol.uniform("uAudioHigh", au.high);
