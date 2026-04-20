@@ -774,106 +774,147 @@
     `;
 
     // ── Olon Setup ──
-    const wrap = el('phantom-wrap');
-    let width = wrap.clientWidth || 800;
-    let height = wrap.clientHeight || 800;
+    try {
+        const wrap = el('phantom-wrap');
+        let width = wrap.clientWidth || 800;
+        let height = wrap.clientHeight || 800;
 
-    const ol = Olon(width, height);
-    wrap.appendChild(ol.canvas);
-    ol.canvas.style.display = 'block';
+        const ol = Olon(width, height);
+        wrap.appendChild(ol.canvas);
+        ol.canvas.style.display = 'block';
 
-    // Additive blending for particles
-    ol.blend({
-        sfactor: ol.SRC_ALPHA,
-        dfactor: ol.ONE, // Additive blending for light effects
-    });
-    ol.enableBlend();
+        // Additive blending for particles
+        ol.blend({
+            sfactor: ol.SRC_ALPHA,
+            dfactor: ol.ONE, // Additive blending for light effects
+        });
+        ol.enableBlend();
 
-    const TFV = ["vPosition", "vAge", "vLife", "vVel", "vSeed"];
-    const updateProgram = ol.createProgram(UPDATE_VERT, UPDATE_FRAG, TFV);
-    const renderProgram = ol.createProgram(RENDER_VERT, RENDER_FRAG);
+        const TFV = ["vPosition", "vAge", "vLife", "vVel", "vSeed"];
+        console.log('Creating shaders...');
+        const updateProgram = ol.createProgram(UPDATE_VERT, UPDATE_FRAG, TFV);
+        console.log('Update shader created');
+        const renderProgram = ol.createProgram(RENDER_VERT, RENDER_FRAG);
+        console.log('Render shader created');
 
-    const attributes = [
-        { name: "aPosition", unit: "f32", size: 2 },
-        { name: "aAge", unit: "f32", size: 1 },
-        { name: "aLife", unit: "f32", size: 1 },
-        { name: "aVel", unit: "f32", size: 2 },
-        { name: "aSeed", unit: "f32", size: 1 }
-    ];
+        const attributes = [
+            { name: "aPosition", unit: "f32", size: 2 },
+            { name: "aAge", unit: "f32", size: 1 },
+            { name: "aLife", unit: "f32", size: 1 },
+            { name: "aVel", unit: "f32", size: 2 },
+            { name: "aSeed", unit: "f32", size: 1 }
+        ];
 
-    const MAX_AMOUNT = 100000;
-    const MIN_AGE = 1.0;
-    const MAX_AGE = 3.0;
-    
-    const particleData = [];
-    for (let i = 0; i < MAX_AMOUNT; i++) {
-        const life = random(MIN_AGE, MAX_AGE);
-        // initial state doesn't matter much, they'll respawn
-        particleData.push(0, 0); // aPosition
-        particleData.push(life + 1); // aAge (starts dead to force respawn)
-        particleData.push(life); // aLife
-        particleData.push(0, 0); // aVel
-        particleData.push(random()); // aSeed
-    }
-    const initData = Data(particleData);
-
-    // Two buffers for Transform Feedback ping-pong
-    const buffer0 = ol.createBuffer(initData, ol.STREAM_DRAW);
-    const buffer1 = ol.createBuffer(initData, ol.STREAM_DRAW);
-
-    const vao0 = ol.createVAO(updateProgram, { buffer: buffer0, stride: 4 * 7, attributes });
-    const vao1 = ol.createVAO(updateProgram, { buffer: buffer1, stride: 4 * 7, attributes });
-    
-    const renderVao0 = ol.createVAO(renderProgram, { buffer: buffer0, stride: 4 * 7, attributes });
-    const renderVao1 = ol.createVAO(renderProgram, { buffer: buffer1, stride: 4 * 7, attributes });
-
-    const buffers = [buffer0, buffer1];
-    const updateVaos = [vao0, vao1];
-    const renderVaos = [renderVao0, renderVao1];
-    
-    let [read, write] = [0, 1];
-    let lastTime = 0;
-
-    window.addEventListener('resize', () => {
-        width = wrap.clientWidth;
-        height = wrap.clientHeight;
-        const dpr = window.devicePixelRatio || 1;
-        ol.resize(width * dpr, height * dpr);
-    });
-    // Trigger initial resize for retina scaling
-    window.dispatchEvent(new Event('resize'));
-
-    // Main render loop
-    ol.render(() => {
-        const time = ol.frame / 60;
-        const timeDelta = time - lastTime;
-        lastTime = time;
-
-        const countParam = dialParticleThousands(val('p-count')) * 1000;
-        const renderAmount = min(MAX_AMOUNT, countParam);
-        const au = stepAudio();
-        const noiseSpeed = audioModulateNoiseSpeed(dialTo100(val('p-noise')), dialTo100(val('p-speed')), au);
-
-        // Frame clear
-        const bgRGB = hexToRGB(el('p-bg').value);
-        ol.clearColor(bgRGB[0], bgRGB[1], bgRGB[2], 1);
-        ol.clearDepth();
-        ol.clear();
+        const MAX_AMOUNT = 100000;
+        const MIN_AGE = 1.0;
+        const MAX_AGE = 3.0;
         
-        ol.canvas.style.filter = 'blur(' + dialBlurPx(val('p-blur')) + 'px)';
-        el('phantom-wrap').parentNode.style.background = el('p-bg').value;
+        const particleData = [];
+        for (let i = 0; i < MAX_AMOUNT; i++) {
+            const life = random(MIN_AGE, MAX_AGE);
+            // initial state doesn't matter much, they'll respawn
+            particleData.push(0, 0); // aPosition
+            particleData.push(life + 1); // aAge (starts dead to force respawn)
+            particleData.push(life); // aLife
+            particleData.push(0, 0); // aVel
+            particleData.push(random()); // aSeed
+        }
+        const initData = Data(particleData);
 
-        // Update pass
-        ol.use({ program: updateProgram }).run(() => {
-            ol.transformFeedback(updateVaos[read], buffers[write], ol.POINTS, () => {
-                ol.uniform("uTimeDelta", timeDelta);
-                ol.uniform("uTime", time);
+        // Two buffers for Transform Feedback ping-pong
+        const buffer0 = ol.createBuffer(initData, ol.STREAM_DRAW);
+        const buffer1 = ol.createBuffer(initData, ol.STREAM_DRAW);
+
+        const vao0 = ol.createVAO(updateProgram, { buffer: buffer0, stride: 4 * 7, attributes });
+        const vao1 = ol.createVAO(updateProgram, { buffer: buffer1, stride: 4 * 7, attributes });
+        
+        const renderVao0 = ol.createVAO(renderProgram, { buffer: buffer0, stride: 4 * 7, attributes });
+        const renderVao1 = ol.createVAO(renderProgram, { buffer: buffer1, stride: 4 * 7, attributes });
+
+        const buffers = [buffer0, buffer1];
+        const updateVaos = [vao0, vao1];
+        const renderVaos = [renderVao0, renderVao1];
+        
+        let [read, write] = [0, 1];
+        let lastTime = 0;
+
+        window.addEventListener('resize', () => {
+            width = wrap.clientWidth;
+            height = wrap.clientHeight;
+            const dpr = window.devicePixelRatio || 1;
+            ol.resize(width * dpr, height * dpr);
+        });
+        // Trigger initial resize for retina scaling
+        window.dispatchEvent(new Event('resize'));
+
+        console.log('Starting render loop...');
+        // Main render loop
+        ol.render(() => {
+            const time = ol.frame / 60;
+            const timeDelta = time - lastTime;
+            lastTime = time;
+
+            const countParam = dialParticleThousands(val('p-count')) * 1000;
+            const renderAmount = min(MAX_AMOUNT, countParam);
+            const au = stepAudio();
+            const noiseSpeed = audioModulateNoiseSpeed(dialTo100(val('p-noise')), dialTo100(val('p-speed')), au);
+
+            // Frame clear
+            const bgRGB = hexToRGB(el('p-bg').value);
+            ol.clearColor(bgRGB[0], bgRGB[1], bgRGB[2], 1);
+            ol.clearDepth();
+            ol.clear();
+            
+            ol.canvas.style.filter = 'blur(' + dialBlurPx(val('p-blur')) + 'px)';
+            el('phantom-wrap').parentNode.style.background = el('p-bg').value;
+
+            // Update pass
+            ol.use({ program: updateProgram }).run(() => {
+                ol.transformFeedback(updateVaos[read], buffers[write], ol.POINTS, () => {
+                    ol.uniform("uTimeDelta", timeDelta);
+                    ol.uniform("uTime", time);
+                    ol.uniform("uResolution", [width, height]);
+                    
+                    // Params
+                    ol.uniform("uSpeed", noiseSpeed.speed);
+                    ol.uniform("uNoiseStr", noiseSpeed.noise);
+                    ol.uniform("uBeams", dialTo100(val('p-beams')));
+                    ol.uniform("uAudioPitch", au.pitch);
+                    ol.uniform("uAudioLevel", au.level);
+                    ol.uniform("uAudioLevelFast", au.levelFast);
+                    ol.uniform("uAudioBass", au.bass);
+                    ol.uniform("uAudioMid", au.mid);
+                    ol.uniform("uAudioHigh", au.high);
+                    ol.uniform("uAudioCentroid", au.centroid);
+                    ol.uniform("uAudioTransient", au.transient);
+                    ol.uniform("uAudioZeroCross", au.zeroCross);
+                    ol.uniform("uAudioSpectralFlux", au.spectralFlux);
+                    ol.uniform("uAudioSpectralSpread", au.spectralSpread);
+                    ol.uniform("uAudioSpeedPulse", au.speedPulse);
+                    ol.uniform("uAudioActive", au.active);
+
+                    ol.points(0, renderAmount);
+                });
+            });
+
+            // Render pass
+            ol.use({
+                program: renderProgram,
+                VAO: renderVaos[write],
+            }).run(() => {
                 ol.uniform("uResolution", [width, height]);
+                ol.uniform("uTime", time);
                 
-                // Params
-                ol.uniform("uSpeed", noiseSpeed.speed);
-                ol.uniform("uNoiseStr", noiseSpeed.noise);
-                ol.uniform("uBeams", dialTo100(val('p-beams')));
+                // Render params
+                ol.uniform("uFracture", dialTo100(val('p-fracture')));
+                ol.uniform("uGlitch", dialTo100(val('p-glitch')));
+                const dpr = window.devicePixelRatio || 1;
+                ol.uniform("uPointSize", dialPointSize(val('p-size')) * dpr * 0.4); 
+                ol.uniform("uMirror", parseInt(el('p-mirror').value, 10));
+                ol.uniform("uShape", parseInt(el('p-shape').value, 10));
+                
+                const colorRGB = hexToRGB(el('p-color').value);
+                ol.uniform("uColor", colorRGB);
                 ol.uniform("uAudioPitch", au.pitch);
                 ol.uniform("uAudioLevel", au.level);
                 ol.uniform("uAudioLevelFast", au.levelFast);
@@ -890,48 +931,20 @@
 
                 ol.points(0, renderAmount);
             });
+
+            // Swap buffers
+            let temp = read;
+            read = write;
+            write = temp;
         });
-
-        // Render pass
-        ol.use({
-            program: renderProgram,
-            VAO: renderVaos[write],
-        }).run(() => {
-            ol.uniform("uResolution", [width, height]);
-            ol.uniform("uTime", time);
-            
-            // Render params
-            ol.uniform("uFracture", dialTo100(val('p-fracture')));
-            ol.uniform("uGlitch", dialTo100(val('p-glitch')));
-            const dpr = window.devicePixelRatio || 1;
-            ol.uniform("uPointSize", dialPointSize(val('p-size')) * dpr * 0.4); 
-            ol.uniform("uMirror", parseInt(el('p-mirror').value, 10));
-            ol.uniform("uShape", parseInt(el('p-shape').value, 10));
-            
-            const colorRGB = hexToRGB(el('p-color').value);
-            ol.uniform("uColor", colorRGB);
-            ol.uniform("uAudioPitch", au.pitch);
-            ol.uniform("uAudioLevel", au.level);
-            ol.uniform("uAudioLevelFast", au.levelFast);
-            ol.uniform("uAudioBass", au.bass);
-            ol.uniform("uAudioMid", au.mid);
-            ol.uniform("uAudioHigh", au.high);
-            ol.uniform("uAudioCentroid", au.centroid);
-            ol.uniform("uAudioTransient", au.transient);
-            ol.uniform("uAudioZeroCross", au.zeroCross);
-            ol.uniform("uAudioSpectralFlux", au.spectralFlux);
-            ol.uniform("uAudioSpectralSpread", au.spectralSpread);
-            ol.uniform("uAudioSpeedPulse", au.speedPulse);
-            ol.uniform("uAudioActive", au.active);
-
-            ol.points(0, renderAmount);
-        });
-
-        // Swap buffers
-        let temp = read;
-        read = write;
-        write = temp;
-    });
+        console.log('Render loop initialized successfully');
+    } catch (error) {
+        console.error('Phantom-mic initialization error:', error);
+        const wrap = el('phantom-wrap');
+        if (wrap) {
+            wrap.innerHTML = '<div style="color:#f00;padding:20px;font-family:monospace;font-size:12px;">Error: ' + error.message + '</div>';
+        }
+    }
     </script>
 </body>
 </html>
