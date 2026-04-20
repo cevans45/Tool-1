@@ -85,9 +85,9 @@
                         <summary>Audio reactive</summary>
                         <section class="control-section">
                             <div class="control-row" style="padding-bottom:8px;">
-                                <button type="button" id="p-mic" class="panel-button">Enable microphone</button>
+                                <button type="button" id="p-mic" class="panel-button">Open microphone window</button>
                             </div>
-                            <p id="p-mic-status" style="font-size:11px;color:#888;line-height:1.4;margin:0;">Uses mic input: estimated pitch and loudness shape the particles. Works after a click (browser permission).</p>
+                            <p id="p-mic-status" style="font-size:11px;color:#888;line-height:1.4;margin:0;">Opens the live microphone version in a new window. Each effect is driven by a different audio feature.</p>
                         </section>
                     </details>
 
@@ -344,7 +344,16 @@
         const st = el('p-mic-status');
         if (st) st.textContent = 'Open this page directly to enable the microphone.';
     } else {
-        el('p-mic')?.addEventListener('click', () => setupMic());
+        el('p-mic')?.addEventListener('click', () => {
+            const w = 1100, h = 780;
+            const left = Math.max(0, (screen.availWidth - w) / 2);
+            const top = Math.max(0, (screen.availHeight - h) / 2);
+            window.open(
+                'phantom-mic.html',
+                'phantom-mic',
+                `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=no,resizable=yes`
+            );
+        });
     }
 
     // Shaders

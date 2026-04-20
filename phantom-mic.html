@@ -192,6 +192,9 @@
     let smoothZeroCross = 0.2;
     let smoothSpectralFlux = 0.3;
     let smoothSpectralSpread = 0.4;
+    let speedEnvelope = 0;
+    let prevTransient = 0;
+    let prevFluxRaw = 0;
     let prevRawLevel = 0;
     let prevFreqBuf = null;
     let freqBuf = new Float32Array(1024);
@@ -219,7 +222,8 @@
         if (!micActive || !analyser || !audioCtx) {
             return {
                 pitch: 0.5, level: 0.35, levelFast: 0.35, bass: 0.35, mid: 0.35, high: 0.35,
-                centroid: 0.5, transient: 0, zeroCross: 0.2, spectralFlux: 0.3, spectralSpread: 0.4, active: 0,
+                centroid: 0.5, transient: 0, zeroCross: 0.2, spectralFlux: 0.3, spectralSpread: 0.4,
+                speedPulse: 0, active: 0,
             };
         }
         if (freqBuf.length !== analyser.frequencyBinCount) {
@@ -331,6 +335,18 @@
         smoothSpectralFlux += (spectralFluxRaw - smoothSpectralFlux) * 0.24;
         smoothSpectralSpread += (spectralSpreadRaw - smoothSpectralSpread) * 0.16;
 
+        // Speed envelope: event-driven. Kicks on transient + spectral flux onsets; decays between hits.
+        const fluxOnset = Math.max(0, spectralFluxRaw - prevFluxRaw);
+        const transOnset = Math.max(0, transientRaw - prevTransient);
+        const kickTrigger = Math.max(fluxOnset * 4.0, transOnset * 2.5);
+        prevFluxRaw = spectralFluxRaw;
+        prevTransient = transientRaw;
+        if (kickTrigger > 0.08) {
+            speedEnvelope = Math.min(1, speedEnvelope + kickTrigger * 2.2);
+        } else {
+            speedEnvelope *= 0.88;
+        }
+
         return {
             pitch: smoothPitch,
             level: smoothLevel,
@@ -343,6 +359,7 @@
             zeroCross: smoothZeroCross,
             spectralFlux: smoothSpectralFlux,
             spectralSpread: smoothSpectralSpread,
+            speedPulse: speedEnvelope,
             active: 1,
         };
     }
@@ -398,6 +415,7 @@
     uniform float uAudioZeroCross;
     uniform float uAudioSpectralFlux;
     uniform float uAudioSpectralSpread;
+    uniform float uAudioSpeedPulse;
     uniform float uAudioActive;
 
     in vec2 aPosition;
@@ -468,9 +486,10 @@
                 float bx = beamIdx * 0.2 * uResolution.x;
                 float by = (rnd1 - 0.5) * uResolution.y * 1.5;
                 vPosition = vec2(bx, by);
-                float bassBeam = mix(1.0, 0.65 + 0.55 * uAudioBass, uAudioActive);
-                float lvlBeam = mix(1.0, 0.65 + 0.55 * uAudioLevelFast, uAudioActive);
-                vVel = vec2(0.0, uSpeed * 100.0 * bassBeam * lvlBeam);
+                // Beams: bass drives brightness/width, SPEED PULSE drives launch velocity
+                float bassBeam = mix(1.0, 0.55 + 0.8 * uAudioBass, uAudioActive);
+                float pulseBeam = mix(1.0, 0.35 + 1.5 * uAudioSpeedPulse, uAudioActive);
+                vVel = vec2(0.0, uSpeed * 100.0 * bassBeam * pulseBeam);
             } else {
                 // Body particle
                 float ny = rnd1 * 2.0 - 1.0; 
@@ -491,47 +510,61 @@
                 vel.x -= aPosition.x * 0.02 * uTimeDelta;
                 vel.y -= aPosition.y * 0.015 * uTimeDelta;
             } else {
-                // Audio active: each effect driven by different audio features
-                // Curl noise: spectral spread (texture complexity)
-                float noiseAmt = uNoiseStr * 8.0 * (0.7 + 0.3 * uAudioSpectralSpread);
+                // Each effect driven by a DIFFERENT audio feature:
+                //   curl noise    ← spectral spread (texture complexity)
+                //   audio field X ← mid band
+                //   audio field Y ← bass band
+                //   shimmer       ← zero-crossing rate (noisiness)
+                //   kicks         ← spectral flux (onsets)
+                //   vertical sway ← centroid (brightness)
+                //   lateral bias  ← pitch
+                //   SPEED         ← event pulse (not continuous)
+
+                float t = uTime;
+
+                // Curl noise — spectral spread only
+                float noiseAmt = uNoiseStr * 7.5 * (0.55 + 0.55 * uAudioSpectralSpread);
                 vec2 flow = curlNoise(aPosition * 0.002
-                    + vec2(uAudioSpectralFlux * 0.12, -uTime * 0.35)
-                    + vec2(uAudioZeroCross * 0.08, uAudioBass * 0.08));
+                    + vec2(uAudioSpectralSpread * 0.18, -t * 0.3));
                 vel += flow * noiseAmt;
 
-                // Primary motion: bass (low drive) + mid (mid-range swirl)
-                float t = uTime;
-                float bassAmp = 0.45 + 0.85 * uAudioBass;
-                float midAmp = 0.35 + 0.8 * uAudioMid;
-                float ph = t * (1.8 + 5.0 * uAudioLevelFast) + aSeed * 6.28318;
-                vec2 audioField = vec2(
-                    sin(ph + aPosition.y * 0.003) * midAmp * 2.2,
-                    cos(ph * 0.92 - aPosition.x * 0.0026) * bassAmp * 2.0
-                );
-                vel += audioField * uAudioLevelFast * uTimeDelta * 6.5;
+                // X-motion driven by MIDS only
+                float midAmp = 0.3 + 1.1 * uAudioMid;
+                float phX = t * (1.4 + 4.2 * uAudioMid) + aSeed * 6.28318;
+                vel.x += sin(phX + aPosition.y * 0.003) * midAmp * 14.0 * uTimeDelta;
 
-                // Highs: driven by zero-crossing rate (signal noisiness / complexity)
+                // Y-motion driven by BASS only
+                float bassAmp = 0.3 + 1.2 * uAudioBass;
+                float phY = t * (1.0 + 3.6 * uAudioBass) + aSeed * 4.77;
+                vel.y += cos(phY - aPosition.x * 0.0026) * bassAmp * 14.0 * uTimeDelta;
+
+                // Shimmer driven by ZERO-CROSSING RATE only
                 vec2 hiShake = vec2(
-                    sin(t * (10.0 + 18.0 * uAudioZeroCross) + aPosition.y * 0.011),
-                    cos(t * (8.5 + 16.0 * uAudioZeroCross) + aPosition.x * 0.012)
-                ) * uAudioHigh * (0.6 + 0.8 * uAudioLevelFast);
-                vel += hiShake * 20.0 * uTimeDelta;
+                    sin(t * (9.0 + 22.0 * uAudioZeroCross) + aPosition.y * 0.011),
+                    cos(t * (8.0 + 18.0 * uAudioZeroCross) + aPosition.x * 0.012)
+                ) * uAudioZeroCross;
+                vel += hiShake * 18.0 * uTimeDelta;
 
-                // Spectral flux: sudden onset / attacks (kick direction)
-                vec2 fluxKick = vec2(cos(aSeed * 37.13 + uTime * 0.5), sin(aSeed * 41.07 + uTime * 0.3));
-                vel += fluxKick * uAudioSpectralFlux * (65.0 + 85.0 * uAudioLevelFast) * uTimeDelta;
+                // Kicks driven by SPECTRAL FLUX only (onsets)
+                vec2 fluxKick = vec2(cos(aSeed * 37.13), sin(aSeed * 41.07));
+                vel += fluxKick * uAudioSpectralFlux * 120.0 * uTimeDelta;
 
-                // Centroid (brightness) + centroid: vertical scale modulation
-                vel.y -= aPosition.y * (0.09 + 0.16 * uAudioCentroid) * uAudioLevelFast * uTimeDelta * 32.0;
-                
-                // Pitch: lateral sway
-                vel.x += (uAudioPitch - 0.5) * 24.0 * uAudioMid * uTimeDelta;
+                // Vertical scale sway — CENTROID only
+                vel.y -= aPosition.y * (uAudioCentroid - 0.4) * 0.18 * uTimeDelta * 30.0;
 
-                // Gentle centering — weaker when loud
-                float cx = mix(0.5, 0.25, uAudioLevelFast);
-                vel.x -= aPosition.x * cx * uNoiseStr * (0.7 + 0.25 * uAudioBass) * 0.5;
+                // Lateral bias — PITCH only
+                vel.x += (uAudioPitch - 0.5) * 22.0 * uTimeDelta;
 
-                float spd = uSpeed * 0.05 * (0.58 + 0.32 * uAudioLevelFast + 0.12 * uAudioBass);
+                // Highs → additional ring jitter (separate from zero-cross shimmer)
+                vec2 ringJit = vec2(aPosition.y, -aPosition.x) * 0.002 * uAudioHigh;
+                vel += ringJit;
+
+                // Gentle centering
+                vel.x -= aPosition.x * 0.35 * uNoiseStr * 0.5;
+
+                // SPEED: event-driven pulse (not continuous). Fast when there's an onset, idle between.
+                float speedBase = 0.35 + 1.25 * uAudioSpeedPulse;
+                float spd = uSpeed * 0.05 * speedBase;
                 vel *= spd;
             }
 
@@ -568,6 +601,7 @@
     uniform float uAudioZeroCross;
     uniform float uAudioSpectralFlux;
     uniform float uAudioSpectralSpread;
+    uniform float uAudioSpeedPulse;
     uniform float uAudioActive;
 
     in vec2 aPosition;
@@ -605,21 +639,21 @@
     void main() {
         vec2 pos = aPosition;
 
-        // Fracture: driven by spectral flux (onset / attack strength)
+        // Fracture: driven by TRANSIENT only (attack strength; sharper hits → more tearing)
         if (uFracture > 0.0) {
-            float slice = floor((pos.y / uResolution.y) * 10.0 + uTime * (2.0 + uAudioSpectralFlux * 2.5));
-            float tear = mix(1.0, 0.78 + 0.28 * uAudioSpectralFlux + 0.14 * uAudioZeroCross, uAudioActive);
+            float slice = floor((pos.y / uResolution.y) * 10.0 + uTime * (1.6 + uAudioTransient * 3.5));
+            float tear = mix(1.0, 0.6 + 0.9 * uAudioTransient, uAudioActive);
             float offset = snoise(vec2(slice, uTime * 0.5)) * uResolution.x * 0.1 * (uFracture * 0.01) * tear;
             pos.x += offset;
         }
 
-        // Glitch: driven by spectral spread (complexity / noise) + transient spikes
+        // Glitch: driven by SPECTRAL FLUX only (onset probability kicks in glitches)
         if (uGlitch > 0.0) {
             float g = fract(sin(dot(vec2(uTime, aSeed), vec2(12.9898,78.233))) * 43758.5453);
             float thresh = (1.0 - uGlitch * 0.01);
-            thresh -= (uAudioSpectralSpread * 0.12 + uAudioTransient * 0.08) * uAudioActive;
+            thresh -= uAudioSpectralFlux * 0.25 * uAudioActive;
             if (g > thresh) {
-                pos.x += (snoise(vec2(aSeed, uTime)) * (130.0 + uAudioSpectralSpread * 70.0 * uAudioActive));
+                pos.x += (snoise(vec2(aSeed, uTime)) * (120.0 + uAudioSpectralFlux * 140.0 * uAudioActive));
             }
         }
 
@@ -647,12 +681,9 @@
 
         gl_Position = vec4(clipPos, 0.0, 1.0);
         
-        // Size: subtle swell from level + a hint of bass / highs
+        // Size: driven by OVERALL LEVEL only (simple loudness → size)
         float ageS = (aLife - aAge) / aLife;
-        float lvMix = mix(uAudioLevel, uAudioLevelFast, 0.7);
-        float audioSize = mix(1.0,
-            (0.88 + 0.12 * uAudioBass + 0.08 * uAudioHigh) * (0.72 + 0.38 * lvMix) * (0.94 + 0.06 * uAudioCentroid),
-            uAudioActive);
+        float audioSize = mix(1.0, 0.55 + 1.2 * uAudioLevel, uAudioActive);
         gl_PointSize = uPointSize * ageS * audioSize;
 
         // Fade out based on age
@@ -675,6 +706,7 @@
     uniform float uAudioZeroCross;
     uniform float uAudioSpectralFlux;
     uniform float uAudioSpectralSpread;
+    uniform float uAudioSpeedPulse;
     uniform float uAudioActive;
     in float vAlpha;
     out vec4 fragColor;
@@ -707,15 +739,13 @@
             alpha *= ring;
         }
 
+        // Color: each channel driven by a DIFFERENT feature
         vec3 c = uColor;
-        // Bass + transient → red (warmth & attack)
-        c.r += (uAudioBass * 0.08 + uAudioTransient * 0.06) * uAudioActive;
-        // Mid + spectral spread → green (body texture)
-        c.g += (uAudioMid * 0.07 + uAudioSpectralSpread * 0.04) * uAudioActive;
-        // High + zero-cross → blue (noisiness)
-        c.b += (uAudioHigh * 0.08 + uAudioZeroCross * 0.05) * uAudioActive;
-        // Centroid / brightness → overall warmth
-        c += vec3(uAudioCentroid * 0.02) * uAudioActive;
+        c.r += uAudioBass * 0.12 * uAudioActive;              // red   ← bass
+        c.g += uAudioMid * 0.10 * uAudioActive;               // green ← mids
+        c.b += uAudioHigh * 0.12 * uAudioActive;              // blue  ← highs
+        // Overall tint from centroid (brightness)
+        c += vec3(uAudioCentroid * 0.03 - 0.015) * uAudioActive;
         c = clamp(c, vec3(0.0), vec3(1.0));
         fragColor = vec4(c, alpha);
     }
@@ -833,6 +863,7 @@
                 ol.uniform("uAudioZeroCross", au.zeroCross);
                 ol.uniform("uAudioSpectralFlux", au.spectralFlux);
                 ol.uniform("uAudioSpectralSpread", au.spectralSpread);
+                ol.uniform("uAudioSpeedPulse", au.speedPulse);
                 ol.uniform("uAudioActive", au.active);
 
                 ol.points(0, renderAmount);
@@ -868,6 +899,7 @@
             ol.uniform("uAudioZeroCross", au.zeroCross);
             ol.uniform("uAudioSpectralFlux", au.spectralFlux);
             ol.uniform("uAudioSpectralSpread", au.spectralSpread);
+            ol.uniform("uAudioSpeedPulse", au.speedPulse);
             ol.uniform("uAudioActive", au.active);
 
             ol.points(0, renderAmount);
