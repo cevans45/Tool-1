@@ -15,6 +15,17 @@
             <canvas id="hero-canvas"></canvas>
             <div class="hero-inner hero-inner--bottom">
                 <svg class="hero-sub" viewBox="0 0 2400 180" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="hero-sub-title">
+                    <defs>
+                        <style><![CDATA[
+                            @font-face {
+                                font-family: Arnold;
+                                src: url("fonts/ArnoldItalicTestv03.otf") format("opentype");
+                                font-weight: 400;
+                                font-style: italic;
+                                font-display: swap;
+                            }
+                        ]]></style>
+                    </defs>
                     <title id="hero-sub-title">Open Visual Responsive Tools</title>
                     <!-- Offset-path / sticker stack: outer black ring → white buffer → solid fill (same centerline on all three) -->
                     <text class="hero-sub-text hero-sub-stroke-outer" x="1200" y="92" text-anchor="middle" dominant-baseline="middle" aria-hidden="true">OPEN VISUAL RESPONSIVE TOOLS</text>
@@ -189,9 +200,9 @@
             function stepLetterParticles(l) {
                 if (!l.particles || !l.particles.length) return;
                 const { alpha, aw: tw, ah: th, jitter, drift } = l;
-                const speedMul = Math.max(0.014, jitter * 0.0024);
-                const driftChance = drift * 0.005;
-                const driftRange = drift * 0.58;
+                const speedMul = Math.max(0.024, jitter * 0.0036);
+                const driftChance = drift * 0.0075;
+                const driftRange = drift * 0.78;
                 for (const p of l.particles) {
                     const nx = p.x + p.vx * speedMul;
                     const ny = p.y + p.vy * speedMul;
@@ -548,8 +559,8 @@
                         typoScale: Math.max(8, fs * 0.095),
                         typoWeight: 5,
                         typoMode,
-                        jitter: 68,
-                        drift: 32,
+                        jitter: 82,
+                        drift: 40,
                         offX: 0, offY: 0,
                     });
                 }
