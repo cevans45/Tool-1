@@ -50,9 +50,6 @@
             let letterFontIdx = [];
             const S = { s: 1, tx: 0, ty: 0, bboxW: 1, bboxH: 1, fs: 100 };
             let lastCycleKey = -1;
-            const cycleTransitionDuration = 1500; // 1.5 seconds for smooth font transition
-            let transitionAlpha = 1;
-            let transitionStartTime = 0;
             const WORD = 'OVRT';
             const N = WORD.length;
 
@@ -74,7 +71,7 @@
             const TYPO_MODES = ['circles', 'squares', 'grid', 'diamonds', 'stars', 'fragment'];
 
             function cycleKey() {
-                return Math.floor(performance.now() / 10000);
+                return Math.floor(performance.now() / 5000);
             }
 
             function pickRandomTypoMode() {
@@ -572,18 +569,7 @@
                 const ck = cycleKey();
                 if (ck !== lastCycleKey) {
                     lastCycleKey = ck;
-                    transitionStartTime = performance.now();
                     init();
-                }
-
-                // Ease transition opacity: fade out then back in
-                const timeSinceTransition = performance.now() - transitionStartTime;
-                if (timeSinceTransition < cycleTransitionDuration) {
-                    const progress = timeSinceTransition / cycleTransitionDuration;
-                    // Smooth ease-in-out: dip down at 0.5, back up
-                    transitionAlpha = 1 - Math.sin(progress * Math.PI) * 0.4;
-                } else {
-                    transitionAlpha = 1;
                 }
 
                 /* Letter drift: faster eased follow; rotation oscillates on its own + follows motion a little. */
@@ -617,7 +603,6 @@
                 ctx.fillRect(0, 0, W, H);
                 ctx.setTransform(S.s * dpr, 0, 0, S.s * dpr, S.tx * dpr, S.ty * dpr);
                 ctx.globalCompositeOperation = 'source-over';
-                ctx.globalAlpha = transitionAlpha; // Apply eased transition
                 for (let li = 0; li < L.length; li++) {
                     const l = L[li];
                     ctx.save();
@@ -626,7 +611,6 @@
                     drawLetterTypo(ctx, l, l.fontIdx);
                     ctx.restore();
                 }
-                ctx.globalAlpha = 1; // Reset
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 requestAnimationFrame(tick);
             }
