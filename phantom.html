@@ -40,10 +40,14 @@
 </head>
 <body>
     <div class="site-shell">
-        <header class="tool-header" style="background:#000;border-color:#222;">
+        <header class="tool-header" style="background:#000;border-color:#222;display:flex;align-items:center;justify-content:space-between;gap:16px;">
             <a href="index.html" class="back-link" style="color:#aaa;">← Back to OVRT</a>
             <span class="tool-title" style="color:#fff;">Phantom</span>
+            <a href="phantom-mic.html" id="p-mic-link" style="border:1px solid #fff;color:#fff;padding:6px 14px;text-decoration:none;font-size:12px;letter-spacing:0.05em;text-transform:uppercase;border-radius:2px;transition:background 0.15s,color 0.15s;">● Microphone</a>
         </header>
+        <style>
+            #p-mic-link:hover { background:#fff; color:#000; }
+        </style>
         <div class="app" aria-label="Phantom">
             <div id="phantom-wrap"></div>
             <aside class="control-panel">
@@ -78,16 +82,6 @@
                         <section class="control-section">
                             <div class="control-row"><label>Fracture slices</label><input type="range" id="p-fracture" min="1" max="10" value="2.2" step="0.1"><span class="param-value" id="vp-fracture">2.2</span></div>
                             <div class="control-row"><label>Glitch Intensity</label><input type="range" id="p-glitch" min="1" max="10" value="1" step="0.1"><span class="param-value" id="vp-glitch">1.0</span></div>
-                        </section>
-                    </details>
-
-                    <details class="control-window" open>
-                        <summary>Audio reactive</summary>
-                        <section class="control-section">
-                            <div class="control-row" style="padding-bottom:8px;">
-                                <button type="button" id="p-mic" class="panel-button">Open microphone window</button>
-                            </div>
-                            <p id="p-mic-status" style="font-size:11px;color:#888;line-height:1.4;margin:0;">Opens the live microphone version in a new window. Each effect is driven by a different audio feature.</p>
                         </section>
                     </details>
 
@@ -336,24 +330,12 @@
     }
 
     if (isPreview) {
-        const btn = el('p-mic');
-        if (btn) {
-            btn.disabled = true;
-            btn.textContent = 'Preview (audio off)';
+        const link = el('p-mic-link');
+        if (link) {
+            link.style.opacity = '0.4';
+            link.style.pointerEvents = 'none';
+            link.textContent = 'Preview (audio off)';
         }
-        const st = el('p-mic-status');
-        if (st) st.textContent = 'Open this page directly to enable the microphone.';
-    } else {
-        el('p-mic')?.addEventListener('click', () => {
-            const w = 1100, h = 780;
-            const left = Math.max(0, (screen.availWidth - w) / 2);
-            const top = Math.max(0, (screen.availHeight - h) / 2);
-            window.open(
-                'phantom-mic.html',
-                'phantom-mic',
-                `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=no,resizable=yes`
-            );
-        });
     }
 
     // Shaders
