@@ -511,27 +511,38 @@
             speedEnvelope = Math.max(0, speedEnvelope * 0.88);
         }
 
-        // Mic drives motion directly. Motion Dynamics sliders ADD amplification on top,
-        // but never below a healthy baseline (so turning the mic on never looks dead).
+        // Mic drives motion directly, but we keep a low synthetic bed underneath so
+        // the form never goes static while live input ramps in.
         const m = motionDials();
-        // baseline 1.2x = already reactive at rest; each dial adds up to 2.0x extra gain.
-        const gainOf = (base, dial) => Math.min(1, base * (1.2 + dial * 2.0));
+        const synth = syntheticFromDials();
+        const energy = clamp01(levelNorm * 1.35 + transientRaw * 0.9 + spectralFluxRaw * 0.75);
+        const liveMix = clamp01(0.2 + energy * 1.15);
+        const blend = (live, fallback) => clamp01(fallback * (1.0 - liveMix * 0.6) + live * liveMix);
+        const gainOf = (base, dial) => Math.min(1, base * (1.7 + dial * 2.6));
         const mixFlow = Math.max(m.flow, m.expand * 0.6);
 
         currentAudio = {
-            pitch: clamp01(0.5 + (smoothPitch - 0.5) * (1.0 + m.spiral * 1.6)),
-            level: gainOf(smoothLevel, m.expand + m.pulseDepth),
-            levelFast: gainOf(smoothLevelFast, m.expand + m.pulseDepth + m.chaos),
-            bass: gainOf(smoothBass, mixFlow + m.pulseDepth),
-            mid: gainOf(smoothMid, mixFlow + m.spiral),
-            high: gainOf(smoothHigh, m.chaos + m.flow * 0.5),
-            centroid: clamp01(0.5 + (smoothCentroid - 0.5) * (1.0 + m.spiral * 1.4 + m.pulseDepth * 0.8)),
-            transient: gainOf(smoothTransient, m.chaos + m.pulseDepth),
-            zeroCross: gainOf(smoothZeroCross, m.chaos),
-            spectralFlux: gainOf(smoothSpectralFlux, m.chaos + m.pulseDepth),
-            spectralSpread: gainOf(smoothSpectralSpread, m.flow + m.chaos),
-            // Keep speedPulse lively even when pulseDepth/expand are 0.
-            speedPulse: clamp01(speedEnvelope * (0.9 + m.pulseDepth * 1.6 + m.expand * 1.2)),
+            pitch: blend(
+                clamp01(0.5 + (smoothPitch - 0.5) * (1.4 + m.spiral * 2.1)),
+                synth.pitch
+            ),
+            level: blend(gainOf(smoothLevel, m.expand + m.pulseDepth), synth.level),
+            levelFast: blend(gainOf(smoothLevelFast, m.expand + m.pulseDepth + m.chaos), synth.levelFast),
+            bass: blend(gainOf(smoothBass, mixFlow + m.pulseDepth), synth.bass),
+            mid: blend(gainOf(smoothMid, mixFlow + m.spiral), synth.mid),
+            high: blend(gainOf(smoothHigh, m.chaos + m.flow * 0.7), synth.high),
+            centroid: blend(
+                clamp01(0.5 + (smoothCentroid - 0.5) * (1.4 + m.spiral * 1.9 + m.pulseDepth)),
+                synth.centroid
+            ),
+            transient: blend(gainOf(smoothTransient, m.chaos + m.pulseDepth + 0.15), synth.transient),
+            zeroCross: blend(gainOf(smoothZeroCross, m.chaos + 0.1), synth.zeroCross),
+            spectralFlux: blend(gainOf(smoothSpectralFlux, m.chaos + m.pulseDepth + 0.15), synth.spectralFlux),
+            spectralSpread: blend(gainOf(smoothSpectralSpread, m.flow + m.chaos + 0.1), synth.spectralSpread),
+            speedPulse: blend(
+                clamp01(speedEnvelope * (1.35 + m.pulseDepth * 2.0 + m.expand * 1.5) + smoothTransient * 0.75),
+                synth.speedPulse
+            ),
             active: 1,
         };
         return currentAudio;
@@ -553,13 +564,13 @@
         const loud = au.levelFast;
         const motion = Math.max(au.bass, au.mid, au.spectralFlux, au.speedPulse);
         return {
-            speed: clampDial(base.speed + loud * 1.4 + au.speedPulse * 1.6, 1, 8.5),
-            noise: clampDial(base.noise + au.spectralSpread * 1.2 + au.high * 0.9, 1, 8.5),
-            beams: clampDial(base.beams + au.bass * 1.7 + au.transient * 0.7, 1, 8),
-            fracture: clampDial(base.fracture + au.transient * 2.2 + au.spectralFlux * 1.4, 1, 8),
-            glitch: clampDial(base.glitch + au.spectralFlux * 2.4 + au.zeroCross * 1.1, 1, 6.5),
-            size: clampDial(base.size + loud * 0.9 + motion * 0.6, 1, 7),
-            blur: clampDial(base.blur + au.high * 0.7 + au.centroid * 0.3, 1, 5),
+            speed: clampDial(base.speed + loud * 2.4 + au.speedPulse * 2.8 + au.transient * 0.8, 1, 8.5),
+            noise: clampDial(base.noise + au.spectralSpread * 1.9 + au.high * 1.4 + au.zeroCross * 0.5, 1, 8.5),
+            beams: clampDial(base.beams + au.bass * 2.5 + au.transient * 1.2, 1, 8),
+            fracture: clampDial(base.fracture + au.transient * 3.0 + au.spectralFlux * 2.2, 1, 8),
+            glitch: clampDial(base.glitch + au.spectralFlux * 3.2 + au.zeroCross * 1.9, 1, 6.5),
+            size: clampDial(base.size + loud * 1.5 + motion * 1.1, 1, 7),
+            blur: clampDial(base.blur + au.high * 1.2 + au.centroid * 0.6 + au.spectralFlux * 0.4, 1, 5),
         };
     }
 
@@ -671,7 +682,9 @@
             audioSource = audioCtx.createMediaStreamSource(stream);
             analyser = audioCtx.createAnalyser();
             analyser.fftSize = 1024;
-            analyser.smoothingTimeConstant = 0.5;
+            analyser.smoothingTimeConstant = 0.22;
+            analyser.minDecibels = -92;
+            analyser.maxDecibels = -8;
             freqBuf = new Uint8Array(analyser.frequencyBinCount);
             prevFreqBuf = new Uint8Array(analyser.frequencyBinCount);
             timeBuf = new Uint8Array(analyser.fftSize);
