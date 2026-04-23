@@ -137,6 +137,17 @@
 
     const el = id => document.getElementById(id);
     const val = id => parseFloat(el(id)?.value ?? 5);
+    const AUDIO_PARAM_CONTROLS = {
+        speed: { input: 'p-speed', value: 'vp-speed' },
+        noise: { input: 'p-noise', value: 'vp-noise' },
+        beams: { input: 'p-beams', value: 'vp-beams' },
+        fracture: { input: 'p-fracture', value: 'vp-fracture' },
+        glitch: { input: 'p-glitch', value: 'vp-glitch' },
+        size: { input: 'p-size', value: 'vp-size' },
+        blur: { input: 'p-blur', value: 'vp-blur' },
+    };
+    const AUDIO_PARAM_INPUT_IDS = Object.values(AUDIO_PARAM_CONTROLS).map(control => control.input);
+    const baseParamValues = new Map();
 
     /**
      * Slider 1–10 → internal 0–100. ~72% of the useful range sits between dial 1 and 5;
@@ -150,17 +161,16 @@
         return 72 + ((x - 5) / 5) * 28;
     }
 
-    /** With live mic, Speed / Field Noise follow loudness and spectrum (dials stay the baseline). */
-    function audioModulateNoiseSpeed(noiseDial100, speedDial100, au) {
-        if (!au.active) {
-            return { noise: noiseDial100, speed: speedDial100 };
+    function audioModulateNoiseSpeed(noiseRaw, speedRaw, au) {
+        if (!micIsConnected()) {
+            return { noise: noiseRaw, speed: speedRaw };
         }
         const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-        const spMul = clamp(0.36 + 0.78 * au.levelFast + 0.26 * au.bass + 0.12 * au.transient, 0.4, 1.52);
-        const nsMul = clamp(0.34 + 0.5 * au.mid + 0.36 * au.high + 0.14 * au.centroid + 0.22 * au.transient, 0.38, 1.58);
+        const spMul = clamp(0.84 + 0.2 * au.levelFast + 0.16 * au.bass + 0.08 * au.transient, 0.78, 1.28);
+        const nsMul = clamp(0.82 + 0.18 * au.mid + 0.14 * au.high + 0.08 * au.centroid + 0.08 * au.transient, 0.76, 1.24);
         return {
-            speed: clamp(speedDial100 * spMul, 0, 115),
-            noise: clamp(noiseDial100 * nsMul, 0, 115),
+            speed: clamp(speedRaw * spMul, 0.35, 8.5),
+            noise: clamp(noiseRaw * nsMul, 0.35, 8.5),
         };
     }
 
@@ -182,10 +192,17 @@
         const v = inp.parentElement.querySelector('.param-value');
         if (v) {
             const fmt = () => { v.textContent = Number(inp.value).toFixed(1); };
-            inp.addEventListener('input', fmt);
+            inp.addEventListener('input', () => {
+                if (AUDIO_PARAM_INPUT_IDS.includes(inp.id)) {
+                    baseParamValues.set(inp.id, Number(inp.value));
+                }
+                fmt();
+            });
             fmt();
         }
     });
+
+    AUDIO_PARAM_INPUT_IDS.forEach(id => baseParamValues.set(id, val(id)));
 
     const hexToRGB = (hex) => {
         const r = parseInt(hex.slice(1, 3), 16) / 255;
@@ -240,8 +257,31 @@
         return Math.max(minValue, Math.min(maxValue, value));
     }
 
+    function clampShaderDial(value, maxValue = 8.5) {
+        return Math.max(0.25, Math.min(maxValue, value));
+    }
+
     function micIsConnected() {
         return Boolean(analyser && audioCtx && audioCtx.state !== 'closed');
+    }
+
+    function baseParamValue(id) {
+        if (!baseParamValues.has(id)) {
+            baseParamValues.set(id, val(id));
+        }
+        return baseParamValues.get(id);
+    }
+
+    function setRangeDisplay(inputId, value) {
+        const input = el(inputId);
+        if (input) input.value = Number(value).toFixed(1);
+        const control = Object.values(AUDIO_PARAM_CONTROLS).find(item => item.input === inputId);
+        const valueNode = control ? el(control.value) : null;
+        if (valueNode) valueNode.textContent = Number(value).toFixed(1);
+    }
+
+    function restoreBaseParamDisplays() {
+        AUDIO_PARAM_INPUT_IDS.forEach(id => setRangeDisplay(id, baseParamValue(id)));
     }
 
     function bandAverage(buf, i0, i1) {
@@ -493,26 +533,38 @@
     function audioAdjustedParams(au) {
         const audioOn = micIsConnected();
         const base = {
-            speed: val('p-speed'),
-            noise: val('p-noise'),
-            beams: val('p-beams'),
-            fracture: val('p-fracture'),
-            glitch: val('p-glitch'),
-            size: val('p-size'),
-            blur: val('p-blur'),
+            speed: baseParamValue('p-speed'),
+            noise: baseParamValue('p-noise'),
+            beams: baseParamValue('p-beams'),
+            fracture: baseParamValue('p-fracture'),
+            glitch: baseParamValue('p-glitch'),
+            size: baseParamValue('p-size'),
+            blur: baseParamValue('p-blur'),
         };
         if (!audioOn) return base;
 
         const loud = au.levelFast;
         const motion = Math.max(au.bass, au.mid, au.spectralFlux, au.speedPulse);
         return {
-            speed: clampDial(base.speed + loud * 2.8 + au.speedPulse * 3.2),
-            noise: clampDial(base.noise + au.spectralSpread * 2.4 + au.high * 1.8),
-            beams: clampDial(base.beams + au.bass * 3.4 + au.transient * 1.4),
-            fracture: clampDial(base.fracture + au.transient * 4.4 + au.spectralFlux * 2.8),
-            glitch: clampDial(base.glitch + au.spectralFlux * 5.2 + au.zeroCross * 2.2),
-            size: clampDial(base.size + loud * 2.2 + motion * 1.2),
-            blur: clampDial(base.blur + au.high * 1.8 + au.centroid * 0.8),
+            speed: clampDial(base.speed + loud * 1.4 + au.speedPulse * 1.6, 1, 8.5),
+            noise: clampDial(base.noise + au.spectralSpread * 1.2 + au.high * 0.9, 1, 8.5),
+            beams: clampDial(base.beams + au.bass * 1.7 + au.transient * 0.7, 1, 8),
+            fracture: clampDial(base.fracture + au.transient * 2.2 + au.spectralFlux * 1.4, 1, 8),
+            glitch: clampDial(base.glitch + au.spectralFlux * 2.4 + au.zeroCross * 1.1, 1, 6.5),
+            size: clampDial(base.size + loud * 0.9 + motion * 0.6, 1, 7),
+            blur: clampDial(base.blur + au.high * 0.7 + au.centroid * 0.3, 1, 5),
+        };
+    }
+
+    function shaderParamsFromLive(params) {
+        return {
+            speed: clampShaderDial(params.speed, 8.5),
+            noise: clampShaderDial(params.noise, 8.5),
+            beams: clampShaderDial(params.beams, 8),
+            fracture: clampShaderDial(params.fracture, 8),
+            glitch: clampShaderDial(params.glitch, 6.5),
+            size: clampShaderDial(params.size, 7),
+            blur: clampShaderDial(params.blur, 5),
         };
     }
 
@@ -521,18 +573,8 @@
         if (now - lastParamUiUpdate < 100) return;
         lastParamUiUpdate = now;
 
-        const ids = {
-            'vp-speed': params.speed,
-            'vp-noise': params.noise,
-            'vp-beams': params.beams,
-            'vp-fracture': params.fracture,
-            'vp-glitch': params.glitch,
-            'vp-size': params.size,
-            'vp-blur': params.blur,
-        };
-        Object.entries(ids).forEach(([id, value]) => {
-            const node = el(id);
-            if (node) node.textContent = Number(value).toFixed(1);
+        Object.entries(AUDIO_PARAM_CONTROLS).forEach(([key, control]) => {
+            setRangeDisplay(control.input, params[key]);
         });
         const st = el('p-mic-status');
         if (st && micIsConnected()) {
@@ -569,6 +611,7 @@
         lastAudioSampleTime = 0;
         lastParamUiUpdate = 0;
         micStarting = false;
+        restoreBaseParamDisplays();
         setMicButton('Enable Microphone');
         setMicStatus('Microphone off. Motion Dynamics sliders are active.');
     }
@@ -585,6 +628,7 @@
             return;
         }
         micStarting = true;
+        AUDIO_PARAM_INPUT_IDS.forEach(id => baseParamValues.set(id, val(id)));
         setMicButton('Requesting...', false, true);
         setMicStatus('Waiting for microphone permission...');
         try {
@@ -1049,14 +1093,30 @@
     let [read, write] = [0, 1];
     let lastTime = 0;
 
-    window.addEventListener('resize', () => {
+    function resizePhantomCanvas() {
         width = wrap.clientWidth;
         height = wrap.clientHeight;
         const dpr = window.devicePixelRatio || 1;
-        ol.resize(width * dpr, height * dpr);
-    });
+        const pixelWidth = Math.max(1, Math.floor(width * dpr));
+        const pixelHeight = Math.max(1, Math.floor(height * dpr));
+
+        if (typeof ol.resize === 'function') {
+            ol.resize(pixelWidth, pixelHeight);
+        } else {
+            ol.canvas.width = pixelWidth;
+            ol.canvas.height = pixelHeight;
+            ol.canvas.style.width = width + 'px';
+            ol.canvas.style.height = height + 'px';
+            const gl = ol.gl || ol.context || ol.canvas.getContext('webgl2');
+            if (gl && typeof gl.viewport === 'function') {
+                gl.viewport(0, 0, pixelWidth, pixelHeight);
+            }
+        }
+    }
+
+    window.addEventListener('resize', resizePhantomCanvas);
     // Trigger initial resize for retina scaling
-    window.dispatchEvent(new Event('resize'));
+    resizePhantomCanvas();
 
     // Main render loop
     ol.render(() => {
@@ -1068,8 +1128,9 @@
         const renderAmount = min(MAX_AMOUNT, countParam);
         const au = stepAudio();
         const liveParams = audioAdjustedParams(au);
+        const shaderParams = shaderParamsFromLive(liveParams);
         updateLiveParamReadouts(liveParams, au);
-        const noiseSpeed = audioModulateNoiseSpeed(dialTo100(liveParams.noise), dialTo100(liveParams.speed), au);
+        const noiseSpeed = audioModulateNoiseSpeed(shaderParams.noise, shaderParams.speed, au);
 
         // Frame clear
         const bgRGB = hexToRGB(el('p-bg').value);
@@ -1077,7 +1138,7 @@
         ol.clearDepth();
         ol.clear();
         
-        ol.canvas.style.filter = 'blur(' + dialBlurPx(liveParams.blur) + 'px)';
+        ol.canvas.style.filter = 'blur(' + (shaderParams.blur * 1.15) + 'px)';
         el('phantom-wrap').parentNode.style.background = el('p-bg').value;
 
         // Update pass
@@ -1090,7 +1151,7 @@
                     // Params
                     ol.uniform("uSpeed", noiseSpeed.speed);
                     ol.uniform("uNoiseStr", noiseSpeed.noise);
-                    ol.uniform("uBeams", dialTo100(liveParams.beams));
+                    ol.uniform("uBeams", shaderParams.beams);
                     ol.uniform("uAudioPitch", au.pitch);
                     ol.uniform("uAudioLevel", au.level);
                     ol.uniform("uAudioLevelFast", au.levelFast);
@@ -1118,10 +1179,10 @@
             ol.uniform("uTime", time);
             
             // Render params
-            ol.uniform("uFracture", dialTo100(liveParams.fracture));
-            ol.uniform("uGlitch", dialTo100(liveParams.glitch));
+            ol.uniform("uFracture", shaderParams.fracture);
+            ol.uniform("uGlitch", shaderParams.glitch);
             const dpr = window.devicePixelRatio || 1;
-            ol.uniform("uPointSize", dialPointSize(liveParams.size) * dpr * 0.4); 
+            ol.uniform("uPointSize", (1 + shaderParams.size * 2.6) * dpr * 0.4); 
             ol.uniform("uMirror", parseInt(el('p-mirror').value, 10));
             ol.uniform("uShape", parseInt(el('p-shape').value, 10));
             
