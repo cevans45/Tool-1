@@ -230,66 +230,93 @@
             };
         }
 
-        // If no real audio input, generate synthetic motion influenced by UI parameters
+        // If no real audio input, use UI parameters directly to create motion
         if (!analyser || !audioCtx) {
-            const t = performance.now() * 0.001;
-            
-            // Get UI parameter influences
+            // Get UI parameter values normalized to 0-1
             const speedDial = dialTo100(val('p-speed')) / 100;
             const noiseDial = dialTo100(val('p-noise')) / 100;
+            const beamsDial = dialTo100(val('p-beams')) / 100;
+            const fractureDial = dialTo100(val('p-fracture')) / 100;
+            const glitchDial = dialTo100(val('p-glitch')) / 100;
             const countDial = dialTo100(val('p-count')) / 100;
+            const sizeDial = dialTo100(val('p-size')) / 100;
+            const blurDial = dialTo100(val('p-blur')) / 100;
             
-            // Time scaling influenced by Speed dial (faster speed = faster motion)
-            const timeScale = 0.5 + speedDial * 1.5;
+            const t = performance.now() * 0.001;
+            
+            // Map parameters directly to audio features
+            // Speed controls the overall time scale and level
+            const timeScale = speedDial * 2.0 + 0.2;
             const scaledT = t * timeScale;
             
-            // Randomized seed for variation (changes every few seconds)
-            const seed = Math.floor(t * 0.3);
-            const pseudoRandom = (idx) => {
-                const x = Math.sin(seed * 12.9898 + idx * 78.233) * 43758.5453;
-                return x - Math.floor(x);
-            };
+            // Noise dial controls spectral spread and zero crossing
+            const noiseAmount = noiseDial * 0.8 + 0.1;
             
-            // Synthesize bass with noise influence
-            const bassFreq = 0.6 + noiseDial * 0.8;
-            const synthBass = 0.35 + 0.3 * Math.sin(scaledT * bassFreq + pseudoRandom(1) * 3.14);
+            // Beams dial controls transient/kick energy
+            const beamPower = beamsDial * 0.9 + 0.1;
             
-            // Synthesize mid with count influence (more count = busier mid)
-            const midFreq = 1.0 + countDial * 0.8;
-            const synthMid = 0.35 + 0.3 * Math.sin(scaledT * midFreq + pseudoRandom(2) * 3.14);
+            // Fracture adds to spectral flux (onset)
+            const fracturePower = fractureDial * 0.8 + 0.05;
             
-            // High end varies independently
-            const highFreq = 1.4 + noiseDial * 1.2;
-            const synthHigh = 0.3 + 0.35 * Math.sin(scaledT * highFreq + pseudoRandom(3) * 3.14);
+            // Glitch adds more onset/transient variation
+            const glitchPower = glitchDial * 0.7;
             
-            // Centroid and pitch vary smoothly
-            const synthCentroid = 0.5 + 0.2 * Math.sin(scaledT * 0.5 + pseudoRandom(4) * 3.14);
-            const synthPitch = 0.5 + 0.25 * Math.sin(scaledT * 0.7 + pseudoRandom(5) * 3.14);
+            // Count controls mid frequency energy
+            const countPower = countDial * 0.8 + 0.1;
             
-            // Synthetic pulses for kicks - influenced by noise and speed
-            const pulseFreq = 2.0 + noiseDial * 2.0;
-            const pulse1 = Math.max(0, Math.sin(scaledT * pulseFreq) * 0.5);
-            const pulse2 = Math.max(0, Math.sin(scaledT * (pulseFreq * 0.67) - 1.5) * 0.6);
-            const synthSpeedPulse = Math.max(pulse1, pulse2) * (0.5 + speedDial * 0.5);
+            // Size influences overall level/amplitude
+            const sizeAmp = sizeDial * 0.6 + 0.2;
             
-            // Level varies with speed and count
-            const levelAmp = 0.3 + countDial * 0.2;
-            const synthLevel = 0.35 + levelAmp * Math.sin(scaledT * 0.5);
-            const synthLevelFast = 0.3 + levelAmp * Math.sin(scaledT * 1.8);
+            // Blur influences smoothness (affects all frequency variations)
+            const smoothing = 1.0 - blurDial * 0.5;
+            
+            // Composite motion from parameters
+            const synthBass = 0.3 + (speedDial * 0.3) + (beamPower * 0.2) * Math.sin(scaledT * 0.6 * smoothing);
+            const synthMid = 0.3 + (countPower * 0.4) * Math.sin(scaledT * 1.2 * smoothing);
+            const synthHigh = 0.2 + (noiseAmount * 0.4) * Math.sin(scaledT * 1.8 * smoothing);
+            
+            // Centroid influenced by glitch and fracture
+            const centrePower = (fracturePower + glitchPower) * 0.5;
+            const synthCentroid = 0.5 + (centrePower * 0.3) * Math.sin(scaledT * 0.7 * smoothing);
+            
+            // Pitch varies with speed and size
+            const synthPitch = 0.5 + (sizeDial * 0.3) * Math.sin(scaledT * 0.9 * smoothing);
+            
+            // Speed pulse directly from speed and beams dials
+            const pulseFreq = (speedDial + beamPower) * 3.0;
+            const pulse = Math.max(0, Math.sin(scaledT * pulseFreq * smoothing) * (speedDial + beamPower) * 0.5);
+            
+            // Transient from beams and glitch
+            const synthTransient = (beamPower * 0.4 + glitchPower * 0.3) * Math.max(0, Math.sin(scaledT * 2.5 * smoothing));
+            
+            // Zero crossing from noise dial
+            const synthZeroCross = 0.1 + (noiseAmount * 0.6) * Math.abs(Math.sin(scaledT * 1.4 * smoothing));
+            
+            // Spectral flux from fracture and glitch
+            const fluxFreq = (fracturePower + glitchPower) * 2.0 + 0.5;
+            const synthSpectralFlux = Math.max(0, Math.sin(scaledT * fluxFreq * smoothing) * (fracturePower + glitchPower) * 0.6);
+            
+            // Spectral spread directly from noise dial
+            const synthSpectralSpread = 0.2 + (noiseAmount * 0.7) * Math.abs(Math.sin(scaledT * 0.8 * smoothing));
+            
+            // Level varies with all active parameters
+            const totalActivity = (speedDial + countPower + beamPower + noiseAmount) * 0.25;
+            const synthLevel = Math.min(1, 0.2 + totalActivity * sizeAmp);
+            const synthLevelFast = Math.min(1, 0.15 + totalActivity * sizeAmp * 1.2);
             
             return {
-                pitch: synthPitch,
-                level: synthLevel,
-                levelFast: synthLevelFast,
-                bass: synthBass,
-                mid: synthMid,
-                high: synthHigh,
-                centroid: synthCentroid,
-                transient: Math.max(0, Math.sin(scaledT * 2.5 + pseudoRandom(6) * 3.14) * 0.3),
-                zeroCross: 0.2 + 0.25 * Math.sin(scaledT * 1.1 + pseudoRandom(7) * 3.14),
-                spectralFlux: Math.max(0, Math.sin(scaledT * 1.8 + pseudoRandom(8) * 3.14) * 0.5),
-                spectralSpread: 0.35 + 0.35 * Math.sin(scaledT * 0.8 + pseudoRandom(9) * 3.14),
-                speedPulse: synthSpeedPulse,
+                pitch: Math.max(0, Math.min(1, synthPitch)),
+                level: Math.max(0, Math.min(1, synthLevel)),
+                levelFast: Math.max(0, Math.min(1, synthLevelFast)),
+                bass: Math.max(0, Math.min(1, synthBass)),
+                mid: Math.max(0, Math.min(1, synthMid)),
+                high: Math.max(0, Math.min(1, synthHigh)),
+                centroid: Math.max(0, Math.min(1, synthCentroid)),
+                transient: Math.max(0, Math.min(1, synthTransient)),
+                zeroCross: Math.max(0, Math.min(1, synthZeroCross)),
+                spectralFlux: Math.max(0, Math.min(1, synthSpectralFlux)),
+                spectralSpread: Math.max(0, Math.min(1, synthSpectralSpread)),
+                speedPulse: Math.max(0, Math.min(1, pulse)),
                 active: 1,
             };
         }
