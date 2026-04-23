@@ -52,18 +52,9 @@
                 </header>
                 <div class="panel-body">
                     <details class="control-window" open>
-                        <summary>Motion & Style</summary>
+                        <summary>Apparition + Beams</summary>
+                        <p style="font-size:10px;color:#777;margin:0 0 10px 0;line-height:1.35;">Sliders 1–10: most change is in 1–5; 5–10 adds the last ~28%.</p>
                         <section class="control-section">
-                            <div class="control-row" style="padding-bottom:12px;">
-                                <label>Motion Style</label>
-                                <select id="p-motion" class="select-input">
-                                    <option value="0">Organic Flow</option>
-                                    <option value="1">Rigid Waves</option>
-                                    <option value="2">Chaotic Swarm</option>
-                                    <option value="3">Pulsing Sphere</option>
-                                    <option value="4">Spiral Dance</option>
-                                </select>
-                            </div>
                             <div class="control-row" style="padding-bottom:12px;">
                                 <label>Mirror Mode</label>
                                 <select id="p-mirror" class="select-input">
@@ -75,17 +66,23 @@
                                     <option value="5">5-Way Radial</option>
                                 </select>
                             </div>
-                        </section>
-                    </details>
-
-                    <details class="control-window" open>
-                        <summary>Apparition + Beams</summary>
-                        <p style="font-size:10px;color:#777;margin:0 0 10px 0;line-height:1.35;">Sliders 1–10: most change is in 1–5; 5–10 adds the last ~28%.</p>
-                        <section class="control-section">
                             <div class="control-row"><label>Count (x1000)</label><input type="range" id="p-count" min="1" max="10" value="3.5" step="0.1"><span class="param-value" id="vp-count">3.5</span></div>
                             <div class="control-row"><label>Speed</label><input type="range" id="p-speed" min="1" max="10" value="3.2" step="0.1"><span class="param-value" id="vp-speed">3.2</span></div>
                             <div class="control-row"><label>Field Noise</label><input type="range" id="p-noise" min="1" max="10" value="3.2" step="0.1"><span class="param-value" id="vp-noise">3.2</span></div>
                             <div class="control-row"><label>Beams Amount</label><input type="range" id="p-beams" min="1" max="10" value="2.8" step="0.1"><span class="param-value" id="vp-beams">2.8</span></div>
+                        </section>
+                    </details>
+
+                    <details class="control-window" open>
+                        <summary>Motion Dynamics</summary>
+                        <p style="font-size:10px;color:#777;margin:0 0 10px 0;line-height:1.35;">Shape how the cloud moves. All 0 = still / held shape. Microphone multiplies these when active.</p>
+                        <section class="control-section">
+                            <div class="control-row"><label>Expand</label><input type="range" id="p-expand" min="0" max="10" value="0" step="0.1"><span class="param-value" id="vp-expand">0.0</span></div>
+                            <div class="control-row"><label>Pulse Depth</label><input type="range" id="p-pulse-depth" min="0" max="10" value="0" step="0.1"><span class="param-value" id="vp-pulse-depth">0.0</span></div>
+                            <div class="control-row"><label>Pulse Rate</label><input type="range" id="p-pulse-rate" min="0" max="10" value="3" step="0.1"><span class="param-value" id="vp-pulse-rate">3.0</span></div>
+                            <div class="control-row"><label>Flow (smooth)</label><input type="range" id="p-flow" min="0" max="10" value="0" step="0.1"><span class="param-value" id="vp-flow">0.0</span></div>
+                            <div class="control-row"><label>Chaos (jitter)</label><input type="range" id="p-chaos" min="0" max="10" value="0" step="0.1"><span class="param-value" id="vp-chaos">0.0</span></div>
+                            <div class="control-row"><label>Spiral</label><input type="range" id="p-spiral" min="0" max="10" value="0" step="0.1"><span class="param-value" id="vp-spiral">0.0</span></div>
                         </section>
                     </details>
 
@@ -236,6 +233,77 @@
         return Math.max(0, Math.min(1, (avg - floorDb) / (ceilDb - floorDb)));
     }
 
+    // Read the Motion Dynamics sliders as 0–1
+    function motionDials() {
+        const d01 = (id, fallback) => {
+            const n = parseFloat(el(id)?.value ?? fallback);
+            return Math.max(0, Math.min(1, n / 10));
+        };
+        return {
+            expand: d01('p-expand', 0),
+            pulseDepth: d01('p-pulse-depth', 0),
+            pulseRate: d01('p-pulse-rate', 3),
+            flow: d01('p-flow', 0),
+            chaos: d01('p-chaos', 0),
+            spiral: d01('p-spiral', 0),
+        };
+    }
+
+    // Deterministic synthetic "audio" generated purely from the Motion Dynamics sliders.
+    // Zero sliders = completely still held shape. Each slider opens a specific motion.
+    function syntheticFromDials() {
+        const m = motionDials();
+        const t = performance.now() * 0.001;
+
+        // Pulse: breathe in/out driven by pulseDepth * sin(rate * t)
+        const rateHz = 0.3 + m.pulseRate * 2.8; // 0.3–3.1 Hz
+        const pulseOsc = Math.sin(t * rateHz * 2.0 * Math.PI * 0.1); // −1..1
+        const pulseSignal = (pulseOsc * 0.5 + 0.5) * m.pulseDepth; // 0..pulseDepth
+
+        // Flow: smooth, slow per-axis bias (drives bass/mid "audio field")
+        const flowX = Math.sin(t * 0.42) * m.flow;
+        const flowY = Math.cos(t * 0.31) * m.flow;
+
+        // Chaos: random-ish jitter (drives zero-cross shimmer + spectral flux kicks)
+        const chaosN = (Math.sin(t * 7.1) * 0.5 + Math.sin(t * 4.3) * 0.5) * 0.5; // −1..1
+        const chaosSignal = Math.max(0, chaosN) * m.chaos;
+
+        // Spiral: rotation pressure — drives pitch oscillation (lateral bias) and some centroid rise
+        const spiralPhase = t * (0.5 + m.spiral * 1.5);
+        const spiralX = Math.sin(spiralPhase) * m.spiral;
+        const spiralY = Math.cos(spiralPhase * 1.13) * m.spiral;
+
+        // Expand: continuous outward drift — drives sustained speedPulse baseline
+        const expandLevel = m.expand;
+
+        return {
+            // Bass drives Y-motion amplitude in shader → bass ≈ flowY + pulse
+            bass: Math.min(1, 0.08 + Math.abs(flowY) * 0.6 + pulseSignal * 0.6 + expandLevel * 0.35),
+            // Mid drives X-motion amplitude → mid ≈ flowX + spiralX
+            mid: Math.min(1, 0.08 + Math.abs(flowX) * 0.6 + Math.abs(spiralX) * 0.45 + pulseSignal * 0.35),
+            // High → ring jitter → tied to chaos
+            high: Math.min(1, 0.05 + chaosSignal * 0.8),
+            // Zero-cross drives shimmer → chaos
+            zeroCross: Math.min(1, 0.05 + m.chaos * (0.3 + Math.abs(chaosN) * 0.7)),
+            // Spectral flux drives sudden kicks → chaos pulses
+            spectralFlux: Math.min(1, chaosSignal * 0.9),
+            // Spectral spread drives curl noise → flow adds texture
+            spectralSpread: Math.min(1, 0.05 + m.flow * 0.7 + m.chaos * 0.3),
+            // Centroid drives vertical sway (scales with spiral/pulse)
+            centroid: Math.max(0, Math.min(1, 0.5 + spiralY * 0.3 + pulseSignal * 0.2)),
+            // Pitch drives lateral bias → spiral
+            pitch: Math.max(0, Math.min(1, 0.5 + spiralX * 0.4)),
+            // Transient → occasional jolt from chaos
+            transient: Math.min(1, chaosSignal * 0.8),
+            // Continuous speed baseline from expand, pulsing from pulseDepth
+            speedPulse: Math.min(1, expandLevel * 0.7 + pulseSignal * 0.9),
+            // Overall levels
+            level: Math.min(1, 0.15 + (m.expand + m.flow + m.chaos + m.pulseDepth) * 0.18),
+            levelFast: Math.min(1, 0.1 + (m.expand + m.chaos * 1.4 + m.pulseDepth * 1.2) * 0.22),
+            active: 1,
+        };
+    }
+
     function stepAudio() {
         // If in preview mode, return idle state
         if (isPreview) {
@@ -246,127 +314,11 @@
             };
         }
 
-        // If no real audio input, use UI parameters directly to create motion
+        // Microphone not connected → drive motion entirely from Motion Dynamics sliders
         if (!analyser || !audioCtx) {
-            // Get UI parameter values normalized to 0-1
-            const speedDial = dialTo100(val('p-speed')) / 100;
-            const noiseDial = dialTo100(val('p-noise')) / 100;
-            const beamsDial = dialTo100(val('p-beams')) / 100;
-            const fractureDial = dialTo100(val('p-fracture')) / 100;
-            const glitchDial = dialTo100(val('p-glitch')) / 100;
-            const countDial = dialTo100(val('p-count')) / 100;
-            const sizeDial = dialTo100(val('p-size')) / 100;
-            const blurDial = dialTo100(val('p-blur')) / 100;
-            const motionStyle = parseInt(el('p-motion').value, 10);
-            
-            const t = performance.now() * 0.001;
-            
-            // Map parameters directly to audio features
-            // Speed controls the overall time scale and level
-            const timeScale = speedDial * 2.0 + 0.2;
-            const scaledT = t * timeScale;
-            
-            // Noise dial controls spectral spread and zero crossing
-            const noiseAmount = noiseDial * 0.8 + 0.1;
-            
-            // Beams dial controls transient/kick energy
-            const beamPower = beamsDial * 0.9 + 0.1;
-            
-            // Fracture adds to spectral flux (onset)
-            const fracturePower = fractureDial * 0.8 + 0.05;
-            
-            // Glitch adds more onset/transient variation
-            const glitchPower = glitchDial * 0.7;
-            
-            // Count controls mid frequency energy
-            const countPower = countDial * 0.8 + 0.1;
-            
-            // Size influences overall level/amplitude
-            const sizeAmp = sizeDial * 0.6 + 0.2;
-            
-            // Blur influences smoothness (affects all frequency variations)
-            const smoothing = 1.0 - blurDial * 0.5;
-            
-            // Different motion patterns based on motion style
-            let synthBass, synthMid, synthHigh, synthCentroid, synthPitch, pulse, synthTransient, synthZeroCross, synthSpectralFlux, synthSpectralSpread;
-            
-            if (motionStyle === 0) {
-                // Organic Flow - smooth, flowing motion
-                synthBass = 0.3 + (speedDial * 0.3) + (beamPower * 0.2) * Math.sin(scaledT * 0.6 * smoothing);
-                synthMid = 0.3 + (countPower * 0.4) * Math.sin(scaledT * 1.2 * smoothing);
-                synthHigh = 0.2 + (noiseAmount * 0.4) * Math.sin(scaledT * 1.8 * smoothing);
-                synthCentroid = 0.5 + (fracturePower + glitchPower) * 0.15 * Math.sin(scaledT * 0.7 * smoothing);
-                synthPitch = 0.5 + (sizeDial * 0.3) * Math.sin(scaledT * 0.9 * smoothing);
-                const pulseFreq = (speedDial + beamPower) * 3.0;
-                pulse = Math.max(0, Math.sin(scaledT * pulseFreq * smoothing) * (speedDial + beamPower) * 0.5);
-            } else if (motionStyle === 1) {
-                // Rigid Waves - sharp, geometric motion
-                synthBass = 0.25 + (speedDial * 0.4) + Math.max(0, Math.sin(scaledT * 2.0 * smoothing)) * beamPower * 0.35;
-                synthMid = 0.25 + (countPower * 0.5) * Math.abs(Math.sin(scaledT * 1.5 * smoothing));
-                synthHigh = 0.15 + (noiseAmount * 0.5) * Math.max(0, Math.sin(scaledT * 2.5 * smoothing));
-                synthCentroid = (fracturePower * 0.6) * (1.0 + Math.sin(scaledT * 0.9 * smoothing));
-                synthPitch = (sizeDial * 0.4) * Math.max(0, Math.sin(scaledT * 1.2 * smoothing));
-                const pulseFreq = (speedDial + beamPower) * 4.0;
-                pulse = Math.max(0, Math.sin(scaledT * pulseFreq * smoothing)) * (speedDial + beamPower) * 0.6;
-            } else if (motionStyle === 2) {
-                // Chaotic Swarm - erratic, random-like motion
-                const seed = Math.floor(scaledT * 3.0);
-                const rand1 = Math.sin(seed * 12.9898) * 43758.5453 - Math.floor(Math.sin(seed * 12.9898) * 43758.5453);
-                const rand2 = Math.sin(seed * 78.233) * 43758.5453 - Math.floor(Math.sin(seed * 78.233) * 43758.5453);
-                synthBass = 0.2 + rand1 * speedDial * 0.5 + beamPower * 0.2;
-                synthMid = 0.2 + (countPower * 0.6) * (Math.sin(scaledT * 0.8 * smoothing) + Math.sin(scaledT * 1.3 * smoothing)) * 0.5;
-                synthHigh = 0.1 + (noiseAmount * 0.8) * Math.abs(Math.sin(scaledT * 3.5 * smoothing));
-                synthCentroid = 0.3 + rand2 * 0.3 + (fracturePower * 0.3);
-                synthPitch = 0.4 + (sizeDial * 0.4) * Math.sin(scaledT * 1.7 * smoothing);
-                pulse = (Math.max(0, Math.sin(scaledT * 5.0 * smoothing)) * 0.3 + Math.abs(Math.sin(scaledT * 3.3 * smoothing)) * 0.3) * speedDial;
-            } else if (motionStyle === 3) {
-                // Pulsing Sphere - rhythmic, spherical expansion/contraction
-                const pulseCycle = Math.max(0, Math.sin(scaledT * (1.0 + speedDial * 2.0) * smoothing)) * 0.7 + 0.3;
-                synthBass = 0.4 * pulseCycle + (beamPower * 0.2);
-                synthMid = 0.35 * pulseCycle + (countPower * 0.25);
-                synthHigh = 0.3 * pulseCycle + (noiseAmount * 0.2);
-                synthCentroid = pulseCycle * 0.5 + 0.25;
-                synthPitch = 0.4 + (pulseCycle - 0.5) * 0.4;
-                pulse = pulseCycle * (speedDial + beamPower) * 0.6;
-            } else if (motionStyle === 4) {
-                // Spiral Dance - rotating, spiraling motion
-                const spiralPhase = scaledT * (0.5 + speedDial) * smoothing;
-                synthBass = 0.35 + (beamPower * 0.25) * Math.sin(spiralPhase * 0.6);
-                synthMid = 0.3 + (countPower * 0.35) * Math.sin(spiralPhase * 1.1 + 2.09);
-                synthHigh = 0.25 + (noiseAmount * 0.35) * Math.sin(spiralPhase * 1.5 + 4.18);
-                synthCentroid = 0.5 + 0.25 * Math.sin(spiralPhase * 0.8);
-                synthPitch = 0.5 + (sizeDial * 0.3) * Math.sin(spiralPhase * 1.2 + 1.57);
-                const kickFreq = (speedDial + beamPower) * 2.5 + 1.0;
-                pulse = Math.max(0, Math.sin(spiralPhase * kickFreq)) * (speedDial + beamPower) * 0.5;
-            }
-            
-            synthTransient = (beamPower * 0.4 + glitchPower * 0.3) * Math.max(0, Math.sin(scaledT * 2.5 * smoothing));
-            synthZeroCross = 0.1 + (noiseAmount * 0.6) * Math.abs(Math.sin(scaledT * 1.4 * smoothing));
-            const fluxFreq = (fracturePower + glitchPower) * 2.0 + 0.5;
-            synthSpectralFlux = Math.max(0, Math.sin(scaledT * fluxFreq * smoothing) * (fracturePower + glitchPower) * 0.6);
-            synthSpectralSpread = 0.2 + (noiseAmount * 0.7) * Math.abs(Math.sin(scaledT * 0.8 * smoothing));
-            
-            // Level varies with all active parameters
-            const totalActivity = (speedDial + countPower + beamPower + noiseAmount) * 0.25;
-            const synthLevel = Math.min(1, 0.2 + totalActivity * sizeAmp);
-            const synthLevelFast = Math.min(1, 0.15 + totalActivity * sizeAmp * 1.2);
-            
-            return {
-                pitch: Math.max(0, Math.min(1, synthPitch)),
-                level: Math.max(0, Math.min(1, synthLevel)),
-                levelFast: Math.max(0, Math.min(1, synthLevelFast)),
-                bass: Math.max(0, Math.min(1, synthBass)),
-                mid: Math.max(0, Math.min(1, synthMid)),
-                high: Math.max(0, Math.min(1, synthHigh)),
-                centroid: Math.max(0, Math.min(1, synthCentroid)),
-                transient: Math.max(0, Math.min(1, synthTransient)),
-                zeroCross: Math.max(0, Math.min(1, synthZeroCross)),
-                spectralFlux: Math.max(0, Math.min(1, synthSpectralFlux)),
-                spectralSpread: Math.max(0, Math.min(1, synthSpectralSpread)),
-                speedPulse: Math.max(0, Math.min(1, pulse)),
-                active: 1,
-            };
+            return syntheticFromDials();
         }
+
         if (freqBuf.length !== analyser.frequencyBinCount) {
             freqBuf = new Float32Array(analyser.frequencyBinCount);
             prevFreqBuf = new Float32Array(analyser.frequencyBinCount);
