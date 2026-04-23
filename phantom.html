@@ -244,6 +244,7 @@
         centroid: 0.5, transient: 0, zeroCross: 0.2, spectralFlux: 0.3, spectralSpread: 0.4,
         speedPulse: 0, active: 0,
     };
+    const MIC_PARTICLE_CAP = 52000;
 
     function binHz(hz, nyquist, n) {
         return Math.max(0, Math.min(n - 1, Math.round((hz / nyquist) * n)));
@@ -802,8 +803,11 @@
 
                 float t = uTime;
 
+                float stableNoise = min(uNoiseStr, 8.5);
+                float stableSpeed = min(uSpeed, 8.5);
+
                 // Curl noise — spectral spread only
-                float noiseAmt = uNoiseStr * 7.5 * (0.55 + 0.55 * uAudioSpectralSpread);
+                float noiseAmt = stableNoise * 0.9 * (0.55 + 0.55 * uAudioSpectralSpread);
                 vec2 flow = curlNoise(aPosition * 0.002
                     + vec2(uAudioSpectralSpread * 0.18, -t * 0.3));
                 vel += flow * noiseAmt;
@@ -827,10 +831,10 @@
 
                 // Kicks driven by SPECTRAL FLUX only (onsets)
                 vec2 fluxKick = vec2(cos(aSeed * 37.13), sin(aSeed * 41.07));
-                vel += fluxKick * uAudioSpectralFlux * 120.0 * uTimeDelta;
+                vel += fluxKick * uAudioSpectralFlux * 45.0 * uTimeDelta;
 
                 // Vertical scale sway — CENTROID only
-                vel.y -= aPosition.y * (uAudioCentroid - 0.4) * 0.18 * uTimeDelta * 30.0;
+                vel.y -= aPosition.y * (uAudioCentroid - 0.4) * 0.9 * uTimeDelta;
 
                 // Lateral bias — PITCH only
                 vel.x += (uAudioPitch - 0.5) * 22.0 * uTimeDelta;
@@ -840,12 +844,14 @@
                 vel += ringJit;
 
                 // Gentle centering
-                vel.x -= aPosition.x * 0.35 * uNoiseStr * 0.5;
+                vel.x -= aPosition.x * 0.018 * stableNoise * uTimeDelta;
+                vel.y -= aPosition.y * 0.012 * stableNoise * uTimeDelta;
 
                 // SPEED: event-driven pulse (not continuous). Fast when there's an onset, idle between.
-                float speedBase = 0.35 + 1.25 * uAudioSpeedPulse;
-                float spd = uSpeed * 0.05 * speedBase;
+                float speedBase = 0.82 + 0.34 * uAudioSpeedPulse;
+                float spd = (0.88 + stableSpeed * 0.012) * speedBase;
                 vel *= spd;
+                vel = clamp(vel, vec2(-620.0), vec2(620.0));
             }
 
             vPosition = aPosition + vel * uTimeDelta;
@@ -1125,7 +1131,7 @@
         lastTime = time;
 
         const countParam = dialParticleThousands(val('p-count')) * 1000;
-        const renderAmount = min(MAX_AMOUNT, countParam);
+        const renderAmount = min(micIsConnected() ? MIC_PARTICLE_CAP : MAX_AMOUNT, countParam);
         const au = stepAudio();
         const liveParams = audioAdjustedParams(au);
         const shaderParams = shaderParamsFromLive(liveParams);
