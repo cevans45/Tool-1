@@ -125,21 +125,22 @@
              * Keeps OVRT order but places letters at intentionally offset cells:
              * O = top-left-ish, V = middle-low-ish, R = middle-high-ish, T = bottom-right-ish.
              */
-            function buildGridFiveLayout(fs) {
-                const { widths, glyphH } = measureLetters(fs);
-                const cell = fs * 0.66;
-                const bboxW = cell * 5;
-                const bboxH = cell * 5;
-                const gridPositions = [
-                    { cx: 1.45, cy: 1.45 }, // O
-                    { cx: 2.2, cy: 2.0 }, // V  ← more left
-                    { cx: 2.8, cy: 2.5 }, // R
-                    { cx: 3.45, cy: 3.45 }, // T
-                ];
-                const hx = gridPositions.map((p) => p.cx * cell);
-                const hy = gridPositions.map((p) => p.cy * cell);
-                return { widths, glyphH, hx, hy, bboxW, bboxH };
-            }
+             function buildGridFiveLayout(fs) {
+                 const { widths, glyphH } = measureLetters(fs);
+                 // cell smaller than fs so letters overlap heavily (interlocking comp)
+                 const cell = fs * 0.52;
+                 const bboxW = cell * 5;
+                 const bboxH = cell * 5;
+                 const gridPositions = [
+                     { cx: 1.0, cy: 1.1 }, // O  — top-left
+                     { cx: 2.0, cy: 2.3 }, // V  — center, lower
+                     { cx: 2.9, cy: 1.7 }, // R  — center-right, higher
+                     { cx: 3.7, cy: 3.1 }, // T  — bottom-right
+                 ];
+                 const hx = gridPositions.map((p) => p.cx * cell);
+                 const hy = gridPositions.map((p) => p.cy * cell);
+                 return { widths, glyphH, hx, hy, bboxW, bboxH };
+             }
 
             /** Mask: paint '#fff'. Display: pass letter state object l — black outline + white fill most of the time. */
             function drawLetterGlyph(ctx2, ch, slotIdx, fs, paint) {
