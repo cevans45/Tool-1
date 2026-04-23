@@ -100,7 +100,7 @@
                             <div class="control-row" style="padding-bottom:8px;">
                                 <button type="button" id="p-mic" class="panel-button">Enable Microphone</button>
                             </div>
-                            <p id="p-mic-status" style="font-size:11px;color:#888;line-height:1.4;margin:0;">Click to request microphone access. Motion driven by live audio.</p>
+                            <p id="p-mic-status" style="font-size:11px;color:#888;line-height:1.4;margin:0;">Click to request microphone access. Use localhost or HTTPS for live audio.</p>
                         </section>
                     </details>
 
@@ -216,24 +216,42 @@
     let prevFluxRaw = 0;
     let prevRawLevel = 0;
     let prevFreqBuf = null;
-    let freqBuf = new Float32Array(1024);
-    let timeBuf = new Float32Array(2048);
+    let freqBuf = new Uint8Array(512);
+    let timeBuf = new Uint8Array(1024);
+    let currentAudio = null;
+    let lastAudioSampleTime = 0;
+    let lastParamUiUpdate = 0;
+
+    const IDLE_AUDIO = {
+        pitch: 0.5, level: 0.35, levelFast: 0.35, bass: 0.35, mid: 0.35, high: 0.35,
+        centroid: 0.5, transient: 0, zeroCross: 0.2, spectralFlux: 0.3, spectralSpread: 0.4,
+        speedPulse: 0, active: 0,
+    };
 
     function binHz(hz, nyquist, n) {
         return Math.max(0, Math.min(n - 1, Math.round((hz / nyquist) * n)));
     }
 
-    /** dB-ish float FFT → 0–1, tunable floor/ceil */
-    function bandNormDb(freqBuf, i0, i1, floorDb = -78, ceilDb = -38) {
+    function clamp01(value) {
+        return Math.max(0, Math.min(1, value));
+    }
+
+    function clampDial(value, minValue = 1, maxValue = 10) {
+        return Math.max(minValue, Math.min(maxValue, value));
+    }
+
+    function micIsConnected() {
+        return Boolean(analyser && audioCtx && audioCtx.state !== 'closed');
+    }
+
+    function bandAverage(buf, i0, i1) {
         let sum = 0;
         let c = 0;
         for (let i = i0; i <= i1; i++) {
-            sum += freqBuf[i];
+            sum += buf[i];
             c++;
         }
-        if (!c) return 0;
-        const avg = sum / c;
-        return Math.max(0, Math.min(1, (avg - floorDb) / (ceilDb - floorDb)));
+        return c ? sum / (c * 255) : 0;
     }
 
     // Read the Motion Dynamics sliders as 0–1
@@ -310,11 +328,7 @@
     function stepAudio() {
         // If in preview mode, return idle state
         if (isPreview) {
-            return {
-                pitch: 0.5, level: 0.35, levelFast: 0.35, bass: 0.35, mid: 0.35, high: 0.35,
-                centroid: 0.5, transient: 0, zeroCross: 0.2, spectralFlux: 0.3, spectralSpread: 0.4,
-                speedPulse: 0, active: 0,
-            };
+            return IDLE_AUDIO;
         }
 
         // Microphone not connected → drive motion entirely from Motion Dynamics sliders
@@ -322,14 +336,20 @@
             return syntheticFromDials();
         }
 
+        const now = performance.now();
+        if (currentAudio && now - lastAudioSampleTime < 33) {
+            return currentAudio;
+        }
+        lastAudioSampleTime = now;
+
         if (freqBuf.length !== analyser.frequencyBinCount) {
-            freqBuf = new Float32Array(analyser.frequencyBinCount);
-            prevFreqBuf = new Float32Array(analyser.frequencyBinCount);
+            freqBuf = new Uint8Array(analyser.frequencyBinCount);
+            prevFreqBuf = new Uint8Array(analyser.frequencyBinCount);
         }
         if (timeBuf.length !== analyser.fftSize) {
-            timeBuf = new Float32Array(analyser.fftSize);
+            timeBuf = new Uint8Array(analyser.fftSize);
         }
-        analyser.getFloatFrequencyData(freqBuf);
+        analyser.getByteFrequencyData(freqBuf);
         const nyquist = audioCtx.sampleRate * 0.5;
         const n = freqBuf.length;
 
@@ -340,9 +360,9 @@
         const iH0 = binHz(2000, nyquist, n);
         const iH1 = binHz(9000, nyquist, n);
 
-        let bassN = bandNormDb(freqBuf, iB0, iB1, -90, -35);
-        let midN = bandNormDb(freqBuf, iM0, iM1, -92, -32);
-        let highN = bandNormDb(freqBuf, iH0, iH1, -95, -30);
+        let bassN = clamp01(bandAverage(freqBuf, iB0, iB1) * 1.8);
+        let midN = clamp01(bandAverage(freqBuf, iM0, iM1) * 1.7);
+        let highN = clamp01(bandAverage(freqBuf, iH0, iH1) * 1.9);
 
         // Spectral centroid (brightness) → 0–1
         let cNum = 0;
@@ -350,7 +370,7 @@
         const ci0 = 2;
         const ci1 = n - 1;
         for (let i = ci0; i <= ci1; i++) {
-            const lin = Math.pow(10, freqBuf[i] * 0.05);
+            const lin = freqBuf[i] / 255;
             cNum += i * lin;
             cDen += lin;
         }
@@ -366,17 +386,17 @@
         let fluxSum = 0;
         if (prevFreqBuf) {
             for (let i = 0; i < n; i++) {
-                const delta = freqBuf[i] - prevFreqBuf[i];
+                const delta = (freqBuf[i] - prevFreqBuf[i]) / 255;
                 fluxSum += delta * delta;
             }
         }
-        const spectralFluxRaw = Math.sqrt(fluxSum / n) * 0.01;
+        const spectralFluxRaw = Math.min(1, Math.sqrt(fluxSum / n) * 7);
         
         // Spectral spread: energy distribution across frequencies (texture complexity)
         let spreadNum = 0;
         let spreadDen = 0;
         for (let i = iM0; i <= iH1; i++) {
-            const lin = Math.pow(10, freqBuf[i] * 0.05);
+            const lin = freqBuf[i] / 255;
             const devSq = (i - (iM0 + iH1) * 0.5) * (i - (iM0 + iH1) * 0.5);
             spreadNum += devSq * lin;
             spreadDen += lin;
@@ -394,21 +414,23 @@
             }
         }
         let pitchNorm = 0.5;
-        if (maxDb > -80 && maxI > 0) {
+        if (maxDb > 8 && maxI > 0) {
             const hz = (maxI / n) * nyquist;
             pitchNorm = (Math.log2(Math.max(hz, 64)) - Math.log2(64)) / (Math.log2(4000) - Math.log2(64));
-            pitchNorm = Math.max(0, Math.min(1, pitchNorm));
+            pitchNorm = clamp01(pitchNorm);
         }
 
-        analyser.getFloatTimeDomainData(timeBuf);
+        analyser.getByteTimeDomainData(timeBuf);
         let rms = 0;
         let zeroCrossings = 0;
         for (let i = 0; i < timeBuf.length; i++) {
-            rms += timeBuf[i] * timeBuf[i];
-            if (i > 0 && timeBuf[i] * timeBuf[i - 1] < 0) zeroCrossings++;
+            const centered = (timeBuf[i] - 128) / 128;
+            const previous = i > 0 ? (timeBuf[i - 1] - 128) / 128 : centered;
+            rms += centered * centered;
+            if (i > 0 && centered * previous < 0) zeroCrossings++;
         }
         rms = Math.sqrt(rms / timeBuf.length);
-        const levelNorm = Math.min(1, rms * 18);
+        const levelNorm = Math.min(1, rms * 7);
         const delta = Math.max(0, levelNorm - prevRawLevel);
         prevRawLevel = levelNorm;
         const transientRaw = Math.min(1, delta * 18);
@@ -417,7 +439,7 @@
         const zeroCrossRaw = Math.min(1, zeroCrossings / (timeBuf.length * 0.1));
 
         // Copy freq buffer for next frame
-        prevFreqBuf.set(freqBuf);
+        if (prevFreqBuf) prevFreqBuf.set(freqBuf);
 
         // Faster smoothing = snappier mic reactivity
         smoothPitch += (pitchNorm - smoothPitch) * 0.22;
@@ -450,21 +472,73 @@
         const gain = (base, dial) => base * (0.3 + dial * 2.5);
         const mixFlow = Math.max(m.flow, m.expand * 0.6);
 
-        return {
-            pitch: Math.max(0, Math.min(1, 0.5 + (smoothPitch - 0.5) * (0.4 + m.spiral * 1.8))),
-            level: Math.max(0, Math.min(1, gain(smoothLevel, m.expand + m.pulseDepth))),
-            levelFast: Math.max(0, Math.min(1, gain(smoothLevelFast, m.expand + m.pulseDepth + m.chaos))),
-            bass: Math.max(0, Math.min(1, gain(smoothBass, mixFlow + m.pulseDepth))),
-            mid: Math.max(0, Math.min(1, gain(smoothMid, mixFlow + m.spiral))),
-            high: Math.max(0, Math.min(1, gain(smoothHigh, m.chaos + m.flow * 0.5))),
-            centroid: Math.max(0, Math.min(1, 0.5 + (smoothCentroid - 0.5) * (0.4 + m.spiral * 1.5 + m.pulseDepth))),
-            transient: Math.max(0, Math.min(1, gain(smoothTransient, m.chaos + m.pulseDepth))),
-            zeroCross: Math.max(0, Math.min(1, gain(smoothZeroCross, m.chaos))),
-            spectralFlux: Math.max(0, Math.min(1, gain(smoothSpectralFlux, m.chaos + m.pulseDepth))),
-            spectralSpread: Math.max(0, Math.min(1, gain(smoothSpectralSpread, m.flow + m.chaos))),
-            speedPulse: Math.max(0, Math.min(1, speedEnvelope * (0.4 + m.pulseDepth * 2.0 + m.expand * 1.5))),
+        currentAudio = {
+            pitch: clamp01(0.5 + (smoothPitch - 0.5) * (0.4 + m.spiral * 1.8)),
+            level: clamp01(gain(smoothLevel, m.expand + m.pulseDepth)),
+            levelFast: clamp01(gain(smoothLevelFast, m.expand + m.pulseDepth + m.chaos)),
+            bass: clamp01(gain(smoothBass, mixFlow + m.pulseDepth)),
+            mid: clamp01(gain(smoothMid, mixFlow + m.spiral)),
+            high: clamp01(gain(smoothHigh, m.chaos + m.flow * 0.5)),
+            centroid: clamp01(0.5 + (smoothCentroid - 0.5) * (0.4 + m.spiral * 1.5 + m.pulseDepth)),
+            transient: clamp01(gain(smoothTransient, m.chaos + m.pulseDepth)),
+            zeroCross: clamp01(gain(smoothZeroCross, m.chaos)),
+            spectralFlux: clamp01(gain(smoothSpectralFlux, m.chaos + m.pulseDepth)),
+            spectralSpread: clamp01(gain(smoothSpectralSpread, m.flow + m.chaos)),
+            speedPulse: clamp01(speedEnvelope * (0.4 + m.pulseDepth * 2.0 + m.expand * 1.5)),
             active: 1,
         };
+        return currentAudio;
+    }
+
+    function audioAdjustedParams(au) {
+        const audioOn = micIsConnected();
+        const base = {
+            speed: val('p-speed'),
+            noise: val('p-noise'),
+            beams: val('p-beams'),
+            fracture: val('p-fracture'),
+            glitch: val('p-glitch'),
+            size: val('p-size'),
+            blur: val('p-blur'),
+        };
+        if (!audioOn) return base;
+
+        const loud = au.levelFast;
+        const motion = Math.max(au.bass, au.mid, au.spectralFlux, au.speedPulse);
+        return {
+            speed: clampDial(base.speed + loud * 2.8 + au.speedPulse * 3.2),
+            noise: clampDial(base.noise + au.spectralSpread * 2.4 + au.high * 1.8),
+            beams: clampDial(base.beams + au.bass * 3.4 + au.transient * 1.4),
+            fracture: clampDial(base.fracture + au.transient * 4.4 + au.spectralFlux * 2.8),
+            glitch: clampDial(base.glitch + au.spectralFlux * 5.2 + au.zeroCross * 2.2),
+            size: clampDial(base.size + loud * 2.2 + motion * 1.2),
+            blur: clampDial(base.blur + au.high * 1.8 + au.centroid * 0.8),
+        };
+    }
+
+    function updateLiveParamReadouts(params, au) {
+        const now = performance.now();
+        if (now - lastParamUiUpdate < 100) return;
+        lastParamUiUpdate = now;
+
+        const ids = {
+            'vp-speed': params.speed,
+            'vp-noise': params.noise,
+            'vp-beams': params.beams,
+            'vp-fracture': params.fracture,
+            'vp-glitch': params.glitch,
+            'vp-size': params.size,
+            'vp-blur': params.blur,
+        };
+        Object.entries(ids).forEach(([id, value]) => {
+            const node = el(id);
+            if (node) node.textContent = Number(value).toFixed(1);
+        });
+        const st = el('p-mic-status');
+        if (st && micIsConnected()) {
+            const level = Math.round(au.levelFast * 100);
+            st.textContent = 'Live - audio level ' + level + '%, adjusting speed, noise, beams, fracture, glitch, size, and blur.';
+        }
     }
 
     function setMicStatus(message) {
@@ -491,6 +565,9 @@
         audioSource = null;
         analyser = null;
         audioCtx = null;
+        currentAudio = null;
+        lastAudioSampleTime = 0;
+        lastParamUiUpdate = 0;
         micStarting = false;
         setMicButton('Enable Microphone');
         setMicStatus('Microphone off. Motion Dynamics sliders are active.');
@@ -519,12 +596,13 @@
             if (audioCtx.state === 'suspended') await audioCtx.resume();
             audioSource = audioCtx.createMediaStreamSource(stream);
             analyser = audioCtx.createAnalyser();
-            analyser.fftSize = 2048;
-            analyser.smoothingTimeConstant = 0.28;
-            freqBuf = new Float32Array(analyser.frequencyBinCount);
-            timeBuf = new Float32Array(analyser.fftSize);
+            analyser.fftSize = 1024;
+            analyser.smoothingTimeConstant = 0.65;
+            freqBuf = new Uint8Array(analyser.frequencyBinCount);
+            prevFreqBuf = new Uint8Array(analyser.frequencyBinCount);
+            timeBuf = new Uint8Array(analyser.fftSize);
             audioSource.connect(analyser);
-            setMicStatus('Live - Motion driven by bass, mids, highs, brightness, and complexity.');
+            setMicStatus('Live - audio is adjusting speed, noise, beams, fracture, glitch, size, and blur.');
             setMicButton('Microphone on', true);
         } catch (e) {
             stopMic();
@@ -544,7 +622,7 @@
             btn.textContent = 'Preview (audio off)';
         }
         const st = el('p-mic-status');
-        if (st) st.textContent = 'Open this page directly to enable the microphone.';
+        if (st) st.textContent = 'Open this page from localhost or HTTPS to enable the microphone.';
     } else {
         el('p-mic')?.addEventListener('click', () => setupMic());
         window.addEventListener('pagehide', stopMic);
@@ -989,7 +1067,9 @@
         const countParam = dialParticleThousands(val('p-count')) * 1000;
         const renderAmount = min(MAX_AMOUNT, countParam);
         const au = stepAudio();
-        const noiseSpeed = audioModulateNoiseSpeed(dialTo100(val('p-noise')), dialTo100(val('p-speed')), au);
+        const liveParams = audioAdjustedParams(au);
+        updateLiveParamReadouts(liveParams, au);
+        const noiseSpeed = audioModulateNoiseSpeed(dialTo100(liveParams.noise), dialTo100(liveParams.speed), au);
 
         // Frame clear
         const bgRGB = hexToRGB(el('p-bg').value);
@@ -997,7 +1077,7 @@
         ol.clearDepth();
         ol.clear();
         
-        ol.canvas.style.filter = 'blur(' + dialBlurPx(val('p-blur')) + 'px)';
+        ol.canvas.style.filter = 'blur(' + dialBlurPx(liveParams.blur) + 'px)';
         el('phantom-wrap').parentNode.style.background = el('p-bg').value;
 
         // Update pass
@@ -1010,7 +1090,7 @@
                     // Params
                     ol.uniform("uSpeed", noiseSpeed.speed);
                     ol.uniform("uNoiseStr", noiseSpeed.noise);
-                    ol.uniform("uBeams", dialTo100(val('p-beams')));
+                    ol.uniform("uBeams", dialTo100(liveParams.beams));
                     ol.uniform("uAudioPitch", au.pitch);
                     ol.uniform("uAudioLevel", au.level);
                     ol.uniform("uAudioLevelFast", au.levelFast);
@@ -1038,10 +1118,10 @@
             ol.uniform("uTime", time);
             
             // Render params
-            ol.uniform("uFracture", dialTo100(val('p-fracture')));
-            ol.uniform("uGlitch", dialTo100(val('p-glitch')));
+            ol.uniform("uFracture", dialTo100(liveParams.fracture));
+            ol.uniform("uGlitch", dialTo100(liveParams.glitch));
             const dpr = window.devicePixelRatio || 1;
-            ol.uniform("uPointSize", dialPointSize(val('p-size')) * dpr * 0.4); 
+            ol.uniform("uPointSize", dialPointSize(liveParams.size) * dpr * 0.4); 
             ol.uniform("uMirror", parseInt(el('p-mirror').value, 10));
             ol.uniform("uShape", parseInt(el('p-shape').value, 10));
             
