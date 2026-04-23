@@ -216,6 +216,8 @@
     let audioStream = null;
     let audioSource = null;
     let analyser = null;
+    /** Zero-gain sink so the capture graph runs in Safari / some browsers. */
+    let micOutGain = null;
     let micStarting = false;
     let smoothPitch = 0.5;
     let smoothLevel = 0.35;
@@ -471,7 +473,7 @@
             if (i > 0 && centered * previous < 0) zeroCrossings++;
         }
         rms = Math.sqrt(rms / timeBuf.length);
-        const levelNorm = Math.min(1, rms * 7);
+        const levelNorm = Math.min(1, rms * 9);
         const delta = Math.max(0, levelNorm - prevRawLevel);
         prevRawLevel = levelNorm;
         const transientRaw = Math.min(1, delta * 18);
@@ -605,6 +607,18 @@
         if (audioStream) {
             audioStream.getTracks().forEach(track => track.stop());
         }
+        try {
+            if (audioSource) {
+                try { audioSource.disconnect(); } catch (e) {}
+            }
+            if (analyser) {
+                try { analyser.disconnect(); } catch (e) {}
+            }
+            if (micOutGain) {
+                try { micOutGain.disconnect(); } catch (e) {}
+            }
+        } catch (e) {}
+        micOutGain = null;
         if (audioCtx && audioCtx.state !== 'closed') {
             audioCtx.close().catch(() => {});
         }
@@ -632,25 +646,40 @@
             setMicStatus('Microphone unavailable: open this page from localhost or HTTPS.');
             return;
         }
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) {
+            setMicStatus('Web Audio (AudioContext) is not supported in this browser.');
+            return;
+        }
         micStarting = true;
         AUDIO_PARAM_INPUT_IDS.forEach(id => baseParamValues.set(id, val(id)));
         setMicButton('Requesting...', false, true);
         setMicStatus('Waiting for microphone permission...');
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
-            });
+            let stream;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+                });
+            } catch (e1) {
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            }
             audioStream = stream;
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            if (audioCtx.state === 'suspended') await audioCtx.resume();
+            audioCtx = new Ctx();
             audioSource = audioCtx.createMediaStreamSource(stream);
             analyser = audioCtx.createAnalyser();
             analyser.fftSize = 1024;
-            analyser.smoothingTimeConstant = 0.65;
+            analyser.smoothingTimeConstant = 0.5;
             freqBuf = new Uint8Array(analyser.frequencyBinCount);
             prevFreqBuf = new Uint8Array(analyser.frequencyBinCount);
             timeBuf = new Uint8Array(analyser.fftSize);
             audioSource.connect(analyser);
+            // End of graph to destination (silent) so analysis runs on all engines.
+            micOutGain = audioCtx.createGain();
+            micOutGain.gain.value = 0;
+            analyser.connect(micOutGain);
+            micOutGain.connect(audioCtx.destination);
+            if (audioCtx.state === 'suspended') await audioCtx.resume();
             setMicStatus('Live - audio is adjusting speed, noise, beams, fracture, glitch, size, and blur.');
             setMicButton('Microphone on', true);
         } catch (e) {
@@ -1079,12 +1108,18 @@
     // Trigger initial resize for retina scaling
     resizePhantomCanvas();
 
-    const safeNum = (v, fallback = 0) => (Number.isFinite(v) ? v : fallback);
+    const safeNum = (v, fallback = 0) => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : fallback;
+    };
     let renderErrorLogged = false;
 
     // Main render loop
     ol.render(() => {
       try {
+        if (audioCtx && audioCtx.state === 'suspended') {
+            void audioCtx.resume();
+        }
         const time = ol.frame / 60;
         const timeDelta = time - lastTime;
         lastTime = time;
