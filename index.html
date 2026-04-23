@@ -127,14 +127,14 @@
              */
             function buildGridFiveLayout(fs) {
                 const { widths, glyphH } = measureLetters(fs);
-                const cell = fs * 0.95;
+                const cell = fs * 0.72;
                 const bboxW = cell * 5;
                 const bboxH = cell * 5;
                 const gridPositions = [
-                    { cx: 0.9, cy: 1.0 }, // O
-                    { cx: 2.2, cy: 3.3 }, // V
+                    { cx: 1.1, cy: 1.2 }, // O
+                    { cx: 2.1, cy: 2.9 }, // V
                     { cx: 2.8, cy: 2.0 }, // R
-                    { cx: 4.1, cy: 4.0 }, // T
+                    { cx: 3.9, cy: 3.8 }, // T
                 ];
                 const hx = gridPositions.map((p) => p.cx * cell);
                 const hy = gridPositions.map((p) => p.cy * cell);
@@ -521,7 +521,7 @@
                 L.length = 0;
                 shuffleLetterFonts();
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-                const fs = Math.min(280, Math.max(W, H) * 0.26);
+                const fs = Math.min(280, Math.max(W, H) * (gridFiveMode ? 0.34 : 0.26));
                 const lay = gridFiveMode ? buildGridFiveLayout(fs) : buildNaturalLayout(fs);
                 S.fs = fs;
                 S.bboxW = Math.max(lay.bboxW, 1);
