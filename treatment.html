@@ -38,7 +38,7 @@
             justify-content:center;
         }
         #tr-canvas {
-            display:block;
+            display:none;
             max-width: calc(100% - 48px);
             max-height: calc(100% - 48px);
             background:#000;
@@ -46,6 +46,8 @@
             image-rendering: -webkit-optimize-contrast;
             image-rendering: crisp-edges;
         }
+        #tr-stage.has-image #tr-canvas { display:block; }
+        #tr-stage.has-image #tr-drop { display:none; }
         #tr-drop {
             position:absolute;
             inset:0;
@@ -859,6 +861,7 @@
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
         metaEl.textContent = img.width + ' × ' + img.height + 'px · rendering at ' + canvas.width + ' × ' + canvas.height;
         dropZone.classList.remove('is-visible');
+        stage.classList.add('has-image');
         fsNeedsRebuild = true;
         render();
     }
