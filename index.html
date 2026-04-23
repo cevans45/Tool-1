@@ -44,6 +44,7 @@
             let letterFontIdx = [];
             const S = { s: 1, tx: 0, ty: 0, bboxW: 1, bboxH: 1, fs: 100 };
             let lastCycleKey = -1;
+            let gridFiveMode = false;
             const WORD = 'OVRT';
             const N = WORD.length;
 
@@ -116,6 +117,27 @@
                 const bboxW = left;
                 const bboxH = glyphH;
                 const hy = glyphH / 2;
+                return { widths, glyphH, hx, hy, bboxW, bboxH };
+            }
+
+            /**
+             * 5x5 placement mode (toggle with key "6").
+             * Keeps OVRT order but places letters at intentionally offset cells:
+             * O = top-left-ish, V = middle-low-ish, R = middle-high-ish, T = bottom-right-ish.
+             */
+            function buildGridFiveLayout(fs) {
+                const { widths, glyphH } = measureLetters(fs);
+                const cell = fs * 0.95;
+                const bboxW = cell * 5;
+                const bboxH = cell * 5;
+                const gridPositions = [
+                    { cx: 0.9, cy: 1.0 }, // O
+                    { cx: 2.2, cy: 3.3 }, // V
+                    { cx: 2.8, cy: 2.0 }, // R
+                    { cx: 4.1, cy: 4.0 }, // T
+                ];
+                const hx = gridPositions.map((p) => p.cx * cell);
+                const hy = gridPositions.map((p) => p.cy * cell);
                 return { widths, glyphH, hx, hy, bboxW, bboxH };
             }
 
@@ -500,7 +522,7 @@
                 shuffleLetterFonts();
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
                 const fs = Math.min(280, Math.max(W, H) * 0.26);
-                const lay = buildNaturalLayout(fs);
+                const lay = gridFiveMode ? buildGridFiveLayout(fs) : buildNaturalLayout(fs);
                 S.fs = fs;
                 S.bboxW = Math.max(lay.bboxW, 1);
                 S.bboxH = Math.max(lay.bboxH, 1);
@@ -517,7 +539,7 @@
                 for (let i = 0; i < N; i++) {
                     const ch = WORD[i];
                     const hxI = hx[i];
-                    const hyI = hy;
+                    const hyI = Array.isArray(hy) ? hy[i] : hy;
                     const fontIdx = letterFontIdx[i];
                     const typoMode = pickRandomTypoMode();
                     const tw = Math.ceil(widths[i] + fs * 0.42);
@@ -620,6 +642,13 @@
             }
 
             window.addEventListener('resize', resize);
+            window.addEventListener('keydown', (e) => {
+                if (e.repeat) return;
+                if (e.key === '6') {
+                    gridFiveMode = !gridFiveMode;
+                    init();
+                }
+            });
             document.fonts.ready.then(resize);
             resize();
             lastCycleKey = cycleKey();
