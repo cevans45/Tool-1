@@ -244,7 +244,7 @@
         centroid: 0.5, transient: 0, zeroCross: 0.2, spectralFlux: 0.3, spectralSpread: 0.4,
         speedPulse: 0, active: 0,
     };
-    const MIC_PARTICLE_CAP = 52000;
+    const MIC_PARTICLE_CAP = 28000;
 
     function binHz(hz, nyquist, n) {
         return Math.max(0, Math.min(n - 1, Math.round((hz / nyquist) * n)));
@@ -273,16 +273,16 @@
         return baseParamValues.get(id);
     }
 
-    function setRangeDisplay(inputId, value) {
+    function setRangeDisplay(inputId, value, updateInput = false) {
         const input = el(inputId);
-        if (input) input.value = Number(value).toFixed(1);
+        if (input && updateInput) input.value = Number(value).toFixed(1);
         const control = Object.values(AUDIO_PARAM_CONTROLS).find(item => item.input === inputId);
         const valueNode = control ? el(control.value) : null;
         if (valueNode) valueNode.textContent = Number(value).toFixed(1);
     }
 
     function restoreBaseParamDisplays() {
-        AUDIO_PARAM_INPUT_IDS.forEach(id => setRangeDisplay(id, baseParamValue(id)));
+        AUDIO_PARAM_INPUT_IDS.forEach(id => setRangeDisplay(id, baseParamValue(id), true));
     }
 
     function bandAverage(buf, i0, i1) {
@@ -781,78 +781,29 @@
                 vVel = vec2(0.0);
             }
         } else {
-            // Update: motion ONLY when audio is active
             vec2 vel = aVel;
             float au = uAudioActive;
+            float t = uTime;
+            float stableNoise = min(uNoiseStr, 8.5);
+            float stableSpeed = min(uSpeed, 8.5);
+            float audioPush = au * (0.25 + 0.75 * max(uAudioLevelFast, max(uAudioBass, uAudioMid)));
+            float audioJitter = au * max(uAudioHigh, uAudioZeroCross);
+            float audioKick = au * max(uAudioTransient, uAudioSpectralFlux);
 
-            if (au < 0.5) {
-                // No audio: gentle damping and slow drift back to origin (hold the shape)
-                vel *= 0.92;
-                vel.x -= aPosition.x * 0.02 * uTimeDelta;
-                vel.y -= aPosition.y * 0.015 * uTimeDelta;
-            } else {
-                // Each effect driven by a DIFFERENT audio feature:
-                //   curl noise    ← spectral spread (texture complexity)
-                //   audio field X ← mid band
-                //   audio field Y ← bass band
-                //   shimmer       ← zero-crossing rate (noisiness)
-                //   kicks         ← spectral flux (onsets)
-                //   vertical sway ← centroid (brightness)
-                //   lateral bias  ← pitch
-                //   SPEED         ← event pulse (not continuous)
+            vel *= 0.91 + stableSpeed * 0.003 + audioPush * 0.025;
+            vel.x -= aPosition.x * (0.018 + stableNoise * 0.0016) * uTimeDelta;
+            vel.y -= aPosition.y * (0.014 + stableNoise * 0.0012) * uTimeDelta;
 
-                float t = uTime;
-
-                float stableNoise = min(uNoiseStr, 8.5);
-                float stableSpeed = min(uSpeed, 8.5);
-
-                // Curl noise — spectral spread only
-                float noiseAmt = stableNoise * 0.9 * (0.55 + 0.55 * uAudioSpectralSpread);
-                vec2 flow = curlNoise(aPosition * 0.002
-                    + vec2(uAudioSpectralSpread * 0.18, -t * 0.3));
-                vel += flow * noiseAmt;
-
-                // X-motion driven by MIDS only
-                float midAmp = 0.3 + 1.1 * uAudioMid;
-                float phX = t * (1.4 + 4.2 * uAudioMid) + aSeed * 6.28318;
-                vel.x += sin(phX + aPosition.y * 0.003) * midAmp * 14.0 * uTimeDelta;
-
-                // Y-motion driven by BASS only
-                float bassAmp = 0.3 + 1.2 * uAudioBass;
-                float phY = t * (1.0 + 3.6 * uAudioBass) + aSeed * 4.77;
-                vel.y += cos(phY - aPosition.x * 0.0026) * bassAmp * 14.0 * uTimeDelta;
-
-                // Shimmer driven by ZERO-CROSSING RATE only
-                vec2 hiShake = vec2(
-                    sin(t * (9.0 + 22.0 * uAudioZeroCross) + aPosition.y * 0.011),
-                    cos(t * (8.0 + 18.0 * uAudioZeroCross) + aPosition.x * 0.012)
-                ) * uAudioZeroCross;
-                vel += hiShake * 18.0 * uTimeDelta;
-
-                // Kicks driven by SPECTRAL FLUX only (onsets)
-                vec2 fluxKick = vec2(cos(aSeed * 37.13), sin(aSeed * 41.07));
-                vel += fluxKick * uAudioSpectralFlux * 45.0 * uTimeDelta;
-
-                // Vertical scale sway — CENTROID only
-                vel.y -= aPosition.y * (uAudioCentroid - 0.4) * 0.9 * uTimeDelta;
-
-                // Lateral bias — PITCH only
-                vel.x += (uAudioPitch - 0.5) * 22.0 * uTimeDelta;
-
-                // Highs → additional ring jitter (separate from zero-cross shimmer)
-                vec2 ringJit = vec2(aPosition.y, -aPosition.x) * 0.002 * uAudioHigh;
-                vel += ringJit;
-
-                // Gentle centering
-                vel.x -= aPosition.x * 0.018 * stableNoise * uTimeDelta;
-                vel.y -= aPosition.y * 0.012 * stableNoise * uTimeDelta;
-
-                // SPEED: event-driven pulse (not continuous). Fast when there's an onset, idle between.
-                float speedBase = 0.82 + 0.34 * uAudioSpeedPulse;
-                float spd = (0.88 + stableSpeed * 0.012) * speedBase;
-                vel *= spd;
-                vel = clamp(vel, vec2(-620.0), vec2(620.0));
-            }
+            vec2 phase = vec2(
+                t * (1.2 + uAudioMid * 1.8) + aSeed * 6.28318,
+                t * (1.0 + uAudioBass * 1.6) + aSeed * 4.77
+            );
+            vel.x += sin(phase.x + aPosition.y * 0.0025) * (4.0 + stableNoise * 0.55) * audioPush * uTimeDelta;
+            vel.y += cos(phase.y - aPosition.x * 0.0022) * (4.0 + stableNoise * 0.5) * audioPush * uTimeDelta;
+            vel += vec2(cos(aSeed * 37.13), sin(aSeed * 41.07)) * audioKick * 18.0 * uTimeDelta;
+            vel += vec2(aPosition.y, -aPosition.x) * 0.00022 * audioJitter;
+            vel.x += (uAudioPitch - 0.5) * au * 4.0 * uTimeDelta;
+            vel = clamp(vel, vec2(-180.0), vec2(180.0));
 
             vPosition = aPosition + vel * uTimeDelta;
             vVel = vel * 0.95;
