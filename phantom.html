@@ -221,11 +221,43 @@
     }
 
     function stepAudio() {
-        if (isPreview || !analyser || !audioCtx) {
+        // If in preview mode, return idle state
+        if (isPreview) {
             return {
                 pitch: 0.5, level: 0.35, levelFast: 0.35, bass: 0.35, mid: 0.35, high: 0.35,
                 centroid: 0.5, transient: 0, zeroCross: 0.2, spectralFlux: 0.3, spectralSpread: 0.4,
                 speedPulse: 0, active: 0,
+            };
+        }
+
+        // If no real audio input, generate synthetic motion
+        if (!analyser || !audioCtx) {
+            const t = performance.now() * 0.001;
+            const synthBass = 0.4 + 0.25 * Math.sin(t * 0.8);
+            const synthMid = 0.35 + 0.3 * Math.sin(t * 1.2 + 1.5);
+            const synthHigh = 0.3 + 0.35 * Math.sin(t * 1.5 + 3.0);
+            const synthCentroid = 0.5 + 0.2 * Math.sin(t * 0.6);
+            const synthPitch = 0.5 + 0.25 * Math.sin(t * 0.95 + 2.1);
+            
+            // Synthetic pulses for kicks
+            const pulse1 = Math.max(0, Math.sin(t * 3.14) * 0.5);
+            const pulse2 = Math.max(0, Math.sin(t * 2.1 - 1.5) * 0.6);
+            const synthSpeedPulse = Math.max(pulse1, pulse2) * 0.7;
+            
+            return {
+                pitch: synthPitch,
+                level: 0.4 + 0.2 * Math.sin(t * 0.7),
+                levelFast: 0.35 + 0.25 * Math.sin(t * 2.0),
+                bass: synthBass,
+                mid: synthMid,
+                high: synthHigh,
+                centroid: synthCentroid,
+                transient: Math.max(0, Math.sin(t * 4.2) * 0.3),
+                zeroCross: 0.25 + 0.2 * Math.sin(t * 1.8),
+                spectralFlux: Math.max(0, Math.sin(t * 3.5) * 0.4),
+                spectralSpread: 0.4 + 0.3 * Math.sin(t * 1.1),
+                speedPulse: synthSpeedPulse,
+                active: 1,
             };
         }
         if (freqBuf.length !== analyser.frequencyBinCount) {
