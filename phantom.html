@@ -34,8 +34,31 @@
             background: #fff; color: #000;
         }
         .app[aria-label="Phantom"] .back-link { color: #aaa; }
-        #phantom-wrap { flex:1; position:relative; overflow:hidden; }
-        canvas { display:block; width:100%!important; height:100%!important; }
+        #phantom-wrap {
+            flex:1;
+            position:relative;
+            overflow:hidden;
+            background:#000;
+            isolation:isolate;
+        }
+        #phantom-wrap canvas {
+            display:block;
+            position:absolute;
+            inset:0;
+            width:100%!important;
+            height:100%!important;
+        }
+        #phantom-base-canvas { z-index:0; }
+        #phantom-mic-canvas {
+            z-index:1;
+            pointer-events:none;
+            opacity:0;
+            mix-blend-mode:screen;
+            transition:opacity 180ms ease;
+        }
+        #phantom-wrap.mic-active #phantom-mic-canvas {
+            opacity:1;
+        }
     </style>
 </head>
 <body>
