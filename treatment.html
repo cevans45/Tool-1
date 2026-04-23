@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Treatment — OVRT</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .app[aria-label="Treatment"] { background: #0c0c0c; }
+        .app[aria-label="Treatment"] .control-panel {
+            background: rgba(12,12,12,0.94);
+            border-color: #222;
+        }
+        .app[aria-label="Treatment"] .panel-header { border-color: #333; }
+        .app[aria-label="Treatment"] .panel-header h2 { color: #eee; }
+        .app[aria-label="Treatment"] .control-window summary { color: #fff; }
+        .app[aria-label="Treatment"] .control-row label { color: #ddd; }
+        .app[aria-label="Treatment"] .param-value { color: #ddd; }
+        .app[aria-label="Treatment"] .control-window { border-color: #2a2a2a; }
+        .app[aria-label="Treatment"] .select-input {
+            background: #111; color: #fff; border-color: #555;
+        }
+        .app[aria-label="Treatment"] .panel-button {
+            background: transparent; color: #fff; border-color: #fff;
+        }
+        .app[aria-label="Treatment"] .panel-button:hover { background: #fff; color: #000; }
+        .app[aria-label="Treatment"] .panel-button.is-active { background: #fff; color: #000; }
+        .app[aria-label="Treatment"] .back-link { color: #aaa; }
+
+        #tr-stage {
+            flex:1;
+            position:relative;
+            overflow:hidden;
+            background:
+                repeating-conic-gradient(#161616 0% 25%, #101010 0% 50%) 50% / 28px 28px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+        }
+        #tr-canvas {
+            display:block;
+            max-width: calc(100% - 48px);
+            max-height: calc(100% - 48px);
+            background:#000;
+            box-shadow: 0 6px 40px rgba(0,0,0,0.6);
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+        }
+        #tr-drop {
+            position:absolute;
+            inset:0;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            color:#aaa;
+            font-family: 'Space Grotesk', system-ui, sans-serif;
+            font-size:14px;
+            letter-spacing:0.04em;
+            text-transform: uppercase;
+            background: rgba(0,0,0,0.0);
+            pointer-events:none;
+            transition: background 150ms ease;
+            text-align:center;
+            padding:24px;
+        }
+        #tr-drop.is-visible { pointer-events:auto; }
+        #tr-drop.is-drag { background: rgba(255,255,255,0.08); color:#fff; }
+        #tr-drop .drop-inner {
+            border: 1.5px dashed #555;
+            padding: 28px 36px;
+            border-radius: 4px;
+            max-width: 420px;
+            cursor: pointer;
+        }
+        #tr-drop.is-drag .drop-inner { border-color:#fff; }
+        #tr-drop strong { display:block; color:#fff; font-size:18px; margin-bottom:8px; letter-spacing:0.02em;}
+        #tr-drop small { display:block; color:#888; margin-top:8px; font-size:11px; text-transform: none; letter-spacing:0.02em;}
+        .tr-file-input { display:none; }
+
+        .tr-button-row { display:flex; gap:6px; padding: 6px 14px 10px; flex-wrap:wrap; }
+        .tr-button-row .panel-button { flex:1; min-width:0; padding: 8px 10px; font-size:11px; }
+
+        .tr-color-row { display:flex; align-items:center; gap:10px; padding: 6px 14px; }
+        .tr-color-row label { color:#ddd; font-size:11px; letter-spacing:0.04em; text-transform:uppercase; }
+        .tr-color-row input[type="color"] { width:28px; height:28px; border:1px solid #333; background:#000; padding:0; border-radius:3px; cursor:pointer; }
+
+        .tr-meta {
+            font-size:10px;
+            color:#777;
+            padding: 2px 14px 10px;
+            letter-spacing:0.04em;
+            text-transform: uppercase;
+            line-height:1.5;
+        }
+        .tr-hint { font-size:10px; color:#666; margin: -4px 0 8px; line-height:1.4; }
+
+        .control-row.is-hidden { display:none; }
+    </style>
+</head>
+<body>
+    <div class="site-shell">
+        <header class="tool-header" style="background:#000;border-color:#222;">
+            <a href="index.html" class="back-link" style="color:#aaa;">← Back to OVRT</a>
+            <span class="tool-title" style="color:#fff;">Treatment</span>
+        </header>
+        <div class="app" aria-label="Treatment">
+            <div id="tr-stage">
+                <canvas id="tr-canvas" width="1024" height="1024"></canvas>
+                <div id="tr-drop" class="is-visible">
+                    <div class="drop-inner" id="tr-drop-click">
+                        <strong>Drop an image to start</strong>
+                        Click here or drag a file · JPG / PNG / WEBP
+                        <small>All processing is local. Your image never leaves this browser.</small>
+                    </div>
+                </div>
+                <input type="file" class="tr-file-input" id="tr-file" accept="image/*">
+            </div>
+
+            <aside class="control-panel">
+                <header class="panel-header">
+                    <h2 style="color:#fff;">Treatment</h2>
+                </header>
+                <div class="panel-body">
+
+                    <div class="tr-button-row">
+                        <button class="panel-button" id="tr-upload-btn">Upload</button>
+                        <button class="panel-button" id="tr-sample-btn">Sample</button>
+                        <button class="panel-button" id="tr-reset-btn">Reset</button>
+                        <button class="panel-button" id="tr-download-btn">Save PNG</button>
+                    </div>
+                    <div class="tr-meta" id="tr-meta">No image</div>
+
+                    <details class="control-window" open>
+                        <summary>Effect</summary>
+                        <section class="control-section">
+                            <div class="control-row" style="padding-bottom:12px;">
+                                <label>Mode</label>
+                                <select id="p-mode" class="select-input">
+                                    <option value="none">None (adjust only)</option>
+                                    <option value="halftone_cmyk" selected>Halftone — CMYK</option>
+                                    <option value="halftone_mono">Halftone — Mono dots</option>
+                                    <option value="halftone_line">Halftone — Lines</option>
+                                    <option value="halftone_diamond">Halftone — Diamond</option>
+                                    <option value="bayer">Dither — Bayer</option>
+                                    <option value="fs">Dither — Floyd-Steinberg</option>
+                                    <option value="ascii">ASCII</option>
+                                    <option value="threshold">Threshold (B/W)</option>
+                                    <option value="duotone">Duotone</option>
+                                    <option value="tritone">Tritone</option>
+                                    <option value="posterize">Posterize</option>
+                                    <option value="chroma">Chromatic Aberration</option>
+                                    <option value="glitch">Glitch Slice</option>
+                                    <option value="scanlines">CRT / Scanlines</option>
+                                    <option value="crosshatch">Cross-hatch</option>
+                                    <option value="riso">Risograph</option>
+                                    <option value="pixelate">Pixelate</option>
+                                    <option value="edge">Edge / Contour</option>
+                                    <option value="stipple">Stipple</option>
+                                    <option value="warp">Noise Warp</option>
+                                    <option value="kaleido">Kaleidoscope</option>
+                                </select>
+                            </div>
+                            <p class="tr-hint" id="tr-mode-hint">CMYK dot screens with adjustable angle and size. Classic print halftone.</p>
+
+                            <div class="control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond riso stipple pixelate ascii bayer warp kaleido crosshatch glitch chroma scanlines edge"><label id="lbl-scale">Scale</label><input type="range" id="p-scale" min="1" max="10" value="4" step="0.1"><span class="param-value" id="vp-scale">4.0</span></div>
+                            <div class="control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond riso crosshatch warp kaleido"><label id="lbl-angle">Angle</label><input type="range" id="p-angle" min="0" max="10" value="4.5" step="0.1"><span class="param-value" id="vp-angle">4.5</span></div>
+                            <div class="control-row" data-show="threshold bayer fs edge ascii stipple duotone tritone posterize glitch scanlines"><label id="lbl-threshold">Threshold / Levels</label><input type="range" id="p-threshold" min="0" max="10" value="5" step="0.1"><span class="param-value" id="vp-threshold">5.0</span></div>
+                            <div class="control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond fs chroma glitch scanlines crosshatch riso ascii duotone tritone warp kaleido edge bayer posterize stipple"><label id="lbl-amount">Amount</label><input type="range" id="p-amount" min="0" max="10" value="5" step="0.1"><span class="param-value" id="vp-amount">5.0</span></div>
+                            <div class="control-row" data-show="glitch chroma scanlines riso warp kaleido"><label id="lbl-amount2">Secondary</label><input type="range" id="p-amount2" min="0" max="10" value="5" step="0.1"><span class="param-value" id="vp-amount2">5.0</span></div>
+                            <div class="control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond bayer fs posterize edge ascii stipple crosshatch riso threshold pixelate"><label id="lbl-invert">Invert</label><input type="range" id="p-invert" min="0" max="1" value="0" step="1"><span class="param-value" id="vp-invert">0</span></div>
+
+                            <div class="tr-color-row" data-show-color="duotone tritone halftone_mono halftone_line halftone_diamond stipple ascii threshold riso crosshatch edge">
+                                <label>Ink A</label><input type="color" id="p-color-a" value="#000000">
+                                <label>Ink B</label><input type="color" id="p-color-b" value="#ffffff">
+                            </div>
+                            <div class="tr-color-row" data-show-color="tritone riso">
+                                <label>Ink C</label><input type="color" id="p-color-c" value="#ff3366">
+                            </div>
+                            <div class="tr-color-row" data-show-color="duotone tritone halftone_cmyk halftone_mono halftone_line halftone_diamond stipple ascii threshold riso crosshatch edge">
+                                <label>Paper</label><input type="color" id="p-color-bg" value="#f5efe4">
+                            </div>
+                        </section>
+                    </details>
+
+                    <details class="control-window" open>
+                        <summary>Adjust</summary>
+                        <section class="control-section">
+                            <div class="control-row"><label>Brightness</label><input type="range" id="p-brightness" min="-5" max="5" value="0" step="0.1"><span class="param-value" id="vp-brightness">0.0</span></div>
+                            <div class="control-row"><label>Contrast</label><input type="range" id="p-contrast" min="-5" max="5" value="0" step="0.1"><span class="param-value" id="vp-contrast">0.0</span></div>
+                            <div class="control-row"><label>Saturation</label><input type="range" id="p-saturation" min="-5" max="5" value="0" step="0.1"><span class="param-value" id="vp-saturation">0.0</span></div>
+                            <div class="control-row"><label>Hue shift</label><input type="range" id="p-hue" min="0" max="10" value="0" step="0.1"><span class="param-value" id="vp-hue">0.0</span></div>
+                            <div class="control-row"><label>Gamma</label><input type="range" id="p-gamma" min="1" max="10" value="5" step="0.1"><span class="param-value" id="vp-gamma">5.0</span></div>
+                            <div class="control-row"><label>Pre-blur</label><input type="range" id="p-blur" min="0" max="10" value="0" step="0.1"><span class="param-value" id="vp-blur">0.0</span></div>
+                            <div class="control-row"><label>Global Invert</label><input type="range" id="p-ginvert" min="0" max="1" value="0" step="1"><span class="param-value" id="vp-ginvert">0</span></div>
+                        </section>
+                    </details>
+
+                    <details class="control-window">
+                        <summary>Output</summary>
+                        <section class="control-section">
+                            <div class="control-row"><label>Max dimension (px)</label><input type="range" id="p-maxdim" min="512" max="4096" value="1600" step="64"><span class="param-value" id="vp-maxdim">1600</span></div>
+                            <p class="tr-hint">Larger = sharper halftone dots and cleaner dither, but slower. Save PNG exports at this resolution.</p>
+                        </section>
+                    </details>
+
+                </div>
+            </aside>
+        </div>
+    </div>
+
+<script>
+(function () {
+    'use strict';
+
+    // ── DOM ──
+    const canvas = document.getElementById('tr-canvas');
+    const stage = document.getElementById('tr-stage');
+    const dropZone = document.getElementById('tr-drop');
+    const dropClick = document.getElementById('tr-drop-click');
+    const fileInput = document.getElementById('tr-file');
+    const uploadBtn = document.getElementById('tr-upload-btn');
+    const sampleBtn = document.getElementById('tr-sample-btn');
+    const resetBtn = document.getElementById('tr-reset-btn');
+    const downloadBtn = document.getElementById('tr-download-btn');
+    const metaEl = document.getElementById('tr-meta');
+    const modeHint = document.getElementById('tr-mode-hint');
+
+    // ── Slider helpers (value + readout) ──
+    const sliderIds = [
+        'p-mode','p-scale','p-angle','p-threshold','p-amount','p-amount2','p-invert',
+        'p-brightness','p-contrast','p-saturation','p-hue','p-gamma','p-blur','p-ginvert',
+        'p-maxdim','p-color-a','p-color-b','p-color-c','p-color-bg'
+    ];
+    const S = {};
+    sliderIds.forEach(id => { S[id] = document.getElementById(id); });
+
+    function wireReadout(id, fmt) {
+        const input = S[id];
+        const readout = document.getElementById('v' + id);
+        if (!input || !readout) return;
+        const upd = () => { readout.textContent = fmt ? fmt(input.value) : Number(input.value).toFixed(1); };
+        upd();
+        input.addEventListener('input', upd);
+    }
+    wireReadout('p-scale');
+    wireReadout('p-angle');
+    wireReadout('p-threshold');
+    wireReadout('p-amount');
+    wireReadout('p-amount2');
+    wireReadout('p-invert', v => String(v));
+    wireReadout('p-brightness');
+    wireReadout('p-contrast');
+    wireReadout('p-saturation');
+    wireReadout('p-hue');
+    wireReadout('p-gamma');
+    wireReadout('p-blur');
+    wireReadout('p-ginvert', v => String(v));
+    wireReadout('p-maxdim', v => String(Math.round(v)));
+
+    // Mode hints
+    const MODE_HINTS = {
+        none: 'Only the Adjust panel applies.',
+        halftone_cmyk: 'CMYK dot screens with adjustable angle and size. Classic print halftone.',
+        halftone_mono: 'Single-color dot screen. Ink A draws on Paper. Amount = contrast of dots.',
+        halftone_line: 'Line screen varying thickness by tone. Rotate with Angle.',
+        halftone_diamond: 'Diamond/lozenge cell halftone — softer than round dots.',
+        bayer: '2×2, 4×4, 8×8 ordered dither. Threshold = posterize levels.',
+        fs: 'Floyd-Steinberg error diffusion. Slower but richer tone. Threshold = palette levels.',
+        ascii: 'Brightness mapped to characters: . , : ; + * # @. Scale = cell size.',
+        threshold: 'Hard binary threshold. Amount = softness of edge. Colors A/B/Paper define ink.',
+        duotone: 'Tone mapped between Ink A (dark) and Ink B (light).',
+        tritone: 'Three-tone gradient Ink A → Ink B → Ink C with Paper fade.',
+        posterize: 'Per-channel posterize. Threshold = levels (2–10).',
+        chroma: 'Chromatic aberration. Amount = shift. Secondary = radial strength.',
+        glitch: 'Horizontal slice shifts + color-channel offsets. Secondary = density of slices.',
+        scanlines: 'CRT lines + bloom + mild aberration. Secondary = vignette.',
+        crosshatch: 'Inked line density by tone. Scale = line spacing. Angle = hatch angle.',
+        riso: 'Two-color riso halftone with misregistration. Ink A + Ink C.',
+        pixelate: 'Block pixelate. Scale = block size.',
+        edge: 'Sobel edge detect + threshold. Amount = edge strength.',
+        stipple: 'Density-based random stippling dots, heavier in dark areas.',
+        warp: 'Simplex-noise UV displacement. Scale = frequency. Amount = strength.',
+        kaleido: 'Polar kaleidoscope. Amount = segment count. Angle = rotation.'
+    };
+    S['p-mode'].addEventListener('change', () => {
+        modeHint.textContent = MODE_HINTS[S['p-mode'].value] || '';
+        updateControlVisibility();
+        render();
+    });
+
+    function updateControlVisibility() {
+        const mode = S['p-mode'].value;
+        document.querySelectorAll('[data-show]').forEach(el => {
+            const modes = el.getAttribute('data-show').split(/\s+/);
+            el.classList.toggle('is-hidden', !modes.includes(mode));
+        });
+        document.querySelectorAll('[data-show-color]').forEach(el => {
+            const modes = el.getAttribute('data-show-color').split(/\s+/);
+            el.classList.toggle('is-hidden', !modes.includes(mode));
+        });
+    }
+
+    // All sliders trigger re-render
+    Object.values(S).forEach(input => {
+        if (!input) return;
+        const evt = (input.type === 'color' || input.tagName === 'SELECT') ? 'input' : 'input';
+        input.addEventListener(evt, () => { render(); });
+    });
+
+    // ── WebGL2 ──
+    const gl = canvas.getContext('webgl2', { premultipliedAlpha: false, preserveDrawingBuffer: true });
+    if (!gl) {
+        metaEl.textContent = 'WebGL2 not supported.';
+        return;
+    }
+
+    const VS_SRC = `#version 300 es
+    precision highp float;
+    in vec2 aPos;
+    out vec2 vUV;
+    void main() {
+        vUV = aPos * 0.5 + 0.5;
+        gl_Position = vec4(aPos, 0.0, 1.0);
+    }`;
+
+    const FS_SRC = `#version 300 es
+    precision highp float;
+    in vec2 vUV;
+    out vec4 fragColor;
+
+    uniform sampler2D uTex;
+    uniform sampler2D uAscii;
+    uniform vec2 uResolution;
+    uniform vec2 uImgSize;
+    uniform float uTime;
+
+    // Adjust
+    uniform float uBrightness;  // -1..1
+    uniform float uContrast;    // -1..1
+    uniform float uSaturation;  // -1..1
+    uniform float uHue;         // 0..1
+    uniform float uGamma;       // 0.25..3
+    uniform float uBlur;        // 0..6 (px radius)
+    uniform float uGInvert;     // 0/1
+
+    // Effect
+    uniform int uMode;
+    uniform float uScale;       // effect-dependent
+    uniform float uAngle;       // radians
+    uniform float uThreshold;   // 0..1 or levels
+    uniform float uAmount;      // generic 0..1
+    uniform float uAmount2;     // generic 0..1
+    uniform float uInvert;      // 0/1
+    uniform vec3  uColorA;
+    uniform vec3  uColorB;
+    uniform vec3  uColorC;
+    uniform vec3  uColorBg;
+
+    // ── utils ──
+    float hash21(vec2 p) {
+        p = fract(p * vec2(123.34, 456.21));
+        p += dot(p, p + 45.32);
+        return fract(p.x * p.y);
+    }
+    float hash12(vec2 p) {
+        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+    }
+    vec3 rgb2hsv(vec3 c) {
+        vec4 K = vec4(0.0, -1.0/3.0, 2.0/3.0, -1.0);
+        vec4 p = mix(vec4(c.bg, K.wz), vec4(c.gb, K.xy), step(c.b, c.g));
+        vec4 q = mix(vec4(p.xyw, c.r), vec4(c.r, p.yzx), step(p.x, c.r));
+        float d = q.x - min(q.w, q.y);
+        float e = 1.0e-10;
+        return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+    }
+    vec3 hsv2rgb(vec3 c) {
+        vec4 K = vec4(1.0, 2.0/3.0, 1.0/3.0, 3.0);
+        vec3 p = abs(fract(c.xxx + K.xyz) * 6.0 - K.www);
+        return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
+    }
+    float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+
+    vec3 sampleTex(vec2 uv) {
+        return texture(uTex, clamp(uv, vec2(0.002), vec2(0.998))).rgb;
+    }
+    // 9-tap gaussian blur in pixel space
+    vec3 sampleBlurred(vec2 uv) {
+        if (uBlur <= 0.01) return sampleTex(uv);
+        vec2 px = uBlur / uResolution;
+        vec3 acc = vec3(0.0);
+        float wsum = 0.0;
+        for (int y = -2; y <= 2; y++) {
+            for (int x = -2; x <= 2; x++) {
+                float w = exp(-float(x*x + y*y) * 0.5);
+                acc += sampleTex(uv + vec2(float(x), float(y)) * px) * w;
+                wsum += w;
+            }
+        }
+        return acc / wsum;
+    }
+
+    vec3 applyAdjust(vec3 c) {
+        c = clamp(c + uBrightness, 0.0, 1.0);
+        c = clamp((c - 0.5) * (1.0 + uContrast) + 0.5, 0.0, 1.0);
+        vec3 hsv = rgb2hsv(c);
+        hsv.x = fract(hsv.x + uHue);
+        hsv.y = clamp(hsv.y * (1.0 + uSaturation), 0.0, 1.0);
+        c = hsv2rgb(hsv);
+        c = pow(max(c, 0.0001), vec3(1.0 / max(0.01, uGamma)));
+        if (uGInvert > 0.5) c = 1.0 - c;
+        return clamp(c, 0.0, 1.0);
+    }
+
+    vec3 rgb2cmy(vec3 c) { return 1.0 - c; }
+
+    // Halftone primitive: returns 1 where ink sits (0..1 soft)
+    // cellPx = dot cell in image pixels, angle in radians
+    float dotScreen(vec2 px, float cellPx, float angle, float value) {
+        float c = cos(angle); float s = sin(angle);
+        vec2 rot = vec2(c * px.x - s * px.y, s * px.x + c * px.y);
+        vec2 cell = mod(rot, cellPx) - cellPx * 0.5;
+        float d = length(cell);
+        // radius^2 is proportional to area; area ~ ink coverage = value
+        float r = sqrt(max(value, 0.0)) * cellPx * 0.55;
+        float aa = 1.0; // 1px AA
+        return 1.0 - smoothstep(r - aa, r + aa, d);
+    }
+    float lineScreen(vec2 px, float cellPx, float angle, float value) {
+        float c = cos(angle); float s = sin(angle);
+        float y = s * px.x + c * px.y;
+        float d = abs(mod(y, cellPx) - cellPx * 0.5);
+        float t = value * cellPx * 0.5;
+        float aa = 1.0;
+        return 1.0 - smoothstep(t - aa, t + aa, d);
+    }
+    float diamondScreen(vec2 px, float cellPx, float angle, float value) {
+        float c = cos(angle); float s = sin(angle);
+        vec2 rot = vec2(c * px.x - s * px.y, s * px.x + c * px.y);
+        vec2 cell = mod(rot, cellPx) - cellPx * 0.5;
+        float d = abs(cell.x) + abs(cell.y);
+        float r = sqrt(max(value, 0.0)) * cellPx * 0.7;
+        float aa = 1.0;
+        return 1.0 - smoothstep(r - aa, r + aa, d);
+    }
+
+    // 8x8 Bayer
+    float bayer8(vec2 p) {
+        int x = int(mod(p.x, 8.0));
+        int y = int(mod(p.y, 8.0));
+        int m[64] = int[64](
+             0,32, 8,40, 2,34,10,42,
+            48,16,56,24,50,18,58,26,
+            12,44, 4,36,14,46, 6,38,
+            60,28,52,20,62,30,54,22,
+             3,35,11,43, 1,33, 9,41,
+            51,19,59,27,49,17,57,25,
+            15,47, 7,39,13,45, 5,37,
+            63,31,55,23,61,29,53,21
+        );
+        return float(m[y * 8 + x]) / 64.0;
+    }
+    float bayer4(vec2 p) {
+        int x = int(mod(p.x, 4.0));
+        int y = int(mod(p.y, 4.0));
+        int m[16] = int[16](
+             0, 8, 2,10,
+            12, 4,14, 6,
+             3,11, 1, 9,
+            15, 7,13, 5
+        );
+        return float(m[y * 4 + x]) / 16.0;
+    }
+    float bayer2(vec2 p) {
+        int x = int(mod(p.x, 2.0));
+        int y = int(mod(p.y, 2.0));
+        int m[4] = int[4](0, 2, 3, 1);
+        return float(m[y * 2 + x]) / 4.0;
+    }
+
+    // 2D simplex noise (Ashima)
+    vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+    float snoise(vec2 v){
+        const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                           -0.577350269189626, 0.024390243902439);
+        vec2 i  = floor(v + dot(v, C.yy));
+        vec2 x0 = v -   i + dot(i, C.xx);
+        vec2 i1; i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+        vec4 x12 = x0.xyxy + C.xxzz; x12.xy -= i1;
+        i = mod(i, 289.0);
+        vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+        vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+        m = m*m; m = m*m;
+        vec3 x = 2.0 * fract(p * C.www) - 1.0;
+        vec3 h = abs(x) - 0.5;
+        vec3 ox = floor(x + 0.5);
+        vec3 a0 = x - ox;
+        m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+        vec3 g;
+        g.x  = a0.x  * x0.x + h.x * x0.y;
+        g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+        return 130.0 * dot(m, g);
+    }
+
+    void main() {
+        vec2 uv = vec2(vUV.x, 1.0 - vUV.y); // flip Y for upright image
+        vec2 px = uv * uResolution;
+
+        // Warp / kaleidoscope modify UV before sampling
+        if (uMode == 18 /*warp*/) {
+            float freq = mix(0.003, 0.03, uScale / 10.0);
+            float amp  = mix(0.0, 0.12, uAmount / 10.0);
+            vec2 n = vec2(
+                snoise(px * freq + vec2( 13.2, 0.0) + uAmount2 * 0.1),
+                snoise(px * freq + vec2(-41.7, 7.3) + uAmount2 * 0.1)
+            );
+            uv += n * amp;
+        }
+        if (uMode == 20 /*kaleido*/) {
+            vec2 c = uv - 0.5;
+            float r = length(c);
+            float a = atan(c.y, c.x) + uAngle;
+            float seg = max(2.0, floor(uAmount * 2.4 + 2.0));
+            float sa = 6.2831853 / seg;
+            a = mod(a, sa);
+            a = abs(a - sa * 0.5);
+            uv = 0.5 + vec2(cos(a), sin(a)) * r;
+        }
+
+        vec3 src = sampleBlurred(uv);
+        src = applyAdjust(src);
+
+        vec3 outCol = src;
+        float lumaVal = luma(src);
+        float papFade = 1.0; // how much paper (1 = full paper)
+
+        if (uMode == 1) { // CMYK halftone
+            vec3 cmy = rgb2cmy(src);
+            float k = min(cmy.x, min(cmy.y, cmy.z));
+            cmy -= k;
+            float cellPx = max(2.0, uScale * 2.5);
+            float baseA  = uAngle;
+            float cDot = dotScreen(px, cellPx, baseA + 0.2617, cmy.x);            // 15°
+            float mDot = dotScreen(px, cellPx, baseA + 1.3089, cmy.y);            // 75°
+            float yDot = dotScreen(px, cellPx, baseA + 0.0000, cmy.z);            //  0°
+            float kDot = dotScreen(px, cellPx, baseA + 0.7853, k);                // 45°
+            vec3 paper = uColorBg;
+            vec3 acc = paper;
+            acc *= mix(vec3(1.0), vec3(0.0, 0.78, 0.9),  cDot);
+            acc *= mix(vec3(1.0), vec3(0.93, 0.0, 0.55), mDot);
+            acc *= mix(vec3(1.0), vec3(1.0, 0.94, 0.0),  yDot);
+            acc *= mix(vec3(1.0), vec3(0.0),             kDot);
+            outCol = mix(src, acc, clamp(uAmount / 10.0 + 0.2, 0.0, 1.0));
+            if (uInvert > 0.5) outCol = 1.0 - outCol;
+        }
+        else if (uMode == 2) { // Mono dots
+            float cellPx = max(2.0, uScale * 2.5);
+            float v = 1.0 - lumaVal; // darker → bigger dot
+            float ink = dotScreen(px, cellPx, uAngle, v * mix(0.7, 1.6, uAmount / 10.0));
+            outCol = mix(uColorBg, uColorA, clamp(ink, 0.0, 1.0));
+            if (uInvert > 0.5) outCol = mix(uColorA, uColorBg, clamp(ink, 0.0, 1.0));
+        }
+        else if (uMode == 3) { // Line halftone
+            float cellPx = max(2.0, uScale * 2.0);
+            float v = (1.0 - lumaVal) * mix(0.8, 1.8, uAmount / 10.0);
+            float ink = lineScreen(px, cellPx, uAngle, v);
+            outCol = mix(uColorBg, uColorA, clamp(ink, 0.0, 1.0));
+            if (uInvert > 0.5) outCol = mix(uColorA, uColorBg, clamp(ink, 0.0, 1.0));
+        }
+        else if (uMode == 4) { // Diamond halftone
+            float cellPx = max(2.0, uScale * 2.5);
+            float v = (1.0 - lumaVal) * mix(0.7, 1.6, uAmount / 10.0);
+            float ink = diamondScreen(px, cellPx, uAngle, v);
+            outCol = mix(uColorBg, uColorA, clamp(ink, 0.0, 1.0));
+            if (uInvert > 0.5) outCol = mix(uColorA, uColorBg, clamp(ink, 0.0, 1.0));
+        }
+        else if (uMode == 5) { // Bayer
+            float t;
+            if (uScale < 3.33) t = bayer2(px);
+            else if (uScale < 6.66) t = bayer4(px);
+            else t = bayer8(px);
+            float levels = max(2.0, floor(uThreshold * 0.8 + 2.0));
+            vec3 q = floor(src * (levels - 1.0) + vec3(t)) / (levels - 1.0);
+            outCol = q;
+            if (uInvert > 0.5) outCol = 1.0 - outCol;
+        }
+        // mode 6 (FS) is handled CPU-side; shader just passes src in a paint-friendly way
+        else if (uMode == 6) {
+            // If a FS-dithered texture has been provided, uTex already holds it.
+            outCol = src;
+            if (uInvert > 0.5) outCol = 1.0 - outCol;
+        }
+        else if (uMode == 7) { // ASCII
+            float cellPx = max(4.0, uScale * 3.0);
+            vec2 cellIdx = floor(px / cellPx);
+            vec2 cellCenterPx = (cellIdx + 0.5) * cellPx;
+            vec2 cellUV = cellCenterPx / uResolution;
+            vec3 cellCol = applyAdjust(sampleBlurred(cellUV));
+            float L = luma(cellCol);
+            float inkScale = mix(0.7, 1.5, uAmount / 10.0);
+            float lev = 1.0 - clamp(L * inkScale, 0.0, 1.0);
+            int ch = int(floor(lev * 9.0 + 0.0001));
+            ch = clamp(ch, 0, 9);
+            vec2 inCell = fract(px / cellPx); // 0..1
+            // atlas is 10 glyphs wide, 1 tall
+            vec2 atlasUV = vec2((float(ch) + inCell.x) / 10.0, inCell.y);
+            float glyph = texture(uAscii, atlasUV).r;
+            outCol = mix(uColorBg, uColorA, glyph);
+            if (uInvert > 0.5) outCol = mix(uColorA, uColorBg, glyph);
+        }
+        else if (uMode == 8) { // Threshold
+            float t = uThreshold / 10.0;
+            float soft = max(0.002, (1.0 - uAmount / 10.0) * 0.08 + 0.002);
+            float m = smoothstep(t - soft, t + soft, lumaVal);
+            outCol = mix(uColorA, uColorB, m);
+            outCol = mix(uColorBg, outCol, 1.0); // paper blend pass-through
+            if (uInvert > 0.5) outCol = mix(uColorB, uColorA, m);
+        }
+        else if (uMode == 9) { // Duotone
+            float L = lumaVal;
+            L = pow(L, mix(0.4, 1.8, uAmount / 10.0));
+            outCol = mix(uColorA, uColorB, L);
+        }
+        else if (uMode == 10) { // Tritone
+            float L = lumaVal;
+            L = pow(L, mix(0.4, 1.8, uAmount / 10.0));
+            vec3 mid = mix(uColorA, uColorB, smoothstep(0.0, 0.6, L));
+            outCol = mix(mid, uColorC, smoothstep(0.5, 1.0, L));
+        }
+        else if (uMode == 11) { // Posterize
+            float levels = max(2.0, floor(uThreshold * 0.8 + 2.0));
+            outCol = floor(src * (levels - 1.0) + 0.5) / (levels - 1.0);
+            if (uInvert > 0.5) outCol = 1.0 - outCol;
+        }
+        else if (uMode == 12) { // Chromatic aberration
+            vec2 c = uv - 0.5;
+            float r = length(c);
+            float shift = mix(0.0, 0.05, uAmount / 10.0) * (0.2 + 0.8 * pow(r, mix(0.5, 3.0, uAmount2 / 10.0)));
+            vec2 dir = normalize(c + 1e-5);
+            float rr = applyAdjust(sampleBlurred(uv + dir * shift)).r;
+            float gg = applyAdjust(sampleBlurred(uv)).g;
+            float bb = applyAdjust(sampleBlurred(uv - dir * shift)).b;
+            outCol = vec3(rr, gg, bb);
+        }
+        else if (uMode == 13) { // Glitch slice
+            float density = mix(4.0, 60.0, uAmount2 / 10.0);
+            float sliceY = floor(uv.y * density);
+            float prob = hash12(vec2(sliceY, floor(uTime * 2.0)));
+            float strength = mix(0.0, 0.25, uAmount / 10.0);
+            vec2 shift = vec2((prob - 0.5) * strength * step(0.5, prob), 0.0);
+            vec2 uv2 = uv + shift;
+            float r = applyAdjust(sampleBlurred(uv2 + vec2(strength * 0.15, 0.0))).r;
+            float g = applyAdjust(sampleBlurred(uv2)).g;
+            float b = applyAdjust(sampleBlurred(uv2 - vec2(strength * 0.15, 0.0))).b;
+            outCol = vec3(r, g, b);
+            // tearing lines
+            float tear = step(0.98, hash12(vec2(sliceY * 0.13, floor(uTime * 5.0))));
+            outCol = mix(outCol, vec3(1.0), tear * 0.6 * strength);
+        }
+        else if (uMode == 14) { // Scanlines / CRT
+            float amp = mix(0.0, 0.55, uAmount / 10.0);
+            float scan = 0.5 + 0.5 * sin(px.y * 3.14159 * max(0.25, uScale * 0.25));
+            vec3 base = src;
+            base.r = applyAdjust(sampleBlurred(uv + vec2(0.002 * amp, 0.0))).r;
+            base.b = applyAdjust(sampleBlurred(uv - vec2(0.002 * amp, 0.0))).b;
+            vec3 dim = base * mix(1.0, scan, amp);
+            float vig = 1.0 - uAmount2 * 0.08 * dot(uv - 0.5, uv - 0.5) * 8.0;
+            outCol = clamp(dim * vig + base * 0.08 * amp, 0.0, 1.0);
+        }
+        else if (uMode == 15) { // Cross-hatch
+            float L = lumaVal;
+            float cellPx = max(2.0, uScale * 1.6);
+            float thickness = mix(0.35, 1.2, uAmount / 10.0);
+            float a0 = uAngle;
+            float h1 = lineScreen(px, cellPx, a0,                 smoothstep(0.9, 0.3, L) * thickness);
+            float h2 = lineScreen(px, cellPx * 1.1, a0 + 1.5708,  smoothstep(0.7, 0.15, L) * thickness);
+            float h3 = lineScreen(px, cellPx * 1.2, a0 + 0.7853,  smoothstep(0.5, 0.0, L) * thickness);
+            float h4 = lineScreen(px, cellPx * 1.3, a0 - 0.7853,  smoothstep(0.3, -0.2, L) * thickness);
+            float ink = clamp(h1 + h2 + h3 + h4, 0.0, 1.0);
+            outCol = mix(uColorBg, uColorA, ink);
+            if (uInvert > 0.5) outCol = mix(uColorA, uColorBg, ink);
+        }
+        else if (uMode == 16) { // Riso (two spot inks, misregistered)
+            float cellPx = max(2.0, uScale * 2.5);
+            float misReg = mix(0.0, 10.0, uAmount2 / 10.0);
+            // channel 1 from red/luma, channel 2 from blue
+            float ch1 = clamp((uColorA.r * src.r + uColorA.g * src.g + uColorA.b * src.b) / (uColorA.r + uColorA.g + uColorA.b + 0.01), 0.0, 1.0);
+            ch1 = 1.0 - ch1;
+            float ch2v = luma(src);
+            ch2v = 1.0 - ch2v;
+            // sample color channels with shifted cells to decompose differently
+            float v1 = 1.0 - luma(applyAdjust(sampleBlurred(uv)));
+            float v2 = 1.0 - (applyAdjust(sampleBlurred(uv + vec2(0.004,0.0))).r * 0.5 +
+                              applyAdjust(sampleBlurred(uv + vec2(0.004,0.0))).b * 0.5);
+            float dot1 = dotScreen(px,                 cellPx, uAngle,              v1 * mix(0.6, 1.2, uAmount / 10.0));
+            float dot2 = dotScreen(px + vec2(misReg),  cellPx, uAngle + 0.5236,     v2 * mix(0.6, 1.2, uAmount / 10.0));
+            vec3 paper = uColorBg;
+            vec3 ink1  = uColorA;
+            vec3 ink2  = uColorC;
+            // multiply blend for ink on paper
+            vec3 layer1 = mix(paper, ink1, dot1);
+            vec3 layer2 = mix(vec3(1.0), ink2 / max(paper, vec3(0.02)), dot2);
+            outCol = clamp(layer1 * layer2, 0.0, 1.0);
+            if (uInvert > 0.5) outCol = paper - (outCol - paper);
+        }
+        else if (uMode == 17) { // Pixelate
+            float cellPx = max(1.0, uScale * 2.0);
+            vec2 cellUV = (floor(px / cellPx) + 0.5) * cellPx / uResolution;
+            vec3 c = applyAdjust(sampleBlurred(cellUV));
+            if (uInvert > 0.5) c = 1.0 - c;
+            outCol = c;
+        }
+        else if (uMode == 19) { // Edge / Contour
+            vec2 tex = 1.0 / uResolution;
+            float t = uScale * 0.4 + 0.5;
+            vec3 tl = applyAdjust(sampleBlurred(uv + vec2(-tex.x, -tex.y) * t));
+            vec3 tc = applyAdjust(sampleBlurred(uv + vec2( 0.0,  -tex.y) * t));
+            vec3 tr = applyAdjust(sampleBlurred(uv + vec2( tex.x, -tex.y) * t));
+            vec3 ml = applyAdjust(sampleBlurred(uv + vec2(-tex.x,  0.0) * t));
+            vec3 mr = applyAdjust(sampleBlurred(uv + vec2( tex.x,  0.0) * t));
+            vec3 bl = applyAdjust(sampleBlurred(uv + vec2(-tex.x,  tex.y) * t));
+            vec3 bc = applyAdjust(sampleBlurred(uv + vec2( 0.0,   tex.y) * t));
+            vec3 br = applyAdjust(sampleBlurred(uv + vec2( tex.x,  tex.y) * t));
+            vec3 gx = -tl - 2.0*ml - bl + tr + 2.0*mr + br;
+            vec3 gy = -tl - 2.0*tc - tr + bl + 2.0*bc + br;
+            float mag = length(vec3(length(gx), length(gy), 0.0));
+            float thr = uThreshold / 10.0 * 1.5;
+            float amt = mix(0.5, 3.5, uAmount / 10.0);
+            float edge = smoothstep(thr, thr + 0.1, mag * amt);
+            outCol = mix(uColorBg, uColorA, edge);
+            if (uInvert > 0.5) outCol = mix(uColorA, uColorBg, edge);
+        }
+        else if (uMode == 21) { // Stipple
+            float cellPx = max(2.0, uScale * 2.0);
+            vec2 cellIdx = floor(px / cellPx);
+            vec2 cellCenterPx = (cellIdx + 0.5) * cellPx;
+            vec2 cellUV = cellCenterPx / uResolution;
+            float L = luma(applyAdjust(sampleBlurred(cellUV)));
+            float density = pow(1.0 - L, mix(0.6, 2.5, uAmount / 10.0));
+            float rnd = hash12(cellIdx);
+            vec2 jitter = (vec2(hash12(cellIdx + 0.3), hash12(cellIdx + 0.7)) - 0.5) * cellPx * 0.8;
+            vec2 off = (px - cellCenterPx - jitter);
+            float r = cellPx * 0.25 * sqrt(density + 0.02);
+            float ink = 1.0 - smoothstep(r - 1.0, r + 1.0, length(off));
+            ink *= step(0.0001, density);
+            // also skip some dots for looseness based on rnd
+            ink *= step(1.0 - density, rnd);
+            outCol = mix(uColorBg, uColorA, clamp(ink, 0.0, 1.0));
+            if (uInvert > 0.5) outCol = mix(uColorA, uColorBg, clamp(ink, 0.0, 1.0));
+        }
+        else {
+            outCol = src;
+        }
+
+        fragColor = vec4(outCol, 1.0);
+    }`;
+
+    function compile(type, src) {
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, src);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+            const log = gl.getShaderInfoLog(sh);
+            console.error('Shader compile error:', log, src);
+            throw new Error(log);
+        }
+        return sh;
+    }
+    function link(vs, fs) {
+        const p = gl.createProgram();
+        gl.attachShader(p, vs); gl.attachShader(p, fs); gl.linkProgram(p);
+        if (!gl.getProgramParameter(p, gl.LINK_STATUS)) {
+            console.error('Link error:', gl.getProgramInfoLog(p));
+            throw new Error(gl.getProgramInfoLog(p));
+        }
+        return p;
+    }
+    const vs = compile(gl.VERTEX_SHADER, VS_SRC);
+    const fs = compile(gl.FRAGMENT_SHADER, FS_SRC);
+    const program = link(vs, fs);
+    gl.useProgram(program);
+
+    // Fullscreen tri quad
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        -1, -1,  3, -1,  -1,  3
+    ]), gl.STATIC_DRAW);
+    const aPos = gl.getAttribLocation(program, 'aPos');
+    gl.enableVertexAttribArray(aPos);
+    gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+
+    const U = {};
+    [
+        'uTex','uAscii','uResolution','uImgSize','uTime',
+        'uBrightness','uContrast','uSaturation','uHue','uGamma','uBlur','uGInvert',
+        'uMode','uScale','uAngle','uThreshold','uAmount','uAmount2','uInvert',
+        'uColorA','uColorB','uColorC','uColorBg'
+    ].forEach(n => { U[n] = gl.getUniformLocation(program, n); });
+
+    // ── Texture for the source image ──
+    const tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+    // ── ASCII atlas texture ──
+    const ASCII_CHARS = ' .,:;+*#%@'; // 10 glyphs, light → dark
+    function buildAsciiAtlas() {
+        const cell = 16;
+        const off = document.createElement('canvas');
+        off.width = cell * ASCII_CHARS.length;
+        off.height = cell;
+        const c = off.getContext('2d');
+        c.fillStyle = '#000';
+        c.fillRect(0, 0, off.width, off.height);
+        c.fillStyle = '#fff';
+        c.font = 'bold ' + (cell - 2) + 'px ui-monospace, SFMono-Regular, Menlo, monospace';
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+        for (let i = 0; i < ASCII_CHARS.length; i++) {
+            c.fillText(ASCII_CHARS[i], i * cell + cell / 2, cell / 2 + 1);
+        }
+        const asciiTex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, asciiTex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, off);
+        return asciiTex;
+    }
+    const asciiTex = buildAsciiAtlas();
+
+    // ── Image & pipeline state ──
+    let srcImage = null;       // HTMLImageElement or OffscreenCanvas with source
+    let fsWorkingBitmap = null; // for FS mode CPU pre-processing
+    let fsNeedsRebuild = false;
+
+    function setCanvasSizeForImage(img) {
+        const maxDim = parseInt(S['p-maxdim'].value, 10) || 1600;
+        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        canvas.width = Math.max(16, Math.round(img.width * scale));
+        canvas.height = Math.max(16, Math.round(img.height * scale));
+        gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+
+    function uploadImage(img) {
+        srcImage = img;
+        setCanvasSizeForImage(img);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+        metaEl.textContent = img.width + ' × ' + img.height + 'px · rendering at ' + canvas.width + ' × ' + canvas.height;
+        dropZone.classList.remove('is-visible');
+        fsNeedsRebuild = true;
+        render();
+    }
+
+    function loadFromSource(src, nameHint) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => uploadImage(img);
+        img.onerror = () => { metaEl.textContent = 'Failed to load image.'; };
+        img.src = src;
+    }
+
+    // File input
+    fileInput.addEventListener('change', e => {
+        const f = e.target.files && e.target.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = () => loadFromSource(reader.result, f.name);
+        reader.readAsDataURL(f);
+    });
+    uploadBtn.addEventListener('click', () => fileInput.click());
+    dropClick.addEventListener('click', () => fileInput.click());
+
+    // Drag/drop
+    ['dragenter','dragover'].forEach(ev => stage.addEventListener(ev, e => {
+        e.preventDefault(); e.stopPropagation();
+        dropZone.classList.add('is-drag', 'is-visible');
+    }));
+    ['dragleave','drop'].forEach(ev => stage.addEventListener(ev, e => {
+        e.preventDefault(); e.stopPropagation();
+        dropZone.classList.remove('is-drag');
+        if (srcImage && ev !== 'drop') dropZone.classList.remove('is-visible');
+    }));
+    stage.addEventListener('drop', e => {
+        const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = () => loadFromSource(reader.result, f.name);
+        reader.readAsDataURL(f);
+    });
+
+    // Sample image: generate a gradient + shapes procedurally so we don't need an external file
+    sampleBtn.addEventListener('click', () => {
+        const w = 1400, h = 900;
+        const off = document.createElement('canvas');
+        off.width = w; off.height = h;
+        const c = off.getContext('2d');
+        const g = c.createLinearGradient(0, 0, w, h);
+        g.addColorStop(0, '#3b2f63'); g.addColorStop(0.5, '#c64756'); g.addColorStop(1, '#f2c04b');
+        c.fillStyle = g; c.fillRect(0, 0, w, h);
+        c.fillStyle = 'rgba(255,255,255,0.18)';
+        for (let i = 0; i < 140; i++) {
+            const x = Math.random() * w, y = Math.random() * h, r = 5 + Math.random() * 80;
+            c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
+        }
+        c.fillStyle = '#111';
+        c.beginPath(); c.arc(w * 0.32, h * 0.55, Math.min(w,h) * 0.22, 0, Math.PI * 2); c.fill();
+        c.fillStyle = '#eee';
+        c.font = 'bold 180px serif';
+        c.textAlign = 'center';
+        c.textBaseline = 'middle';
+        c.fillText('OVRT', w / 2, h * 0.35);
+        c.strokeStyle = '#111';
+        c.lineWidth = 6;
+        c.strokeText('OVRT', w / 2, h * 0.35);
+        const blob = off;
+        const img = new Image();
+        img.onload = () => uploadImage(img);
+        img.src = off.toDataURL('image/png');
+    });
+
+    // Reset
+    resetBtn.addEventListener('click', () => {
+        const defaults = {
+            'p-scale': 4, 'p-angle': 4.5, 'p-threshold': 5, 'p-amount': 5, 'p-amount2': 5, 'p-invert': 0,
+            'p-brightness': 0, 'p-contrast': 0, 'p-saturation': 0, 'p-hue': 0, 'p-gamma': 5, 'p-blur': 0, 'p-ginvert': 0,
+            'p-color-a': '#000000', 'p-color-b': '#ffffff', 'p-color-c': '#ff3366', 'p-color-bg': '#f5efe4'
+        };
+        Object.keys(defaults).forEach(id => {
+            if (S[id]) {
+                S[id].value = defaults[id];
+                S[id].dispatchEvent(new Event('input'));
+            }
+        });
+        render();
+    });
+
+    // Download
+    downloadBtn.addEventListener('click', () => {
+        if (!srcImage) return;
+        // Render fresh at current canvas size, then export.
+        render();
+        canvas.toBlob(blob => {
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'treatment-' + Date.now() + '.png';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }, 'image/png');
+    });
+
+    // maxdim change: re-fit canvas
+    S['p-maxdim'].addEventListener('input', () => {
+        if (!srcImage) return;
+        setCanvasSizeForImage(srcImage);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, srcImage);
+        metaEl.textContent = srcImage.width + ' × ' + srcImage.height + 'px · rendering at ' + canvas.width + ' × ' + canvas.height;
+        fsNeedsRebuild = true;
+        render();
+    });
+
+    // ── Floyd-Steinberg dither on CPU ──
+    // Produces an ImageBitmap-like canvas that is uploaded as the current tex.
+    // Dither the raw image into a canvas. Shader will apply brightness/contrast/etc.
+    // after sampling. This keeps adjustments responsive without recomputing the dither.
+    function buildFSDither(levels) {
+        if (!srcImage) return null;
+        const off = document.createElement('canvas');
+        off.width = canvas.width;
+        off.height = canvas.height;
+        const c = off.getContext('2d', { willReadFrequently: true });
+        c.drawImage(srcImage, 0, 0, off.width, off.height);
+        const img = c.getImageData(0, 0, off.width, off.height);
+        const d = img.data;
+
+        const W = off.width, H = off.height;
+        const buf = new Float32Array(W * H * 3);
+        for (let i = 0, j = 0; i < d.length; i += 4, j += 3) {
+            buf[j]   = d[i]   / 255;
+            buf[j+1] = d[i+1] / 255;
+            buf[j+2] = d[i+2] / 255;
+        }
+
+        const L = Math.max(2, Math.min(16, levels));
+        const step = 1 / (L - 1);
+        const quant = v => {
+            if (v < 0) v = 0; else if (v > 1) v = 1;
+            return Math.round(v / step) * step;
+        };
+
+        for (let y = 0; y < H; y++) {
+            for (let x = 0; x < W; x++) {
+                const idx = (y * W + x) * 3;
+                for (let k = 0; k < 3; k++) {
+                    const oldV = buf[idx + k];
+                    const newV = quant(oldV);
+                    buf[idx + k] = newV;
+                    const err = oldV - newV;
+                    if (x + 1 < W) buf[idx + 3 + k] += err * 7 / 16;
+                    if (y + 1 < H) {
+                        if (x > 0)     buf[((y + 1) * W + (x - 1)) * 3 + k] += err * 3 / 16;
+                                       buf[((y + 1) * W + x) * 3 + k]       += err * 5 / 16;
+                        if (x + 1 < W) buf[((y + 1) * W + (x + 1)) * 3 + k] += err * 1 / 16;
+                    }
+                }
+            }
+        }
+
+        for (let i = 0, j = 0; i < d.length; i += 4, j += 3) {
+            d[i]   = Math.round(Math.max(0, Math.min(1, buf[j]))   * 255);
+            d[i+1] = Math.round(Math.max(0, Math.min(1, buf[j+1])) * 255);
+            d[i+2] = Math.round(Math.max(0, Math.min(1, buf[j+2])) * 255);
+            d[i+3] = 255;
+        }
+        c.putImageData(img, 0, 0);
+        return off;
+    }
+
+    let lastFSParams = '';
+    function ensureFSImage() {
+        const levels = Math.max(2, Math.floor(parseFloat(S['p-threshold'].value) * 0.8 + 2));
+        const sig = ['fs', levels, canvas.width, canvas.height].join('|');
+        if (sig === lastFSParams && fsWorkingBitmap) return fsWorkingBitmap;
+        fsWorkingBitmap = buildFSDither(levels);
+        lastFSParams = sig;
+        return fsWorkingBitmap;
+    }
+
+    // ── Render ──
+    function hex2rgb(hex) {
+        const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex.trim());
+        if (!m) return [0, 0, 0];
+        return [parseInt(m[1], 16) / 255, parseInt(m[2], 16) / 255, parseInt(m[3], 16) / 255];
+    }
+
+    const MODE_INT = {
+        none: 0, halftone_cmyk: 1, halftone_mono: 2, halftone_line: 3, halftone_diamond: 4,
+        bayer: 5, fs: 6, ascii: 7, threshold: 8, duotone: 9, tritone: 10, posterize: 11,
+        chroma: 12, glitch: 13, scanlines: 14, crosshatch: 15, riso: 16, pixelate: 17,
+        warp: 18, edge: 19, kaleido: 20, stipple: 21
+    };
+
+    function render() {
+        if (!srcImage) { return; }
+
+        const mode = S['p-mode'].value;
+        // FS dither is CPU → rebuild its bitmap + swap texture
+        if (mode === 'fs') {
+            const bmp = ensureFSImage();
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, bmp);
+        } else if (fsNeedsRebuild || lastFSParams) {
+            // Revert to original image texture
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, srcImage);
+            lastFSParams = '';
+            fsNeedsRebuild = false;
+        }
+
+        gl.useProgram(program);
+        gl.bindVertexArray(vao);
+
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.uniform1i(U.uTex, 0);
+
+        gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, asciiTex);
+        gl.uniform1i(U.uAscii, 1);
+
+        gl.uniform2f(U.uResolution, canvas.width, canvas.height);
+        gl.uniform2f(U.uImgSize, srcImage.width, srcImage.height);
+        gl.uniform1f(U.uTime, performance.now() / 1000);
+
+        gl.uniform1f(U.uBrightness, parseFloat(S['p-brightness'].value) / 10 * 0.8);
+        gl.uniform1f(U.uContrast,   parseFloat(S['p-contrast'].value)   / 10 * 1.5);
+        gl.uniform1f(U.uSaturation, parseFloat(S['p-saturation'].value) / 10 * 1.5);
+        gl.uniform1f(U.uHue,        parseFloat(S['p-hue'].value)        / 10);
+        gl.uniform1f(U.uGamma,      parseFloat(S['p-gamma'].value)      / 5);
+        gl.uniform1f(U.uBlur,       parseFloat(S['p-blur'].value));
+        gl.uniform1f(U.uGInvert,    parseInt(S['p-ginvert'].value, 10) ? 1 : 0);
+
+        gl.uniform1i(U.uMode, MODE_INT[mode] || 0);
+        gl.uniform1f(U.uScale,     parseFloat(S['p-scale'].value));
+        gl.uniform1f(U.uAngle,     (parseFloat(S['p-angle'].value) / 10) * Math.PI);
+        gl.uniform1f(U.uThreshold, parseFloat(S['p-threshold'].value));
+        gl.uniform1f(U.uAmount,    parseFloat(S['p-amount'].value));
+        gl.uniform1f(U.uAmount2,   parseFloat(S['p-amount2'].value));
+        gl.uniform1f(U.uInvert,    parseInt(S['p-invert'].value, 10) ? 1 : 0);
+
+        const cA = hex2rgb(S['p-color-a'].value);
+        const cB = hex2rgb(S['p-color-b'].value);
+        const cC = hex2rgb(S['p-color-c'].value);
+        const cBg = hex2rgb(S['p-color-bg'].value);
+        gl.uniform3f(U.uColorA, cA[0], cA[1], cA[2]);
+        gl.uniform3f(U.uColorB, cB[0], cB[1], cB[2]);
+        gl.uniform3f(U.uColorC, cC[0], cC[1], cC[2]);
+        gl.uniform3f(U.uColorBg, cBg[0], cBg[1], cBg[2]);
+
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
+
+    // Keep glitch mode animating even while sliders are still
+    function tick() {
+        if (srcImage && S['p-mode'].value === 'glitch') render();
+        requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    // Init
+    updateControlVisibility();
+    modeHint.textContent = MODE_HINTS[S['p-mode'].value] || '';
+})();
+</script>
+</body>
+</html>
