@@ -161,16 +161,16 @@
         return 72 + ((x - 5) / 5) * 28;
     }
 
-    function audioModulateNoiseSpeed(noiseRaw, speedRaw, au) {
+    function audioModulateNoiseSpeed(noise100, speed100, au) {
         if (!micIsConnected()) {
-            return { noise: noiseRaw, speed: speedRaw };
+            return { noise: noise100, speed: speed100 };
         }
         const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
         const spMul = clamp(0.84 + 0.2 * au.levelFast + 0.16 * au.bass + 0.08 * au.transient, 0.78, 1.28);
         const nsMul = clamp(0.82 + 0.18 * au.mid + 0.14 * au.high + 0.08 * au.centroid + 0.08 * au.transient, 0.76, 1.24);
         return {
-            speed: clamp(speedRaw * spMul, 0.35, 8.5),
-            noise: clamp(noiseRaw * nsMul, 0.35, 8.5),
+            speed: clamp(speed100 * spMul, 0, 120),
+            noise: clamp(noise100 * nsMul, 0, 120),
         };
     }
 
@@ -558,12 +558,14 @@
     }
 
     function shaderParamsFromLive(params) {
+        // Shader uniforms expect 0–100 scale (via dialTo100) for speed/noise/beams/fracture/glitch.
+        // size/blur are on a smaller scale used directly by the render code.
         return {
-            speed: clampShaderDial(params.speed, 8.5),
-            noise: clampShaderDial(params.noise, 8.5),
-            beams: clampShaderDial(params.beams, 8),
-            fracture: clampShaderDial(params.fracture, 8),
-            glitch: clampShaderDial(params.glitch, 6.5),
+            speed: dialTo100(clampShaderDial(params.speed, 8.5)),
+            noise: dialTo100(clampShaderDial(params.noise, 8.5)),
+            beams: dialTo100(clampShaderDial(params.beams, 8)),
+            fracture: dialTo100(clampShaderDial(params.fracture, 8)),
+            glitch: dialTo100(clampShaderDial(params.glitch, 6.5)),
             size: clampShaderDial(params.size, 7),
             blur: clampShaderDial(params.blur, 5),
         };
