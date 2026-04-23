@@ -166,6 +166,11 @@
                             <p class="tr-hint" id="tr-mode-hint">CMYK dot screens with adjustable angle and size. Classic print halftone.</p>
 
                             <div class="control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond riso stipple pixelate ascii bayer warp kaleido crosshatch glitch chroma scanlines edge"><label id="lbl-scale">Scale</label><input type="range" id="p-scale" min="1" max="10" value="4" step="0.1"><span class="param-value" id="vp-scale">4.0</span></div>
+                            <div class="control-row" data-show="ascii" style="flex-direction:column;align-items:stretch;gap:6px;">
+                                <label style="flex:none;font-size:11px;letter-spacing:0.04em;text-transform:uppercase;color:#ddd;">Characters (light → dark)</label>
+                                <input type="text" id="p-ascii-chars" class="select-input" value=" .,:;+*#%@" spellcheck="false" autocomplete="off" style="flex:none;padding:6px 8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;letter-spacing:0.04em;color:#fff;background:#111;border:1px solid #555;border-radius:3px;width:100%;box-sizing:border-box;">
+                                <p class="tr-hint" style="margin:0;">Type any characters. First = lightest (paper), last = darkest (ink). 2–32 characters.</p>
+                            </div>
                             <div class="control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond riso crosshatch warp kaleido"><label id="lbl-angle">Angle</label><input type="range" id="p-angle" min="0" max="10" value="4.5" step="0.1"><span class="param-value" id="vp-angle">4.5</span></div>
                             <div class="control-row" data-show="threshold bayer fs edge ascii stipple duotone tritone posterize glitch scanlines"><label id="lbl-threshold">Threshold / Levels</label><input type="range" id="p-threshold" min="0" max="10" value="5" step="0.1"><span class="param-value" id="vp-threshold">5.0</span></div>
                             <div class="control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond fs chroma glitch scanlines crosshatch riso ascii duotone tritone warp kaleido edge bayer posterize stipple"><label id="lbl-amount">Amount</label><input type="range" id="p-amount" min="0" max="10" value="5" step="0.1"><span class="param-value" id="vp-amount">5.0</span></div>
@@ -201,7 +206,7 @@
                     <details class="control-window">
                         <summary>Output</summary>
                         <section class="control-section">
-                            <div class="control-row"><label>Max dimension (px)</label><input type="range" id="p-maxdim" min="512" max="4096" value="1600" step="64"><span class="param-value" id="vp-maxdim">1600</span></div>
+                            <div class="control-row"><label>Max dimension (px)</label><input type="range" id="p-maxdim" min="512" max="6144" value="3200" step="64"><span class="param-value" id="vp-maxdim">3200</span></div>
                             <p class="tr-hint">Larger = sharper halftone dots and cleaner dither, but slower. Save PNG exports at this resolution.</p>
                         </section>
                     </details>
@@ -232,7 +237,7 @@
     const sliderIds = [
         'p-mode','p-scale','p-angle','p-threshold','p-amount','p-amount2','p-invert',
         'p-brightness','p-contrast','p-saturation','p-hue','p-gamma','p-blur','p-ginvert',
-        'p-maxdim','p-color-a','p-color-b','p-color-c','p-color-bg'
+        'p-maxdim','p-color-a','p-color-b','p-color-c','p-color-bg','p-ascii-chars'
     ];
     const S = {};
     sliderIds.forEach(id => { S[id] = document.getElementById(id); });
@@ -336,6 +341,7 @@
     uniform vec2 uResolution;
     uniform vec2 uImgSize;
     uniform float uTime;
+    uniform float uAsciiCount;
 
     // Adjust
     uniform float uBrightness;  // -1..1
@@ -603,11 +609,11 @@
             float L = luma(cellCol);
             float inkScale = mix(0.7, 1.5, uAmount / 10.0);
             float lev = 1.0 - clamp(L * inkScale, 0.0, 1.0);
-            int ch = int(floor(lev * 9.0 + 0.0001));
-            ch = clamp(ch, 0, 9);
+            float count = max(2.0, uAsciiCount);
+            float chF = floor(lev * (count - 0.0001));
+            chF = clamp(chF, 0.0, count - 1.0);
             vec2 inCell = fract(px / cellPx); // 0..1
-            // atlas is 10 glyphs wide, 1 tall
-            vec2 atlasUV = vec2((float(ch) + inCell.x) / 10.0, inCell.y);
+            vec2 atlasUV = vec2((chF + inCell.x) / count, inCell.y);
             float glyph = texture(uAscii, atlasUV).r;
             outCol = mix(uColorBg, uColorA, glyph);
             if (uInvert > 0.5) outCol = mix(uColorA, uColorBg, glyph);
@@ -798,7 +804,7 @@
 
     const U = {};
     [
-        'uTex','uAscii','uResolution','uImgSize','uTime',
+        'uTex','uAscii','uResolution','uImgSize','uTime','uAsciiCount',
         'uBrightness','uContrast','uSaturation','uHue','uGamma','uBlur','uGInvert',
         'uMode','uScale','uAngle','uThreshold','uAmount','uAmount2','uInvert',
         'uColorA','uColorB','uColorC','uColorBg'
@@ -813,33 +819,47 @@
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
     // ── ASCII atlas texture ──
-    const ASCII_CHARS = ' .,:;+*#%@'; // 10 glyphs, light → dark
-    function buildAsciiAtlas() {
-        const cell = 16;
+    let asciiCharCount = 10;
+    const asciiTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, asciiTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+    function rebuildAsciiAtlas() {
+        let chars = (S['p-ascii-chars'] && S['p-ascii-chars'].value) || ' .,:;+*#%@';
+        chars = Array.from(chars); // handle multi-byte glyphs cleanly
+        if (chars.length < 2) chars = [' ', '@'];
+        if (chars.length > 32) chars = chars.slice(0, 32);
+        asciiCharCount = chars.length;
+        const cell = 32; // higher-res glyph so zoomed-in cells stay sharp
         const off = document.createElement('canvas');
-        off.width = cell * ASCII_CHARS.length;
+        off.width = cell * chars.length;
         off.height = cell;
         const c = off.getContext('2d');
         c.fillStyle = '#000';
         c.fillRect(0, 0, off.width, off.height);
         c.fillStyle = '#fff';
-        c.font = 'bold ' + (cell - 2) + 'px ui-monospace, SFMono-Regular, Menlo, monospace';
+        c.font = 'bold ' + (cell - 4) + 'px ui-monospace, SFMono-Regular, Menlo, monospace';
         c.textAlign = 'center';
         c.textBaseline = 'middle';
-        for (let i = 0; i < ASCII_CHARS.length; i++) {
-            c.fillText(ASCII_CHARS[i], i * cell + cell / 2, cell / 2 + 1);
+        for (let i = 0; i < chars.length; i++) {
+            c.fillText(chars[i], i * cell + cell / 2, cell / 2 + 1);
         }
-        const asciiTex = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, asciiTex);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, off);
-        return asciiTex;
     }
-    const asciiTex = buildAsciiAtlas();
+    rebuildAsciiAtlas();
+
+    // React to typing in the ASCII char input
+    if (S['p-ascii-chars']) {
+        S['p-ascii-chars'].addEventListener('input', () => {
+            rebuildAsciiAtlas();
+            render();
+        });
+    }
 
     // ── Image & pipeline state ──
     let srcImage = null;       // HTMLImageElement or OffscreenCanvas with source
@@ -847,10 +867,26 @@
     let fsNeedsRebuild = false;
 
     function setCanvasSizeForImage(img) {
-        const maxDim = parseInt(S['p-maxdim'].value, 10) || 1600;
-        const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-        canvas.width = Math.max(16, Math.round(img.width * scale));
+        const dpr = Math.max(1, window.devicePixelRatio || 1);
+        const userMax = parseInt(S['p-maxdim'].value, 10) || 3200;
+        // Figure out the CSS size the canvas will actually display at (stage minus padding),
+        // then multiply by DPR so the physical pixel grid matches the screen = no blur.
+        const stageRect = stage.getBoundingClientRect();
+        const displayMaxW = Math.max(256, stageRect.width - 48);
+        const displayMaxH = Math.max(256, stageRect.height - 48);
+        const imgAspect = img.width / img.height;
+        let dispW = displayMaxW;
+        let dispH = dispW / imgAspect;
+        if (dispH > displayMaxH) { dispH = displayMaxH; dispW = dispH * imgAspect; }
+        // Target pixel count: max of display*DPR and the image's own resolution, capped by user max.
+        const minPix = Math.ceil(Math.max(dispW, dispH) * dpr);
+        const imgPix = Math.max(img.width, img.height);
+        const target = Math.min(userMax, Math.max(minPix, imgPix));
+        const scale = target / Math.max(img.width, img.height);
+        canvas.width  = Math.max(16, Math.round(img.width  * scale));
         canvas.height = Math.max(16, Math.round(img.height * scale));
+        canvas.style.width  = Math.round(dispW) + 'px';
+        canvas.style.height = Math.round(dispH) + 'px';
         gl.viewport(0, 0, canvas.width, canvas.height);
     }
 
@@ -978,6 +1014,23 @@
         render();
     });
 
+    // Window resize: re-fit display so canvas stays sharp at current DPR
+    let resizeRaf = 0;
+    window.addEventListener('resize', () => {
+        if (!srcImage) return;
+        if (resizeRaf) cancelAnimationFrame(resizeRaf);
+        resizeRaf = requestAnimationFrame(() => {
+            resizeRaf = 0;
+            setCanvasSizeForImage(srcImage);
+            gl.bindTexture(gl.TEXTURE_2D, tex);
+            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, srcImage);
+            metaEl.textContent = srcImage.width + ' × ' + srcImage.height + 'px · rendering at ' + canvas.width + ' × ' + canvas.height;
+            fsNeedsRebuild = true;
+            render();
+        });
+    });
+
     // ── Floyd-Steinberg dither on CPU ──
     // Produces an ImageBitmap-like canvas that is uploaded as the current tex.
     // Dither the raw image into a canvas. Shader will apply brightness/contrast/etc.
@@ -1092,6 +1145,7 @@
         gl.uniform2f(U.uResolution, canvas.width, canvas.height);
         gl.uniform2f(U.uImgSize, srcImage.width, srcImage.height);
         gl.uniform1f(U.uTime, performance.now() / 1000);
+        gl.uniform1f(U.uAsciiCount, asciiCharCount);
 
         gl.uniform1f(U.uBrightness, parseFloat(S['p-brightness'].value) / 10 * 0.8);
         gl.uniform1f(U.uContrast,   parseFloat(S['p-contrast'].value)   / 10 * 1.5);
