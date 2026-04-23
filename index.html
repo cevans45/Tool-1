@@ -44,6 +44,7 @@
             let letterFontIdx = [];
             const S = { s: 1, tx: 0, ty: 0, bboxW: 1, bboxH: 1, fs: 100 };
             let lastCycleKey = -1;
+            let gridFiveMode = false;
             const WORD = 'OVRT';
             const N = WORD.length;
 
@@ -119,7 +120,6 @@
                 return { widths, glyphH, hx, hy, bboxW, bboxH };
             }
 
-<<<<<<< HEAD
             /**
              * 5x5 placement mode (toggle with key "6").
              * Keeps OVRT order but places letters at intentionally offset cells:
@@ -141,8 +141,6 @@
                 return { widths, glyphH, hx, hy, bboxW, bboxH };
             }
 
-=======
->>>>>>> parent of 0e0ed4d (ok)
             /** Mask: paint '#fff'. Display: pass letter state object l — black outline + white fill most of the time. */
             function drawLetterGlyph(ctx2, ch, slotIdx, fs, paint) {
                 const slot = FONT_SLOTS[slotIdx];
@@ -523,13 +521,8 @@
                 L.length = 0;
                 shuffleLetterFonts();
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-<<<<<<< HEAD
                 const fs = Math.min(360, Math.max(W, H) * (gridFiveMode ? 0.46 : 0.26));
                 const lay = gridFiveMode ? buildGridFiveLayout(fs) : buildNaturalLayout(fs);
-=======
-                const fs = Math.min(280, Math.max(W, H) * 0.26);
-                const lay = buildNaturalLayout(fs);
->>>>>>> parent of 0e0ed4d (ok)
                 S.fs = fs;
                 S.bboxW = Math.max(lay.bboxW, 1);
                 S.bboxH = Math.max(lay.bboxH, 1);
@@ -546,7 +539,7 @@
                 for (let i = 0; i < N; i++) {
                     const ch = WORD[i];
                     const hxI = hx[i];
-                    const hyI = hy;
+                    const hyI = Array.isArray(hy) ? hy[i] : hy;
                     const fontIdx = letterFontIdx[i];
                     const typoMode = pickRandomTypoMode();
                     const tw = Math.ceil(widths[i] + fs * 0.42);
@@ -653,6 +646,14 @@
             resize();
             lastCycleKey = cycleKey();
             requestAnimationFrame(tick);
+
+            // Press "6" to toggle the 5x5 grid layout variant
+            window.addEventListener('keydown', (e) => {
+                if (e.key === '6' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+                    gridFiveMode = !gridFiveMode;
+                    init();
+                }
+            });
         })();
         </script>
 
