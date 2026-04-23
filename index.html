@@ -44,7 +44,6 @@
             let letterFontIdx = [];
             const S = { s: 1, tx: 0, ty: 0, bboxW: 1, bboxH: 1, fs: 100 };
             let lastCycleKey = -1;
-            let gridFiveMode = false;
             const WORD = 'OVRT';
             const N = WORD.length;
 
@@ -120,28 +119,30 @@
                 return { widths, glyphH, hx, hy, bboxW, bboxH };
             }
 
+<<<<<<< HEAD
             /**
              * 5x5 placement mode (toggle with key "6").
              * Keeps OVRT order but places letters at intentionally offset cells:
              * O = top-left-ish, V = middle-low-ish, R = middle-high-ish, T = bottom-right-ish.
              */
-             function buildGridFiveLayout(fs) {
-                 const { widths, glyphH } = measureLetters(fs);
-                 // cell smaller than fs so letters overlap heavily (interlocking comp)
-                 const cell = fs * 0.52;
-                 const bboxW = cell * 5;
-                 const bboxH = cell * 5;
-                 const gridPositions = [
-                     { cx: 1.0, cy: 1.1 }, // O  — top-left
-                     { cx: 2.0, cy: 2.3 }, // V  — center, lower
-                     { cx: 2.9, cy: 1.7 }, // R  — center-right, higher
-                     { cx: 3.7, cy: 3.1 }, // T  — bottom-right
-                 ];
-                 const hx = gridPositions.map((p) => p.cx * cell);
-                 const hy = gridPositions.map((p) => p.cy * cell);
-                 return { widths, glyphH, hx, hy, bboxW, bboxH };
-             }
+            function buildGridFiveLayout(fs) {
+                const { widths, glyphH } = measureLetters(fs);
+                const cell = fs * 0.66;
+                const bboxW = cell * 5;
+                const bboxH = cell * 5;
+                const gridPositions = [
+                    { cx: 1.45, cy: 1.45 }, // O
+                    { cx: 2.2, cy: 2.0 }, // V  ← more left
+                    { cx: 2.8, cy: 2.5 }, // R
+                    { cx: 3.45, cy: 3.45 }, // T
+                ];
+                const hx = gridPositions.map((p) => p.cx * cell);
+                const hy = gridPositions.map((p) => p.cy * cell);
+                return { widths, glyphH, hx, hy, bboxW, bboxH };
+            }
 
+=======
+>>>>>>> parent of 0e0ed4d (ok)
             /** Mask: paint '#fff'. Display: pass letter state object l — black outline + white fill most of the time. */
             function drawLetterGlyph(ctx2, ch, slotIdx, fs, paint) {
                 const slot = FONT_SLOTS[slotIdx];
@@ -522,8 +523,13 @@
                 L.length = 0;
                 shuffleLetterFonts();
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+<<<<<<< HEAD
                 const fs = Math.min(360, Math.max(W, H) * (gridFiveMode ? 0.46 : 0.26));
                 const lay = gridFiveMode ? buildGridFiveLayout(fs) : buildNaturalLayout(fs);
+=======
+                const fs = Math.min(280, Math.max(W, H) * 0.26);
+                const lay = buildNaturalLayout(fs);
+>>>>>>> parent of 0e0ed4d (ok)
                 S.fs = fs;
                 S.bboxW = Math.max(lay.bboxW, 1);
                 S.bboxH = Math.max(lay.bboxH, 1);
@@ -540,7 +546,7 @@
                 for (let i = 0; i < N; i++) {
                     const ch = WORD[i];
                     const hxI = hx[i];
-                    const hyI = Array.isArray(hy) ? hy[i] : hy;
+                    const hyI = hy;
                     const fontIdx = letterFontIdx[i];
                     const typoMode = pickRandomTypoMode();
                     const tw = Math.ceil(widths[i] + fs * 0.42);
@@ -643,13 +649,6 @@
             }
 
             window.addEventListener('resize', resize);
-            window.addEventListener('keydown', (e) => {
-                if (e.repeat) return;
-                if (e.key === '6') {
-                    gridFiveMode = !gridFiveMode;
-                    init();
-                }
-            });
             document.fonts.ready.then(resize);
             resize();
             lastCycleKey = cycleKey();
@@ -699,6 +698,17 @@
                 <div class="site-card-body">
                     <h2>Phantom</h2>
                     <p>Concert-ready point cloud visuals with mirrored apparitions, light beams, and glitched fracture modes.</p>
+                </div>
+            </a>
+
+            <a href="phantom-mic.html" class="site-card">
+                <div class="site-card-preview">
+                    <div style="background:#000;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:18px;color:#0f0;font-weight:bold;">● LIVE</div>
+                    <span>PHANTOM (MICROPHONE)</span>
+                </div>
+                <div class="site-card-body">
+                    <h2>Phantom (Microphone)</h2>
+                    <p>Live audio-reactive visualization. Motion fully driven by your microphone input — bass, mids, brightness and transients.</p>
                 </div>
             </a>
 
