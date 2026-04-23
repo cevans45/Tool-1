@@ -196,7 +196,10 @@
 
     const isPreview = new URLSearchParams(location.search).get('preview') === '1';
     let audioCtx = null;
+    let audioStream = null;
+    let audioSource = null;
     let analyser = null;
+    let micStarting = false;
     let smoothPitch = 0.5;
     let smoothLevel = 0.35;
     let smoothBass = 0.35;
@@ -337,9 +340,9 @@
         const iH0 = binHz(2000, nyquist, n);
         const iH1 = binHz(9000, nyquist, n);
 
-        let bassN = bandNormDb(freqBuf, iB0, iB1, -80, -42);
-        let midN = bandNormDb(freqBuf, iM0, iM1, -82, -40);
-        let highN = bandNormDb(freqBuf, iH0, iH1, -85, -38);
+        let bassN = bandNormDb(freqBuf, iB0, iB1, -90, -35);
+        let midN = bandNormDb(freqBuf, iM0, iM1, -92, -32);
+        let highN = bandNormDb(freqBuf, iH0, iH1, -95, -30);
 
         // Spectral centroid (brightness) → 0–1
         let cNum = 0;
@@ -405,10 +408,10 @@
             if (i > 0 && timeBuf[i] * timeBuf[i - 1] < 0) zeroCrossings++;
         }
         rms = Math.sqrt(rms / timeBuf.length);
-        const levelNorm = Math.min(1, rms * 10);
+        const levelNorm = Math.min(1, rms * 18);
         const delta = Math.max(0, levelNorm - prevRawLevel);
         prevRawLevel = levelNorm;
-        const transientRaw = Math.min(1, delta * 12);
+        const transientRaw = Math.min(1, delta * 18);
         
         // Zero-crossing rate: rough signal frequency / noise content
         const zeroCrossRaw = Math.min(1, zeroCrossings / (timeBuf.length * 0.1));
@@ -416,72 +419,121 @@
         // Copy freq buffer for next frame
         prevFreqBuf.set(freqBuf);
 
-        smoothPitch += (pitchNorm - smoothPitch) * 0.14;
-        smoothLevel += (levelNorm - smoothLevel) * 0.14;
-        smoothLevelFast += (levelNorm - smoothLevelFast) * 0.45;
-        smoothBass += (bassN - smoothBass) * 0.22;
-        smoothMid += (midN - smoothMid) * 0.2;
-        smoothHigh += (highN - smoothHigh) * 0.22;
-        smoothCentroid += (centNorm - smoothCentroid) * 0.14;
-        smoothTransient += (transientRaw - smoothTransient) * 0.28;
-        smoothZeroCross += (zeroCrossRaw - smoothZeroCross) * 0.18;
-        smoothSpectralFlux += (spectralFluxRaw - smoothSpectralFlux) * 0.24;
-        smoothSpectralSpread += (spectralSpreadRaw - smoothSpectralSpread) * 0.16;
+        // Faster smoothing = snappier mic reactivity
+        smoothPitch += (pitchNorm - smoothPitch) * 0.22;
+        smoothLevel += (levelNorm - smoothLevel) * 0.25;
+        smoothLevelFast += (levelNorm - smoothLevelFast) * 0.55;
+        smoothBass += (bassN - smoothBass) * 0.35;
+        smoothMid += (midN - smoothMid) * 0.32;
+        smoothHigh += (highN - smoothHigh) * 0.35;
+        smoothCentroid += (centNorm - smoothCentroid) * 0.22;
+        smoothTransient += (transientRaw - smoothTransient) * 0.4;
+        smoothZeroCross += (zeroCrossRaw - smoothZeroCross) * 0.28;
+        smoothSpectralFlux += (spectralFluxRaw - smoothSpectralFlux) * 0.35;
+        smoothSpectralSpread += (spectralSpreadRaw - smoothSpectralSpread) * 0.24;
 
         // Speed envelope: event-driven. Kicks on transient + spectral flux onsets; decays between hits.
         const fluxOnset = Math.max(0, spectralFluxRaw - prevFluxRaw);
         const transOnset = Math.max(0, transientRaw - prevTransient);
-        const kickTrigger = Math.max(fluxOnset * 4.0, transOnset * 2.5);
+        const kickTrigger = Math.max(fluxOnset * 5.0, transOnset * 3.0);
         prevFluxRaw = spectralFluxRaw;
         prevTransient = transientRaw;
-        if (kickTrigger > 0.08) {
-            speedEnvelope = Math.min(1, speedEnvelope + kickTrigger * 2.2);
+        if (kickTrigger > 0.05) {
+            speedEnvelope = Math.min(1, speedEnvelope + kickTrigger * 3.0);
         } else {
             speedEnvelope = Math.max(0, speedEnvelope * 0.88);
         }
 
+        // Motion Dynamics sliders act as AMPLIFIERS/GAIN on the mic signal.
+        // At 0 the mic barely moves the shape; at 10 it's wildly reactive.
+        const m = motionDials();
+        const gain = (base, dial) => base * (0.3 + dial * 2.5);
+        const mixFlow = Math.max(m.flow, m.expand * 0.6);
+
         return {
-            pitch: smoothPitch,
-            level: smoothLevel,
-            levelFast: smoothLevelFast,
-            bass: smoothBass,
-            mid: smoothMid,
-            high: smoothHigh,
-            centroid: smoothCentroid,
-            transient: smoothTransient,
-            zeroCross: smoothZeroCross,
-            spectralFlux: smoothSpectralFlux,
-            spectralSpread: smoothSpectralSpread,
-            speedPulse: speedEnvelope,
+            pitch: Math.max(0, Math.min(1, 0.5 + (smoothPitch - 0.5) * (0.4 + m.spiral * 1.8))),
+            level: Math.max(0, Math.min(1, gain(smoothLevel, m.expand + m.pulseDepth))),
+            levelFast: Math.max(0, Math.min(1, gain(smoothLevelFast, m.expand + m.pulseDepth + m.chaos))),
+            bass: Math.max(0, Math.min(1, gain(smoothBass, mixFlow + m.pulseDepth))),
+            mid: Math.max(0, Math.min(1, gain(smoothMid, mixFlow + m.spiral))),
+            high: Math.max(0, Math.min(1, gain(smoothHigh, m.chaos + m.flow * 0.5))),
+            centroid: Math.max(0, Math.min(1, 0.5 + (smoothCentroid - 0.5) * (0.4 + m.spiral * 1.5 + m.pulseDepth))),
+            transient: Math.max(0, Math.min(1, gain(smoothTransient, m.chaos + m.pulseDepth))),
+            zeroCross: Math.max(0, Math.min(1, gain(smoothZeroCross, m.chaos))),
+            spectralFlux: Math.max(0, Math.min(1, gain(smoothSpectralFlux, m.chaos + m.pulseDepth))),
+            spectralSpread: Math.max(0, Math.min(1, gain(smoothSpectralSpread, m.flow + m.chaos))),
+            speedPulse: Math.max(0, Math.min(1, speedEnvelope * (0.4 + m.pulseDepth * 2.0 + m.expand * 1.5))),
             active: 1,
         };
     }
 
+    function setMicStatus(message) {
+        const st = el('p-mic-status');
+        if (st) st.textContent = message;
+    }
+
+    function setMicButton(label, active = false, disabled = false) {
+        const btn = el('p-mic');
+        if (!btn) return;
+        btn.textContent = label;
+        btn.disabled = disabled;
+        btn.classList.toggle('is-active', active);
+    }
+
+    function stopMic() {
+        if (audioStream) {
+            audioStream.getTracks().forEach(track => track.stop());
+        }
+        if (audioCtx && audioCtx.state !== 'closed') {
+            audioCtx.close().catch(() => {});
+        }
+        audioStream = null;
+        audioSource = null;
+        analyser = null;
+        audioCtx = null;
+        micStarting = false;
+        setMicButton('Enable Microphone');
+        setMicStatus('Microphone off. Motion Dynamics sliders are active.');
+    }
+
     async function setupMic() {
         if (isPreview) return;
+        if (micStarting) return;
+        if (analyser && audioCtx && audioCtx.state !== 'closed') {
+            stopMic();
+            return;
+        }
+        if (!navigator.mediaDevices?.getUserMedia) {
+            setMicStatus('Microphone unavailable: open this page from localhost or HTTPS.');
+            return;
+        }
+        micStarting = true;
+        setMicButton('Requesting...', false, true);
+        setMicStatus('Waiting for microphone permission...');
         try {
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
             });
+            audioStream = stream;
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             if (audioCtx.state === 'suspended') await audioCtx.resume();
-            const src = audioCtx.createMediaStreamSource(stream);
+            audioSource = audioCtx.createMediaStreamSource(stream);
             analyser = audioCtx.createAnalyser();
             analyser.fftSize = 2048;
             analyser.smoothingTimeConstant = 0.28;
             freqBuf = new Float32Array(analyser.frequencyBinCount);
             timeBuf = new Float32Array(analyser.fftSize);
-            src.connect(analyser);
-            const st = el('p-mic-status');
-            if (st) st.textContent = 'Live — Motion driven by different audio features: bass, mids, highs, brightness, complexity.';
-            const btn = el('p-mic');
-            if (btn) {
-                btn.textContent = 'Microphone on';
-                btn.classList.add('is-active');
-            }
+            audioSource.connect(analyser);
+            setMicStatus('Live - Motion driven by bass, mids, highs, brightness, and complexity.');
+            setMicButton('Microphone on', true);
         } catch (e) {
-            const st = el('p-mic-status');
-            if (st) st.textContent = 'Microphone unavailable: ' + (e && e.message ? e.message : 'denied');
+            stopMic();
+            setMicStatus('Microphone unavailable: ' + (e && e.message ? e.message : 'denied'));
+            setMicButton('Enable Microphone');
+        } finally {
+            micStarting = false;
+            const btn = el('p-mic');
+            if (btn) btn.disabled = false;
         }
     }
 
@@ -495,6 +547,7 @@
         if (st) st.textContent = 'Open this page directly to enable the microphone.';
     } else {
         el('p-mic')?.addEventListener('click', () => setupMic());
+        window.addEventListener('pagehide', stopMic);
     }
 
     // Shaders
