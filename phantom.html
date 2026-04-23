@@ -265,6 +265,8 @@
     let currentAudio = null;
     let lastAudioSampleTime = 0;
     let lastParamUiUpdate = 0;
+    let micOverlayCanvas = null;
+    let micOverlayCtx = null;
 
     const IDLE_AUDIO = {
         pitch: 0.5, level: 0.35, levelFast: 0.35, bass: 0.35, mid: 0.35, high: 0.35,
@@ -310,6 +312,86 @@
 
     function restoreBaseParamDisplays() {
         AUDIO_PARAM_INPUT_IDS.forEach(id => setRangeDisplay(id, baseParamValue(id), true));
+    }
+
+    function setMicOverlayActive(active) {
+        const wrap = el('phantom-wrap');
+        if (wrap) wrap.classList.toggle('mic-active', Boolean(active));
+    }
+
+    function clearMicOverlay() {
+        if (!micOverlayCanvas || !micOverlayCtx) return;
+        micOverlayCtx.setTransform(1, 0, 0, 1, 0, 0);
+        micOverlayCtx.clearRect(0, 0, micOverlayCanvas.width, micOverlayCanvas.height);
+    }
+
+    function drawMicOverlay(au, width, height, timeSeconds) {
+        if (!micOverlayCanvas || !micOverlayCtx) return;
+
+        const dpr = window.devicePixelRatio || 1;
+        const ctx = micOverlayCtx;
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, micOverlayCanvas.width, micOverlayCanvas.height);
+
+        if (!micIsConnected()) return;
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.globalCompositeOperation = 'source-over';
+
+        const cx = width * 0.5;
+        const cy = height * 0.5;
+        const baseRadius = Math.min(width, height) * (0.16 + au.level * 0.08 + au.bass * 0.04);
+        const waveAmp = 12 + au.levelFast * 52 + au.transient * 42;
+        const glow = 18 + au.levelFast * 36 + au.spectralFlux * 28;
+        const strokeA = 0.16 + au.levelFast * 0.26 + au.spectralFlux * 0.18;
+        const red = Math.round(180 + au.bass * 75);
+        const green = Math.round(190 + au.mid * 55);
+        const blue = Math.round(210 + au.high * 45);
+        const samples = Math.min(220, timeBuf.length);
+
+        ctx.shadowBlur = glow;
+        ctx.shadowColor = `rgba(${red}, ${green}, ${blue}, ${Math.min(0.92, strokeA + 0.1)})`;
+
+        for (let ring = 0; ring < 2; ring++) {
+            const ringMul = 1 + ring * (0.18 + au.centroid * 0.1);
+            ctx.beginPath();
+            for (let i = 0; i <= samples; i++) {
+                const idx = Math.min(timeBuf.length - 1, Math.floor((i / samples) * (timeBuf.length - 1)));
+                const sample = ((timeBuf[idx] ?? 128) - 128) / 128;
+                const angle = (i / samples) * Math.PI * 2;
+                const radial =
+                    baseRadius * ringMul +
+                    sample * waveAmp +
+                    Math.sin(angle * (2 + ring) + timeSeconds * (1.6 + au.pitch * 3.2)) * (6 + au.mid * 18) +
+                    Math.cos(angle * 3 - timeSeconds * (1.2 + au.bass * 2.8)) * (4 + au.high * 12);
+                const x = cx + Math.cos(angle) * radial;
+                const y = cy + Math.sin(angle) * radial * (1.04 + au.centroid * 0.12);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.lineWidth = 1.2 + ring * 0.8 + au.levelFast * 2.6;
+            ctx.strokeStyle = `rgba(${red}, ${green}, ${blue}, ${Math.min(0.95, strokeA + ring * 0.08)})`;
+            ctx.stroke();
+        }
+
+        ctx.shadowBlur = 0;
+        const beamCount = 3 + Math.round(au.bass * 4 + au.spectralFlux * 3);
+        for (let i = 0; i < beamCount; i++) {
+            const beamX = width * (0.2 + (i / Math.max(1, beamCount - 1)) * 0.6);
+            const beamSwing = Math.sin(timeSeconds * (2.5 + i * 0.12) + i) * (10 + au.pitch * 26);
+            const beamHeight = height * (0.18 + au.levelFast * 0.42 + au.speedPulse * 0.22);
+            const gradient = ctx.createLinearGradient(beamX, cy - beamHeight, beamX, cy + beamHeight);
+            gradient.addColorStop(0, `rgba(${red}, ${green}, ${blue}, 0)`);
+            gradient.addColorStop(0.5, `rgba(${red}, ${green}, ${blue}, ${0.08 + au.levelFast * 0.22})`);
+            gradient.addColorStop(1, `rgba(${red}, ${green}, ${blue}, 0)`);
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 1 + au.bass * 4;
+            ctx.beginPath();
+            ctx.moveTo(beamX + beamSwing, cy - beamHeight);
+            ctx.lineTo(beamX - beamSwing * 0.4, cy + beamHeight);
+            ctx.stroke();
+        }
     }
 
     function bandAverage(buf, i0, i1) {
@@ -666,6 +748,8 @@
         lastAudioSampleTime = 0;
         lastParamUiUpdate = 0;
         micStarting = false;
+        setMicOverlayActive(false);
+        clearMicOverlay();
         restoreBaseParamDisplays();
         setMicButton('Enable Microphone');
         setMicStatus('Microphone off. Motion Dynamics sliders are active.');
@@ -721,6 +805,7 @@
             // Force a fresh sample (stepAudio() caches ~33ms) so we never read stale synthetic audio.
             currentAudio = null;
             lastAudioSampleTime = 0;
+            setMicOverlayActive(true);
             setMicStatus('Live — talk or play; press the button again to turn off. Sound drives speed, noise, and color.');
             setMicButton('Turn microphone off', true);
         } catch (e) {
@@ -1094,8 +1179,13 @@
         let height = wrap.clientHeight || 800;
 
         const ol = Olon(width, height);
+        ol.canvas.id = 'phantom-base-canvas';
         wrap.appendChild(ol.canvas);
         ol.canvas.style.display = 'block';
+        micOverlayCanvas = document.createElement('canvas');
+        micOverlayCanvas.id = 'phantom-mic-canvas';
+        wrap.appendChild(micOverlayCanvas);
+        micOverlayCtx = micOverlayCanvas.getContext('2d');
 
     // Additive blending for particles
     ol.blend({
@@ -1168,6 +1258,12 @@
                 gl.viewport(0, 0, pixelWidth, pixelHeight);
             }
         }
+        if (micOverlayCanvas) {
+            micOverlayCanvas.width = pixelWidth;
+            micOverlayCanvas.height = pixelHeight;
+            micOverlayCanvas.style.width = width + 'px';
+            micOverlayCanvas.style.height = height + 'px';
+        }
     }
 
     window.addEventListener('resize', resizePhantomCanvas);
@@ -1221,6 +1317,7 @@
             const safeGlitch = safeNum(shaderParams.glitch, 1);
             const safeSize = safeNum(shaderParams.size, 2);
             const safeBlur = safeNum(shaderParams.blur, 1);
+            setMicOverlayActive(micIsConnected());
 
             const wrapEl = el('phantom-wrap');
             const bgHex = (el('p-bg') && el('p-bg').value) || '#000000';
@@ -1294,6 +1391,8 @@
 
                 ol.points(0, renderAmount);
             });
+
+            drawMicOverlay(safeAu, width, height, time);
             frameOk = true;
         } catch (err) {
             if (!renderErrorLogged) {
