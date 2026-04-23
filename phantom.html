@@ -205,10 +205,12 @@
     AUDIO_PARAM_INPUT_IDS.forEach(id => baseParamValues.set(id, val(id)));
 
     const hexToRGB = (hex) => {
+        if (!hex || typeof hex !== 'string' || hex.length < 7) return [0, 0, 0];
         const r = parseInt(hex.slice(1, 3), 16) / 255;
         const g = parseInt(hex.slice(3, 5), 16) / 255;
         const b = parseInt(hex.slice(5, 7), 16) / 255;
-        return [r, g, b];
+        const safe = (v) => (Number.isFinite(v) ? v : 0);
+        return [safe(r), safe(g), safe(b)];
     };
 
     const isPreview = new URLSearchParams(location.search).get('preview') === '1';
@@ -680,8 +682,11 @@
             analyser.connect(micOutGain);
             micOutGain.connect(audioCtx.destination);
             if (audioCtx.state === 'suspended') await audioCtx.resume();
-            setMicStatus('Live - audio is adjusting speed, noise, beams, fracture, glitch, size, and blur.');
-            setMicButton('Microphone on', true);
+            // Force a fresh sample (stepAudio() caches ~33ms) so we never read stale synthetic audio.
+            currentAudio = null;
+            lastAudioSampleTime = 0;
+            setMicStatus('Live — talk or play; press the button again to turn off. Sound drives speed, noise, and color.');
+            setMicButton('Turn microphone off', true);
         } catch (e) {
             stopMic();
             setMicStatus('Microphone unavailable: ' + (e && e.message ? e.message : 'denied'));
@@ -1114,63 +1119,67 @@
     };
     let renderErrorLogged = false;
 
-    // Main render loop
+    // Main render loop: only swap read/write after both TF update and draw succeed, so GPU buffers
+    // do not get out of sync. DOM/color access is hardened so a missed swap is rare.
     ol.render(() => {
-      try {
-        if (audioCtx && audioCtx.state === 'suspended') {
-            void audioCtx.resume();
-        }
-        const time = ol.frame / 60;
-        const timeDelta = time - lastTime;
-        lastTime = time;
+        let frameOk = false;
+        try {
+            if (audioCtx && audioCtx.state === 'suspended') {
+                void audioCtx.resume();
+            }
+            const time = ol.frame / 60;
+            const timeDelta = time - lastTime;
+            lastTime = time;
 
-        const countParam = dialParticleThousands(val('p-count')) * 1000;
-        const renderAmount = Math.floor(min(MAX_AMOUNT, countParam));
-        const au = stepAudio();
-        const liveParams = audioAdjustedParams(au);
-        const shaderParams = shaderParamsFromLive(liveParams);
-        updateLiveParamReadouts(liveParams, au);
-        const noiseSpeed = audioModulateNoiseSpeed(shaderParams.noise, shaderParams.speed, au);
-        const safeAu = {
-            pitch: safeNum(au.pitch, 0.5),
-            level: safeNum(au.level, 0.35),
-            levelFast: safeNum(au.levelFast, 0.35),
-            bass: safeNum(au.bass, 0.35),
-            mid: safeNum(au.mid, 0.35),
-            high: safeNum(au.high, 0.35),
-            centroid: safeNum(au.centroid, 0.5),
-            transient: safeNum(au.transient, 0),
-            zeroCross: safeNum(au.zeroCross, 0.2),
-            spectralFlux: safeNum(au.spectralFlux, 0.3),
-            spectralSpread: safeNum(au.spectralSpread, 0.4),
-            speedPulse: safeNum(au.speedPulse, 0),
-            active: safeNum(au.active, 0),
-        };
-        const safeSpeed = safeNum(noiseSpeed.speed, 40);
-        const safeNoise = safeNum(noiseSpeed.noise, 40);
-        const safeBeams = safeNum(shaderParams.beams, 20);
-        const safeFracture = safeNum(shaderParams.fracture, 20);
-        const safeGlitch = safeNum(shaderParams.glitch, 10);
-        const safeSize = safeNum(shaderParams.size, 3);
-        const safeBlur = safeNum(shaderParams.blur, 2);
+            const countParam = dialParticleThousands(val('p-count')) * 1000;
+            const renderAmount = Math.floor(min(MAX_AMOUNT, countParam));
+            const au = stepAudio();
+            const liveParams = audioAdjustedParams(au);
+            const shaderParams = shaderParamsFromLive(liveParams);
+            updateLiveParamReadouts(liveParams, au);
+            const noiseSpeed = audioModulateNoiseSpeed(shaderParams.noise, shaderParams.speed, au);
+            const safeAu = {
+                pitch: safeNum(au.pitch, 0.5),
+                level: safeNum(au.level, 0.35),
+                levelFast: safeNum(au.levelFast, 0.35),
+                bass: safeNum(au.bass, 0.35),
+                mid: safeNum(au.mid, 0.35),
+                high: safeNum(au.high, 0.35),
+                centroid: safeNum(au.centroid, 0.5),
+                transient: safeNum(au.transient, 0),
+                zeroCross: safeNum(au.zeroCross, 0.2),
+                spectralFlux: safeNum(au.spectralFlux, 0.3),
+                spectralSpread: safeNum(au.spectralSpread, 0.4),
+                speedPulse: safeNum(au.speedPulse, 0),
+                active: safeNum(au.active, 0),
+            };
+            const safeSpeed = safeNum(noiseSpeed.speed, 4);
+            const safeNoise = safeNum(noiseSpeed.noise, 4);
+            const safeBeams = safeNum(shaderParams.beams, 2.8);
+            const safeFracture = safeNum(shaderParams.fracture, 2.2);
+            const safeGlitch = safeNum(shaderParams.glitch, 1);
+            const safeSize = safeNum(shaderParams.size, 2);
+            const safeBlur = safeNum(shaderParams.blur, 1);
 
-        // Frame clear
-        const bgRGB = hexToRGB(el('p-bg').value);
-        ol.clearColor(bgRGB[0], bgRGB[1], bgRGB[2], 1);
-        ol.clearDepth();
-        ol.clear();
-        
-        ol.canvas.style.filter = 'blur(' + (safeBlur * 1.15) + 'px)';
-        el('phantom-wrap').parentNode.style.background = el('p-bg').value;
+            const wrapEl = el('phantom-wrap');
+            const bgHex = (el('p-bg') && el('p-bg').value) || '#000000';
+            const bgRGB = hexToRGB(bgHex);
+            ol.clearColor(bgRGB[0], bgRGB[1], bgRGB[2], 1);
+            ol.clearDepth();
+            ol.clear();
 
-        // Update pass
+            ol.canvas.style.filter = 'blur(' + (safeBlur * 1.15) + 'px)';
+            const appShell = wrapEl && wrapEl.parentElement;
+            if (appShell) appShell.style.background = bgHex;
+
+            // Update pass
             ol.use({ program: updateProgram }).run(() => {
                 ol.transformFeedback(updateVaos[read], buffers[write], ol.POINTS, () => {
                     ol.uniform("uTimeDelta", timeDelta);
                     ol.uniform("uTime", time);
                     ol.uniform("uResolution", [width, height]);
-                    
-                    // Params
+                    ol.uniform("uRandom", [time % 1, (time * 0.37) % 1]);
+
                     ol.uniform("uSpeed", safeSpeed);
                     ol.uniform("uNoiseStr", safeNoise);
                     ol.uniform("uBeams", safeBeams);
@@ -1192,51 +1201,51 @@
                 });
             });
 
-        // Render pass
-        ol.use({
-            program: renderProgram,
-            VAO: renderVaos[write],
-        }).run(() => {
-            ol.uniform("uResolution", [width, height]);
-            ol.uniform("uTime", time);
-            
-            // Render params
-            ol.uniform("uFracture", safeFracture);
-            ol.uniform("uGlitch", safeGlitch);
-            const dpr = window.devicePixelRatio || 1;
-            ol.uniform("uPointSize", (1 + safeSize * 2.6) * dpr * 0.4); 
-            ol.uniform("uMirror", parseInt(el('p-mirror').value, 10) || 0);
-            ol.uniform("uShape", parseInt(el('p-shape').value, 10) || 0);
-            
-            const colorRGB = hexToRGB(el('p-color').value);
-            ol.uniform("uColor", colorRGB);
-            ol.uniform("uAudioPitch", safeAu.pitch);
-            ol.uniform("uAudioLevel", safeAu.level);
-            ol.uniform("uAudioLevelFast", safeAu.levelFast);
-            ol.uniform("uAudioBass", safeAu.bass);
-            ol.uniform("uAudioMid", safeAu.mid);
-            ol.uniform("uAudioHigh", safeAu.high);
-            ol.uniform("uAudioCentroid", safeAu.centroid);
-            ol.uniform("uAudioTransient", safeAu.transient);
-            ol.uniform("uAudioZeroCross", safeAu.zeroCross);
-            ol.uniform("uAudioSpectralFlux", safeAu.spectralFlux);
-            ol.uniform("uAudioSpectralSpread", safeAu.spectralSpread);
-            ol.uniform("uAudioSpeedPulse", safeAu.speedPulse);
-            ol.uniform("uAudioActive", safeAu.active);
+            ol.use({
+                program: renderProgram,
+                VAO: renderVaos[write],
+            }).run(() => {
+                ol.uniform("uResolution", [width, height]);
+                ol.uniform("uTime", time);
 
-            ol.points(0, renderAmount);
-        });
+                ol.uniform("uFracture", safeFracture);
+                ol.uniform("uGlitch", safeGlitch);
+                const dpr = window.devicePixelRatio || 1;
+                ol.uniform("uPointSize", (1 + safeSize * 2.6) * dpr * 0.4);
+                ol.uniform("uMirror", parseInt(el('p-mirror')?.value ?? '0', 10) || 0);
+                ol.uniform("uShape", parseInt(el('p-shape')?.value ?? '0', 10) || 0);
 
-        // Swap buffers
-        let temp = read;
-        read = write;
-        write = temp;
-      } catch (err) {
-        if (!renderErrorLogged) {
-          console.error('[phantom] render error:', err);
-          renderErrorLogged = true;
+                const colorRGB = hexToRGB((el('p-color') && el('p-color').value) || '#ffffff');
+                ol.uniform("uColor", colorRGB);
+                ol.uniform("uAudioPitch", safeAu.pitch);
+                ol.uniform("uAudioLevel", safeAu.level);
+                ol.uniform("uAudioLevelFast", safeAu.levelFast);
+                ol.uniform("uAudioBass", safeAu.bass);
+                ol.uniform("uAudioMid", safeAu.mid);
+                ol.uniform("uAudioHigh", safeAu.high);
+                ol.uniform("uAudioCentroid", safeAu.centroid);
+                ol.uniform("uAudioTransient", safeAu.transient);
+                ol.uniform("uAudioZeroCross", safeAu.zeroCross);
+                ol.uniform("uAudioSpectralFlux", safeAu.spectralFlux);
+                ol.uniform("uAudioSpectralSpread", safeAu.spectralSpread);
+                ol.uniform("uAudioSpeedPulse", safeAu.speedPulse);
+                ol.uniform("uAudioActive", safeAu.active);
+
+                ol.points(0, renderAmount);
+            });
+            frameOk = true;
+        } catch (err) {
+            if (!renderErrorLogged) {
+                console.error('[phantom] render error:', err);
+                renderErrorLogged = true;
+            }
+        } finally {
+            if (frameOk) {
+                const temp = read;
+                read = write;
+                write = temp;
+            }
         }
-      }
     });
     } catch (error) {
         console.error('Phantom initialization error:', error);
