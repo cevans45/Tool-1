@@ -161,16 +161,16 @@
         return 72 + ((x - 5) / 5) * 28;
     }
 
-    function audioModulateNoiseSpeed(noise100, speed100, au) {
+    function audioModulateNoiseSpeed(noiseDial, speedDial, au) {
         if (!micIsConnected()) {
-            return { noise: noise100, speed: speed100 };
+            return { noise: noiseDial, speed: speedDial };
         }
         const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-        const spMul = clamp(0.84 + 0.2 * au.levelFast + 0.16 * au.bass + 0.08 * au.transient, 0.78, 1.28);
-        const nsMul = clamp(0.82 + 0.18 * au.mid + 0.14 * au.high + 0.08 * au.centroid + 0.08 * au.transient, 0.76, 1.24);
+        const spMul = clamp(0.9 + 0.25 * au.levelFast + 0.2 * au.bass + 0.12 * au.transient, 0.8, 1.6);
+        const nsMul = clamp(0.9 + 0.22 * au.mid + 0.18 * au.high + 0.1 * au.centroid + 0.1 * au.transient, 0.8, 1.5);
         return {
-            speed: clamp(speed100 * spMul, 0, 120),
-            noise: clamp(noise100 * nsMul, 0, 120),
+            speed: clamp(speedDial * spMul, 0.25, 10),
+            noise: clamp(noiseDial * nsMul, 0.25, 10),
         };
     }
 
@@ -507,25 +507,27 @@
             speedEnvelope = Math.max(0, speedEnvelope * 0.88);
         }
 
-        // Motion Dynamics sliders act as AMPLIFIERS/GAIN on the mic signal.
-        // At 0 the mic barely moves the shape; at 10 it's wildly reactive.
+        // Mic drives motion directly. Motion Dynamics sliders ADD amplification on top,
+        // but never below a healthy baseline (so turning the mic on never looks dead).
         const m = motionDials();
-        const gain = (base, dial) => base * (0.3 + dial * 2.5);
+        // baseline 1.2x = already reactive at rest; each dial adds up to 2.0x extra gain.
+        const gainOf = (base, dial) => Math.min(1, base * (1.2 + dial * 2.0));
         const mixFlow = Math.max(m.flow, m.expand * 0.6);
 
         currentAudio = {
-            pitch: clamp01(0.5 + (smoothPitch - 0.5) * (0.4 + m.spiral * 1.8)),
-            level: clamp01(gain(smoothLevel, m.expand + m.pulseDepth)),
-            levelFast: clamp01(gain(smoothLevelFast, m.expand + m.pulseDepth + m.chaos)),
-            bass: clamp01(gain(smoothBass, mixFlow + m.pulseDepth)),
-            mid: clamp01(gain(smoothMid, mixFlow + m.spiral)),
-            high: clamp01(gain(smoothHigh, m.chaos + m.flow * 0.5)),
-            centroid: clamp01(0.5 + (smoothCentroid - 0.5) * (0.4 + m.spiral * 1.5 + m.pulseDepth)),
-            transient: clamp01(gain(smoothTransient, m.chaos + m.pulseDepth)),
-            zeroCross: clamp01(gain(smoothZeroCross, m.chaos)),
-            spectralFlux: clamp01(gain(smoothSpectralFlux, m.chaos + m.pulseDepth)),
-            spectralSpread: clamp01(gain(smoothSpectralSpread, m.flow + m.chaos)),
-            speedPulse: clamp01(speedEnvelope * (0.4 + m.pulseDepth * 2.0 + m.expand * 1.5)),
+            pitch: clamp01(0.5 + (smoothPitch - 0.5) * (1.0 + m.spiral * 1.6)),
+            level: gainOf(smoothLevel, m.expand + m.pulseDepth),
+            levelFast: gainOf(smoothLevelFast, m.expand + m.pulseDepth + m.chaos),
+            bass: gainOf(smoothBass, mixFlow + m.pulseDepth),
+            mid: gainOf(smoothMid, mixFlow + m.spiral),
+            high: gainOf(smoothHigh, m.chaos + m.flow * 0.5),
+            centroid: clamp01(0.5 + (smoothCentroid - 0.5) * (1.0 + m.spiral * 1.4 + m.pulseDepth * 0.8)),
+            transient: gainOf(smoothTransient, m.chaos + m.pulseDepth),
+            zeroCross: gainOf(smoothZeroCross, m.chaos),
+            spectralFlux: gainOf(smoothSpectralFlux, m.chaos + m.pulseDepth),
+            spectralSpread: gainOf(smoothSpectralSpread, m.flow + m.chaos),
+            // Keep speedPulse lively even when pulseDepth/expand are 0.
+            speedPulse: clamp01(speedEnvelope * (0.9 + m.pulseDepth * 1.6 + m.expand * 1.2)),
             active: 1,
         };
         return currentAudio;
@@ -558,14 +560,14 @@
     }
 
     function shaderParamsFromLive(params) {
-        // Shader uniforms expect 0–100 scale (via dialTo100) for speed/noise/beams/fracture/glitch.
-        // size/blur are on a smaller scale used directly by the render code.
+        // Shader uniforms expect the raw 1–10 dial range (internal min() clamps like
+        // min(uSpeed, 8.5) depend on this). size/blur are used directly as dial values.
         return {
-            speed: dialTo100(clampShaderDial(params.speed, 8.5)),
-            noise: dialTo100(clampShaderDial(params.noise, 8.5)),
-            beams: dialTo100(clampShaderDial(params.beams, 8)),
-            fracture: dialTo100(clampShaderDial(params.fracture, 8)),
-            glitch: dialTo100(clampShaderDial(params.glitch, 6.5)),
+            speed: clampShaderDial(params.speed, 8.5),
+            noise: clampShaderDial(params.noise, 8.5),
+            beams: clampShaderDial(params.beams, 8),
+            fracture: clampShaderDial(params.fracture, 8),
+            glitch: clampShaderDial(params.glitch, 6.5),
             size: clampShaderDial(params.size, 7),
             blur: clampShaderDial(params.blur, 5),
         };
@@ -1077,19 +1079,45 @@
     // Trigger initial resize for retina scaling
     resizePhantomCanvas();
 
+    const safeNum = (v, fallback = 0) => (Number.isFinite(v) ? v : fallback);
+    let renderErrorLogged = false;
+
     // Main render loop
     ol.render(() => {
+      try {
         const time = ol.frame / 60;
         const timeDelta = time - lastTime;
         lastTime = time;
 
         const countParam = dialParticleThousands(val('p-count')) * 1000;
-        const renderAmount = min(micIsConnected() ? MIC_PARTICLE_CAP : MAX_AMOUNT, countParam);
+        const renderAmount = Math.floor(min(MAX_AMOUNT, countParam));
         const au = stepAudio();
         const liveParams = audioAdjustedParams(au);
         const shaderParams = shaderParamsFromLive(liveParams);
         updateLiveParamReadouts(liveParams, au);
         const noiseSpeed = audioModulateNoiseSpeed(shaderParams.noise, shaderParams.speed, au);
+        const safeAu = {
+            pitch: safeNum(au.pitch, 0.5),
+            level: safeNum(au.level, 0.35),
+            levelFast: safeNum(au.levelFast, 0.35),
+            bass: safeNum(au.bass, 0.35),
+            mid: safeNum(au.mid, 0.35),
+            high: safeNum(au.high, 0.35),
+            centroid: safeNum(au.centroid, 0.5),
+            transient: safeNum(au.transient, 0),
+            zeroCross: safeNum(au.zeroCross, 0.2),
+            spectralFlux: safeNum(au.spectralFlux, 0.3),
+            spectralSpread: safeNum(au.spectralSpread, 0.4),
+            speedPulse: safeNum(au.speedPulse, 0),
+            active: safeNum(au.active, 0),
+        };
+        const safeSpeed = safeNum(noiseSpeed.speed, 40);
+        const safeNoise = safeNum(noiseSpeed.noise, 40);
+        const safeBeams = safeNum(shaderParams.beams, 20);
+        const safeFracture = safeNum(shaderParams.fracture, 20);
+        const safeGlitch = safeNum(shaderParams.glitch, 10);
+        const safeSize = safeNum(shaderParams.size, 3);
+        const safeBlur = safeNum(shaderParams.blur, 2);
 
         // Frame clear
         const bgRGB = hexToRGB(el('p-bg').value);
@@ -1097,7 +1125,7 @@
         ol.clearDepth();
         ol.clear();
         
-        ol.canvas.style.filter = 'blur(' + (shaderParams.blur * 1.15) + 'px)';
+        ol.canvas.style.filter = 'blur(' + (safeBlur * 1.15) + 'px)';
         el('phantom-wrap').parentNode.style.background = el('p-bg').value;
 
         // Update pass
@@ -1108,22 +1136,22 @@
                     ol.uniform("uResolution", [width, height]);
                     
                     // Params
-                    ol.uniform("uSpeed", noiseSpeed.speed);
-                    ol.uniform("uNoiseStr", noiseSpeed.noise);
-                    ol.uniform("uBeams", shaderParams.beams);
-                    ol.uniform("uAudioPitch", au.pitch);
-                    ol.uniform("uAudioLevel", au.level);
-                    ol.uniform("uAudioLevelFast", au.levelFast);
-                    ol.uniform("uAudioBass", au.bass);
-                    ol.uniform("uAudioMid", au.mid);
-                    ol.uniform("uAudioHigh", au.high);
-                    ol.uniform("uAudioCentroid", au.centroid);
-                    ol.uniform("uAudioTransient", au.transient);
-                    ol.uniform("uAudioZeroCross", au.zeroCross);
-                    ol.uniform("uAudioSpectralFlux", au.spectralFlux);
-                    ol.uniform("uAudioSpectralSpread", au.spectralSpread);
-                    ol.uniform("uAudioSpeedPulse", au.speedPulse);
-                    ol.uniform("uAudioActive", au.active);
+                    ol.uniform("uSpeed", safeSpeed);
+                    ol.uniform("uNoiseStr", safeNoise);
+                    ol.uniform("uBeams", safeBeams);
+                    ol.uniform("uAudioPitch", safeAu.pitch);
+                    ol.uniform("uAudioLevel", safeAu.level);
+                    ol.uniform("uAudioLevelFast", safeAu.levelFast);
+                    ol.uniform("uAudioBass", safeAu.bass);
+                    ol.uniform("uAudioMid", safeAu.mid);
+                    ol.uniform("uAudioHigh", safeAu.high);
+                    ol.uniform("uAudioCentroid", safeAu.centroid);
+                    ol.uniform("uAudioTransient", safeAu.transient);
+                    ol.uniform("uAudioZeroCross", safeAu.zeroCross);
+                    ol.uniform("uAudioSpectralFlux", safeAu.spectralFlux);
+                    ol.uniform("uAudioSpectralSpread", safeAu.spectralSpread);
+                    ol.uniform("uAudioSpeedPulse", safeAu.speedPulse);
+                    ol.uniform("uAudioActive", safeAu.active);
 
                     ol.points(0, renderAmount);
                 });
@@ -1138,28 +1166,28 @@
             ol.uniform("uTime", time);
             
             // Render params
-            ol.uniform("uFracture", shaderParams.fracture);
-            ol.uniform("uGlitch", shaderParams.glitch);
+            ol.uniform("uFracture", safeFracture);
+            ol.uniform("uGlitch", safeGlitch);
             const dpr = window.devicePixelRatio || 1;
-            ol.uniform("uPointSize", (1 + shaderParams.size * 2.6) * dpr * 0.4); 
-            ol.uniform("uMirror", parseInt(el('p-mirror').value, 10));
-            ol.uniform("uShape", parseInt(el('p-shape').value, 10));
+            ol.uniform("uPointSize", (1 + safeSize * 2.6) * dpr * 0.4); 
+            ol.uniform("uMirror", parseInt(el('p-mirror').value, 10) || 0);
+            ol.uniform("uShape", parseInt(el('p-shape').value, 10) || 0);
             
             const colorRGB = hexToRGB(el('p-color').value);
             ol.uniform("uColor", colorRGB);
-            ol.uniform("uAudioPitch", au.pitch);
-            ol.uniform("uAudioLevel", au.level);
-            ol.uniform("uAudioLevelFast", au.levelFast);
-            ol.uniform("uAudioBass", au.bass);
-            ol.uniform("uAudioMid", au.mid);
-            ol.uniform("uAudioHigh", au.high);
-            ol.uniform("uAudioCentroid", au.centroid);
-            ol.uniform("uAudioTransient", au.transient);
-            ol.uniform("uAudioZeroCross", au.zeroCross);
-            ol.uniform("uAudioSpectralFlux", au.spectralFlux);
-            ol.uniform("uAudioSpectralSpread", au.spectralSpread);
-            ol.uniform("uAudioSpeedPulse", au.speedPulse);
-            ol.uniform("uAudioActive", au.active);
+            ol.uniform("uAudioPitch", safeAu.pitch);
+            ol.uniform("uAudioLevel", safeAu.level);
+            ol.uniform("uAudioLevelFast", safeAu.levelFast);
+            ol.uniform("uAudioBass", safeAu.bass);
+            ol.uniform("uAudioMid", safeAu.mid);
+            ol.uniform("uAudioHigh", safeAu.high);
+            ol.uniform("uAudioCentroid", safeAu.centroid);
+            ol.uniform("uAudioTransient", safeAu.transient);
+            ol.uniform("uAudioZeroCross", safeAu.zeroCross);
+            ol.uniform("uAudioSpectralFlux", safeAu.spectralFlux);
+            ol.uniform("uAudioSpectralSpread", safeAu.spectralSpread);
+            ol.uniform("uAudioSpeedPulse", safeAu.speedPulse);
+            ol.uniform("uAudioActive", safeAu.active);
 
             ol.points(0, renderAmount);
         });
@@ -1168,6 +1196,12 @@
         let temp = read;
         read = write;
         write = temp;
+      } catch (err) {
+        if (!renderErrorLogged) {
+          console.error('[phantom] render error:', err);
+          renderErrorLogged = true;
+        }
+      }
     });
     } catch (error) {
         console.error('Phantom initialization error:', error);
