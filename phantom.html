@@ -927,6 +927,28 @@
     void main() {
         vec2 pos = aPosition;
 
+        // Display-space audio warp so the visible composition clearly reacts even if the
+        // underlying particle simulation changes are subtle.
+        float displayDrive = uAudioActive * max(
+            uAudioLevelFast,
+            max(uAudioTransient, max(uAudioSpectralFlux, uAudioBass))
+        );
+        float displayScale = 1.0 + uAudioActive * (uAudioBass * 0.18 + uAudioLevel * 0.08);
+        float displayAngle = uAudioActive * (
+            (uAudioPitch - 0.5) * 0.55 +
+            (uAudioCentroid - 0.5) * 0.22
+        );
+        float ca = cos(displayAngle);
+        float sa = sin(displayAngle);
+        pos *= displayScale;
+        pos = vec2(pos.x * ca - pos.y * sa, pos.x * sa + pos.y * ca);
+        pos.x += sin(pos.y * 0.003 + uTime * (2.0 + uAudioMid * 4.0)) * displayDrive * 42.0;
+        pos.y += cos(pos.x * 0.003 + uTime * (1.7 + uAudioBass * 3.5)) * displayDrive * 30.0;
+        pos += vec2(
+            (uAudioZeroCross - 0.25) * 90.0,
+            (uAudioSpectralFlux - 0.2) * 64.0
+        ) * uAudioActive;
+
         // Fracture: driven by TRANSIENT only (attack strength; sharper hits → more tearing)
         if (uFracture > 0.0) {
             float slice = floor((pos.y / uResolution.y) * 10.0 + uTime * (1.6 + uAudioTransient * 3.5));
@@ -971,7 +993,7 @@
         
         // Size: driven by OVERALL LEVEL only (simple loudness → size)
         float ageS = (aLife - aAge) / aLife;
-        float audioSize = mix(1.0, 0.55 + 1.2 * uAudioLevel, uAudioActive);
+        float audioSize = mix(1.0, 0.75 + 1.85 * uAudioLevel + 0.5 * displayDrive, uAudioActive);
         gl_PointSize = uPointSize * ageS * audioSize;
 
         // Fade out based on age
@@ -1002,6 +1024,7 @@
     void main() {
         float alpha = vAlpha;
         vec2 uv = gl_PointCoord.xy - 0.5;
+        float displayGlow = uAudioActive * max(uAudioLevel, max(uAudioTransient, uAudioSpectralFlux));
 
         if (uShape == 0) {
             // Circle
@@ -1029,13 +1052,15 @@
 
         // Color: each channel driven by a DIFFERENT feature
         vec3 c = uColor;
-        c.r += uAudioBass * 0.12 * uAudioActive;              // red   ← bass
-        c.g += uAudioMid * 0.10 * uAudioActive;               // green ← mids
-        c.b += uAudioHigh * 0.12 * uAudioActive;              // blue  ← highs
+        c.r += uAudioBass * 0.22 * uAudioActive;              // red   ← bass
+        c.g += uAudioMid * 0.18 * uAudioActive;               // green ← mids
+        c.b += uAudioHigh * 0.22 * uAudioActive;              // blue  ← highs
         // Overall tint from centroid (brightness)
-        c += vec3(uAudioCentroid * 0.03 - 0.015) * uAudioActive;
+        c += vec3(uAudioCentroid * 0.08 - 0.03) * uAudioActive;
+        c += vec3(0.12, 0.1, 0.14) * displayGlow;
         c = clamp(c, vec3(0.0), vec3(1.0));
-        fragColor = vec4(c, alpha);
+        alpha *= 1.0 + displayGlow * 0.9;
+        fragColor = vec4(c, min(alpha, 1.0));
     }
     `;
 
