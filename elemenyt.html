@@ -630,7 +630,7 @@
         function drawTraceImage() {
             if (!state.traceImage) return;
             const img = state.traceImage;
-            const scale = (state.traceImageScale / 100) * Math.min(cssWidth / img.width, cssHeight / img.height);
+            const scale = state.traceImageScale / 100;
             const drawW = img.width * scale;
             const drawH = img.height * scale;
             const x = (cssWidth - drawW) / 2;
