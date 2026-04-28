@@ -112,14 +112,14 @@ body.is-leaving {
     align-items: flex-end;
     gap: 24px;
     width: min(96vw, 1000px);
-    height: 180px;
-    margin-top: 20px;
+    height: 140px;
+    margin-top: -20px;
     position: relative;
     pointer-events: none;
 }
 
 .hero-badge {
-    height: 80px;
+    height: 50px;
     width: auto;
     object-fit: contain;
     animation: floatAndRotate 3s ease-in-out infinite;
