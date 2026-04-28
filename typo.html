@@ -847,6 +847,7 @@
     });
     $('ty-font-reset').addEventListener('click', () => {
         S.fontFamily = 'sans-serif'; S.fontFileName = null;
+        letterFontIdx = [];
         $('ty-font-label').textContent = 'System default — drop .ttf/.otf/.woff onto canvas';
         $('ty-font-reset').style.display = 'none'; paramChanged();
     });
