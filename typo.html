@@ -278,6 +278,41 @@
         return slot ? slot.mode : S.mode;
     }
 
+    function effectForChar(charIdx) {
+        const slot = slotForChar(charIdx);
+        return slot ? slot.effect : (S.fill ? 'fill' : 'stroke');
+    }
+
+    // Translates a font-slot effect name into draw flags + ctx shadow side-effects.
+    // Always call clearShadow() after the draw call.
+    function applyEffect(effect) {
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        switch (effect) {
+            case 'stroke':       return { fill: false, strokeW: Math.max(1, S.strokeW) };
+            case 'stroke-light': return { fill: false, strokeW: Math.max(0.5, S.strokeW * 0.5) };
+            case 'shadow':
+                ctx.shadowColor = 'rgba(0,0,0,0.45)';
+                ctx.shadowOffsetX = 3; ctx.shadowOffsetY = 3;
+                return { fill: true, strokeW: S.strokeW };
+            case 'shadow-soft':
+                ctx.shadowColor = 'rgba(0,0,0,0.35)';
+                ctx.shadowBlur = 8;
+                return { fill: true, strokeW: S.strokeW };
+            case 'double':       return { fill: true, strokeW: S.strokeW, double: true };
+            case 'fill':
+            default:             return { fill: true, strokeW: S.strokeW };
+        }
+    }
+    function clearShadow() {
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+    }
+
     function drawTextLine(c, text, x, y) {
         const totalW = letterSpacingMode ? measureWWithFonts(c, text) : measureW(c, text);
         let cx = x;
@@ -496,81 +531,58 @@
         }
     }
 
-    function drawCircles() {
+    function drawCircles(parts, fill, strokeW, opts) {
+        parts = parts || particles;
+        if (fill === undefined) fill = S.fill;
+        if (strokeW === undefined) strokeW = S.strokeW;
         const maxR = S.scale * 0.5;
         ctx.globalAlpha = 1;
 
-        ctx.fillStyle = S.ink;
-        for (let i = 0; i < particles.length; i++) {
-            const p = particles[i];
-            const r = maxR * p.scale;
-            
-            // In mash mode, apply per-particle effect based on its index
-            if (mashMode) {
-                const effectMode = letterEffectIdx[i % letterEffectIdx.length] || 0;
-                const slotEffect = FONT_SLOTS[effectMode].effect;
-                
-                if (slotEffect === 'stroke' || slotEffect === 'stroke-light') {
-                    ctx.strokeStyle = S.ink;
-                    ctx.lineWidth = slotEffect === 'stroke-light' ? 0.5 : S.strokeW * 0.5;
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-                    ctx.stroke();
-                } else if (slotEffect === 'shadow' || slotEffect === 'shadow-soft') {
-                    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-                    ctx.beginPath();
-                    ctx.arc(p.x + 2, p.y + 2, r, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.fillStyle = S.ink;
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-                    ctx.fill();
-                } else if (slotEffect === 'double') {
-                    ctx.fillStyle = S.bg;
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, r * 0.7, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.fillStyle = S.ink;
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-                    ctx.fill();
-                } else {
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            } else {
+        if (fill) {
+            ctx.fillStyle = S.ink;
+            for (const p of parts) {
+                const r = maxR * p.scale;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
                 ctx.fill();
             }
-        }
-
-        if (!S.fill && !mashMode) {
-            ctx.fillStyle = S.bg;
-            const inset = Math.max(1, S.strokeW);
-            for (const p of particles) {
-                const r = maxR * p.scale;
-                const inner = Math.max(0.5, r - inset);
+            if (opts && opts.double) {
+                ctx.fillStyle = S.bg;
+                for (const p of parts) {
+                    const r = maxR * p.scale;
+                    const inner = Math.max(0.5, r - Math.max(1.5, strokeW * 1.2));
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, inner, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        } else {
+            ctx.strokeStyle = S.ink;
+            ctx.lineWidth = strokeW;
+            for (const p of parts) {
+                const r = Math.max(0.5, maxR * p.scale - strokeW * 0.5);
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, inner, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.stroke();
             }
         }
     }
 
-    function drawNet() {
+    function drawNet(parts, fill, strokeW) {
+        parts = parts || particles;
+        if (fill === undefined) fill = S.fill;
+        if (strokeW === undefined) strokeW = S.strokeW;
         const connDist = S.scale * 3;
-        const lineW = S.fill ? S.weight * 0.15 : S.strokeW;
+        const lineW = fill ? S.weight * 0.15 : strokeW;
 
         ctx.strokeStyle = S.ink;
         ctx.lineCap = 'round';
         ctx.globalAlpha = 1;
 
-        for (let i = 0; i < particles.length; i++) {
-            const a = particles[i];
-            for (let j = i + 1; j < particles.length; j++) {
-                const b = particles[j];
+        for (let i = 0; i < parts.length; i++) {
+            const a = parts[i];
+            for (let j = i + 1; j < parts.length; j++) {
+                const b = parts[j];
                 const d = Math.hypot(a.x - b.x, a.y - b.y);
                 if (d > connDist) continue;
                 const fade = 1 - d / connDist;
@@ -597,19 +609,22 @@
         target.fill();
     }
 
-    function drawFragment() {
+    function drawFragment(parts, fill, strokeW, opts) {
+        parts = parts || particles;
+        if (fill === undefined) fill = S.fill;
+        if (strokeW === undefined) strokeW = S.strokeW;
         const maxR = S.scale * 0.5;
         ctx.globalAlpha = 1;
 
         ctx.fillStyle = S.ink;
-        for (const p of particles) {
+        for (const p of parts) {
             drawFragPoly(ctx, p, maxR * p.scale);
         }
 
-        if (!S.fill) {
+        if (!fill || (opts && opts.double)) {
             ctx.fillStyle = S.bg;
-            const shrink = S.strokeW;
-            for (const p of particles) {
+            const shrink = Math.max(1, strokeW);
+            for (const p of parts) {
                 const r = Math.max(0.5, maxR * p.scale - shrink);
                 drawFragPoly(ctx, p, r);
             }
@@ -645,8 +660,7 @@
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.fillStyle = S.bg;
         ctx.fillRect(0, 0, cssW, cssH);
-        const fn = modes[S.mode];
-        if (fn) fn();
+        renderParticles();
         ctx = oldCtx;
         let svg = sctx.getSerializedSvg(true);
         const mode = S.fill ? 'fill' : 'no-fill';
@@ -657,12 +671,15 @@
 
     window.addEventListener('resize', onResize);
 
-    function drawSquares() {
+    function drawSquares(parts, fill, strokeW, opts) {
+        parts = parts || particles;
+        if (fill === undefined) fill = S.fill;
+        if (strokeW === undefined) strokeW = S.strokeW;
         const maxS = S.scale * 0.9;
         ctx.globalAlpha = 1;
 
         ctx.fillStyle = S.ink;
-        for (const p of particles) {
+        for (const p of parts) {
             const s = maxS * p.scale;
             ctx.save();
             ctx.translate(p.x, p.y);
@@ -671,10 +688,10 @@
             ctx.restore();
         }
 
-        if (!S.fill) {
+        if (!fill || (opts && opts.double)) {
             ctx.fillStyle = S.bg;
-            const inset = Math.max(1, S.strokeW);
-            for (const p of particles) {
+            const inset = Math.max(1, strokeW);
+            for (const p of parts) {
                 const s = maxS * p.scale;
                 const inner = Math.max(1, s - inset * 2);
                 ctx.save();
@@ -686,22 +703,25 @@
         }
     }
 
-    function drawGrid() {
+    function drawGrid(parts, fill, strokeW, opts) {
+        parts = parts || particles;
+        if (fill === undefined) fill = S.fill;
+        if (strokeW === undefined) strokeW = S.strokeW;
         const cellSize = Math.max(3, S.scale * 0.7);
         ctx.globalAlpha = 1;
 
         ctx.fillStyle = S.ink;
-        for (const p of particles) {
+        for (const p of parts) {
             const gx = Math.round(p.x / cellSize) * cellSize;
             const gy = Math.round(p.y / cellSize) * cellSize;
             const s = cellSize * 0.9;
             ctx.fillRect(gx - s / 2, gy - s / 2, s, s);
         }
 
-        if (!S.fill) {
+        if (!fill || (opts && opts.double)) {
             ctx.fillStyle = S.bg;
-            const inset = Math.max(1, S.strokeW);
-            for (const p of particles) {
+            const inset = Math.max(1, strokeW);
+            for (const p of parts) {
                 const gx = Math.round(p.x / cellSize) * cellSize;
                 const gy = Math.round(p.y / cellSize) * cellSize;
                 const s = cellSize * 0.9;
@@ -711,12 +731,15 @@
         }
     }
 
-    function drawDiamonds() {
+    function drawDiamonds(parts, fill, strokeW, opts) {
+        parts = parts || particles;
+        if (fill === undefined) fill = S.fill;
+        if (strokeW === undefined) strokeW = S.strokeW;
         const maxR = S.scale * 0.5;
         ctx.globalAlpha = 1;
 
         ctx.fillStyle = S.ink;
-        for (const p of particles) {
+        for (const p of parts) {
             const r = maxR * p.scale;
             ctx.beginPath();
             ctx.moveTo(p.x, p.y - r);
@@ -727,10 +750,10 @@
             ctx.fill();
         }
 
-        if (!S.fill) {
+        if (!fill || (opts && opts.double)) {
             ctx.fillStyle = S.bg;
-            const shrink = S.strokeW;
-            for (const p of particles) {
+            const shrink = Math.max(1, strokeW);
+            for (const p of parts) {
                 const r = Math.max(0.5, maxR * p.scale - shrink);
                 const rw = r * 0.7;
                 ctx.beginPath();
@@ -744,15 +767,18 @@
         }
     }
 
-    function drawCrosses() {
+    function drawCrosses(parts, fill, strokeW) {
+        parts = parts || particles;
+        if (fill === undefined) fill = S.fill;
+        if (strokeW === undefined) strokeW = S.strokeW;
         const arm = S.scale * 0.4;
-        const thick = S.fill ? S.weight * 0.2 : S.strokeW;
+        const thick = fill ? S.weight * 0.2 : strokeW;
         ctx.globalAlpha = 1;
         ctx.strokeStyle = S.ink;
         ctx.lineCap = 'round';
         ctx.lineWidth = thick;
 
-        for (const p of particles) {
+        for (const p of parts) {
             const len = arm * p.scale;
             ctx.beginPath();
             ctx.moveTo(p.x - len, p.y);
@@ -763,12 +789,15 @@
         }
     }
 
-    function drawStars() {
+    function drawStars(parts, fill, strokeW, opts) {
+        parts = parts || particles;
+        if (fill === undefined) fill = S.fill;
+        if (strokeW === undefined) strokeW = S.strokeW;
         const maxR = S.scale * 0.5;
         ctx.globalAlpha = 1;
 
         ctx.fillStyle = S.ink;
-        for (const p of particles) {
+        for (const p of parts) {
             const outer = maxR * p.scale;
             const inner = outer * 0.4;
             const pts = 5;
@@ -783,10 +812,10 @@
             ctx.fill();
         }
 
-        if (!S.fill) {
+        if (!fill || (opts && opts.double)) {
             ctx.fillStyle = S.bg;
-            const shrink = S.strokeW;
-            for (const p of particles) {
+            const shrink = Math.max(1, strokeW);
+            for (const p of parts) {
                 const outer = Math.max(1, maxR * p.scale - shrink);
                 const inner = Math.max(0.5, outer * 0.4);
                 const pts = 5;
@@ -812,6 +841,32 @@
 
     // ─── Animation loop ──────────────────────────────────────────
 
+    function renderParticles() {
+        if (!mashMode) {
+            const fn = modes[S.mode];
+            if (fn) fn();
+            return;
+        }
+        // Bin particles by (mode, effect) so each group can be drawn together.
+        // Particles tagged charIdx === -1 (rare edge case) fall back to S.mode/S.fill.
+        const buckets = new Map();
+        for (const p of particles) {
+            const m = p.charIdx >= 0 ? modeForChar(p.charIdx) : S.mode;
+            const e = p.charIdx >= 0 ? effectForChar(p.charIdx) : (S.fill ? 'fill' : 'stroke');
+            const key = m + '|' + e;
+            let bucket = buckets.get(key);
+            if (!bucket) { bucket = { mode: m, effect: e, parts: [] }; buckets.set(key, bucket); }
+            bucket.parts.push(p);
+        }
+        for (const { mode, effect, parts } of buckets.values()) {
+            const fn = modes[mode];
+            if (!fn) continue;
+            const flags = applyEffect(effect);
+            fn(parts, flags.fill, flags.strokeW, flags);
+            clearShadow();
+        }
+    }
+
     function tick() {
         if (!animId) return;
 
@@ -821,8 +876,7 @@
         ctx.fillStyle = S.bg;
         ctx.fillRect(0, 0, cssW, cssH);
 
-        const fn = modes[S.mode];
-        if (fn) fn();
+        renderParticles();
 
         animId = requestAnimationFrame(tick);
     }
@@ -848,8 +902,7 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.fillStyle = S.bg;
             ctx.fillRect(0, 0, cssW, cssH);
-            const fn = modes[S.mode];
-            if (fn) fn();
+            renderParticles();
         }
     }
 
@@ -949,7 +1002,6 @@
     $('ty-font-reset').addEventListener('click', () => {
         S.fontFamily = 'sans-serif'; S.fontFileName = null;
         letterFontIdx = [];
-        letterEffectIdx = [];
         mashMode = false;
         $('ty-font-label').textContent = 'System default — drop .ttf/.otf/.woff onto canvas';
         $('ty-font-reset').style.display = 'none';
