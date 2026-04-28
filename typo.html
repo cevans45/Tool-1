@@ -538,32 +538,32 @@
         const maxR = S.scale * 0.5;
         ctx.globalAlpha = 1;
 
-        if (fill) {
-            ctx.fillStyle = S.ink;
+        ctx.fillStyle = S.ink;
+        for (const p of parts) {
+            const r = maxR * p.scale;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        if (!fill) {
+            ctx.fillStyle = S.bg;
+            const inset = Math.max(1, strokeW);
             for (const p of parts) {
                 const r = maxR * p.scale;
+                const inner = Math.max(0.5, r - inset);
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.arc(p.x, p.y, inner, 0, Math.PI * 2);
                 ctx.fill();
             }
-            if (opts && opts.double) {
-                ctx.fillStyle = S.bg;
-                for (const p of parts) {
-                    const r = maxR * p.scale;
-                    const inner = Math.max(0.5, r - Math.max(1.5, strokeW * 1.2));
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, inner, 0, Math.PI * 2);
-                    ctx.fill();
-                }
-            }
-        } else {
-            ctx.strokeStyle = S.ink;
-            ctx.lineWidth = strokeW;
+        } else if (opts && opts.double) {
+            ctx.fillStyle = S.bg;
             for (const p of parts) {
-                const r = Math.max(0.5, maxR * p.scale - strokeW * 0.5);
+                const r = maxR * p.scale;
+                const inner = Math.max(0.5, r - Math.max(1.5, strokeW * 1.2));
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-                ctx.stroke();
+                ctx.arc(p.x, p.y, inner, 0, Math.PI * 2);
+                ctx.fill();
             }
         }
     }
