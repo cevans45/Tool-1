@@ -1750,14 +1750,22 @@
 
         markerEl?.addEventListener('change', (e) => {
             setMarker(e.target.value);
-            rerenderGenerateCurrent();
+            if (state.uiTab === 'generate') {
+                rerenderGenerateCurrent();
+            } else if (state.points.length) {
+                renderFromPoints(state.points);
+            }
         });
 
         markerIconsWrap?.addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-marker]');
             if (!btn) return;
             setMarker(btn.getAttribute('data-marker'));
-            rerenderGenerateCurrent();
+            if (state.uiTab === 'generate') {
+                rerenderGenerateCurrent();
+            } else if (state.points.length) {
+                renderFromPoints(state.points);
+            }
         });
 
         fillEnabledEl?.addEventListener('change', (e) => {
