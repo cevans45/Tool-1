@@ -56,6 +56,17 @@
                                 </div>
                             </div>
 
+                            <div class="control-row" style="gap:6px; margin-bottom:12px;">
+                                <button type="button" id="el-upload-image" class="panel-button" style="flex:1;">Upload image</button>
+                                <input type="file" id="el-image-input" accept="image/*" style="display:none;">
+                            </div>
+
+                            <div class="control-row" id="el-image-opacity-row" style="gap:10px; display:none;">
+                                <label for="el-image-opacity">Image opacity</label>
+                                <input type="range" id="el-image-opacity" min="0" max="100" value="30" step="1">
+                                <span class="param-value" id="val-el-image-opacity">30%</span>
+                            </div>
+
                             <div class="control-row" id="el-generate-row" style="gap:6px; margin-top:0; display:none;">
                                 <button type="button" id="el-generate" class="panel-button" style="flex:1;">Generate</button>
                             </div>
@@ -356,6 +367,9 @@
             outlineColor: '#000000',
             fillColor: '#000000',
             bgColor: '#ffffff',
+            // Image trace feature
+            traceImage: null,
+            traceImageOpacity: 0.3,
 
             outlineRadius: 1.0,
 
@@ -1422,6 +1436,20 @@
             } else {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
             }
+            
+            // Draw trace image if loaded
+            if (state.traceImage && !opts?.exportBg) {
+                ctx.globalAlpha = state.traceImageOpacity;
+                const img = state.traceImage;
+                const scale = Math.min(cssWidth / img.width, cssHeight / img.height);
+                const drawW = img.width * scale;
+                const drawH = img.height * scale;
+                const x = (cssWidth - drawW) / 2;
+                const y = (cssHeight - drawH) / 2;
+                ctx.drawImage(img, x, y, drawW, drawH);
+                ctx.globalAlpha = 1;
+            }
+            
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             state.points = [];
             state.edges = [];
@@ -1600,6 +1628,38 @@
         tabSketchBtn?.addEventListener('click', () => setUiTab('sketch'));
         tabGenerateBtn?.addEventListener('click', () => setUiTab('generate'));
         generateBtn?.addEventListener('click', generateRandomDrawing);
+
+        const uploadImageBtn = el('el-upload-image');
+        const imageInput = el('el-image-input');
+        const imageOpacityEl = el('el-image-opacity');
+        const imageOpacityVal = el('val-el-image-opacity');
+        const imageOpacityRow = el('el-image-opacity-row');
+
+        uploadImageBtn?.addEventListener('click', () => imageInput?.click());
+        
+        imageInput?.addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const img = new Image();
+                img.onload = () => {
+                    state.traceImage = img;
+                    imageOpacityRow.style.display = '';
+                    if (state.uiTab === 'generate') rerenderGenerateCurrent();
+                    else if (state.points.length) renderFromPoints(state.points);
+                };
+                img.src = evt.target?.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        imageOpacityEl?.addEventListener('input', (e) => {
+            state.traceImageOpacity = parseFloat(e.target.value) / 100;
+            if (imageOpacityVal) imageOpacityVal.textContent = Math.round(parseFloat(e.target.value)) + '%';
+            if (state.uiTab === 'generate') rerenderGenerateCurrent();
+            else if (state.points.length) renderFromPoints(state.points);
+        });
 
         strokeEl?.addEventListener('input', (e) => {
             state.brushSize = clamp(parseFloat(e.target.value), 0, 10);
