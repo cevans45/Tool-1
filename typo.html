@@ -204,16 +204,18 @@
 
     // Font mashup pool (from OVRT home page) with full styling info
     const FONT_SLOTS = [
-        { label: 'Badger', style: 'normal', weight: '400', family: '"Bangers", cursive' },
-        { label: 'Hofmann', style: 'normal', weight: '600', family: '"NG Hofmann", sans-serif' },
-        { label: 'Display', style: 'normal', weight: '700', family: '"DM Sans", sans-serif' },
-        { label: 'Galapagos', style: 'normal', weight: '700', family: '"Space Grotesk", sans-serif' },
-        { label: 'Maxi Plus', style: 'normal', weight: '400', family: '"Bebas Neue", sans-serif' },
-        { label: 'Averia Italic', style: 'italic', weight: '400', family: '"Averia Serif Libre", serif' },
-        { label: 'Brush', style: 'normal', weight: '400', family: '"Permanent Marker", cursive' },
+        { label: 'Badger', style: 'normal', weight: '400', family: '"Bangers", cursive', effect: 'stroke' },
+        { label: 'Hofmann', style: 'normal', weight: '600', family: '"NG Hofmann", sans-serif', effect: 'fill' },
+        { label: 'Display', style: 'normal', weight: '700', family: '"DM Sans", sans-serif', effect: 'shadow' },
+        { label: 'Galapagos', style: 'normal', weight: '700', family: '"Space Grotesk", sans-serif', effect: 'stroke-light' },
+        { label: 'Maxi Plus', style: 'normal', weight: '400', family: '"Bebas Neue", sans-serif', effect: 'double' },
+        { label: 'Averia Italic', style: 'italic', weight: '400', family: '"Averia Serif Libre", serif', effect: 'fill' },
+        { label: 'Brush', style: 'normal', weight: '400', family: '"Permanent Marker", cursive', effect: 'shadow-soft' },
     ];
 
     let letterFontIdx = []; // per-character font indices
+    let letterEffectIdx = []; // per-character effect indices
+    let mashMode = false; // track if in mash mode
 
     const S = {
         text: 'TYPO', showAlphabet: false, fontSize: 140, letterSpacing: 0, lineHeight: 1.2,
@@ -249,9 +251,11 @@
 
     function shuffleLetterFonts() {
         letterFontIdx = [];
+        letterEffectIdx = [];
         const text = getActiveText().replace(/\n/g, '');
         for (let i = 0; i < text.length; i++) {
             letterFontIdx.push(Math.floor(Math.random() * FONT_SLOTS.length));
+            letterEffectIdx.push(Math.floor(Math.random() * FONT_SLOTS.length)); // each char also gets random effect slot
         }
     }
 
@@ -262,6 +266,14 @@
             return slot.style + ' ' + slot.weight + ' ' + getActiveFontSize() + 'px ' + slot.family;
         }
         return fontStr();
+    }
+
+    function effectForChar(charIdx) {
+        if (mashMode && letterEffectIdx.length > 0 && charIdx < letterEffectIdx.length) {
+            const slotIdx = letterEffectIdx[charIdx];
+            return FONT_SLOTS[slotIdx].effect;
+        }
+        return S.fill ? 'fill' : 'stroke';
     }
 
     function drawTextLine(c, text, x, y) {
@@ -852,10 +864,18 @@
         $('ty-font-reset').style.display = 'none'; paramChanged();
     });
     $('ty-mash-fonts').addEventListener('click', () => {
-        // Shuffle each character to a random font from the pool
+        // Shuffle each character to a random font and effect from the pool
+        mashMode = true;
         shuffleLetterFonts();
-        $('ty-font-label').textContent = letterFontIdx.length + ' chars, each a random font!';
+        $('ty-font-label').textContent = letterFontIdx.length + ' chars, each a random font + effect!';
         $('ty-font-reset').style.display = '';
+        // Disable the global Render toggle since each char now has its own effect
+        $('ty-fill-btn').disabled = true;
+        $('ty-stroke-btn').disabled = true;
+        $('ty-fill-btn').style.opacity = '0.5';
+        $('ty-stroke-btn').style.opacity = '0.5';
+        $('ty-fill-btn').title = 'Disabled: each char has its own effect in Mash mode';
+        $('ty-stroke-btn').title = 'Disabled: each char has its own effect in Mash mode';
         paramChanged();
     });
     $('ty-mode').addEventListener('change', e => { S.mode = e.target.value; modeChanged(); });
