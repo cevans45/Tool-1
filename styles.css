@@ -286,6 +286,15 @@ body.is-leaving {
     text-align: right;
 }
 
+/* Override 4th child (Phantom) to alternate with Sigil */
+.site-card:nth-child(4) {
+    flex-direction: row;
+}
+
+.site-card:nth-child(4) .site-card-body {
+    text-align: left;
+}
+
 .site-card-body h2 {
     font-family: 'ABC Diatype Mono', monospace;
     font-size: 36px;
