@@ -202,16 +202,18 @@
     let cssW = 1, cssH = 1, dpr = 1;
     const $ = id => document.getElementById(id);
 
-    // Font mashup pool (from OVRT home page)
-    const FONT_MASHUP_POOL = [
-        { label: 'Badger', family: '"Bangers", cursive' },
-        { label: 'Hofmann', family: '"NG Hofmann", sans-serif' },
-        { label: 'Display', family: '"DM Sans", sans-serif' },
-        { label: 'Galapagos', family: '"Space Grotesk", sans-serif' },
-        { label: 'Maxi Plus', family: '"Bebas Neue", sans-serif' },
-        { label: 'Averia Italic', family: '"Averia Serif Libre", serif' },
-        { label: 'Brush', family: '"Permanent Marker", cursive' },
+    // Font mashup pool (from OVRT home page) with full styling info
+    const FONT_SLOTS = [
+        { label: 'Badger', style: 'normal', weight: '400', family: '"Bangers", cursive' },
+        { label: 'Hofmann', style: 'normal', weight: '600', family: '"NG Hofmann", sans-serif' },
+        { label: 'Display', style: 'normal', weight: '700', family: '"DM Sans", sans-serif' },
+        { label: 'Galapagos', style: 'normal', weight: '700', family: '"Space Grotesk", sans-serif' },
+        { label: 'Maxi Plus', style: 'normal', weight: '400', family: '"Bebas Neue", sans-serif' },
+        { label: 'Averia Italic', style: 'italic', weight: '400', family: '"Averia Serif Libre", serif' },
+        { label: 'Brush', style: 'normal', weight: '400', family: '"Permanent Marker", cursive' },
     ];
+
+    let letterFontIdx = []; // per-character font indices
 
     const S = {
         text: 'TYPO', showAlphabet: false, fontSize: 140, letterSpacing: 0, lineHeight: 1.2,
@@ -245,19 +247,53 @@
 
     function fontStr() { return getActiveFontSize() + 'px ' + S.fontFamily; }
 
+    function shuffleLetterFonts() {
+        letterFontIdx = [];
+        const text = getActiveText().replace(/\n/g, '');
+        for (let i = 0; i < text.length; i++) {
+            letterFontIdx.push(Math.floor(Math.random() * FONT_SLOTS.length));
+        }
+    }
+
+    function fontStrForChar(charIdx) {
+        if (!S.fontFileName && letterFontIdx.length > 0 && charIdx < letterFontIdx.length) {
+            const slotIdx = letterFontIdx[charIdx];
+            const slot = FONT_SLOTS[slotIdx];
+            return slot.style + ' ' + slot.weight + ' ' + getActiveFontSize() + 'px ' + slot.family;
+        }
+        return fontStr();
+    }
+
     function drawTextLine(c, text, x, y) {
-        if (S.letterSpacing === 0) { c.fillText(text, x, y); return; }
-        const totalW = measureW(c, text);
+        const totalW = letterSpacingMode ? measureWWithFonts(c, text) : measureW(c, text);
         let cx = x;
         if (c.textAlign === 'center') cx -= totalW / 2;
         else if (c.textAlign === 'right') cx -= totalW;
         const saved = c.textAlign; c.textAlign = 'left';
+        let charIdx = 0;
         for (let i = 0; i < text.length; i++) {
+            const font = fontStrForChar(charIdx);
+            c.font = font;
             c.fillText(text[i], cx, y);
-            cx += c.measureText(text[i]).width + S.letterSpacing;
+            cx += c.measureText(text[i]).width + (letterSpacingMode ? S.letterSpacing : 0);
+            charIdx++;
         }
         c.textAlign = saved;
+        c.font = fontStr();
     }
+
+    function measureWWithFonts(c, text) {
+        let w = 0;
+        for (let i = 0; i < text.length; i++) {
+            c.font = fontStrForChar(i);
+            w += c.measureText(text[i]).width;
+            if (i < text.length - 1) w += S.letterSpacing;
+        }
+        c.font = fontStr();
+        return w;
+    }
+
+    const letterSpacingMode = true; // flag to use per-char font rendering
 
     function measureW(c, text) {
         if (S.letterSpacing === 0) return c.measureText(text).width;
@@ -815,11 +851,9 @@
         $('ty-font-reset').style.display = 'none'; paramChanged();
     });
     $('ty-mash-fonts').addEventListener('click', () => {
-        // Pick a random font from the mashup pool each click
-        const font = FONT_MASHUP_POOL[Math.floor(Math.random() * FONT_MASHUP_POOL.length)];
-        S.fontFamily = font.family;
-        S.fontFileName = null;
-        $('ty-font-label').textContent = font.label;
+        // Shuffle each character to a random font from the pool
+        shuffleLetterFonts();
+        $('ty-font-label').textContent = letterFontIdx.length + ' chars, each a random font!';
         $('ty-font-reset').style.display = '';
         paramChanged();
     });
