@@ -202,20 +202,21 @@
     let cssW = 1, cssH = 1, dpr = 1;
     const $ = id => document.getElementById(id);
 
-    // Font mashup pool (from OVRT home page) with full styling info
+    // Font mashup pool (from OVRT home page) with font + paired effect + particle mode.
+    // When MASH FONTS is on, each character is randomly assigned a slot and renders
+    // with that font, that effect, AND that particle mode — exactly like the home page.
     const FONT_SLOTS = [
-        { label: 'Badger', style: 'normal', weight: '400', family: '"Bangers", cursive', effect: 'stroke' },
-        { label: 'Hofmann', style: 'normal', weight: '600', family: '"NG Hofmann", sans-serif', effect: 'fill' },
-        { label: 'Display', style: 'normal', weight: '700', family: '"DM Sans", sans-serif', effect: 'shadow' },
-        { label: 'Galapagos', style: 'normal', weight: '700', family: '"Space Grotesk", sans-serif', effect: 'stroke-light' },
-        { label: 'Maxi Plus', style: 'normal', weight: '400', family: '"Bebas Neue", sans-serif', effect: 'double' },
-        { label: 'Averia Italic', style: 'italic', weight: '400', family: '"Averia Serif Libre", serif', effect: 'fill' },
-        { label: 'Brush', style: 'normal', weight: '400', family: '"Permanent Marker", cursive', effect: 'shadow-soft' },
+        { label: 'Badger',        style: 'normal', weight: '400', family: '"Bangers", cursive',              effect: 'stroke',       mode: 'circles'  },
+        { label: 'Hofmann',       style: 'normal', weight: '600', family: '"NG Hofmann", sans-serif',        effect: 'fill',         mode: 'squares'  },
+        { label: 'Display',       style: 'normal', weight: '700', family: '"DM Sans", sans-serif',           effect: 'shadow',       mode: 'grid'     },
+        { label: 'Galapagos',     style: 'normal', weight: '700', family: '"Space Grotesk", sans-serif',     effect: 'stroke-light', mode: 'diamonds' },
+        { label: 'Maxi Plus',     style: 'normal', weight: '400', family: '"Bebas Neue", sans-serif',        effect: 'double',       mode: 'stars'    },
+        { label: 'Averia Italic', style: 'italic', weight: '400', family: '"Averia Serif Libre", serif',     effect: 'fill',         mode: 'fragment' },
+        { label: 'Brush',         style: 'normal', weight: '400', family: '"Permanent Marker", cursive',     effect: 'shadow-soft',  mode: 'circles'  },
     ];
 
-    let letterFontIdx = []; // per-character font indices
-    let letterEffectIdx = []; // per-character effect indices
-    let mashMode = false; // track if in mash mode
+    let letterFontIdx = []; // per-character font slot indices (one slot drives font + effect + mode)
+    let mashMode = false;
 
     const S = {
         text: 'TYPO', showAlphabet: false, fontSize: 140, letterSpacing: 0, lineHeight: 1.2,
@@ -251,29 +252,30 @@
 
     function shuffleLetterFonts() {
         letterFontIdx = [];
-        letterEffectIdx = [];
         const text = getActiveText().replace(/\n/g, '');
         for (let i = 0; i < text.length; i++) {
             letterFontIdx.push(Math.floor(Math.random() * FONT_SLOTS.length));
-            letterEffectIdx.push(Math.floor(Math.random() * FONT_SLOTS.length)); // each char also gets random effect slot
         }
     }
 
+    function slotForChar(charIdx) {
+        if (mashMode && letterFontIdx.length > 0 && charIdx >= 0 && charIdx < letterFontIdx.length) {
+            return FONT_SLOTS[letterFontIdx[charIdx]];
+        }
+        return null;
+    }
+
     function fontStrForChar(charIdx) {
-        if (!S.fontFileName && letterFontIdx.length > 0 && charIdx < letterFontIdx.length) {
-            const slotIdx = letterFontIdx[charIdx];
-            const slot = FONT_SLOTS[slotIdx];
+        const slot = slotForChar(charIdx);
+        if (slot && !S.fontFileName) {
             return slot.style + ' ' + slot.weight + ' ' + getActiveFontSize() + 'px ' + slot.family;
         }
         return fontStr();
     }
 
-    function effectForChar(charIdx) {
-        if (mashMode && letterEffectIdx.length > 0 && charIdx < letterEffectIdx.length) {
-            const slotIdx = letterEffectIdx[charIdx];
-            return FONT_SLOTS[slotIdx].effect;
-        }
-        return S.fill ? 'fill' : 'stroke';
+    function modeForChar(charIdx) {
+        const slot = slotForChar(charIdx);
+        return slot ? slot.mode : S.mode;
     }
 
     function drawTextLine(c, text, x, y) {
@@ -317,23 +319,70 @@
         return w;
     }
 
+    // Per-character bounding boxes (in CSS px). Populated by renderSource each redraw.
+    // Used so each particle can look up which character it belongs to.
+    let charBounds = []; // array of { ch, charIdx, x0, y0, x1, y1 }
+
     function renderSource() {
         srcCanvas.width = canvas.width;
         srcCanvas.height = canvas.height;
         srcCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
         srcCtx.clearRect(0, 0, cssW, cssH);
-        srcCtx.font = fontStr();
         srcCtx.textAlign = S.textAlign;
         srcCtx.textBaseline = 'middle';
         srcCtx.fillStyle = '#000';
+        charBounds = [];
         const lines = getActiveText().split('\n');
         const lineH = getActiveFontSize() * S.lineHeight;
         const totalH = (lines.length - 1) * lineH;
         const startY = cssH / 2 - totalH / 2;
         const x = S.textAlign === 'left' ? 40 : S.textAlign === 'right' ? cssW - 40 : cssW / 2;
+        let globalCharIdx = 0;
         for (let i = 0; i < lines.length; i++) {
-            drawTextLine(srcCtx, lines[i], x, startY + i * lineH);
+            globalCharIdx = drawTextLineTracked(srcCtx, lines[i], x, startY + i * lineH, globalCharIdx);
         }
+    }
+
+    // Draws a line and records the bounding box of every glyph into charBounds.
+    function drawTextLineTracked(c, text, x, y, startCharIdx) {
+        // Compute total width up front using per-char fonts so center/right alignment is correct
+        let totalW = 0;
+        for (let i = 0; i < text.length; i++) {
+            c.font = fontStrForChar(startCharIdx + i);
+            totalW += c.measureText(text[i]).width;
+            if (i < text.length - 1) totalW += S.letterSpacing;
+        }
+        let cx = x;
+        if (c.textAlign === 'center') cx -= totalW / 2;
+        else if (c.textAlign === 'right') cx -= totalW;
+        const saved = c.textAlign; c.textAlign = 'left';
+        const fs = getActiveFontSize();
+        for (let i = 0; i < text.length; i++) {
+            const idx = startCharIdx + i;
+            c.font = fontStrForChar(idx);
+            const w = c.measureText(text[i]).width;
+            c.fillText(text[i], cx, y);
+            charBounds.push({
+                ch: text[i],
+                charIdx: idx,
+                x0: cx,
+                y0: y - fs * 0.7,
+                x1: cx + w,
+                y1: y + fs * 0.7,
+            });
+            cx += w + S.letterSpacing;
+        }
+        c.textAlign = saved;
+        c.font = fontStr();
+        return startCharIdx + text.length;
+    }
+
+    function charIdxAtPoint(px, py) {
+        for (let i = 0; i < charBounds.length; i++) {
+            const b = charBounds[i];
+            if (px >= b.x0 && px <= b.x1 && py >= b.y0 && py <= b.y1) return b.charIdx;
+        }
+        return -1;
     }
 
     function extractAlpha() {
@@ -372,6 +421,7 @@
 
             const angle = Math.random() * Math.PI * 2;
             const speed = 0.3 + Math.random() * 0.8;
+            const charIdx = charIdxAtPoint(x, y);
             particles.push({
                 x, y, homeX: x, homeY: y,
                 vx: Math.cos(angle) * speed,
@@ -379,6 +429,7 @@
                 scale: (0.2 + Math.random() * 0.8) * (1 - S.uniform / 100) + (S.uniform / 100),
                 phase: Math.random() * Math.PI * 2,
                 escaped: 0,
+                charIdx, // -1 if no match (shouldn't happen since particle is inside alpha)
             });
         }
 
