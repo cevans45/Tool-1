@@ -70,6 +70,7 @@
                                     .ttf/.otf/.woff onto canvas</div>
                                 <button type="button" id="ty-font-reset" class="panel-button"
                                     style="display:none;">Reset font</button>
+                                <button type="button" id="ty-mash-fonts" class="panel-button" style="font-size:11px;font-weight:600;">MASH FONTS</button>
                             </div>
                         </section>
                     </details>
@@ -200,6 +201,17 @@
     const srcCtx = srcCanvas.getContext('2d');
     let cssW = 1, cssH = 1, dpr = 1;
     const $ = id => document.getElementById(id);
+
+    // Font mashup pool (from OVRT home page)
+    const FONT_MASHUP_POOL = [
+        { label: 'Badger', family: '"Bangers", cursive' },
+        { label: 'Hofmann', family: '"NG Hofmann", sans-serif' },
+        { label: 'Display', family: '"DM Sans", sans-serif' },
+        { label: 'Galapagos', family: '"Space Grotesk", sans-serif' },
+        { label: 'Maxi Plus', family: '"Bebas Neue", sans-serif' },
+        { label: 'Averia Italic', family: '"Averia Serif Libre", serif' },
+        { label: 'Brush', family: '"Permanent Marker", cursive' },
+    ];
 
     const S = {
         text: 'TYPO', showAlphabet: false, fontSize: 140, letterSpacing: 0, lineHeight: 1.2,
@@ -801,6 +813,15 @@
         S.fontFamily = 'sans-serif'; S.fontFileName = null;
         $('ty-font-label').textContent = 'System default — drop .ttf/.otf/.woff onto canvas';
         $('ty-font-reset').style.display = 'none'; paramChanged();
+    });
+    $('ty-mash-fonts').addEventListener('click', () => {
+        // Pick a random font from the mashup pool each click
+        const font = FONT_MASHUP_POOL[Math.floor(Math.random() * FONT_MASHUP_POOL.length)];
+        S.fontFamily = font.family;
+        S.fontFileName = null;
+        $('ty-font-label').textContent = font.label;
+        $('ty-font-reset').style.display = '';
+        paramChanged();
     });
     $('ty-mode').addEventListener('change', e => { S.mode = e.target.value; modeChanged(); });
     $('ty-fill-btn').addEventListener('click', () => {
