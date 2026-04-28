@@ -450,14 +450,52 @@
         ctx.globalAlpha = 1;
 
         ctx.fillStyle = S.ink;
-        for (const p of particles) {
+        for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
             const r = maxR * p.scale;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-            ctx.fill();
+            
+            // In mash mode, apply per-particle effect based on its index
+            if (mashMode) {
+                const effectMode = letterEffectIdx[i % letterEffectIdx.length] || 0;
+                const slotEffect = FONT_SLOTS[effectMode].effect;
+                
+                if (slotEffect === 'stroke' || slotEffect === 'stroke-light') {
+                    ctx.strokeStyle = S.ink;
+                    ctx.lineWidth = slotEffect === 'stroke-light' ? 0.5 : S.strokeW * 0.5;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else if (slotEffect === 'shadow' || slotEffect === 'shadow-soft') {
+                    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                    ctx.beginPath();
+                    ctx.arc(p.x + 2, p.y + 2, r, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = S.ink;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (slotEffect === 'double') {
+                    ctx.fillStyle = S.bg;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, r * 0.7, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.fillStyle = S.ink;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
         }
 
-        if (!S.fill) {
+        if (!S.fill && !mashMode) {
             ctx.fillStyle = S.bg;
             const inset = Math.max(1, S.strokeW);
             for (const p of particles) {
