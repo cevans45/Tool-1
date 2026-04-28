@@ -1646,8 +1646,27 @@
                 img.onload = () => {
                     state.traceImage = img;
                     imageOpacityRow.style.display = '';
-                    if (state.uiTab === 'generate') rerenderGenerateCurrent();
-                    else if (state.points.length) renderFromPoints(state.points);
+                    // Always render, even if no points yet - just show the image
+                    if (state.uiTab === 'generate') {
+                        rerenderGenerateCurrent();
+                    } else {
+                        // Clear and show image, even with no points
+                        ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        
+                        // Draw trace image
+                        ctx.globalAlpha = state.traceImageOpacity;
+                        const scale = Math.min(cssWidth / img.width, cssHeight / img.height);
+                        const drawW = img.width * scale;
+                        const drawH = img.height * scale;
+                        const x = (cssWidth - drawW) / 2;
+                        const y = (cssHeight - drawH) / 2;
+                        ctx.drawImage(img, x, y, drawW, drawH);
+                        ctx.globalAlpha = 1;
+                        
+                        // Draw existing points if any
+                        if (state.points.length) renderFromPoints(state.points);
+                    }
                 };
                 img.src = evt.target?.result;
             };
@@ -1657,8 +1676,26 @@
         imageOpacityEl?.addEventListener('input', (e) => {
             state.traceImageOpacity = parseFloat(e.target.value) / 100;
             if (imageOpacityVal) imageOpacityVal.textContent = Math.round(parseFloat(e.target.value)) + '%';
-            if (state.uiTab === 'generate') rerenderGenerateCurrent();
-            else if (state.points.length) renderFromPoints(state.points);
+            if (state.uiTab === 'generate') {
+                rerenderGenerateCurrent();
+            } else if (state.points.length || state.traceImage) {
+                // If there's a trace image but no points, just redraw the image
+                if (state.traceImage && !state.points.length) {
+                    ctx.setTransform(1, 0, 0, 1, 0, 0);
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.globalAlpha = state.traceImageOpacity;
+                    const img = state.traceImage;
+                    const scale = Math.min(cssWidth / img.width, cssHeight / img.height);
+                    const drawW = img.width * scale;
+                    const drawH = img.height * scale;
+                    const x = (cssWidth - drawW) / 2;
+                    const y = (cssHeight - drawH) / 2;
+                    ctx.drawImage(img, x, y, drawW, drawH);
+                    ctx.globalAlpha = 1;
+                } else {
+                    renderFromPoints(state.points);
+                }
+            }
         });
 
         strokeEl?.addEventListener('input', (e) => {
