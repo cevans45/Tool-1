@@ -630,13 +630,15 @@
         function drawTraceImage() {
             if (!state.traceImage) return;
             const img = state.traceImage;
-            // Start with fit-to-canvas at 100%, then apply scale multiplier
-            const maxScale = Math.min(cssWidth / img.width, cssHeight / img.height);
+            // Use canvas physical dimensions (not CSS), since we're in setTransform(1,0,0,1,0,0)
+            const w = canvas.width;
+            const h = canvas.height;
+            const maxScale = Math.min(w / img.width, h / img.height);
             const scale = maxScale * (state.traceImageScale / 100);
             const drawW = img.width * scale;
             const drawH = img.height * scale;
-            const x = (cssWidth - drawW) / 2;
-            const y = (cssHeight - drawH) / 2;
+            const x = (w - drawW) / 2;
+            const y = (h - drawH) / 2;
             ctx.globalAlpha = state.traceImageOpacity;
             ctx.drawImage(img, x, y, drawW, drawH);
             ctx.globalAlpha = 1;
