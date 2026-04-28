@@ -110,10 +110,10 @@ body.is-leaving {
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    gap: 24px;
+    gap: 48px;
     width: min(96vw, 1000px);
     height: 140px;
-    margin-top: -20px;
+    margin-top: -60px;
     position: relative;
     pointer-events: none;
 }
