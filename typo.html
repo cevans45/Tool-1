@@ -860,8 +860,18 @@
     $('ty-font-reset').addEventListener('click', () => {
         S.fontFamily = 'sans-serif'; S.fontFileName = null;
         letterFontIdx = [];
+        letterEffectIdx = [];
+        mashMode = false;
         $('ty-font-label').textContent = 'System default — drop .ttf/.otf/.woff onto canvas';
-        $('ty-font-reset').style.display = 'none'; paramChanged();
+        $('ty-font-reset').style.display = 'none';
+        // Re-enable the Render toggle
+        $('ty-fill-btn').disabled = false;
+        $('ty-stroke-btn').disabled = false;
+        $('ty-fill-btn').style.opacity = '1';
+        $('ty-stroke-btn').style.opacity = '1';
+        $('ty-fill-btn').title = '';
+        $('ty-stroke-btn').title = '';
+        paramChanged();
     });
     $('ty-mash-fonts').addEventListener('click', () => {
         // Shuffle each character to a random font and effect from the pool
