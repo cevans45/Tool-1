@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Elemenyt — OVRT</title>
+    <title>Sigil — OVRT</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -12,10 +12,10 @@
     <div class="site-shell">
         <header class="tool-header">
             <a href="index.html" class="back-link">← Back to OVRT</a>
-            <span class="tool-title">Elemenyt mirror</span>
+            <span class="tool-title">Sigil</span>
         </header>
 
-        <div class="app" aria-label="Elemenyt mirror">
+        <div class="app" aria-label="Sigil">
             <div id="sketch-container">
                 <canvas id="canvas"></canvas>
             </div>
@@ -26,20 +26,13 @@
                     <button type="button" class="info-btn" id="info-btn" aria-label="What each control does">i</button>
                 </header>
 
-                <div class="info-overlay" id="info-overlay" role="dialog" aria-label="Control descriptions" hidden>
+                <div class="info-overlay" id="info-overlay" role="dialog" aria-label="Shortcuts and tips" hidden>
                     <div class="info-content">
-                        <h3>What each control does</h3>
+                        <h3>Sigil — quick tips</h3>
+                        <p style="font-size:12px;line-height:1.5;color:#444;margin:0 0 12px;">Each slider and toggle in the panel has a short description beneath it. Use the trace image as a faint guide; it is not included in PNG/SVG export.</p>
                         <dl>
-                            <dt>DRAW / ERASE</dt>
-                            <dd>DRAW draws; ERASE erases using destination-out.</dd>
-                            <dt>Marker</dt>
-                            <dd>Line = jagged segments. Sprinkle/Grid/Grain = alternate scratch textures.</dd>
-                            <dt>Fill</dt>
-                            <dd>If ON, uses “Fill color” for ink + outline coloring.</dd>
-                            <dt>Outline thickness</dt>
-                            <dd>Controls the jagged-edge filter dilation radius.</dd>
-                            <dt>Undo</dt>
-                            <dd>Cmd/Ctrl+Z undoes the last stroke.</dd>
+                            <dt>Keyboard</dt>
+                            <dd><strong>Space</strong> — clear the canvas. <strong>⌘Z / Ctrl+Z</strong> — undo last stroke.</dd>
                         </dl>
                         <button type="button" class="info-close" id="info-close">Close</button>
                     </div>
@@ -56,22 +49,27 @@
                                 </div>
                             </div>
 
+                            <p class="control-hint" style="margin-top:4px;">Sketch = draw by hand. Generate = procedural random paths.</p>
+
                             <div class="control-row" style="gap:6px; margin-bottom:12px;">
                                 <button type="button" id="el-upload-image" class="panel-button" style="flex:1;">Upload image</button>
                                 <input type="file" id="el-image-input" accept="image/*" style="display:none;">
                             </div>
+                            <p class="control-hint">Place a reference image behind the canvas for tracing. Hidden from export.</p>
 
                             <div class="control-row" id="el-image-opacity-row" style="gap:10px; display:none;">
                                 <label for="el-image-opacity">Image opacity</label>
                                 <input type="range" id="el-image-opacity" min="0" max="100" value="30" step="1">
                                 <span class="param-value" id="val-el-image-opacity">30%</span>
                             </div>
+                            <p class="control-hint" id="el-image-opacity-hint" style="display:none;">How visible the trace image is (0 = invisible).</p>
 
                             <div class="control-row" id="el-image-scale-row" style="gap:10px; display:none;">
                                 <label for="el-image-scale">Image scale</label>
                                 <input type="range" id="el-image-scale" min="10" max="200" value="100" step="5">
                                 <span class="param-value" id="val-el-image-scale">100%</span>
                             </div>
+                            <p class="control-hint" id="el-image-scale-hint" style="display:none;">100% fits the image inside the canvas; lower or higher zooms out/in.</p>
 
                             <div class="control-row" id="el-generate-row" style="gap:6px; margin-top:0; display:none;">
                                 <button type="button" id="el-generate" class="panel-button" style="flex:1;">Generate</button>
@@ -82,6 +80,7 @@
                                 <input type="range" id="el-generate-time" min="0" max="100" value="55" step="1">
                                 <span class="param-value" id="val-el-generate-time">55</span>
                             </div>
+                            <p class="control-hint" id="el-generate-time-hint" style="display:none;">Higher = longer, denser generated paths.</p>
 
                             <div class="control-row" id="el-mode-row" style="margin-bottom:12px;">
                                 <div class="mode-switch" style="width:100%; margin:0;">
@@ -89,6 +88,7 @@
                                     <button type="button" id="el-mode-cut" class="panel-button">ERASE</button>
                                 </div>
                             </div>
+                            <p class="control-hint">Draw adds ink; Erase removes strokes (destination-out). Sketch tab only.</p>
 
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-mirror" checked>
@@ -101,30 +101,35 @@
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Mirror top-bottom</span>
                             </label>
+                            <p class="control-hint">Duplicate strokes across vertical / horizontal axes from the canvas center.</p>
 
                             <div class="control-row">
                                 <label for="el-stroke">Stroke size</label>
                                 <input type="range" id="el-stroke" min="0.0" max="10.0" value="6" step="0.1">
                                 <span class="param-value" id="val-el-stroke">6</span>
                             </div>
+                            <p class="control-hint">Brush thickness for drawn segments and marker textures.</p>
 
                             <div class="control-row">
                                 <label for="el-sticky-strength">Sticky</label>
                                 <input type="range" id="el-sticky-strength" min="0" max="10" value="0" step="0.5">
                                 <span class="param-value" id="val-el-sticky-strength">0</span>
                             </div>
+                            <p class="control-hint">Organic “growth” along the stroke; 0 is off.</p>
 
                             <div class="control-row">
                                 <label for="el-sticky-distance">Sticky dist</label>
                                 <input type="range" id="el-sticky-distance" min="0" max="10" value="5" step="0.5">
                                 <span class="param-value" id="val-el-sticky-distance">5</span>
                             </div>
+                            <p class="control-hint">How far sticky branches reach from the main path.</p>
 
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-taper">
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Taper ends</span>
                             </label>
+                            <p class="control-hint">Fade stroke width at the start and end of each pen-down segment.</p>
 
 
                             <div class="control-row">
@@ -138,6 +143,7 @@
                                     <option value="inkblot">Inkblot</option>
                                 </select>
                             </div>
+                            <p class="control-hint">Texture applied along each stroke: plain ink, jagged line, scatter, grid, grain, or blot.</p>
 
                             <div class="control-row" style="margin-top:-4px;">
                                 <label>Effect icons</label>
@@ -154,44 +160,50 @@
                             <div class="control-row" style="margin-top:2px;">
                                 <canvas id="el-marker-preview" width="440" height="56"></canvas>
                             </div>
+                            <p class="control-hint">Live preview of the current marker texture at your stroke size.</p>
 
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-fill-enabled">
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Fill</span>
                             </label>
+                            <p class="control-hint">On: solid fills use Fill color. Off: outline / jagged-edge look using Ink and Outline colors.</p>
 
                             <div class="control-row color-row">
                                 <label for="el-ink-color">Ink color</label>
                                 <input type="color" id="el-ink-color" value="#000000">
                             </div>
+                            <p class="control-hint">Stroke color when Fill is off (outline mode).</p>
                             <div class="control-row color-row">
                                 <label for="el-outline-color">Outline color</label>
                                 <input type="color" id="el-outline-color" value="#000000">
                             </div>
+                            <p class="control-hint">Outer edge of the jagged filter (non-fill mode).</p>
                             <div class="control-row color-row">
                                 <label for="el-fill-color">Fill color</label>
                                 <input type="color" id="el-fill-color" value="#000000">
                             </div>
+                            <p class="control-hint">Interior color when Fill is on.</p>
                             <div class="control-row color-row">
                                 <label for="el-bg-color">Background</label>
                                 <input type="color" id="el-bg-color" value="#ffffff">
                             </div>
+                            <p class="control-hint">Canvas area behind the sketch (and export background unless overridden).</p>
 
                             <div class="control-row">
                                 <label for="el-outline">Outline thickness</label>
                                 <input type="range" id="el-outline" min="0.2" max="10.0" value="1.0" step="0.05">
                                 <span class="param-value" id="val-el-outline">1.00</span>
                             </div>
+                            <p class="control-hint">How thick the jagged outline ring is (SVG morph radius).</p>
 
-                            <div class="control-row" style="gap:6px; margin-top:8px;">
-                                <button type="button" id="el-clear" class="panel-button">Clear</button>
-                                <button type="button" id="el-export" class="panel-button">Export PNG</button>
+                            <div class="control-row" style="margin-top:8px;">
+                                <button type="button" id="el-export" class="panel-button panel-button--export" style="width:100%;">Export PNG</button>
                             </div>
 
-                            <div class="shortcuts">
-                                <span>[SPACE]</span> CLEAR<br>
-                                <span>[⌘Z]</span> UNDO
+                            <div class="shortcuts-block" style="margin-top:12px;">
+                                <span>[Space]</span> Clear canvas<br>
+                                <span>[⌘Z / Ctrl+Z]</span> Undo last stroke
                             </div>
                         </section>
                     </details>
@@ -220,8 +232,8 @@
     </svg>
 
     <style>
-        /* Scope layout fixes to Elemenyt only. */
-        .app[aria-label="Elemenyt mirror"] {
+        /* Scope layout fixes to Sigil only. */
+        .app[aria-label="Sigil"] {
             /* Fill the remaining viewport height while leaving header space. */
             height: calc(100vh - 56px);
             min-height: calc(100vh - 56px);
@@ -251,20 +263,26 @@
         }
 
         /* Wider sliders: widen the control panel + shrink the label column. */
-        .app[aria-label="Elemenyt mirror"] .control-panel {
+        .app[aria-label="Sigil"] .control-panel {
             width: 280px;
         }
 
-        .app[aria-label="Elemenyt mirror"] .control-row {
-            gap: 8px;
+        .app[aria-label="Sigil"] .panel-header {
+            padding: 16px 22px;
+            gap: 20px;
         }
 
-        .app[aria-label="Elemenyt mirror"] .control-row label {
+        .app[aria-label="Sigil"] .control-row {
+            gap: 12px;
+            margin-bottom: 2px;
+        }
+
+        .app[aria-label="Sigil"] .control-row label {
             flex: 0 0 90px;
         }
 
         /* Taller canvas: remove the default panel-body max-height cap. */
-        .app[aria-label="Elemenyt mirror"] .panel-body {
+        .app[aria-label="Sigil"] .panel-body {
             max-height: none;
         }
 
@@ -339,7 +357,6 @@
         const stickyDistanceEl = el('el-sticky-distance');
         const stickyDistanceVal = el('val-el-sticky-distance');
         const markerPreviewCanvas = el('el-marker-preview');
-        const clearBtn = el('el-clear');
         const exportBtn = el('el-export');
 
         const state = {
@@ -620,6 +637,8 @@
             tabGenerateBtn?.classList.toggle('is-active', tab === 'generate');
             if (generateRow) generateRow.style.display = tab === 'generate' ? 'flex' : 'none';
             if (genTimeRow) genTimeRow.style.display = tab === 'generate' ? 'flex' : 'none';
+            const genTimeHint = el('el-generate-time-hint');
+            if (genTimeHint) genTimeHint.style.display = tab === 'generate' ? '' : 'none';
 
             // Mode controls are only for Sketch. Generate always draws.
             if (modeRowEl) modeRowEl.style.display = tab === 'sketch' ? '' : 'none';
@@ -748,7 +767,7 @@
         }
 
         function applyBackgroundColor() {
-            const app = document.querySelector('.app[aria-label="Elemenyt mirror"]');
+            const app = document.querySelector('.app[aria-label="Sigil"]');
             if (app) app.style.backgroundColor = state.bgColor;
         }
 
@@ -1598,7 +1617,7 @@
 
         function exportWithFilter() {
             const link = document.createElement('a');
-            link.download = 'elemenyt_mirror.png';
+            link.download = 'sigil_export.png';
             link.href = getCompositeExportDataUrl();
             link.click();
         }
@@ -1664,6 +1683,10 @@
                     state.traceImage = img;
                     imageOpacityRow.style.display = '';
                     el('el-image-scale-row').style.display = '';
+                    const oh = el('el-image-opacity-hint');
+                    const sh = el('el-image-scale-hint');
+                    if (oh) oh.style.display = '';
+                    if (sh) sh.style.display = '';
                     // Always render, even if no points yet - just show the image
                     if (state.uiTab === 'generate') {
                         rerenderGenerateCurrent();
@@ -1811,7 +1834,6 @@
             if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
         });
 
-        clearBtn?.addEventListener('click', clearAll);
         exportBtn?.addEventListener('click', exportWithFilter);
 
         function escapeXmlAttr(str) {
@@ -1831,7 +1853,7 @@
                 '<?xml version="1.0" encoding="UTF-8"?>\n' +
                 `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ` +
                 `width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" data-ovrt-render="${mode}" data-ovrt-export="bitmap-fallback">` +
-                `<desc>Elemenyt mirror — bitmap snapshot (vector export unavailable)</desc>` +
+                `<desc>Sigil — bitmap snapshot (vector export unavailable)</desc>` +
                 `<image href="${href}" xlink:href="${href}" width="${w}" height="${h}" />` +
                 `</svg>`
             );

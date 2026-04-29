@@ -157,7 +157,8 @@ body.is-leaving {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 18px;
+    gap: 24px;
+    padding: 14px 28px;
     border-bottom: 1px solid #111;
     background: #fff;
 }
@@ -349,13 +350,13 @@ body.is-leaving {
 }
 
 .panel-header {
-    padding: 12px 16px;
+    padding: 14px 20px;
     border-bottom: 1px solid #ccc;
     background: transparent;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
+    gap: 16px;
 }
 
 .panel-header h2 {
@@ -666,6 +667,41 @@ body.is-leaving {
 .panel-button.is-active {
     background: #000;
     color: #fff;
+}
+
+/* Export / save: outlined pill (light surfaces — matches Typo) */
+.panel-button.panel-button--export {
+    background: #fff;
+    color: #111;
+    border: 1px solid #111;
+}
+
+.panel-button.panel-button--export:hover {
+    background: #f5f5f5;
+    color: #111;
+}
+
+/* Dark UI tools: white outline on dark panel */
+.app[aria-label="Treatment"] .panel-button.panel-button--export,
+.app[aria-label="Phantom"] .panel-button.panel-button--export {
+    background: transparent;
+    color: #fff;
+    border: 1px solid #fff;
+}
+
+.app[aria-label="Treatment"] .panel-button.panel-button--export:hover,
+.app[aria-label="Phantom"] .panel-button.panel-button--export:hover {
+    background: #fff;
+    color: #000;
+}
+
+/* Short parameter descriptions under sliders (Sigil, etc.) */
+.control-hint {
+    font-size: 9px;
+    color: #777;
+    line-height: 1.45;
+    margin: -4px 0 12px;
+    letter-spacing: 0.02em;
 }
 
 .mode-switch {
