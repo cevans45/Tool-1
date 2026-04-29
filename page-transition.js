@@ -111,6 +111,42 @@
       .replace(/"/g, '&quot;');
   }
 
+  function copyComputedStylesToInline(source, target) {
+    if (source.nodeType !== 1 || target.nodeType !== 1) return;
+    const cs = window.getComputedStyle(source);
+    const parts = [];
+    for (let i = 0; i < cs.length; i++) {
+      const prop = cs.item(i);
+      const val = cs.getPropertyValue(prop);
+      if (!val) continue;
+      const pri = cs.getPropertyPriority(prop);
+      parts.push(pri ? `${prop}: ${val} !important` : `${prop}: ${val}`);
+    }
+    target.setAttribute('style', parts.join('; '));
+  }
+
+  function syncControlValues(orig, dup) {
+    if (orig.nodeType !== 1 || dup.nodeType !== 1) return;
+    const tag = orig.tagName;
+    if (tag === 'INPUT') {
+      const t = (orig.type || '').toLowerCase();
+      if (t === 'checkbox' || t === 'radio') {
+        dup.checked = orig.checked;
+      } else if (t !== 'file' && t !== 'button' && t !== 'submit' && t !== 'reset') {
+        dup.value = orig.value;
+      }
+      return;
+    }
+    if (tag === 'SELECT') {
+      dup.selectedIndex = orig.selectedIndex;
+      return;
+    }
+    if (tag === 'TEXTAREA') {
+      dup.value = orig.value;
+      dup.textContent = orig.value;
+    }
+  }
+
   function shouldIgnoreParametersShortcutFocus(el) {
     if (!el || el === document.body) return false;
     if (el.isContentEditable) return true;
@@ -131,127 +167,137 @@
     return false;
   }
 
-  function skipParametersElement(el) {
-    if (!el.closest) return true;
-    if (el.closest('#info-overlay')) return true;
-    if (el.closest('#global-export-tools')) return true;
-    if (el.closest('.info-overlay')) return true;
+  function isOverlayNode(el) {
+    if (!el || el.nodeType !== 1) return false;
+    if (el.id === 'info-overlay') return true;
+    if (el.classList && el.classList.contains('info-overlay')) return true;
     return false;
   }
 
-  function controlLabelFor(el) {
-    const aria = el.getAttribute('aria-label');
-    if (aria && aria.trim()) return aria.trim();
-    if (el.id) {
+  function replacePanelCanvasesWithImages(panelRoot, cloneRoot) {
+    const live = [...panelRoot.querySelectorAll('canvas')].filter((c) => !c.closest('#info-overlay'));
+    const copies = [...cloneRoot.querySelectorAll('canvas')];
+    live.forEach((c, i) => {
+      const slot = copies[i];
+      if (!slot || !slot.parentNode) return;
+      const img = document.createElement('img');
+      img.alt = '';
       try {
-        const lab = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
-        if (lab && lab.textContent) return lab.textContent.replace(/\s+/g, ' ').trim();
+        img.src = c.toDataURL('image/png');
       } catch {
-        /* ignore */
+        img.removeAttribute('src');
       }
-    }
-    const row = el.closest('.control-row');
-    if (row) {
-      const lab = row.querySelector(':scope > label');
-      if (lab && lab.textContent) return lab.textContent.replace(/\s+/g, ' ').trim();
-    }
-    const det = el.closest('details');
-    if (det) {
-      const sum = det.querySelector(':scope > summary');
-      if (sum && sum.textContent) return `${sum.textContent.replace(/\s+/g, ' ').trim()} › ${el.name || el.id || 'control'}`;
-    }
-    return el.name || el.id || el.getAttribute('id') || 'control';
-  }
-
-  function controlValueString(el) {
-    const type = (el.type || '').toLowerCase();
-    if (el.tagName === 'SELECT') {
-      const opt = el.options[el.selectedIndex];
-      return opt ? (opt.textContent || opt.value || '').trim() : el.value;
-    }
-    if (type === 'checkbox') return el.checked ? 'on' : 'off';
-    if (type === 'radio') return el.checked ? el.value || 'on' : '';
-    return el.value;
-  }
-
-  function collectPanelParameters() {
-    const panel = document.querySelector('.control-panel .panel-body');
-    if (!panel) return [];
-    const entries = [];
-    const seen = new Set();
-
-    panel.querySelectorAll('input, select, textarea').forEach((el) => {
-      if (skipParametersElement(el)) return;
-      if (el.disabled) return;
-      const type = (el.type || '').toLowerCase();
-      if (el.tagName === 'INPUT') {
-        if (type === 'hidden' || type === 'file' || type === 'button' || type === 'submit' || type === 'reset') return;
-        if (type === 'radio') {
-          if (!el.checked) return;
-        }
-      }
-      const value = controlValueString(el);
-      const label = controlLabelFor(el);
-      const key = `${label}\0${el.name || ''}\0${el.id || ''}\0${type}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      entries.push({ label, value: String(value) });
+      img.width = c.width;
+      img.height = c.height;
+      slot.parentNode.replaceChild(img, slot);
     });
+  }
 
-    return entries;
+  function walkInlinePanelStyles(orig, dup) {
+    if (orig.nodeType !== 1 || dup.nodeType !== 1) return;
+    if (isOverlayNode(orig)) return;
+
+    syncControlValues(orig, dup);
+
+    if (orig.tagName === 'CANVAS' && dup.tagName === 'IMG') {
+      copyComputedStylesToInline(orig, dup);
+      dup.style.width = `${orig.getBoundingClientRect().width}px`;
+      dup.style.height = `${orig.getBoundingClientRect().height}px`;
+      return;
+    }
+
+    copyComputedStylesToInline(orig, dup);
+
+    let oi = 0;
+    let di = 0;
+    const och = orig.children;
+    const dch = dup.children;
+    while (oi < och.length && di < dch.length) {
+      const ochild = och[oi];
+      if (isOverlayNode(ochild)) {
+        oi++;
+        continue;
+      }
+      walkInlinePanelStyles(ochild, dch[di]);
+      oi++;
+      di++;
+    }
   }
 
   function buildParametersSvgDocument() {
-    const entries = collectPanelParameters();
-    const raw = window.location.pathname.split('/').pop() || 'tool';
-    const titleEl = document.querySelector('title');
-    const pageTitle =
-      (titleEl && titleEl.textContent.trim()) || raw.replace(/\.html?$/i, '') || 'tool';
-    const lineHeight = 14;
-    const padY = 28;
-    const padX = 14;
-    const width = 520;
-
-    const jsonDesc = escapeXmlText(JSON.stringify(entries));
-    let y = padY + lineHeight;
-    let maxY = y;
-    const textBlocks = [
-      `<text x="${padX}" y="${y}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#111">${escapeXmlText(pageTitle)} — parameters</text>`,
-    ];
-    y += lineHeight;
-    maxY = y;
-    textBlocks.push(
-      `<text x="${padX}" y="${y}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#555">Shift+1 export · ${escapeXmlText(new Date().toISOString())}</text>`
-    );
-    y += lineHeight * 1.25;
-
-    if (!entries.length) {
-      y += lineHeight;
-      maxY = y;
-      textBlocks.push(
-        `<text x="${padX}" y="${y}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#333">(no control values found in panel)</text>`
+    const panel = document.querySelector('.control-panel');
+    if (!panel) {
+      const w = 320;
+      const h = 48;
+      return (
+        `<?xml version="1.0" encoding="UTF-8"?>` +
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
+        `<rect width="100%" height="100%" fill="#f6f6f6" stroke="#ccc"/>` +
+        `<text x="12" y="28" font-family="system-ui,sans-serif" font-size="12" fill="#333">No control panel found</text>` +
+        `</svg>`
       );
-    } else {
-      entries.forEach(({ label, value }) => {
-        y += lineHeight;
-        maxY = y;
-        const line = `${label}: ${value}`;
-        textBlocks.push(
-          `<text x="${padX}" y="${y}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#222">${escapeXmlText(line)}</text>`
-        );
-      });
     }
 
-    const height = Math.ceil(maxY + 24);
+    const clone = /** @type {HTMLElement} */ (panel.cloneNode(true));
+    clone.querySelectorAll('#info-overlay, .info-overlay').forEach((n) => n.remove());
 
-    return (
-      `<?xml version="1.0" encoding="UTF-8"?>` +
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
-      `<desc>${jsonDesc}</desc>` +
-      `<rect width="100%" height="100%" fill="#fafafa"/>` +
-            textBlocks.join('') +
-      `</svg>`
-    );
+    replacePanelCanvasesWithImages(panel, clone);
+
+    const holder = document.createElement('div');
+    holder.setAttribute('aria-hidden', 'true');
+    holder.style.cssText =
+      'position:fixed;left:0;top:0;transform:translate(-12000px,0);visibility:hidden;pointer-events:none;z-index:-1;overflow:visible;';
+
+    let svgOut = '';
+    holder.appendChild(clone);
+    document.body.appendChild(holder);
+
+    const pb = clone.querySelector('.panel-body');
+    if (pb) {
+      pb.style.maxHeight = 'none';
+      pb.style.overflow = 'visible';
+    }
+    clone.style.maxHeight = 'none';
+    clone.style.overflow = 'visible';
+
+    try {
+      walkInlinePanelStyles(panel, clone);
+      const w = Math.max(1, Math.ceil(clone.scrollWidth));
+      const h = Math.max(1, Math.ceil(clone.scrollHeight));
+
+      const wrap = document.createElement('div');
+      wrap.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+      wrap.style.margin = '0';
+      wrap.style.padding = '0';
+      wrap.appendChild(clone);
+
+      let innerXhtml;
+      try {
+        innerXhtml = new XMLSerializer().serializeToString(wrap);
+      } catch (e) {
+        console.error(e);
+        innerXhtml =
+          `<div xmlns="http://www.w3.org/1999/xhtml" style="margin:0;padding:0">` +
+          `<p style="font:12px system-ui,sans-serif;padding:12px">Could not serialize control panel.</p></div>`;
+      }
+
+      const desc = escapeXmlText(
+        `Control panel snapshot · ${document.title || 'tool'} · ${new Date().toISOString()}`
+      );
+
+      svgOut =
+        `<?xml version="1.0" encoding="UTF-8"?>` +
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
+        `<desc>${desc}</desc>` +
+        `<foreignObject x="0" y="0" width="${w}" height="${h}">` +
+        innerXhtml +
+        `</foreignObject>` +
+        `</svg>`;
+    } finally {
+      holder.remove();
+    }
+
+    return svgOut;
   }
 
   function downloadParametersSvg() {
