@@ -606,7 +606,7 @@
     wrap.style.display = 'flex';
     wrap.style.flexDirection = 'column';
     wrap.style.gap = '8px';
-    wrap.style.marginTop = '10px';
+    wrap.style.marginTop = '-4px';
 
     const title = document.createElement('h3');
     title.textContent = 'Export';
@@ -656,7 +656,7 @@
     wrap.classList.add('global-export-tools--floating');
     wrap.style.position = 'fixed';
     wrap.style.right = '16px';
-    wrap.style.bottom = '16px';
+    wrap.style.bottom = '24px';
     wrap.style.zIndex = '9999';
     wrap.style.padding = '10px';
     wrap.style.borderRadius = '14px';
