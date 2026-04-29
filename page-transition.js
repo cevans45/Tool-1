@@ -111,6 +111,53 @@
       .replace(/"/g, '&quot;');
   }
 
+  function escapeXmlAttr(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/\r?\n/g, ' ');
+  }
+
+  function getPageTransitionScriptBase() {
+    const scripts = document.getElementsByTagName('script');
+    for (let i = scripts.length - 1; i >= 0; i--) {
+      const src = scripts[i].getAttribute('src');
+      if (!src) continue;
+      if (src.toLowerCase().includes('page-transition.js')) {
+        try {
+          const u = new URL(src, window.location.href);
+          return u.href.replace(/[^/]*$/, '');
+        } catch {
+          return '';
+        }
+      }
+    }
+    return '';
+  }
+
+  let html2canvasLoadingPromise = null;
+  function loadHtml2canvas() {
+    if (typeof window.html2canvas === 'function') {
+      return Promise.resolve(window.html2canvas);
+    }
+    if (html2canvasLoadingPromise) return html2canvasLoadingPromise;
+    html2canvasLoadingPromise = new Promise((resolve, reject) => {
+      const base = getPageTransitionScriptBase();
+      const src = (base || '') + 'vendor/html2canvas.min.js';
+      const s = document.createElement('script');
+      s.async = true;
+      s.src = src;
+      s.onload = () => {
+        if (typeof window.html2canvas === 'function') resolve(window.html2canvas);
+        else reject(new Error('html2canvas not available'));
+      };
+      s.onerror = () => reject(new Error('Could not load html2canvas'));
+      document.head.appendChild(s);
+    });
+    return html2canvasLoadingPromise;
+  }
+
   function copyComputedStylesToInline(source, target) {
     if (source.nodeType !== 1 || target.nodeType !== 1) return;
     const cs = window.getComputedStyle(source);
@@ -224,7 +271,7 @@
     }
   }
 
-  function buildParametersSvgDocument() {
+  async function buildParametersSvgDocument() {
     const panel = document.querySelector('.control-panel');
     if (!panel) {
       const w = 320;
@@ -246,7 +293,7 @@
     const holder = document.createElement('div');
     holder.setAttribute('aria-hidden', 'true');
     holder.style.cssText =
-      'position:fixed;left:0;top:0;transform:translate(-12000px,0);visibility:hidden;pointer-events:none;z-index:-1;overflow:visible;';
+      'position:fixed;left:0;top:0;opacity:0.02;width:auto;height:auto;pointer-events:none;z-index:-1;overflow:visible;visibility:visible;';
 
     let svgOut = '';
     holder.appendChild(clone);
@@ -262,37 +309,68 @@
 
     try {
       walkInlinePanelStyles(panel, clone);
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready;
+      }
+
       const w = Math.max(1, Math.ceil(clone.scrollWidth));
       const h = Math.max(1, Math.ceil(clone.scrollHeight));
-
-      const wrap = document.createElement('div');
-      wrap.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-      wrap.style.margin = '0';
-      wrap.style.padding = '0';
-      wrap.appendChild(clone);
-
-      let innerXhtml;
-      try {
-        innerXhtml = new XMLSerializer().serializeToString(wrap);
-      } catch (e) {
-        console.error(e);
-        innerXhtml =
-          `<div xmlns="http://www.w3.org/1999/xhtml" style="margin:0;padding:0">` +
-          `<p style="font:12px system-ui,sans-serif;padding:12px">Could not serialize control panel.</p></div>`;
-      }
 
       const desc = escapeXmlText(
         `Control panel snapshot · ${document.title || 'tool'} · ${new Date().toISOString()}`
       );
 
-      svgOut =
-        `<?xml version="1.0" encoding="UTF-8"?>` +
-        `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-        `<desc>${desc}</desc>` +
-        `<foreignObject x="0" y="0" width="${w}" height="${h}">` +
-        innerXhtml +
-        `</foreignObject>` +
-        `</svg>`;
+      let pngDataUrl = null;
+      try {
+        const html2canvas = await loadHtml2canvas();
+        const scale = Math.min(2, Math.max(1, window.devicePixelRatio || 1) * 1.5);
+        const canvas = await html2canvas(clone, {
+          backgroundColor: null,
+          scale,
+          logging: false,
+          useCORS: true,
+          width: w,
+          height: h,
+        });
+        pngDataUrl = canvas.toDataURL('image/png');
+      } catch (err) {
+        console.warn('html2canvas (params export):', err);
+      }
+
+      if (pngDataUrl) {
+        const hrefEsc = escapeXmlAttr(pngDataUrl);
+        svgOut =
+          `<?xml version="1.0" encoding="UTF-8"?>` +
+          `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
+          `<desc>${desc}</desc>` +
+          `<image width="${w}" height="${h}" href="${hrefEsc}" xlink:href="${hrefEsc}"/>` +
+          `</svg>`;
+      } else {
+        const wrap = document.createElement('div');
+        wrap.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
+        wrap.style.margin = '0';
+        wrap.style.padding = '0';
+        wrap.appendChild(clone);
+
+        let innerXhtml;
+        try {
+          innerXhtml = new XMLSerializer().serializeToString(wrap);
+        } catch (e) {
+          console.error(e);
+          innerXhtml =
+            `<div xmlns="http://www.w3.org/1999/xhtml" style="margin:0;padding:0">` +
+            `<p style="font:12px system-ui,sans-serif;padding:12px">Could not serialize control panel.</p></div>`;
+        }
+
+        svgOut =
+          `<?xml version="1.0" encoding="UTF-8"?>` +
+          `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
+          `<desc>${desc}</desc>` +
+          `<foreignObject x="0" y="0" width="${w}" height="${h}">` +
+          innerXhtml +
+          `</foreignObject>` +
+          `</svg>`;
+      }
     } finally {
       holder.remove();
     }
@@ -300,18 +378,22 @@
     return svgOut;
   }
 
-  function downloadParametersSvg() {
-    const svgText = buildParametersSvgDocument();
-    const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = filenameParamsSvg();
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
-  }
+  async function downloadParametersSvg() {
+    try {
+      const svgText = await buildParametersSvgDocument();
+      const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = filenameParamsSvg();
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+    } catch (e) {
+      console.error(e);
+      alert('Could not export parameters snapshot.');
+    }
 
   function saveDataUrl(dataUrl, ext) {
     const a = document.createElement('a');
@@ -602,7 +684,7 @@
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (shouldIgnoreParametersShortcutFocus(document.activeElement)) return;
     e.preventDefault();
-    downloadParametersSvg();
+    void downloadParametersSvg();
   });
 })();
 
