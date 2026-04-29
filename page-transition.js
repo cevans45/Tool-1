@@ -297,13 +297,19 @@
     alert('No drawable canvas/SVG found on this page.');
   }
 
+  function hasDedicatedPngExport() {
+    return !!document.querySelector(
+      '#ty-export, #el-export, #gr-export, #cs-export, #cs-export-gen, #tr-download-btn'
+    );
+  }
+
   function mountExportUI() {
     if (isPreview || isIndexPage()) return;
     if (document.getElementById('global-export-tools')) return;
 
     const wrap = document.createElement('section');
     wrap.id = 'global-export-tools';
-    wrap.className = 'control-section';
+    wrap.className = 'control-section global-export-tools';
     wrap.style.display = 'flex';
     wrap.style.flexDirection = 'column';
     wrap.style.gap = '8px';
@@ -326,14 +332,8 @@
       const btn = document.createElement('button');
       btn.type = 'button';
       btn.textContent = label;
-      btn.className = 'panel-button';
+      btn.className = 'panel-button panel-button--export';
       btn.style.width = '100%';
-      btn.style.border = '1px solid rgba(255,255,255,0.18)';
-      btn.style.background = '#151515';
-      btn.style.color = '#f3f3f3';
-      btn.style.padding = '8px 10px';
-      btn.style.font = '600 12px/1 system-ui, -apple-system, Segoe UI, sans-serif';
-      btn.style.cursor = 'pointer';
       btn.addEventListener('click', () => {
         try {
           const ret = onClick();
@@ -352,7 +352,9 @@
     };
 
     row.appendChild(makeBtn('Export SVG', exportSVG));
-    row.appendChild(makeBtn('Export PNG', exportPNG));
+    if (!hasDedicatedPngExport()) {
+      row.appendChild(makeBtn('Export PNG', exportPNG));
+    }
     row.appendChild(makeBtn('Export IMG', exportIMG));
     wrap.appendChild(row);
 
