@@ -97,6 +97,176 @@
     return `${base}_export.${ext}`;
   }
 
+  function filenameParamsSvg() {
+    const raw = window.location.pathname.split('/').pop() || 'tool';
+    const base = raw.replace(/\.html?$/i, '') || 'tool';
+    return `${base}_params.svg`;
+  }
+
+  function escapeXmlText(s) {
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function shouldIgnoreParametersShortcutFocus(el) {
+    if (!el || el === document.body) return false;
+    if (el.isContentEditable) return true;
+    const tag = el.tagName;
+    if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    if (tag === 'INPUT') {
+      const t = (el.type || 'text').toLowerCase();
+      return (
+        t === 'text' ||
+        t === 'search' ||
+        t === 'email' ||
+        t === 'url' ||
+        t === 'tel' ||
+        t === 'password' ||
+        t === 'number'
+      );
+    }
+    return false;
+  }
+
+  function skipParametersElement(el) {
+    if (!el.closest) return true;
+    if (el.closest('#info-overlay')) return true;
+    if (el.closest('#global-export-tools')) return true;
+    if (el.closest('.info-overlay')) return true;
+    return false;
+  }
+
+  function controlLabelFor(el) {
+    const aria = el.getAttribute('aria-label');
+    if (aria && aria.trim()) return aria.trim();
+    if (el.id) {
+      try {
+        const lab = document.querySelector(`label[for="${CSS.escape(el.id)}"]`);
+        if (lab && lab.textContent) return lab.textContent.replace(/\s+/g, ' ').trim();
+      } catch {
+        /* ignore */
+      }
+    }
+    const row = el.closest('.control-row');
+    if (row) {
+      const lab = row.querySelector(':scope > label');
+      if (lab && lab.textContent) return lab.textContent.replace(/\s+/g, ' ').trim();
+    }
+    const det = el.closest('details');
+    if (det) {
+      const sum = det.querySelector(':scope > summary');
+      if (sum && sum.textContent) return `${sum.textContent.replace(/\s+/g, ' ').trim()} › ${el.name || el.id || 'control'}`;
+    }
+    return el.name || el.id || el.getAttribute('id') || 'control';
+  }
+
+  function controlValueString(el) {
+    const type = (el.type || '').toLowerCase();
+    if (el.tagName === 'SELECT') {
+      const opt = el.options[el.selectedIndex];
+      return opt ? (opt.textContent || opt.value || '').trim() : el.value;
+    }
+    if (type === 'checkbox') return el.checked ? 'on' : 'off';
+    if (type === 'radio') return el.checked ? el.value || 'on' : '';
+    return el.value;
+  }
+
+  function collectPanelParameters() {
+    const panel = document.querySelector('.control-panel .panel-body');
+    if (!panel) return [];
+    const entries = [];
+    const seen = new Set();
+
+    panel.querySelectorAll('input, select, textarea').forEach((el) => {
+      if (skipParametersElement(el)) return;
+      if (el.disabled) return;
+      const type = (el.type || '').toLowerCase();
+      if (el.tagName === 'INPUT') {
+        if (type === 'hidden' || type === 'file' || type === 'button' || type === 'submit' || type === 'reset') return;
+        if (type === 'radio') {
+          if (!el.checked) return;
+        }
+      }
+      const value = controlValueString(el);
+      const label = controlLabelFor(el);
+      const key = `${label}\0${el.name || ''}\0${el.id || ''}\0${type}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      entries.push({ label, value: String(value) });
+    });
+
+    return entries;
+  }
+
+  function buildParametersSvgDocument() {
+    const entries = collectPanelParameters();
+    const raw = window.location.pathname.split('/').pop() || 'tool';
+    const titleEl = document.querySelector('title');
+    const pageTitle =
+      (titleEl && titleEl.textContent.trim()) || raw.replace(/\.html?$/i, '') || 'tool';
+    const lineHeight = 14;
+    const padY = 28;
+    const padX = 14;
+    const width = 520;
+
+    const jsonDesc = escapeXmlText(JSON.stringify(entries));
+    let y = padY + lineHeight;
+    let maxY = y;
+    const textBlocks = [
+      `<text x="${padX}" y="${y}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="13" font-weight="600" fill="#111">${escapeXmlText(pageTitle)} — parameters</text>`,
+    ];
+    y += lineHeight;
+    maxY = y;
+    textBlocks.push(
+      `<text x="${padX}" y="${y}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#555">Shift+1 export · ${escapeXmlText(new Date().toISOString())}</text>`
+    );
+    y += lineHeight * 1.25;
+
+    if (!entries.length) {
+      y += lineHeight;
+      maxY = y;
+      textBlocks.push(
+        `<text x="${padX}" y="${y}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#333">(no control values found in panel)</text>`
+      );
+    } else {
+      entries.forEach(({ label, value }) => {
+        y += lineHeight;
+        maxY = y;
+        const line = `${label}: ${value}`;
+        textBlocks.push(
+          `<text x="${padX}" y="${y}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="11" fill="#222">${escapeXmlText(line)}</text>`
+        );
+      });
+    }
+
+    const height = Math.ceil(maxY + 24);
+
+    return (
+      `<?xml version="1.0" encoding="UTF-8"?>` +
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">` +
+      `<desc>${jsonDesc}</desc>` +
+      `<rect width="100%" height="100%" fill="#fafafa"/>` +
+            textBlocks.join('') +
+      `</svg>`
+    );
+  }
+
+  function downloadParametersSvg() {
+    const svgText = buildParametersSvgDocument();
+    const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filenameParamsSvg();
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1500);
+  }
+
   function saveDataUrl(dataUrl, ext) {
     const a = document.createElement('a');
     a.href = dataUrl;
@@ -379,5 +549,14 @@
   }
 
   window.addEventListener('DOMContentLoaded', mountExportUI);
+
+  document.addEventListener('keydown', (e) => {
+    if (isPreview || isIndexPage()) return;
+    if (e.code !== 'Digit1' || !e.shiftKey || e.repeat) return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (shouldIgnoreParametersShortcutFocus(document.activeElement)) return;
+    e.preventDefault();
+    downloadParametersSvg();
+  });
 })();
 
