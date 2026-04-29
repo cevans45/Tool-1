@@ -394,6 +394,7 @@
       console.error(e);
       alert('Could not export parameters snapshot.');
     }
+  }
 
   function saveDataUrl(dataUrl, ext) {
     const a = document.createElement('a');
