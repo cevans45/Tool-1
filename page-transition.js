@@ -192,6 +192,15 @@
   }
 
   async function exportPNG() {
+    if (typeof window.exportPagePNG === 'function') {
+      try {
+        const ret = window.exportPagePNG();
+        if (ret != null && typeof ret.then === 'function') await ret;
+        return;
+      } catch (e) {
+        console.error(e);
+      }
+    }
     const canvas = pickCanvas();
     const svg = pickSvg();
     if (canvas) {
@@ -297,12 +306,6 @@
     alert('No drawable canvas/SVG found on this page.');
   }
 
-  function hasDedicatedPngExport() {
-    return !!document.querySelector(
-      '#ty-export, #el-export, #gr-export, #cs-export, #cs-export-gen, #tr-download-btn'
-    );
-  }
-
   function mountExportUI() {
     if (isPreview || isIndexPage()) return;
     if (document.getElementById('global-export-tools')) return;
@@ -352,9 +355,7 @@
     };
 
     row.appendChild(makeBtn('Export SVG', exportSVG));
-    if (!hasDedicatedPngExport()) {
-      row.appendChild(makeBtn('Export PNG', exportPNG));
-    }
+    row.appendChild(makeBtn('Export PNG', exportPNG));
     row.appendChild(makeBtn('Export IMG', exportIMG));
     wrap.appendChild(row);
 

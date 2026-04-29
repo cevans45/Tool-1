@@ -147,9 +147,6 @@
                                 <label for="ty-bg">Background</label>
                                 <input type="color" id="ty-bg" value="#f0ede8">
                             </div>
-                            <div class="control-row" style="gap:6px;margin-top:8px;">
-                                <button type="button" id="ty-export" class="panel-button panel-button--export">Export PNG</button>
-                            </div>
                         </section>
                     </details>
                 </div>
@@ -968,6 +965,7 @@
         link.href = canvas.toDataURL('image/png');
         link.click();
     }
+    window.exportPagePNG = exportPNG;
 
     // ─── UI Wiring ───────────────────────────────────────────────
 
@@ -1086,8 +1084,6 @@
         document.querySelector('.app[aria-label="Typo"]').style.backgroundColor = S.bg;
         if (!animId) fullRender();
     });
-    $('ty-export').addEventListener('click', exportPNG);
-
     // ─── Init ────────────────────────────────────────────────────
 
     document.querySelector('.app[aria-label="Typo"]').style.backgroundColor = S.bg;

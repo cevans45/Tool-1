@@ -87,7 +87,6 @@
 
                             <div class="control-row" style="gap:6px; margin-top:8px;">
                                 <button type="button" id="gr-clear" class="panel-button">Clear</button>
-                                <button type="button" id="gr-export" class="panel-button panel-button--export">Export PNG</button>
                             </div>
 
                             <div class="shortcuts">
@@ -532,6 +531,7 @@
             link.href = out.toDataURL('image/png');
             link.click();
         }
+        window.exportPagePNG = exportPNG;
 
         // ─── UI Wiring ──────────────────────────────────────────────
 
@@ -598,8 +598,6 @@
         });
 
         $('gr-clear').addEventListener('click', clearAll);
-        $('gr-export').addEventListener('click', exportPNG);
-
         window.addEventListener('keydown', (e) => {
             const key = (e.key || '').toLowerCase();
             if ((e.metaKey || e.ctrlKey) && key === 'z') {

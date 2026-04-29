@@ -129,7 +129,6 @@
                         <button class="panel-button" id="tr-upload-btn">Upload</button>
                         <button class="panel-button" id="tr-sample-btn">Sample</button>
                         <button class="panel-button" id="tr-reset-btn">Reset</button>
-                        <button class="panel-button panel-button--export" id="tr-download-btn">Save PNG</button>
                     </div>
                     <div class="tr-meta" id="tr-meta">No image</div>
 
@@ -229,7 +228,6 @@
     const uploadBtn = document.getElementById('tr-upload-btn');
     const sampleBtn = document.getElementById('tr-sample-btn');
     const resetBtn = document.getElementById('tr-reset-btn');
-    const downloadBtn = document.getElementById('tr-download-btn');
     const metaEl = document.getElementById('tr-meta');
     const modeHint = document.getElementById('tr-mode-hint');
 
@@ -986,10 +984,8 @@
         render();
     });
 
-    // Download
-    downloadBtn.addEventListener('click', () => {
+    function exportTreatmentPng() {
         if (!srcImage) return;
-        // Render fresh at current canvas size, then export.
         render();
         canvas.toBlob(blob => {
             const a = document.createElement('a');
@@ -1000,7 +996,8 @@
             document.body.removeChild(a);
             setTimeout(() => URL.revokeObjectURL(a.href), 1000);
         }, 'image/png');
-    });
+    }
+    window.exportPagePNG = exportTreatmentPng;
 
     // maxdim change: re-fit canvas
     S['p-maxdim'].addEventListener('input', () => {

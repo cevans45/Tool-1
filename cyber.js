@@ -1209,6 +1209,7 @@ function hash01(a, b, c) {
 function exportPng() {
   saveCanvas('cyber_sigilism', 'png');
 }
+window.exportPagePNG = exportPng;
 
 function keyPressed() {
   if (key === '1') {
@@ -1353,9 +1354,6 @@ function bindControls() {
   const regenBtn = byId('cs-regenerate');
   if (regenBtn) regenBtn.addEventListener('click', () => requestUpdate(true));
 
-  const exportGenBtn = byId('cs-export-gen');
-  if (exportGenBtn) exportGenBtn.addEventListener('click', () => exportPng());
-
   const mirrorXGen = byId('cs-mirror-x-gen');
   if (mirrorXGen) {
     mirrorXGen.checked = params.mirrorX;
@@ -1375,9 +1373,6 @@ function bindControls() {
 
   const clearBtn = byId('cs-clear');
   if (clearBtn) clearBtn.addEventListener('click', () => clearDrawBuffer());
-
-  const exportBtn = byId('cs-export');
-  if (exportBtn) exportBtn.addEventListener('click', () => exportPng());
 
   const textureModeEl = byId('cs-texture-mode');
   if (textureModeEl) {

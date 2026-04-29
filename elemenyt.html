@@ -65,8 +65,8 @@
                             <dd>Color behind the sketch and default export background.</dd>
                             <dt>Outline thickness</dt>
                             <dd>Thickness of the jagged outline ring (SVG morphology radius).</dd>
-                            <dt>Export PNG</dt>
-                            <dd>Raster export of the composite (trace image is omitted).</dd>
+                            <dt>Export (bottom of panel)</dt>
+                            <dd><strong>Export SVG / PNG / IMG</strong> — PNG uses the same composite as before (trace image excluded). IMG is JPEG.</dd>
                             <dt>Keyboard</dt>
                             <dd><strong>Space</strong> — clear canvas. <strong>⌘Z / Ctrl+Z</strong> — undo last stroke.</dd>
                         </dl>
@@ -199,10 +199,6 @@
                                 <label for="el-outline">Outline thickness</label>
                                 <input type="range" id="el-outline" min="0.2" max="10.0" value="1.0" step="0.05">
                                 <span class="param-value" id="val-el-outline">1.00</span>
-                            </div>
-
-                            <div class="control-row" style="margin-top:8px;">
-                                <button type="button" id="el-export" class="panel-button panel-button--export" style="width:100%;">Export PNG</button>
                             </div>
 
                             <div class="shortcuts-block" style="margin-top:12px;">
@@ -352,7 +348,6 @@
         const stickyDistanceEl = el('el-sticky-distance');
         const stickyDistanceVal = el('val-el-sticky-distance');
         const markerPreviewCanvas = el('el-marker-preview');
-        const exportBtn = el('el-export');
 
         const state = {
             // Modes match reference: positive = ink, negative = cut
@@ -1608,6 +1603,7 @@
             link.href = getCompositeExportDataUrl();
             link.click();
         }
+        window.exportPagePNG = exportWithFilter;
 
         // Mouse + touch
         canvas.addEventListener('mousedown', startDrawing);
@@ -1805,8 +1801,6 @@
             genTimeVal.textContent = String(state.generateTime);
             if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
         });
-
-        exportBtn?.addEventListener('click', exportWithFilter);
 
         function escapeXmlAttr(str) {
             return String(str)
