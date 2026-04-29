@@ -515,6 +515,23 @@ body.is-leaving {
     font-weight: 700;
 }
 
+/* Injected export block title — same typography as .control-window[open] summary (“Sketch pad”, etc.) */
+.global-export-heading {
+    margin: 0;
+    padding: 8px 16px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #000;
+    line-height: 1.2;
+    font-family: inherit;
+}
+
+.global-export-tools.global-export-tools--floating .global-export-heading {
+    color: #fff;
+}
+
 .control-window .control-section {
     margin: 0;
     padding: 4px 16px 14px;

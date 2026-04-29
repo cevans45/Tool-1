@@ -610,10 +610,7 @@
 
     const title = document.createElement('h3');
     title.textContent = 'Export';
-    title.style.margin = '0';
-    title.style.font = '600 12px/1 system-ui, -apple-system, Segoe UI, sans-serif';
-    title.style.letterSpacing = '0.04em';
-    title.style.textTransform = 'uppercase';
+    title.className = 'global-export-heading';
     wrap.appendChild(title);
 
     const row = document.createElement('div');
@@ -656,6 +653,7 @@
     }
 
     // Fallback only for pages without a right-side control center.
+    wrap.classList.add('global-export-tools--floating');
     wrap.style.position = 'fixed';
     wrap.style.right = '16px';
     wrap.style.bottom = '16px';
