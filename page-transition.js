@@ -119,81 +119,6 @@
       .replace(/\r?\n/g, ' ');
   }
 
-  function getPageTransitionScriptBase() {
-    const scripts = document.getElementsByTagName('script');
-    for (let i = scripts.length - 1; i >= 0; i--) {
-      const src = scripts[i].getAttribute('src');
-      if (!src) continue;
-      if (src.toLowerCase().includes('page-transition.js')) {
-        try {
-          const u = new URL(src, window.location.href);
-          return u.href.replace(/[^/]*$/, '');
-        } catch {
-          return '';
-        }
-      }
-    }
-    return '';
-  }
-
-  let html2canvasLoadingPromise = null;
-  function loadHtml2canvas() {
-    if (typeof window.html2canvas === 'function') {
-      return Promise.resolve(window.html2canvas);
-    }
-    if (html2canvasLoadingPromise) return html2canvasLoadingPromise;
-    html2canvasLoadingPromise = new Promise((resolve, reject) => {
-      const base = getPageTransitionScriptBase();
-      const src = (base || '') + 'vendor/html2canvas.min.js';
-      const s = document.createElement('script');
-      s.async = true;
-      s.src = src;
-      s.onload = () => {
-        if (typeof window.html2canvas === 'function') resolve(window.html2canvas);
-        else reject(new Error('html2canvas not available'));
-      };
-      s.onerror = () => reject(new Error('Could not load html2canvas'));
-      document.head.appendChild(s);
-    });
-    return html2canvasLoadingPromise;
-  }
-
-  function copyComputedStylesToInline(source, target) {
-    if (source.nodeType !== 1 || target.nodeType !== 1) return;
-    const cs = window.getComputedStyle(source);
-    const parts = [];
-    for (let i = 0; i < cs.length; i++) {
-      const prop = cs.item(i);
-      const val = cs.getPropertyValue(prop);
-      if (!val) continue;
-      const pri = cs.getPropertyPriority(prop);
-      parts.push(pri ? `${prop}: ${val} !important` : `${prop}: ${val}`);
-    }
-    target.setAttribute('style', parts.join('; '));
-  }
-
-  function syncControlValues(orig, dup) {
-    if (orig.nodeType !== 1 || dup.nodeType !== 1) return;
-    const tag = orig.tagName;
-    if (tag === 'INPUT') {
-      const t = (orig.type || '').toLowerCase();
-      if (t === 'checkbox' || t === 'radio') {
-        dup.checked = orig.checked;
-      } else if (t !== 'file' && t !== 'button' && t !== 'submit' && t !== 'reset') {
-        dup.value = orig.value;
-      }
-      return;
-    }
-    if (tag === 'SELECT') {
-      dup.selectedIndex = orig.selectedIndex;
-      return;
-    }
-    if (tag === 'TEXTAREA') {
-      dup.value = orig.value;
-      dup.textContent = orig.value;
-    }
-  }
-
   function shouldIgnoreParametersShortcutFocus(el) {
     if (!el || el === document.body) return false;
     if (el.isContentEditable) return true;
@@ -214,64 +139,155 @@
     return false;
   }
 
-  function isOverlayNode(el) {
-    if (!el || el.nodeType !== 1) return false;
-    if (el.id === 'info-overlay') return true;
-    if (el.classList && el.classList.contains('info-overlay')) return true;
-    return false;
+  function cleanText(s) {
+    return String(s || '').replace(/\s+/g, ' ').trim();
   }
 
-  function replacePanelCanvasesWithImages(panelRoot, cloneRoot) {
-    const live = [...panelRoot.querySelectorAll('canvas')].filter((c) => !c.closest('#info-overlay'));
-    const copies = [...cloneRoot.querySelectorAll('canvas')];
-    live.forEach((c, i) => {
-      const slot = copies[i];
-      if (!slot || !slot.parentNode) return;
-      const img = document.createElement('img');
-      img.alt = '';
-      try {
-        img.src = c.toDataURL('image/png');
-      } catch {
-        img.removeAttribute('src');
-      }
-      img.width = c.width;
-      img.height = c.height;
-      slot.parentNode.replaceChild(img, slot);
-    });
+  function px(n) {
+    return Number.isFinite(n) ? Math.round(n * 10) / 10 : 0;
   }
 
-  function walkInlinePanelStyles(orig, dup) {
-    if (orig.nodeType !== 1 || dup.nodeType !== 1) return;
-    if (isOverlayNode(orig)) return;
+  function svgText(x, y, text, size, fill = '#111', weight = 400, extra = '') {
+    return `<text x="${px(x)}" y="${px(y)}" font-family="system-ui, -apple-system, Segoe UI, sans-serif" font-size="${size}" font-weight="${weight}" fill="${escapeXmlAttr(fill)}" ${extra}>${escapeXmlText(text)}</text>`;
+  }
 
-    syncControlValues(orig, dup);
+  function svgRect(x, y, w, h, fill, stroke = 'none', rx = 0, extra = '') {
+    return `<rect x="${px(x)}" y="${px(y)}" width="${px(w)}" height="${px(h)}" rx="${px(rx)}" fill="${escapeXmlAttr(fill)}" stroke="${escapeXmlAttr(stroke)}" ${extra}/>`;
+  }
 
-    if (orig.tagName === 'CANVAS' && dup.tagName === 'IMG') {
-      copyComputedStylesToInline(orig, dup);
-      dup.style.width = `${orig.getBoundingClientRect().width}px`;
-      dup.style.height = `${orig.getBoundingClientRect().height}px`;
-      return;
+  function visibleElement(el) {
+    if (!el || el.closest('#info-overlay, .info-overlay, #global-export-tools')) return false;
+    const cs = window.getComputedStyle(el);
+    return cs.display !== 'none' && cs.visibility !== 'hidden';
+  }
+
+  function selectedText(select) {
+    const opt = select.options[select.selectedIndex];
+    return cleanText(opt ? opt.textContent || opt.value : select.value);
+  }
+
+  function rangeRatio(input) {
+    const min = parseFloat(input.min || '0');
+    const max = parseFloat(input.max || '100');
+    const val = parseFloat(input.value || '0');
+    if (!Number.isFinite(min) || !Number.isFinite(max) || max === min) return 0;
+    return Math.min(1, Math.max(0, (val - min) / (max - min)));
+  }
+
+  function rowValue(row, input) {
+    const val = row.querySelector('.param-value');
+    if (val) return cleanText(val.textContent);
+    if (!input) return '';
+    if (input.tagName === 'SELECT') return selectedText(input);
+    if ((input.type || '').toLowerCase() === 'checkbox') return input.checked ? 'on' : 'off';
+    return cleanText(input.value);
+  }
+
+  function buttonText(btn) {
+    return cleanText(btn.textContent || btn.getAttribute('aria-label') || 'button');
+  }
+
+  function renderControlRow(row, x, y, w, parts) {
+    if (!visibleElement(row)) return y;
+    const label = row.querySelector(':scope > label');
+    const input = row.querySelector('input, select, textarea');
+    const buttons = [...row.querySelectorAll('button')].filter(visibleElement);
+    const modeButtons = [...row.querySelectorAll('.mode-switch button')].filter(visibleElement);
+    const canvas = row.querySelector('canvas');
+
+    if (modeButtons.length) {
+      const gap = 4;
+      const bw = (w - gap * (modeButtons.length - 1)) / modeButtons.length;
+      modeButtons.forEach((btn, i) => {
+        const bx = x + i * (bw + gap);
+        const active = btn.classList.contains('is-active');
+        parts.push(svgRect(bx, y, bw, 24, active ? '#111' : 'transparent', '#111', 3));
+        parts.push(svgText(bx + bw / 2, y + 15.5, buttonText(btn), 8, active ? '#fff' : '#111', 700, 'text-anchor="middle" letter-spacing="0.04em"'));
+      });
+      return y + 34;
     }
 
-    copyComputedStylesToInline(orig, dup);
-
-    let oi = 0;
-    let di = 0;
-    const och = orig.children;
-    const dch = dup.children;
-    while (oi < och.length && di < dch.length) {
-      const ochild = och[oi];
-      if (isOverlayNode(ochild)) {
-        oi++;
-        continue;
-      }
-      walkInlinePanelStyles(ochild, dch[di]);
-      oi++;
-      di++;
+    if (buttons.length && !input) {
+      const gap = 6;
+      const bw = (w - gap * (buttons.length - 1)) / buttons.length;
+      buttons.forEach((btn, i) => {
+        const bx = x + i * (bw + gap);
+        parts.push(svgRect(bx, y, bw, 24, 'transparent', '#111', 3));
+        parts.push(svgText(bx + bw / 2, y + 15.5, buttonText(btn), 8, '#111', 700, 'text-anchor="middle" letter-spacing="0.04em"'));
+      });
+      return y + 32;
     }
+
+    if (canvas) {
+      parts.push(svgRect(x, y, w, 24, '#f8f8f8', '#ccc', 3));
+      parts.push(svgText(x + 8, y + 15.5, 'Marker preview', 9, '#555', 500));
+      return y + 32;
+    }
+
+    const labelText = cleanText(label ? label.textContent : input ? input.id || input.name : '');
+    const valueText = rowValue(row, input);
+
+    if (!input) {
+      if (labelText) parts.push(svgText(x, y + 13, labelText, 9, '#444', 500));
+      return y + 24;
+    }
+
+    const tag = input.tagName;
+    const type = (input.type || '').toLowerCase();
+    parts.push(svgText(x, y + 14, labelText, 9, '#333', 500));
+
+    if (type === 'range') {
+      const valueW = Math.min(44, Math.max(26, valueText.length * 5.5));
+      const trackX = x + 80;
+      const trackW = Math.max(42, w - 88 - valueW);
+      const cy = y + 11;
+      const knobX = trackX + trackW * rangeRatio(input);
+      parts.push(`<line x1="${px(trackX)}" y1="${px(cy)}" x2="${px(trackX + trackW)}" y2="${px(cy)}" stroke="#bbb" stroke-width="2" stroke-linecap="round"/>`);
+      parts.push(`<circle cx="${px(knobX)}" cy="${px(cy)}" r="4" fill="#111"/>`);
+      parts.push(svgText(x + w, y + 14, valueText, 9, '#444', 500, 'text-anchor="end"'));
+      return y + 26;
+    }
+
+    if (type === 'color') {
+      parts.push(svgRect(x + w - 34, y + 2, 28, 18, input.value || '#000', '#111', 2));
+      return y + 26;
+    }
+
+    if (tag === 'SELECT') {
+      parts.push(svgRect(x + 82, y, w - 82, 22, '#fff', '#aaa', 3));
+      parts.push(svgText(x + 90, y + 14, valueText, 9, '#222', 500));
+      parts.push(svgText(x + w - 12, y + 14, 'v', 9, '#555', 700, 'text-anchor="middle"'));
+      return y + 28;
+    }
+
+    parts.push(svgText(x + w, y + 14, valueText, 9, '#444', 500, 'text-anchor="end"'));
+    return y + 26;
   }
 
-  async function buildParametersSvgDocument() {
+  function renderCheckbox(labelEl, x, y, w, parts) {
+    if (!visibleElement(labelEl)) return y;
+    const input = labelEl.querySelector('input[type="checkbox"]');
+    const txt = cleanText(labelEl.querySelector('.cb-label')?.textContent || labelEl.textContent);
+    parts.push(svgRect(x, y + 1, 12, 12, input && input.checked ? '#111' : '#fff', '#111', 2));
+    if (input && input.checked) {
+      parts.push(`<path d="M${px(x + 3)} ${px(y + 7)} L${px(x + 5.5)} ${px(y + 10)} L${px(x + 10)} ${px(y + 4)}" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>`);
+    }
+    parts.push(svgText(x + 20, y + 11.5, txt, 9, '#333', 500));
+    return y + 24;
+  }
+
+  function renderControlNode(node, x, y, w, parts) {
+    if (!visibleElement(node)) return y;
+    if (node.classList.contains('checkbox-label')) return renderCheckbox(node, x, y, w, parts);
+    if (node.classList.contains('control-row')) return renderControlRow(node, x, y, w, parts);
+    if (node.tagName === 'H3') {
+      parts.push(svgText(x, y + 12, cleanText(node.textContent), 9, '#111', 700, 'letter-spacing="0.04em"'));
+      return y + 24;
+    }
+    return y;
+  }
+
+  function buildParametersSvgDocument() {
     const panel = document.querySelector('.control-panel');
     if (!panel) {
       const w = 320;
@@ -285,102 +301,77 @@
       );
     }
 
-    const clone = /** @type {HTMLElement} */ (panel.cloneNode(true));
-    clone.querySelectorAll('#info-overlay, .info-overlay').forEach((n) => n.remove());
+    const panelRect = panel.getBoundingClientRect();
+    const w = Math.max(220, Math.ceil(panelRect.width || 240));
+    const parts = [];
+    const panelStyle = window.getComputedStyle(panel);
+    const bg = panelStyle.backgroundColor || '#fff';
+    const border = panelStyle.borderColor || '#000';
+    const bodyX = 16;
+    const bodyW = w - bodyX * 2;
+    let y = 0;
 
-    replacePanelCanvasesWithImages(panel, clone);
+    parts.push(svgRect(0, 0, w, 10, bg, 'none', 16));
 
-    const holder = document.createElement('div');
-    holder.setAttribute('aria-hidden', 'true');
-    holder.style.cssText =
-      'position:fixed;left:0;top:0;opacity:0.02;width:auto;height:auto;pointer-events:none;z-index:-1;overflow:visible;visibility:visible;';
+    const header = panel.querySelector('.panel-header');
+    const headerH = header ? Math.max(42, Math.ceil(header.getBoundingClientRect().height)) : 48;
+    parts.push(svgRect(0, 0, w, headerH, bg, 'none', 16));
+    parts.push(`<line x1="0" y1="${headerH}" x2="${w}" y2="${headerH}" stroke="#ccc"/>`);
+    parts.push(svgText(20, headerH / 2 + 4, cleanText(header?.querySelector('h2')?.textContent || 'Controls'), 10, '#333', 500, 'letter-spacing="0.05em" text-transform="uppercase"'));
+    parts.push(`<circle cx="${w - 30}" cy="${headerH / 2}" r="10" fill="#333" stroke="#555"/>`);
+    parts.push(svgText(w - 30, headerH / 2 + 4, 'i', 12, '#aaa', 700, 'text-anchor="middle" font-style="italic"'));
+    y = headerH;
 
-    let svgOut = '';
-    holder.appendChild(clone);
-    document.body.appendChild(holder);
+    const body = panel.querySelector('.panel-body');
+    const children = body ? [...body.children] : [];
+    children.forEach((child) => {
+      if (!visibleElement(child)) return;
+      if (child.id === 'global-export-tools') return;
 
-    const pb = clone.querySelector('.panel-body');
-    if (pb) {
-      pb.style.maxHeight = 'none';
-      pb.style.overflow = 'visible';
-    }
-    clone.style.maxHeight = 'none';
-    clone.style.overflow = 'visible';
-
-    try {
-      walkInlinePanelStyles(panel, clone);
-      if (document.fonts && document.fonts.ready) {
-        await document.fonts.ready;
-      }
-
-      const w = Math.max(1, Math.ceil(clone.scrollWidth));
-      const h = Math.max(1, Math.ceil(clone.scrollHeight));
-
-      const desc = escapeXmlText(
-        `Control panel snapshot · ${document.title || 'tool'} · ${new Date().toISOString()}`
-      );
-
-      let pngDataUrl = null;
-      try {
-        const html2canvas = await loadHtml2canvas();
-        const scale = Math.min(2, Math.max(1, window.devicePixelRatio || 1) * 1.5);
-        const canvas = await html2canvas(clone, {
-          backgroundColor: null,
-          scale,
-          logging: false,
-          useCORS: true,
-          width: w,
-          height: h,
-        });
-        pngDataUrl = canvas.toDataURL('image/png');
-      } catch (err) {
-        console.warn('html2canvas (params export):', err);
-      }
-
-      if (pngDataUrl) {
-        const hrefEsc = escapeXmlAttr(pngDataUrl);
-        svgOut =
-          `<?xml version="1.0" encoding="UTF-8"?>` +
-          `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-          `<desc>${desc}</desc>` +
-          `<image width="${w}" height="${h}" href="${hrefEsc}" xlink:href="${hrefEsc}"/>` +
-          `</svg>`;
-      } else {
-        const wrap = document.createElement('div');
-        wrap.setAttribute('xmlns', 'http://www.w3.org/1999/xhtml');
-        wrap.style.margin = '0';
-        wrap.style.padding = '0';
-        wrap.appendChild(clone);
-
-        let innerXhtml;
-        try {
-          innerXhtml = new XMLSerializer().serializeToString(wrap);
-        } catch (e) {
-          console.error(e);
-          innerXhtml =
-            `<div xmlns="http://www.w3.org/1999/xhtml" style="margin:0;padding:0">` +
-            `<p style="font:12px system-ui,sans-serif;padding:12px">Could not serialize control panel.</p></div>`;
+      if (child.tagName === 'DETAILS') {
+        const summary = child.querySelector(':scope > summary');
+        parts.push(`<line x1="0" y1="${px(y)}" x2="${w}" y2="${px(y)}" stroke="#ddd"/>`);
+        y += 19;
+        parts.push(svgText(16, y, cleanText(summary?.textContent || 'Section'), 9, '#000', 700, 'letter-spacing="0.05em"'));
+        y += 10;
+        if (child.open) {
+          child.querySelectorAll(':scope > .control-section').forEach((section) => {
+            if (!visibleElement(section)) return;
+            [...section.children].forEach((node) => {
+              y = renderControlNode(node, bodyX, y, bodyW, parts);
+            });
+            y += 4;
+          });
         }
-
-        svgOut =
-          `<?xml version="1.0" encoding="UTF-8"?>` +
-          `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-          `<desc>${desc}</desc>` +
-          `<foreignObject x="0" y="0" width="${w}" height="${h}">` +
-          innerXhtml +
-          `</foreignObject>` +
-          `</svg>`;
+        return;
       }
-    } finally {
-      holder.remove();
-    }
 
-    return svgOut;
+      if (child.classList.contains('control-section')) {
+        [...child.children].forEach((node) => {
+          y = renderControlNode(node, bodyX, y, bodyW, parts);
+        });
+        y += 8;
+      }
+    });
+
+    y = Math.max(y + 10, headerH + 40);
+    parts.push(svgRect(0.5, 0.5, w - 1, y - 1, 'none', border, 16, 'stroke-width="1"'));
+
+    const desc = escapeXmlText(
+      `Editable vector control panel · ${document.title || 'tool'} · ${new Date().toISOString()}`
+    );
+    return (
+      `<?xml version="1.0" encoding="UTF-8"?>` +
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${px(y)}" viewBox="0 0 ${w} ${px(y)}">` +
+      `<desc>${desc}</desc>` +
+      parts.join('') +
+      `</svg>`
+    );
   }
 
-  async function downloadParametersSvg() {
+  function downloadParametersSvg() {
     try {
-      const svgText = await buildParametersSvgDocument();
+      const svgText = buildParametersSvgDocument();
       const blob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
       const blobUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
