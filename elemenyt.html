@@ -68,7 +68,7 @@
                             <dt>Export (bottom of panel)</dt>
                             <dd><strong>Export SVG / PNG / IMG</strong> — PNG uses the same composite as before (trace image excluded). IMG is JPEG.</dd>
                             <dt>Keyboard</dt>
-                            <dd><strong>Space</strong> — clear canvas. <strong>⌘Z / Ctrl+Z</strong> — undo last stroke. <strong>Shift</strong> while drawing — constrain each step to horizontal, vertical, or 45° diagonal from the previous point.</dd>
+                            <dd><strong>Space</strong> — clear canvas. <strong>⌘Z / Ctrl+Z</strong> — undo last stroke. <strong>Shift</strong> while drawing — constrain each step to horizontal or vertical from the previous point.</dd>
                         </dl>
                         <button type="button" class="info-close" id="info-close">Close</button>
                     </div>
@@ -204,7 +204,7 @@
                             <div class="shortcuts-block" style="margin-top:12px;">
                                 <span>[Space]</span> Clear canvas<br>
                                 <span>[⌘Z / Ctrl+Z]</span> Undo last stroke<br>
-                                <span>[Shift]</span> Straight segments (8-way) while drawing
+                                <span>[Shift]</span> Horizontal / vertical only while drawing
                             </div>
                         </section>
                     </details>
@@ -898,16 +898,16 @@
             return (!!e && !!e.shiftKey) || shiftKeyPhysicallyDown;
         }
 
-        /** Snap segment from (ax,ay) to pointer (bx,by) to nearest multiple of 45° (horizontal, vertical, diagonal). */
-        function snapTo8Directions(ax, ay, bx, by) {
+        /** Shift-draw: straight segment along horizontal or vertical only (no diagonals). Keeps pointer distance. */
+        function snapToAxisHV(ax, ay, bx, by) {
             const dx = bx - ax;
             const dy = by - ay;
             const dist = Math.hypot(dx, dy);
             if (dist < 1e-6) return { x: bx, y: by };
-            let ang = Math.atan2(dy, dx);
-            const step = Math.PI / 4;
-            ang = Math.round(ang / step) * step;
-            return { x: ax + Math.cos(ang) * dist, y: ay + Math.sin(ang) * dist };
+            if (Math.abs(dx) >= Math.abs(dy)) {
+                return { x: ax + (dx >= 0 ? dist : -dist), y: ay };
+            }
+            return { x: ax, y: ay + (dy >= 0 ? dist : -dist) };
         }
 
         /** Taper based on cumulative distance within the full stroke (start + end only) */
@@ -1443,7 +1443,7 @@
             const prevPt = prevIdx >= 0 ? state.points[prevIdx] : null;
 
             if (prevPt && shiftConstrainActive(e)) {
-                const s = snapTo8Directions(prevPt.x, prevPt.y, p.x, p.y);
+                const s = snapToAxisHV(prevPt.x, prevPt.y, p.x, p.y);
                 addPoint(s.x, s.y);
                 return;
             }
