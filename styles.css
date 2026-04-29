@@ -669,7 +669,7 @@ body.is-leaving {
     color: #fff;
 }
 
-/* Export / save: outlined pill (light surfaces — matches Typo) */
+/* Export / save: white fill, black outline (all tools) */
 .panel-button.panel-button--export {
     background: #fff;
     color: #111;
@@ -679,20 +679,22 @@ body.is-leaving {
 .panel-button.panel-button--export:hover {
     background: #f5f5f5;
     color: #111;
+    border-color: #111;
 }
 
-/* Dark UI tools: white outline on dark panel */
+/* Beat dark-panel .panel-button rules (Treatment, Phantom) */
 .app[aria-label="Treatment"] .panel-button.panel-button--export,
 .app[aria-label="Phantom"] .panel-button.panel-button--export {
-    background: transparent;
-    color: #fff;
-    border: 1px solid #fff;
+    background: #fff;
+    color: #111;
+    border: 1px solid #111;
 }
 
 .app[aria-label="Treatment"] .panel-button.panel-button--export:hover,
 .app[aria-label="Phantom"] .panel-button.panel-button--export:hover {
-    background: #fff;
-    color: #000;
+    background: #f5f5f5;
+    color: #111;
+    border-color: #111;
 }
 
 .mode-switch {
