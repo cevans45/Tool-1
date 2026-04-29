@@ -26,13 +26,49 @@
                     <button type="button" class="info-btn" id="info-btn" aria-label="What each control does">i</button>
                 </header>
 
-                <div class="info-overlay" id="info-overlay" role="dialog" aria-label="Shortcuts and tips" hidden>
+                <div class="info-overlay" id="info-overlay" role="dialog" aria-label="What each control does" hidden>
                     <div class="info-content">
-                        <h3>Sigil — quick tips</h3>
-                        <p style="font-size:12px;line-height:1.5;color:#444;margin:0 0 12px;">Each slider and toggle in the panel has a short description beneath it. Use the trace image as a faint guide; it is not included in PNG/SVG export.</p>
+                        <h3>What each control does</h3>
+                        <p style="font-size:12px;line-height:1.5;color:#444;margin:0 0 14px;">Trace images sit behind your drawing for reference only—they are not included in PNG or SVG export.</p>
                         <dl>
+                            <dt>Sketch / Generate</dt>
+                            <dd><strong>Sketch</strong> — draw by hand. <strong>Generate</strong> — procedural random paths.</dd>
+                            <dt>Upload image</dt>
+                            <dd>Loads a reference behind the canvas for tracing.</dd>
+                            <dt>Image opacity</dt>
+                            <dd>How visible the trace image is; 0 is invisible.</dd>
+                            <dt>Image scale</dt>
+                            <dd>100% fits the image within the canvas; lower zooms out, higher zooms in.</dd>
+                            <dt>Generate</dt>
+                            <dd>Runs a new random path in Generate mode.</dd>
+                            <dt>Draw time</dt>
+                            <dd>Higher values produce longer, denser generated paths.</dd>
+                            <dt>DRAW / ERASE</dt>
+                            <dd>DRAW adds ink. ERASE removes with a soft cut (destination-out). Sketch tab only.</dd>
+                            <dt>Mirror</dt>
+                            <dd>Duplicates strokes across the vertical and/or horizontal axis from the canvas center.</dd>
+                            <dt>Stroke size</dt>
+                            <dd>Brush thickness for segments and marker textures.</dd>
+                            <dt>Sticky / Sticky dist</dt>
+                            <dd>Organic growth along the stroke; strength 0 is off. Distance controls how far branches reach from the path.</dd>
+                            <dt>Taper ends</dt>
+                            <dd>Fades stroke width at the start and end of each pen-down segment.</dd>
+                            <dt>Marker / Effect icons</dt>
+                            <dd>Texture along each stroke: none, jagged line, sprinkle, grid, grain, or inkblot. Icons match the menu.</dd>
+                            <dt>Marker preview</dt>
+                            <dd>Live preview of the current marker at your stroke size.</dd>
+                            <dt>Fill</dt>
+                            <dd>On — solid interior uses Fill color. Off — jagged outline look using Ink and Outline colors.</dd>
+                            <dt>Ink / Outline / Fill color</dt>
+                            <dd>Ink — stroke when Fill is off. Outline — outer edge of the jagged filter. Fill — interior when Fill is on.</dd>
+                            <dt>Background</dt>
+                            <dd>Color behind the sketch and default export background.</dd>
+                            <dt>Outline thickness</dt>
+                            <dd>Thickness of the jagged outline ring (SVG morphology radius).</dd>
+                            <dt>Export PNG</dt>
+                            <dd>Raster export of the composite (trace image is omitted).</dd>
                             <dt>Keyboard</dt>
-                            <dd><strong>Space</strong> — clear the canvas. <strong>⌘Z / Ctrl+Z</strong> — undo last stroke.</dd>
+                            <dd><strong>Space</strong> — clear canvas. <strong>⌘Z / Ctrl+Z</strong> — undo last stroke.</dd>
                         </dl>
                         <button type="button" class="info-close" id="info-close">Close</button>
                     </div>
@@ -49,27 +85,22 @@
                                 </div>
                             </div>
 
-                            <p class="control-hint" style="margin-top:4px;">Sketch = draw by hand. Generate = procedural random paths.</p>
-
                             <div class="control-row" style="gap:6px; margin-bottom:12px;">
                                 <button type="button" id="el-upload-image" class="panel-button" style="flex:1;">Upload image</button>
                                 <input type="file" id="el-image-input" accept="image/*" style="display:none;">
                             </div>
-                            <p class="control-hint">Place a reference image behind the canvas for tracing. Hidden from export.</p>
 
                             <div class="control-row" id="el-image-opacity-row" style="gap:10px; display:none;">
                                 <label for="el-image-opacity">Image opacity</label>
                                 <input type="range" id="el-image-opacity" min="0" max="100" value="30" step="1">
                                 <span class="param-value" id="val-el-image-opacity">30%</span>
                             </div>
-                            <p class="control-hint" id="el-image-opacity-hint" style="display:none;">How visible the trace image is (0 = invisible).</p>
 
                             <div class="control-row" id="el-image-scale-row" style="gap:10px; display:none;">
                                 <label for="el-image-scale">Image scale</label>
                                 <input type="range" id="el-image-scale" min="10" max="200" value="100" step="5">
                                 <span class="param-value" id="val-el-image-scale">100%</span>
                             </div>
-                            <p class="control-hint" id="el-image-scale-hint" style="display:none;">100% fits the image inside the canvas; lower or higher zooms out/in.</p>
 
                             <div class="control-row" id="el-generate-row" style="gap:6px; margin-top:0; display:none;">
                                 <button type="button" id="el-generate" class="panel-button" style="flex:1;">Generate</button>
@@ -80,7 +111,6 @@
                                 <input type="range" id="el-generate-time" min="0" max="100" value="55" step="1">
                                 <span class="param-value" id="val-el-generate-time">55</span>
                             </div>
-                            <p class="control-hint" id="el-generate-time-hint" style="display:none;">Higher = longer, denser generated paths.</p>
 
                             <div class="control-row" id="el-mode-row" style="margin-bottom:12px;">
                                 <div class="mode-switch" style="width:100%; margin:0;">
@@ -88,7 +118,6 @@
                                     <button type="button" id="el-mode-cut" class="panel-button">ERASE</button>
                                 </div>
                             </div>
-                            <p class="control-hint">Draw adds ink; Erase removes strokes (destination-out). Sketch tab only.</p>
 
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-mirror" checked>
@@ -101,35 +130,30 @@
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Mirror top-bottom</span>
                             </label>
-                            <p class="control-hint">Duplicate strokes across vertical / horizontal axes from the canvas center.</p>
 
                             <div class="control-row">
                                 <label for="el-stroke">Stroke size</label>
                                 <input type="range" id="el-stroke" min="0.0" max="10.0" value="6" step="0.1">
                                 <span class="param-value" id="val-el-stroke">6</span>
                             </div>
-                            <p class="control-hint">Brush thickness for drawn segments and marker textures.</p>
 
                             <div class="control-row">
                                 <label for="el-sticky-strength">Sticky</label>
                                 <input type="range" id="el-sticky-strength" min="0" max="10" value="0" step="0.5">
                                 <span class="param-value" id="val-el-sticky-strength">0</span>
                             </div>
-                            <p class="control-hint">Organic “growth” along the stroke; 0 is off.</p>
 
                             <div class="control-row">
                                 <label for="el-sticky-distance">Sticky dist</label>
                                 <input type="range" id="el-sticky-distance" min="0" max="10" value="5" step="0.5">
                                 <span class="param-value" id="val-el-sticky-distance">5</span>
                             </div>
-                            <p class="control-hint">How far sticky branches reach from the main path.</p>
 
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-taper">
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Taper ends</span>
                             </label>
-                            <p class="control-hint">Fade stroke width at the start and end of each pen-down segment.</p>
 
 
                             <div class="control-row">
@@ -143,7 +167,6 @@
                                     <option value="inkblot">Inkblot</option>
                                 </select>
                             </div>
-                            <p class="control-hint">Texture applied along each stroke: plain ink, jagged line, scatter, grid, grain, or blot.</p>
 
                             <div class="control-row" style="margin-top:-4px;">
                                 <label>Effect icons</label>
@@ -160,42 +183,35 @@
                             <div class="control-row" style="margin-top:2px;">
                                 <canvas id="el-marker-preview" width="440" height="56"></canvas>
                             </div>
-                            <p class="control-hint">Live preview of the current marker texture at your stroke size.</p>
 
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-fill-enabled">
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Fill</span>
                             </label>
-                            <p class="control-hint">On: solid fills use Fill color. Off: outline / jagged-edge look using Ink and Outline colors.</p>
 
                             <div class="control-row color-row">
                                 <label for="el-ink-color">Ink color</label>
                                 <input type="color" id="el-ink-color" value="#000000">
                             </div>
-                            <p class="control-hint">Stroke color when Fill is off (outline mode).</p>
                             <div class="control-row color-row">
                                 <label for="el-outline-color">Outline color</label>
                                 <input type="color" id="el-outline-color" value="#000000">
                             </div>
-                            <p class="control-hint">Outer edge of the jagged filter (non-fill mode).</p>
                             <div class="control-row color-row">
                                 <label for="el-fill-color">Fill color</label>
                                 <input type="color" id="el-fill-color" value="#000000">
                             </div>
-                            <p class="control-hint">Interior color when Fill is on.</p>
                             <div class="control-row color-row">
                                 <label for="el-bg-color">Background</label>
                                 <input type="color" id="el-bg-color" value="#ffffff">
                             </div>
-                            <p class="control-hint">Canvas area behind the sketch (and export background unless overridden).</p>
 
                             <div class="control-row">
                                 <label for="el-outline">Outline thickness</label>
                                 <input type="range" id="el-outline" min="0.2" max="10.0" value="1.0" step="0.05">
                                 <span class="param-value" id="val-el-outline">1.00</span>
                             </div>
-                            <p class="control-hint">How thick the jagged outline ring is (SVG morph radius).</p>
 
                             <div class="control-row" style="margin-top:8px;">
                                 <button type="button" id="el-export" class="panel-button panel-button--export" style="width:100%;">Export PNG</button>
@@ -637,8 +653,6 @@
             tabGenerateBtn?.classList.toggle('is-active', tab === 'generate');
             if (generateRow) generateRow.style.display = tab === 'generate' ? 'flex' : 'none';
             if (genTimeRow) genTimeRow.style.display = tab === 'generate' ? 'flex' : 'none';
-            const genTimeHint = el('el-generate-time-hint');
-            if (genTimeHint) genTimeHint.style.display = tab === 'generate' ? '' : 'none';
 
             // Mode controls are only for Sketch. Generate always draws.
             if (modeRowEl) modeRowEl.style.display = tab === 'sketch' ? '' : 'none';
@@ -1683,10 +1697,6 @@
                     state.traceImage = img;
                     imageOpacityRow.style.display = '';
                     el('el-image-scale-row').style.display = '';
-                    const oh = el('el-image-opacity-hint');
-                    const sh = el('el-image-scale-hint');
-                    if (oh) oh.style.display = '';
-                    if (sh) sh.style.display = '';
                     // Always render, even if no points yet - just show the image
                     if (state.uiTab === 'generate') {
                         rerenderGenerateCurrent();

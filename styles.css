@@ -695,15 +695,6 @@ body.is-leaving {
     color: #000;
 }
 
-/* Short parameter descriptions under sliders (Sigil, etc.) */
-.control-hint {
-    font-size: 9px;
-    color: #777;
-    line-height: 1.45;
-    margin: -4px 0 12px;
-    letter-spacing: 0.02em;
-}
-
 .mode-switch {
     display: flex;
     gap: 0;
