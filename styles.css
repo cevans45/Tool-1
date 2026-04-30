@@ -285,7 +285,7 @@ body.is-leaving {
 
 /* Treatment — biggest, aligned to card top */
 .site-card:nth-child(6) .card-sticker {
-    width: 360px;
+    width: 460px;
     top: 0;
     right: -28px;
 }
