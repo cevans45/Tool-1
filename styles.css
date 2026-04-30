@@ -278,9 +278,14 @@ body.is-leaving {
     width: 160px;
     height: auto;
     pointer-events: none;
-    mix-blend-mode: screen;
     transform: rotate(-6deg);
     transition: transform 0.35s cubic-bezier(0.2,0.8,0.2,1);
+}
+
+/* Cloudscope + Treatment stickers are opaque screenshots — screen blend removes the black rect */
+.site-card:nth-child(4) .card-sticker,
+.site-card:nth-child(6) .card-sticker {
+    mix-blend-mode: screen;
 }
 
 .site-card:nth-child(6) .card-sticker {
