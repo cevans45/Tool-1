@@ -27,18 +27,15 @@
                 </header>
 
                 <div class="panel-body">
-                    <details class="control-window" open>
-                        <summary>Type pad</summary>
-                        <section class="control-section">
+                    <section class="control-section typo-section">
                             <label class="checkbox-label ty-checkbox-top">
                                 <input type="checkbox" id="ty-show-alpha">
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Show Alphabet</span>
                             </label>
                             <div class="control-row control-row--stack">
-                                <label for="ty-text">Text</label>
-                                <textarea id="ty-text" rows="3" spellcheck="false"
-                                    class="ty-textarea">TYPO</textarea>
+                                <textarea id="ty-text" rows="3" spellcheck="false" class="ty-textarea"
+                                    aria-label="Text">TYPO</textarea>
                             </div>
                             <div class="control-row">
                                 <label for="ty-font-size">Font size</label>
@@ -70,12 +67,9 @@
                                 <button type="button" id="ty-font-reset" class="panel-button" hidden>Reset font</button>
                                 <button type="button" id="ty-mash-fonts" class="panel-button ty-mash-btn">MASH FONTS</button>
                             </div>
-                        </section>
-                    </details>
+                    </section>
 
-                    <details class="control-window" open>
-                        <summary>Construct</summary>
-                        <section class="control-section">
+                    <section class="control-section typo-section">
                             <div class="control-row">
                                 <label for="ty-mode">Mode</label>
                                 <select id="ty-mode" class="select-input">
@@ -145,8 +139,7 @@
                                 <label for="ty-bg">Background</label>
                                 <input type="color" id="ty-bg" value="#f0ede8">
                             </div>
-                        </section>
-                    </details>
+                    </section>
                 </div>
             </aside>
         </div>
@@ -171,8 +164,14 @@
         .app[aria-label="Typo"] .control-row { gap: 6px; margin-bottom: 6px; }
         .app[aria-label="Typo"] .control-row:last-child { margin-bottom: 0; }
         .app[aria-label="Typo"] .control-row label { flex: 0 0 84px; }
-        .app[aria-label="Typo"] .control-window .control-section {
-            padding: 2px 14px 8px;
+        .app[aria-label="Typo"] .panel-body > section.typo-section {
+            margin: 0 0 0 0;
+            padding: 2px 14px 10px;
+        }
+        .app[aria-label="Typo"] .panel-body > section.typo-section:first-of-type {
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+            margin-bottom: 2px;
         }
         .app[aria-label="Typo"] .ty-checkbox-top { margin-bottom: 4px; }
         .app[aria-label="Typo"] .control-row--stack {

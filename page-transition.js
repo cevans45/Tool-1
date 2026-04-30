@@ -522,6 +522,114 @@
     alert('No drawable canvas/SVG found on this page.');
   }
 
+  const VIDEO_RECORD_MS = 10000;
+  const VIDEO_FPS = 30;
+
+  function pickVideoMimeType() {
+    if (typeof MediaRecorder === 'undefined') return '';
+    const candidates = [
+      'video/mp4',
+      'video/mp4; codecs=avc1.42E01E',
+      'video/mp4; codecs=avc1.4d002a',
+      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp8',
+      'video/webm',
+    ];
+    for (let i = 0; i < candidates.length; i++) {
+      if (MediaRecorder.isTypeSupported(candidates[i])) return candidates[i];
+    }
+    return '';
+  }
+
+  function videoFileExtension(mime) {
+    return mime.indexOf('mp4') !== -1 ? 'mp4' : 'webm';
+  }
+
+  async function exportMP4() {
+    if (typeof MediaRecorder === 'undefined') {
+      alert('Video recording is not available in this browser.');
+      return;
+    }
+    const mimeType = pickVideoMimeType();
+    if (!mimeType) {
+      alert('No supported video codec for recording in this browser.');
+      return;
+    }
+
+    let canvas = null;
+    if (typeof window.prepareCanvasVideoExport === 'function') {
+      try {
+        let c = window.prepareCanvasVideoExport();
+        if (c != null && typeof c.then === 'function') c = await c;
+        if (c && c.nodeName === 'CANVAS') canvas = c;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (!canvas) canvas = pickCanvas();
+    if (!canvas) {
+      alert('No canvas found to record.');
+      return;
+    }
+
+    let stream;
+    try {
+      stream = canvas.captureStream(VIDEO_FPS);
+    } catch (e) {
+      console.error(e);
+      alert('Could not capture the canvas for video.');
+      return;
+    }
+
+    const chunks = [];
+    const rec = new MediaRecorder(stream, {
+      mimeType,
+      videoBitsPerSecond: 6e6,
+    });
+
+    await new Promise((resolve, reject) => {
+      rec.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunks.push(e.data);
+      };
+      rec.onstop = () => resolve();
+      rec.onerror = () => reject(new Error('MediaRecorder failed'));
+      try {
+        rec.start(250);
+      } catch (e) {
+        stream.getTracks().forEach((t) => t.stop());
+        reject(e);
+        return;
+      }
+      window.setTimeout(() => {
+        try {
+          if (rec.state === 'recording') rec.stop();
+        } catch (err) {
+          console.error(err);
+        }
+        stream.getTracks().forEach((t) => t.stop());
+      }, VIDEO_RECORD_MS);
+    }).catch((err) => {
+      console.error(err);
+      throw err;
+    });
+
+    if (!chunks.length) {
+      alert('Recording produced no data. The canvas may need to keep animating while recording (try unpausing).');
+      return;
+    }
+
+    const blob = new Blob(chunks, { type: mimeType });
+    const ext = videoFileExtension(mimeType);
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename(ext);
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+  }
+
   function triggerSvgDownload(svgStr) {
     const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
     const blobUrl = URL.createObjectURL(blob);
@@ -644,6 +752,31 @@
     row.appendChild(makeBtn('Export SVG', exportSVG));
     row.appendChild(makeBtn('Export PNG', exportPNG));
     row.appendChild(makeBtn('Export IMG', exportIMG));
+
+    const mp4Btn = document.createElement('button');
+    mp4Btn.type = 'button';
+    mp4Btn.className = 'panel-button panel-button--export';
+    mp4Btn.style.width = '100%';
+    mp4Btn.textContent = 'Export MP4';
+    mp4Btn.title =
+      'Records ~10s of the main canvas. Encodes as MP4 when your browser supports it; otherwise WebM (same file name base).';
+    mp4Btn.addEventListener('click', async () => {
+      if (mp4Btn.disabled) return;
+      mp4Btn.disabled = true;
+      const prev = mp4Btn.textContent;
+      mp4Btn.textContent = 'Recording… 10s';
+      try {
+        await exportMP4();
+      } catch (err) {
+        console.error(err);
+        alert('Video export failed. Try again.');
+      } finally {
+        mp4Btn.disabled = false;
+        mp4Btn.textContent = prev;
+      }
+    });
+    row.appendChild(mp4Btn);
+
     wrap.appendChild(row);
 
     const panelBody = document.querySelector('.control-panel .panel-body');
