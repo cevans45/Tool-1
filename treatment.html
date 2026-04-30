@@ -100,6 +100,21 @@
 
         .control-row.is-hidden { display:none; }
         .tr-color-row.is-hidden { display:none; }
+
+        .app[aria-label="Treatment"] .tr-toggle-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .app[aria-label="Treatment"] .tr-toggle-row label { flex: 1; }
+        .app[aria-label="Treatment"] .tr-toggle-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            accent-color: #e0e0e0;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 <body>
@@ -176,7 +191,10 @@
                             <div class="control-row" data-show="threshold bayer fs edge ascii stipple duotone tritone posterize glitch scanlines"><label id="lbl-threshold">Threshold / Levels</label><input type="range" id="p-threshold" min="0" max="10" value="5" step="0.1"><span class="param-value" id="vp-threshold">5.0</span></div>
                             <div class="control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond fs chroma glitch scanlines crosshatch riso ascii duotone tritone warp kaleido edge bayer posterize stipple"><label id="lbl-amount">Amount</label><input type="range" id="p-amount" min="0" max="10" value="5" step="0.1"><span class="param-value" id="vp-amount">5.0</span></div>
                             <div class="control-row" data-show="glitch chroma scanlines riso warp kaleido"><label id="lbl-amount2">Secondary</label><input type="range" id="p-amount2" min="0" max="10" value="5" step="0.1"><span class="param-value" id="vp-amount2">5.0</span></div>
-                            <div class="control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond bayer fs posterize edge ascii stipple crosshatch riso threshold pixelate"><label id="lbl-invert">Invert</label><input type="range" id="p-invert" min="0" max="1" value="0" step="1"><span class="param-value" id="vp-invert">0</span></div>
+                            <div class="control-row tr-toggle-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond bayer fs posterize edge ascii stipple crosshatch riso threshold pixelate">
+                                <label id="lbl-invert" for="p-invert">Invert</label>
+                                <input type="checkbox" id="p-invert" aria-label="Invert effect">
+                            </div>
 
                             <div class="tr-color-row" data-show-color="halftone_mono halftone_line halftone_diamond stipple ascii threshold duotone tritone riso crosshatch edge">
                                 <label>Ink A</label><input type="color" id="p-color-a" value="#000000">
@@ -199,10 +217,17 @@
                             <div class="control-row"><label>Brightness</label><input type="range" id="p-brightness" min="-5" max="5" value="0" step="0.1"><span class="param-value" id="vp-brightness">0.0</span></div>
                             <div class="control-row"><label>Contrast</label><input type="range" id="p-contrast" min="-5" max="5" value="0" step="0.1"><span class="param-value" id="vp-contrast">0.0</span></div>
                             <div class="control-row"><label>Saturation</label><input type="range" id="p-saturation" min="-5" max="5" value="0" step="0.1"><span class="param-value" id="vp-saturation">0.0</span></div>
+                            <div class="control-row tr-toggle-row">
+                                <label for="p-bw">Black &amp; white</label>
+                                <input type="checkbox" id="p-bw" aria-label="Black and white">
+                            </div>
                             <div class="control-row"><label>Hue shift</label><input type="range" id="p-hue" min="0" max="10" value="0" step="0.1"><span class="param-value" id="vp-hue">0.0</span></div>
                             <div class="control-row"><label>Gamma</label><input type="range" id="p-gamma" min="1" max="10" value="5" step="0.1"><span class="param-value" id="vp-gamma">5.0</span></div>
                             <div class="control-row"><label>Pre-blur</label><input type="range" id="p-blur" min="0" max="10" value="0" step="0.1"><span class="param-value" id="vp-blur">0.0</span></div>
-                            <div class="control-row"><label>Global Invert</label><input type="range" id="p-ginvert" min="0" max="1" value="0" step="1"><span class="param-value" id="vp-ginvert">0</span></div>
+                            <div class="control-row tr-toggle-row">
+                                <label for="p-ginvert">Global invert</label>
+                                <input type="checkbox" id="p-ginvert" aria-label="Global invert">
+                            </div>
                         </section>
                     </details>
 
@@ -237,9 +262,10 @@
 
     // ── Slider helpers (value + readout) ──
     const sliderIds = [
-        'p-mode','p-scale','p-angle','p-threshold','p-amount','p-amount2','p-invert',
-        'p-brightness','p-contrast','p-saturation','p-hue','p-gamma','p-blur','p-ginvert',
-        'p-maxdim','p-color-a','p-color-b','p-color-c','p-color-bg','p-ascii-chars'
+        'p-mode','p-scale','p-angle','p-threshold','p-amount','p-amount2',
+        'p-brightness','p-contrast','p-saturation','p-hue','p-gamma','p-blur',
+        'p-maxdim','p-color-a','p-color-b','p-color-c','p-color-bg','p-ascii-chars',
+        'p-invert','p-ginvert','p-bw'
     ];
     const S = {};
     sliderIds.forEach(id => { S[id] = document.getElementById(id); });
@@ -257,14 +283,12 @@
     wireReadout('p-threshold');
     wireReadout('p-amount');
     wireReadout('p-amount2');
-    wireReadout('p-invert', v => String(v));
     wireReadout('p-brightness');
     wireReadout('p-contrast');
     wireReadout('p-saturation');
     wireReadout('p-hue');
     wireReadout('p-gamma');
     wireReadout('p-blur');
-    wireReadout('p-ginvert', v => String(v));
     wireReadout('p-maxdim', v => String(Math.round(v)));
 
     // Mode hints
@@ -310,11 +334,14 @@
         });
     }
 
-    // All sliders trigger re-render
+    // All controls trigger re-render
     Object.values(S).forEach(input => {
         if (!input) return;
-        const evt = (input.type === 'color' || input.tagName === 'SELECT') ? 'input' : 'input';
-        input.addEventListener(evt, () => { render(); });
+        if (input.type === 'checkbox' || input.tagName === 'SELECT') {
+            input.addEventListener('change', () => { render(); });
+        } else {
+            input.addEventListener('input', () => { render(); });
+        }
     });
 
     // ── WebGL2 ──
@@ -353,6 +380,7 @@
     uniform float uGamma;       // 0.25..3
     uniform float uBlur;        // 0..6 (px radius)
     uniform float uGInvert;     // 0/1
+    uniform float uGrayscale;   // 0/1 — force luma after adjust, before modes
 
     // Effect
     uniform int uMode;
@@ -420,6 +448,10 @@
         hsv.y = clamp(hsv.y * (1.0 + uSaturation), 0.0, 1.0);
         c = hsv2rgb(hsv);
         c = pow(max(c, 0.0001), vec3(1.0 / max(0.01, uGamma)));
+        if (uGrayscale > 0.5) {
+            float L = luma(c);
+            c = vec3(L);
+        }
         if (uGInvert > 0.5) c = 1.0 - c;
         return clamp(c, 0.0, 1.0);
     }
@@ -807,7 +839,7 @@
     const U = {};
     [
         'uTex','uAscii','uResolution','uImgSize','uTime','uAsciiCount',
-        'uBrightness','uContrast','uSaturation','uHue','uGamma','uBlur','uGInvert',
+        'uBrightness','uContrast','uSaturation','uHue','uGamma','uBlur','uGInvert','uGrayscale',
         'uMode','uScale','uAngle','uThreshold','uAmount','uAmount2','uInvert',
         'uColorA','uColorB','uColorC','uColorBg'
     ].forEach(n => { U[n] = gl.getUniformLocation(program, n); });
@@ -942,31 +974,44 @@
         reader.readAsDataURL(f);
     });
 
-    // Sample image: generate a gradient + shapes procedurally so we don't need an external file
+    // Sample image: smiley face (procedural, no external file)
     sampleBtn.addEventListener('click', () => {
-        const w = 1400, h = 900;
+        const size = 1024;
         const off = document.createElement('canvas');
-        off.width = w; off.height = h;
+        off.width = size;
+        off.height = size;
         const c = off.getContext('2d');
-        const g = c.createLinearGradient(0, 0, w, h);
-        g.addColorStop(0, '#3b2f63'); g.addColorStop(0.5, '#c64756'); g.addColorStop(1, '#f2c04b');
-        c.fillStyle = g; c.fillRect(0, 0, w, h);
-        c.fillStyle = 'rgba(255,255,255,0.18)';
-        for (let i = 0; i < 140; i++) {
-            const x = Math.random() * w, y = Math.random() * h, r = 5 + Math.random() * 80;
-            c.beginPath(); c.arc(x, y, r, 0, Math.PI * 2); c.fill();
-        }
-        c.fillStyle = '#111';
-        c.beginPath(); c.arc(w * 0.32, h * 0.55, Math.min(w,h) * 0.22, 0, Math.PI * 2); c.fill();
-        c.fillStyle = '#eee';
-        c.font = 'bold 180px serif';
-        c.textAlign = 'center';
-        c.textBaseline = 'middle';
-        c.fillText('OVRT', w / 2, h * 0.35);
-        c.strokeStyle = '#111';
-        c.lineWidth = 6;
-        c.strokeText('OVRT', w / 2, h * 0.35);
-        const blob = off;
+        const cx = size * 0.5;
+        const cy = size * 0.52;
+        const R = size * 0.36;
+
+        c.fillStyle = '#9dd6ff';
+        c.fillRect(0, 0, size, size);
+
+        c.fillStyle = '#ffcc33';
+        c.strokeStyle = '#1a1a1a';
+        c.lineWidth = Math.max(4, size * 0.014);
+        c.beginPath();
+        c.arc(cx, cy, R, 0, Math.PI * 2);
+        c.fill();
+        c.stroke();
+
+        c.fillStyle = '#1a1a1a';
+        const eyeY = cy - R * 0.2;
+        const eyeDx = R * 0.34;
+        const eyeR = R * 0.09;
+        c.beginPath();
+        c.arc(cx - eyeDx, eyeY, eyeR, 0, Math.PI * 2);
+        c.arc(cx + eyeDx, eyeY, eyeR, 0, Math.PI * 2);
+        c.fill();
+
+        c.strokeStyle = '#1a1a1a';
+        c.lineWidth = Math.max(5, size * 0.02);
+        c.lineCap = 'round';
+        c.beginPath();
+        c.arc(cx, cy + R * 0.06, R * 0.52, 0.2 * Math.PI, 0.8 * Math.PI);
+        c.stroke();
+
         const img = new Image();
         img.onload = () => uploadImage(img);
         img.src = off.toDataURL('image/png');
@@ -975,14 +1020,21 @@
     // Reset
     resetBtn.addEventListener('click', () => {
         const defaults = {
-            'p-scale': 4, 'p-angle': 4.5, 'p-threshold': 5, 'p-amount': 5, 'p-amount2': 5, 'p-invert': 0,
-            'p-brightness': 0, 'p-contrast': 0, 'p-saturation': 0, 'p-hue': 0, 'p-gamma': 5, 'p-blur': 0, 'p-ginvert': 0,
+            'p-scale': 4, 'p-angle': 4.5, 'p-threshold': 5, 'p-amount': 5, 'p-amount2': 5,
+            'p-brightness': 0, 'p-contrast': 0, 'p-saturation': 0, 'p-hue': 0, 'p-gamma': 5, 'p-blur': 0,
             'p-color-a': '#000000', 'p-color-b': '#ffffff', 'p-color-c': '#ff3366', 'p-color-bg': '#f5efe4'
         };
+        const checkDefaults = { 'p-invert': false, 'p-ginvert': false, 'p-bw': false };
         Object.keys(defaults).forEach(id => {
             if (S[id]) {
                 S[id].value = defaults[id];
                 S[id].dispatchEvent(new Event('input'));
+            }
+        });
+        Object.keys(checkDefaults).forEach(id => {
+            if (S[id] && S[id].type === 'checkbox') {
+                S[id].checked = checkDefaults[id];
+                S[id].dispatchEvent(new Event('change'));
             }
         });
         render();
@@ -1154,7 +1206,8 @@
         gl.uniform1f(U.uHue,        parseFloat(S['p-hue'].value)        / 10);
         gl.uniform1f(U.uGamma,      parseFloat(S['p-gamma'].value)      / 5);
         gl.uniform1f(U.uBlur,       parseFloat(S['p-blur'].value));
-        gl.uniform1f(U.uGInvert,    parseInt(S['p-ginvert'].value, 10) ? 1 : 0);
+        gl.uniform1f(U.uGInvert,    S['p-ginvert'].checked ? 1 : 0);
+        gl.uniform1f(U.uGrayscale, S['p-bw'].checked ? 1 : 0);
 
         gl.uniform1i(U.uMode, MODE_INT[mode] || 0);
         gl.uniform1f(U.uScale,     parseFloat(S['p-scale'].value));
@@ -1162,7 +1215,7 @@
         gl.uniform1f(U.uThreshold, parseFloat(S['p-threshold'].value));
         gl.uniform1f(U.uAmount,    parseFloat(S['p-amount'].value));
         gl.uniform1f(U.uAmount2,   parseFloat(S['p-amount2'].value));
-        gl.uniform1f(U.uInvert,    parseInt(S['p-invert'].value, 10) ? 1 : 0);
+        gl.uniform1f(U.uInvert,    S['p-invert'].checked ? 1 : 0);
 
         const cA = hex2rgb(S['p-color-a'].value);
         const cB = hex2rgb(S['p-color-b'].value);
