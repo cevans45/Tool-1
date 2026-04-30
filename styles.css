@@ -325,6 +325,8 @@ body.is-leaving {
     padding: 0 36px;
     font-size: 16px;
     text-align: left;
+    align-self: flex-start;
+    padding-top: 24px;
 }
 
 .site-card:nth-child(even) .site-card-body {
