@@ -47,6 +47,26 @@
         }
         #phantom-wrap { flex:1; position:relative; overflow:hidden; }
         canvas { display:block; width:100%!important; height:100%!important; }
+        #fs-btn {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            z-index: 10;
+            width: 36px;
+            height: 36px;
+            border: 1px solid rgba(255,255,255,0.25);
+            border-radius: 6px;
+            background: rgba(0,0,0,0.5);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0.4;
+            transition: opacity 0.2s;
+        }
+        #fs-btn:hover { opacity: 1; }
+        #fs-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
     </style>
 </head>
 <body>
@@ -56,7 +76,12 @@
             <span class="tool-title" style="color:#fff;">Cloudscope</span>
         </header>
         <div class="app" aria-label="Cloudscope">
-            <div id="phantom-wrap"></div>
+            <div id="phantom-wrap">
+                <button id="fs-btn" aria-label="Toggle fullscreen" title="Fullscreen">
+                    <svg id="fs-icon-expand" viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                    <svg id="fs-icon-shrink" viewBox="0 0 24 24" style="display:none"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="10" y1="14" x2="3" y2="21"/><line x1="21" y1="3" x2="14" y2="10"/></svg>
+                </button>
+            </div>
             <aside class="control-panel">
                 <header class="panel-header">
                     <h2 style="color:#fff;">Cloudscope</h2>
@@ -860,6 +885,26 @@
         let temp = read;
         read = write;
         write = temp;
+    });
+
+    // Fullscreen
+    const fsBtn = document.getElementById('fs-btn');
+    const fsExpand = document.getElementById('fs-icon-expand');
+    const fsShrink = document.getElementById('fs-icon-shrink');
+    const wrap = document.getElementById('phantom-wrap');
+
+    fsBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            wrap.requestFullscreen();
+        } else {
+            document.exitFullscreen();
+        }
+    });
+
+    document.addEventListener('fullscreenchange', () => {
+        const isFs = !!document.fullscreenElement;
+        fsExpand.style.display = isFs ? 'none' : '';
+        fsShrink.style.display = isFs ? '' : 'none';
     });
     </script>
 </body>
