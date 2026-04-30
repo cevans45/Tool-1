@@ -184,11 +184,9 @@ body.is-leaving {
 .site-grid {
     display: flex;
     flex-direction: column;
-    gap: 96px;
-    padding: 80px 24px 120px;
+    gap: 80px;
+    padding: 80px 48px 120px;
     background: #000;
-    max-width: 1400px;
-    margin: 0 auto;
 }
 
 .site-card {
@@ -201,7 +199,7 @@ body.is-leaving {
     display: flex;
     flex-direction: row;
     align-items: center;
-    gap: 64px;
+    gap: 0;
     text-decoration: none;
     transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
     animation: slideUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
@@ -237,7 +235,8 @@ body.is-leaving {
 .site-card-preview {
     position: relative;
     background: #0a0a0a;
-    width: 60%;
+    flex: 1 1 0;
+    min-width: 0;
     aspect-ratio: 16 / 9;
     border-radius: 12px;
     border: 1px solid #222;
@@ -247,10 +246,6 @@ body.is-leaving {
     padding: 24px;
     overflow: hidden;
     transition: border-color 0.3s;
-}
-
-.site-card-preview > .card-sticker {
-    overflow: visible;
 }
 
 .site-card:hover .site-card-preview {
@@ -273,9 +268,9 @@ body.is-leaving {
 .card-sticker {
     position: absolute;
     z-index: 4;
-    top: -20px;
-    left: -20px;
-    width: 160px;
+    top: -28px;
+    left: -28px;
+    width: 240px;
     height: auto;
     pointer-events: none;
     transform: rotate(-6deg);
@@ -289,12 +284,12 @@ body.is-leaving {
 }
 
 .site-card:nth-child(6) .card-sticker {
-    width: 210px;
+    width: 280px;
 }
 
 .site-card:nth-child(even) .card-sticker {
     left: auto;
-    right: -20px;
+    right: -28px;
     transform: rotate(6deg);
 }
 
@@ -318,8 +313,9 @@ body.is-leaving {
 }
 
 .site-card-body {
-    width: 40%;
-    padding: 0;
+    flex: 0 0 240px;
+    width: 240px;
+    padding: 0 36px;
     font-size: 16px;
     text-align: left;
 }
@@ -338,7 +334,7 @@ body.is-leaving {
 }
 
 .site-card:nth-child(4) .card-sticker {
-    left: -20px;
+    left: -28px;
     right: auto;
     transform: rotate(-6deg);
 }
@@ -879,29 +875,37 @@ body.is-leaving {
 }
 
 @media (max-width: 900px) {
+    .site-grid {
+        padding: 60px 20px 100px;
+        gap: 60px;
+    }
+
     .site-card, .site-card:nth-child(even) {
         flex-direction: column;
-        gap: 24px;
+        gap: 20px;
     }
-    
+
     .site-card-preview {
         width: 100%;
+        flex: none;
     }
-    
+
     .site-card-body {
+        flex: none;
         width: 100%;
-        padding: 0 12px;
+        padding: 0 8px;
     }
 
     .card-sticker {
-        width: 120px;
-        top: -16px;
-        left: -12px;
+        width: 160px;
+        top: -20px;
+        left: -16px;
     }
 
-    .site-card:nth-child(even) .card-sticker {
-        left: auto;
-        right: -12px;
+    .site-card:nth-child(even) .card-sticker,
+    .site-card:nth-child(4) .card-sticker {
+        left: -16px;
+        right: auto;
     }
 }
 
