@@ -279,7 +279,7 @@ body.is-leaving {
 
 /* Typo — bigger sticker */
 .site-card:nth-child(1) .card-sticker {
-    width: 320px;
+    width: 200px;
 }
 
 /* Cloudscope — bigger, aligned to card top */
