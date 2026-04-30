@@ -273,28 +273,28 @@ body.is-leaving {
 .card-sticker {
     position: absolute;
     z-index: 4;
-    bottom: -36px;
-    right: -20px;
+    top: -20px;
+    left: -20px;
     width: 160px;
     height: auto;
     pointer-events: none;
     mix-blend-mode: screen;
-    transform: rotate(6deg);
+    transform: rotate(-6deg);
     transition: transform 0.35s cubic-bezier(0.2,0.8,0.2,1);
 }
 
 .site-card:nth-child(even) .card-sticker {
-    right: auto;
-    left: -20px;
-    transform: rotate(-6deg);
+    left: auto;
+    right: -20px;
+    transform: rotate(6deg);
 }
 
 .site-card:hover .card-sticker {
-    transform: rotate(3deg) scale(1.08) translateY(-5px);
+    transform: rotate(-3deg) scale(1.08) translateY(4px);
 }
 
 .site-card:nth-child(even):hover .card-sticker {
-    transform: rotate(-3deg) scale(1.08) translateY(-5px);
+    transform: rotate(3deg) scale(1.08) translateY(4px);
 }
 
 .tool-preview-frame {
@@ -326,6 +326,16 @@ body.is-leaving {
 
 .site-card:nth-child(4) .site-card-body {
     text-align: left;
+}
+
+.site-card:nth-child(4) .card-sticker {
+    left: -20px;
+    right: auto;
+    transform: rotate(-6deg);
+}
+
+.site-card:nth-child(4):hover .card-sticker {
+    transform: rotate(-3deg) scale(1.08) translateY(4px);
 }
 
 .site-card-body h2 {
@@ -876,12 +886,13 @@ body.is-leaving {
 
     .card-sticker {
         width: 120px;
-        bottom: -24px;
-        right: -12px;
+        top: -16px;
+        left: -12px;
     }
 
     .site-card:nth-child(even) .card-sticker {
-        left: -12px;
+        left: auto;
+        right: -12px;
     }
 }
 
