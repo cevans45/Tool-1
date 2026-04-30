@@ -101,255 +101,19 @@
         .control-row.is-hidden { display:none; }
         .tr-color-row.is-hidden { display:none; }
 
-        .control-panel-content { padding-bottom: 4px; }
-
-        .tr-file-uploader { padding: 4px 14px 8px; }
-        .file-uploader-input { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
-        .file-uploader-label {
-            display: block;
-            font-size: 11px;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-            color: #fff;
-            border: 1px solid #555;
-            padding: 10px 12px;
-            text-align: center;
-            cursor: pointer;
-            border-radius: 2px;
-        }
-        .file-uploader-label:hover { border-color: #fff; color: #fff; }
-        .file-uploader-display {
-            font-size: 10px;
-            color: #666;
-            margin-top: 8px;
-            text-align: center;
-            letter-spacing: 0.04em;
-            line-height: 1.4;
-        }
-        .shortcut-hint {
-            display: inline-block;
-            margin-left: 8px;
-            font-size: 9px;
-            letter-spacing: 0.02em;
-            color: #777;
-            text-transform: none;
-            font-weight: 400;
-        }
-        .shortcut-hint kbd {
-            font: 10px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace;
-            border: 1px solid #444;
-            padding: 2px 5px;
-            border-radius: 3px;
-            background: #1a1a1a;
-            color: #bbb;
-        }
-
-        .tr-aux-row {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            padding: 0 14px 10px;
-            font-size: 11px;
-        }
-        .tr-aux-row .tr-text-btn {
-            background: none;
-            border: none;
-            color: #888;
-            cursor: pointer;
-            padding: 0;
-            font: inherit;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-        }
-        .tr-aux-row .tr-text-btn:hover { color: #fff; }
-        .tr-text-sep { color: #444; user-select: none; }
-
-        .app[aria-label="Treatment"] .tr-control-group summary {
-            list-style: none;
+        .app[aria-label="Treatment"] .tr-toggle-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            font-size: 11px;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: #fff;
-            padding: 12px 14px 8px;
-            margin: 0 -14px 4px;
-            border-bottom: 1px solid #2a2a2a;
-            cursor: pointer;
-            user-select: none;
-        }
-        .app[aria-label="Treatment"] .tr-control-group summary::-webkit-details-marker { display: none; }
-        .app[aria-label="Treatment"] .tr-control-group summary::after {
-            content: '+';
-            font-size: 14px;
-            font-weight: 600;
-            color: #888;
-            line-height: 1;
-        }
-        .app[aria-label="Treatment"] .tr-control-group[open] summary::after { content: '−'; }
-
-        .tr-slider-num {
-            padding: 6px 14px 4px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-        .app[aria-label="Treatment"] .tr-slider-num.control-row {
-            flex-direction: column;
-            align-items: stretch;
-            margin-bottom: 4px;
-        }
-        .app[aria-label="Treatment"] .tr-slider-num.control-row > label {
-            flex: none;
-            width: auto;
-        }
-        .tr-slider-num > label,
-        .tr-slider-num label.tr-slider-label {
-            font-size: 11px;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            color: #ccc;
-        }
-        .tr-slider-num-row {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .tr-num-input {
-            width: 54px;
-            flex-shrink: 0;
-            padding: 6px 8px;
-            font-size: 12px;
-            font-variant-numeric: tabular-nums;
-            color: #fff;
-            background: #111;
-            border: 1px solid #444;
-            border-radius: 3px;
-            box-sizing: border-box;
-        }
-        .tr-slider-num-row input[type="range"] { flex: 1; min-width: 0; }
-        .tr-slider-num-row input[type="range"]::-webkit-slider-runnable-track {
-            height: 3px;
-            background: #3a3a3a;
-            border-radius: 2px;
-        }
-        .tr-slider-num-row input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 14px;
-            height: 14px;
-            background: #eee;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-            margin-top: -6px;
-        }
-        .tr-slider-num-row input[type="range"]::-moz-range-track {
-            height: 3px;
-            background: #3a3a3a;
-            border-radius: 2px;
-        }
-        .tr-slider-num-row input[type="range"]::-moz-range-thumb {
-            width: 14px;
-            height: 14px;
-            background: #eee;
-            border: none;
-            border-radius: 50%;
-            cursor: pointer;
-        }
-
-        .tr-mode-row { padding: 8px 14px 4px; }
-        .tr-mode-row > label {
-            display: block;
-            font-size: 11px;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            color: #ccc;
-            margin-bottom: 6px;
-        }
-        .tr-mode-row .select-input { width: 100%; box-sizing: border-box; }
-
-        .app[aria-label="Treatment"] .tr-toggle {
-            display: flex;
-            align-items: center;
             gap: 12px;
-            padding: 8px 14px;
         }
-        .app[aria-label="Treatment"] .tr-toggle-box {
-            display: flex;
-            align-items: center;
-            gap: 2px;
-            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            font-size: 13px;
-            color: #777;
-            user-select: none;
-            flex-shrink: 0;
-        }
-        .app[aria-label="Treatment"] .tr-toggle-box input[type="checkbox"] {
-            width: 14px;
-            height: 14px;
-            margin: 0;
+        .app[aria-label="Treatment"] .tr-toggle-row label { flex: 1; }
+        .app[aria-label="Treatment"] .tr-toggle-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
             accent-color: #e0e0e0;
             cursor: pointer;
-        }
-        .app[aria-label="Treatment"] .tr-toggle.control-row {
-            align-items: center;
-        }
-        .app[aria-label="Treatment"] .tr-toggle.control-row label {
-            flex: 1;
-            width: auto;
-            font-size: 11px;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            color: #ccc;
-            cursor: pointer;
-        }
-
-        .tr-panel-footer {
-            padding: 16px 14px 20px;
-            border-top: 1px solid #2a2a2a;
-            margin-top: 10px;
-        }
-        .tr-content-switcher {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-bottom: 10px;
-            flex-wrap: wrap;
-        }
-        .tr-content-switcher > label {
-            font-size: 10px;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: #666;
-            width: 100%;
-        }
-        .tr-format-pill {
-            font-size: 11px;
-            letter-spacing: 0.06em;
-            text-transform: uppercase;
-            padding: 6px 12px;
-            border: 1px solid #555;
-            background: #fff;
-            color: #000;
-            border-radius: 2px;
-            cursor: default;
-        }
-        .tr-format-pill--ghost {
-            opacity: 0.45;
-            cursor: not-allowed;
-            background: transparent !important;
-            color: #777 !important;
-            border-color: #3a3a3a !important;
-        }
-        .tr-export-primary {
-            width: 100%;
-            justify-content: center;
-            padding: 12px 14px !important;
-            font-weight: 600;
-            letter-spacing: 0.06em;
+            flex-shrink: 0;
         }
     </style>
 </head>
@@ -369,7 +133,7 @@
                         <small>All processing is local. Your image never leaves this browser.</small>
                     </div>
                 </div>
-                <input type="file" id="tr-file" class="tr-file-input file-uploader-input" accept="image/jpeg,image/png,image/webp" hidden>
+                <input type="file" class="tr-file-input" id="tr-file" accept="image/*">
             </div>
 
             <aside class="control-panel">
@@ -377,27 +141,19 @@
                     <h2 style="color:#fff;">Treatment</h2>
                 </header>
                 <div class="panel-body">
-                    <div class="control-panel-content">
 
-                    <div class="file-uploader tr-file-uploader">
-                        <label for="tr-file" class="file-uploader-label">
-                            Upload media
-                            <span class="shortcut-hint"><kbd>⌘</kbd>+<kbd>O</kbd></span>
-                        </label>
-                        <div class="file-uploader-display">.jpg, .png, .webp · or drag onto the stage</div>
-                    </div>
-                    <div class="tr-aux-row">
-                        <button type="button" class="tr-text-btn" id="tr-sample-btn">Sample</button>
-                        <span class="tr-text-sep" aria-hidden="true">·</span>
-                        <button type="button" class="tr-text-btn" id="tr-reset-btn">Reset</button>
+                    <div class="tr-button-row">
+                        <button class="panel-button" id="tr-upload-btn">Upload</button>
+                        <button class="panel-button" id="tr-sample-btn">Sample</button>
+                        <button class="panel-button" id="tr-reset-btn">Reset</button>
                     </div>
                     <div class="tr-meta" id="tr-meta">No image</div>
 
-                    <details class="control-window tr-control-group" open>
+                    <details class="control-window" open>
                         <summary>Effect</summary>
                         <section class="control-section">
-                            <div class="tr-mode-row" style="padding-bottom:12px;">
-                                <label for="p-mode">Mode</label>
+                            <div class="control-row" style="padding-bottom:12px;">
+                                <label>Mode</label>
                                 <select id="p-mode" class="select-input">
                                     <option value="none">None (adjust only)</option>
                                     <option value="halftone_cmyk" selected>Halftone — CMYK</option>
@@ -425,49 +181,19 @@
                             </div>
                             <p class="tr-hint" id="tr-mode-hint">CMYK dot screens with adjustable angle and size. Classic print halftone.</p>
 
-                            <div class="tr-slider-num control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond riso stipple pixelate ascii bayer warp kaleido crosshatch glitch chroma scanlines edge">
-                                <label class="tr-slider-label" id="lbl-scale" for="p-scale">Scale</label>
-                                <div class="tr-slider-num-row">
-                                    <input type="number" class="tr-num-input" id="vp-scale" min="1" max="10" step="0.1" value="4" aria-label="Scale value">
-                                    <input type="range" id="p-scale" min="1" max="10" value="4" step="0.1" aria-label="Scale">
-                                </div>
-                            </div>
+                            <div class="control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond riso stipple pixelate ascii bayer warp kaleido crosshatch glitch chroma scanlines edge"><label id="lbl-scale">Scale</label><input type="range" id="p-scale" min="1" max="10" value="4" step="0.1"><span class="param-value" id="vp-scale">4.0</span></div>
                             <div class="control-row" data-show="ascii" style="flex-direction:column;align-items:stretch;gap:6px;">
                                 <label style="flex:none;font-size:11px;letter-spacing:0.04em;text-transform:uppercase;color:#ddd;">Characters (light → dark)</label>
                                 <input type="text" id="p-ascii-chars" class="select-input" value=" .,:;+*#%@" spellcheck="false" autocomplete="off" style="flex:none;padding:6px 8px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;letter-spacing:0.04em;color:#fff;background:#111;border:1px solid #555;border-radius:3px;width:100%;box-sizing:border-box;">
                                 <p class="tr-hint" style="margin:0;">Type any characters. First = lightest (paper), last = darkest (ink). 2–32 characters.</p>
                             </div>
-                            <div class="tr-slider-num control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond riso crosshatch warp kaleido">
-                                <label class="tr-slider-label" id="lbl-angle" for="p-angle">Angle</label>
-                                <div class="tr-slider-num-row">
-                                    <input type="number" class="tr-num-input" id="vp-angle" min="0" max="10" step="0.1" value="4.5" aria-label="Angle value">
-                                    <input type="range" id="p-angle" min="0" max="10" value="4.5" step="0.1" aria-label="Angle">
-                                </div>
-                            </div>
-                            <div class="tr-slider-num control-row" data-show="threshold bayer fs edge ascii stipple duotone tritone posterize glitch scanlines">
-                                <label class="tr-slider-label" id="lbl-threshold" for="p-threshold">Threshold / Levels</label>
-                                <div class="tr-slider-num-row">
-                                    <input type="number" class="tr-num-input" id="vp-threshold" min="0" max="10" step="0.1" value="5" aria-label="Threshold value">
-                                    <input type="range" id="p-threshold" min="0" max="10" value="5" step="0.1" aria-label="Threshold / Levels">
-                                </div>
-                            </div>
-                            <div class="tr-slider-num control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond fs chroma glitch scanlines crosshatch riso ascii duotone tritone warp kaleido edge bayer posterize stipple">
-                                <label class="tr-slider-label" id="lbl-amount" for="p-amount">Amount</label>
-                                <div class="tr-slider-num-row">
-                                    <input type="number" class="tr-num-input" id="vp-amount" min="0" max="10" step="0.1" value="5" aria-label="Amount value">
-                                    <input type="range" id="p-amount" min="0" max="10" value="5" step="0.1" aria-label="Amount">
-                                </div>
-                            </div>
-                            <div class="tr-slider-num control-row" data-show="glitch chroma scanlines riso warp kaleido">
-                                <label class="tr-slider-label" id="lbl-amount2" for="p-amount2">Secondary</label>
-                                <div class="tr-slider-num-row">
-                                    <input type="number" class="tr-num-input" id="vp-amount2" min="0" max="10" step="0.1" value="5" aria-label="Secondary value">
-                                    <input type="range" id="p-amount2" min="0" max="10" value="5" step="0.1" aria-label="Secondary">
-                                </div>
-                            </div>
-                            <div class="tr-toggle control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond bayer fs posterize edge ascii stipple crosshatch riso threshold pixelate">
-                                <div class="tr-toggle-box"><span>[</span><input type="checkbox" id="p-invert" aria-label="Invert effect"><span>]</span></div>
+                            <div class="control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond riso crosshatch warp kaleido"><label id="lbl-angle">Angle</label><input type="range" id="p-angle" min="0" max="10" value="4.5" step="0.1"><span class="param-value" id="vp-angle">4.5</span></div>
+                            <div class="control-row" data-show="threshold bayer fs edge ascii stipple duotone tritone posterize glitch scanlines"><label id="lbl-threshold">Threshold / Levels</label><input type="range" id="p-threshold" min="0" max="10" value="5" step="0.1"><span class="param-value" id="vp-threshold">5.0</span></div>
+                            <div class="control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond fs chroma glitch scanlines crosshatch riso ascii duotone tritone warp kaleido edge bayer posterize stipple"><label id="lbl-amount">Amount</label><input type="range" id="p-amount" min="0" max="10" value="5" step="0.1"><span class="param-value" id="vp-amount">5.0</span></div>
+                            <div class="control-row" data-show="glitch chroma scanlines riso warp kaleido"><label id="lbl-amount2">Secondary</label><input type="range" id="p-amount2" min="0" max="10" value="5" step="0.1"><span class="param-value" id="vp-amount2">5.0</span></div>
+                            <div class="control-row tr-toggle-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond bayer fs posterize edge ascii stipple crosshatch riso threshold pixelate">
                                 <label id="lbl-invert" for="p-invert">Invert</label>
+                                <input type="checkbox" id="p-invert" aria-label="Invert effect">
                             </div>
 
                             <div class="tr-color-row" data-show-color="halftone_mono halftone_line halftone_diamond stipple ascii threshold duotone tritone riso crosshatch edge">
@@ -485,47 +211,34 @@
                         </section>
                     </details>
 
-                    <details class="control-window tr-control-group" open>
+                    <details class="control-window" open>
                         <summary>Adjust</summary>
                         <section class="control-section">
-                            <div class="tr-slider-num control-row"><label class="tr-slider-label" for="p-brightness">Brightness</label><div class="tr-slider-num-row"><input type="number" class="tr-num-input" id="vp-brightness" min="-5" max="5" step="0.1" value="0" aria-label="Brightness value"><input type="range" id="p-brightness" min="-5" max="5" value="0" step="0.1" aria-label="Brightness"></div></div>
-                            <div class="tr-slider-num control-row"><label class="tr-slider-label" for="p-contrast">Contrast</label><div class="tr-slider-num-row"><input type="number" class="tr-num-input" id="vp-contrast" min="-5" max="5" step="0.1" value="0" aria-label="Contrast value"><input type="range" id="p-contrast" min="-5" max="5" value="0" step="0.1" aria-label="Contrast"></div></div>
-                            <div class="tr-slider-num control-row"><label class="tr-slider-label" for="p-saturation">Saturation</label><div class="tr-slider-num-row"><input type="number" class="tr-num-input" id="vp-saturation" min="-5" max="5" step="0.1" value="0" aria-label="Saturation value"><input type="range" id="p-saturation" min="-5" max="5" value="0" step="0.1" aria-label="Saturation"></div></div>
-                            <div class="tr-toggle control-row">
-                                <div class="tr-toggle-box"><span>[</span><input type="checkbox" id="p-bw" aria-label="Black and white"><span>]</span></div>
+                            <div class="control-row"><label>Brightness</label><input type="range" id="p-brightness" min="-5" max="5" value="0" step="0.1"><span class="param-value" id="vp-brightness">0.0</span></div>
+                            <div class="control-row"><label>Contrast</label><input type="range" id="p-contrast" min="-5" max="5" value="0" step="0.1"><span class="param-value" id="vp-contrast">0.0</span></div>
+                            <div class="control-row"><label>Saturation</label><input type="range" id="p-saturation" min="-5" max="5" value="0" step="0.1"><span class="param-value" id="vp-saturation">0.0</span></div>
+                            <div class="control-row tr-toggle-row">
                                 <label for="p-bw">Black &amp; white</label>
+                                <input type="checkbox" id="p-bw" aria-label="Black and white">
                             </div>
-                            <div class="tr-slider-num control-row"><label class="tr-slider-label" for="p-hue">Hue shift</label><div class="tr-slider-num-row"><input type="number" class="tr-num-input" id="vp-hue" min="0" max="10" step="0.1" value="0" aria-label="Hue value"><input type="range" id="p-hue" min="0" max="10" value="0" step="0.1" aria-label="Hue shift"></div></div>
-                            <div class="tr-slider-num control-row"><label class="tr-slider-label" for="p-gamma">Gamma</label><div class="tr-slider-num-row"><input type="number" class="tr-num-input" id="vp-gamma" min="1" max="10" step="0.1" value="5" aria-label="Gamma value"><input type="range" id="p-gamma" min="1" max="10" value="5" step="0.1" aria-label="Gamma"></div></div>
-                            <div class="tr-slider-num control-row"><label class="tr-slider-label" for="p-blur">Pre-blur</label><div class="tr-slider-num-row"><input type="number" class="tr-num-input" id="vp-blur" min="0" max="10" step="0.1" value="0" aria-label="Pre-blur value"><input type="range" id="p-blur" min="0" max="10" value="0" step="0.1" aria-label="Pre-blur"></div></div>
-                            <div class="tr-toggle control-row">
-                                <div class="tr-toggle-box"><span>[</span><input type="checkbox" id="p-ginvert" aria-label="Global invert"><span>]</span></div>
+                            <div class="control-row"><label>Hue shift</label><input type="range" id="p-hue" min="0" max="10" value="0" step="0.1"><span class="param-value" id="vp-hue">0.0</span></div>
+                            <div class="control-row"><label>Gamma</label><input type="range" id="p-gamma" min="1" max="10" value="5" step="0.1"><span class="param-value" id="vp-gamma">5.0</span></div>
+                            <div class="control-row"><label>Pre-blur</label><input type="range" id="p-blur" min="0" max="10" value="0" step="0.1"><span class="param-value" id="vp-blur">0.0</span></div>
+                            <div class="control-row tr-toggle-row">
                                 <label for="p-ginvert">Global invert</label>
+                                <input type="checkbox" id="p-ginvert" aria-label="Global invert">
                             </div>
                         </section>
                     </details>
 
-                    <details class="control-window tr-control-group">
+                    <details class="control-window">
                         <summary>Output</summary>
                         <section class="control-section">
-                            <div class="tr-slider-num control-row"><label class="tr-slider-label" for="p-maxdim">Max dimension (px)</label><div class="tr-slider-num-row"><input type="number" class="tr-num-input" id="vp-maxdim" min="512" max="6144" step="64" value="3200" aria-label="Max dimension value"><input type="range" id="p-maxdim" min="512" max="6144" value="3200" step="64" aria-label="Max dimension"></div></div>
+                            <div class="control-row"><label>Max dimension (px)</label><input type="range" id="p-maxdim" min="512" max="6144" value="3200" step="64"><span class="param-value" id="vp-maxdim">3200</span></div>
                             <p class="tr-hint">Larger = sharper halftone dots and cleaner dither, but slower. Save PNG exports at this resolution.</p>
                         </section>
                     </details>
 
-                    <footer class="tr-panel-footer">
-                        <div class="tr-content-switcher">
-                            <label>Output format</label>
-                            <button type="button" class="tr-format-pill" disabled aria-current="true">PNG</button>
-                            <button type="button" class="tr-format-pill tr-format-pill--ghost" disabled title="SVG export is not available for Treatment">SVG</button>
-                        </div>
-                        <button type="button" class="panel-button tr-export-primary" id="tr-export-btn">
-                            Export canvas
-                            <span class="shortcut-hint"><kbd>⌘</kbd>+<kbd>S</kbd></span>
-                        </button>
-                    </footer>
-
-                    </div>
                 </div>
             </aside>
         </div>
@@ -541,6 +254,7 @@
     const dropZone = document.getElementById('tr-drop');
     const dropClick = document.getElementById('tr-drop-click');
     const fileInput = document.getElementById('tr-file');
+    const uploadBtn = document.getElementById('tr-upload-btn');
     const sampleBtn = document.getElementById('tr-sample-btn');
     const resetBtn = document.getElementById('tr-reset-btn');
     const metaEl = document.getElementById('tr-meta');
@@ -556,66 +270,26 @@
     const S = {};
     sliderIds.forEach(id => { S[id] = document.getElementById(id); });
 
-    function wireSliderNumber(id, options) {
-        const opt = options || {};
-        const intDisplay = !!opt.intDisplay;
-        const snapStep = opt.snapStep != null ? opt.snapStep : null;
-        const range = S[id];
-        const num = document.getElementById('v' + id);
-        if (!range || !num || num.type !== 'number') return;
-
-        const mn = parseFloat(range.min);
-        const mx = parseFloat(range.max);
-        const stepDec = (() => {
-            const t = String(range.step);
-            const i = t.indexOf('.');
-            return i < 0 ? 0 : t.length - i - 1;
-        })();
-
-        function snap(v) {
-            let x = v;
-            if (snapStep != null && snapStep > 0) {
-                x = Math.round((x - mn) / snapStep) * snapStep + mn;
-            }
-            return Math.min(mx, Math.max(mn, x));
-        }
-
-        function formatVal(v) {
-            const s = snap(v);
-            if (intDisplay) return String(Math.round(s));
-            return stepDec > 0 ? s.toFixed(stepDec) : String(Math.round(s));
-        }
-
-        function setNumFromRange() {
-            num.value = formatVal(parseFloat(range.value));
-        }
-
-        function setRangeFromNum() {
-            let v = parseFloat(num.value);
-            if (Number.isNaN(v)) return;
-            v = snap(v);
-            range.value = String(v);
-            num.value = formatVal(v);
-            range.dispatchEvent(new Event('input', { bubbles: true }));
-        }
-
-        setNumFromRange();
-        range.addEventListener('input', setNumFromRange);
-        num.addEventListener('change', setRangeFromNum);
-        num.addEventListener('input', setRangeFromNum);
+    function wireReadout(id, fmt) {
+        const input = S[id];
+        const readout = document.getElementById('v' + id);
+        if (!input || !readout) return;
+        const upd = () => { readout.textContent = fmt ? fmt(input.value) : Number(input.value).toFixed(1); };
+        upd();
+        input.addEventListener('input', upd);
     }
-    wireSliderNumber('p-scale');
-    wireSliderNumber('p-angle');
-    wireSliderNumber('p-threshold');
-    wireSliderNumber('p-amount');
-    wireSliderNumber('p-amount2');
-    wireSliderNumber('p-brightness');
-    wireSliderNumber('p-contrast');
-    wireSliderNumber('p-saturation');
-    wireSliderNumber('p-hue');
-    wireSliderNumber('p-gamma');
-    wireSliderNumber('p-blur');
-    wireSliderNumber('p-maxdim', { intDisplay: true, snapStep: 64 });
+    wireReadout('p-scale');
+    wireReadout('p-angle');
+    wireReadout('p-threshold');
+    wireReadout('p-amount');
+    wireReadout('p-amount2');
+    wireReadout('p-brightness');
+    wireReadout('p-contrast');
+    wireReadout('p-saturation');
+    wireReadout('p-hue');
+    wireReadout('p-gamma');
+    wireReadout('p-blur');
+    wireReadout('p-maxdim', v => String(Math.round(v)));
 
     // Mode hints
     const MODE_HINTS = {
@@ -1279,6 +953,7 @@
         reader.onload = () => loadFromSource(reader.result, f.name);
         reader.readAsDataURL(f);
     });
+    uploadBtn.addEventListener('click', () => fileInput.click());
     dropClick.addEventListener('click', () => fileInput.click());
 
     // Drag/drop
@@ -1379,7 +1054,6 @@
         }, 'image/png');
     }
     window.exportPagePNG = exportTreatmentPng;
-    document.getElementById('tr-export-btn').addEventListener('click', () => exportTreatmentPng());
 
     // maxdim change: re-fit canvas
     S['p-maxdim'].addEventListener('input', () => {
@@ -1567,13 +1241,6 @@
     // Init
     updateControlVisibility();
     modeHint.textContent = MODE_HINTS[S['p-mode'].value] || '';
-
-    document.addEventListener('keydown', (e) => {
-        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'o') {
-            e.preventDefault();
-            fileInput.click();
-        }
-    }, true);
 })();
 </script>
 </body>
