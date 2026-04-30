@@ -650,7 +650,7 @@
             <a href="typo.html" class="site-card">
                 <img class="card-sticker" src="assets/sticker-typo.png" alt="" aria-hidden="true">
                 <div class="site-card-preview">
-                    <iframe class="tool-preview-frame" src="typo.html?preview=1" title="Typo preview" loading="lazy" style="transform:scale(1.5);transform-origin:center center;width:calc(100%/1.5)!important;height:calc(100%/1.5)!important;"></iframe>
+                    <iframe class="tool-preview-frame" src="typo.html?preview=1" title="Typo preview" loading="lazy" style="inset:18.75%!important;width:auto!important;height:auto!important;transform:scale(1.6);transform-origin:center center;"></iframe>
                     <span>TYPO</span>
                 </div>
                 <div class="site-card-body">
@@ -705,15 +705,40 @@
             <a href="treatment.html" class="site-card">
                 <img class="card-sticker" src="assets/sticker-treatment.png" alt="" aria-hidden="true">
                 <div class="site-card-preview">
-                    <div style="background:#add8e6;width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
-                        <svg viewBox="0 0 200 200" width="60%" xmlns="http://www.w3.org/2000/svg">
-                            <!-- face -->
-                            <circle cx="100" cy="100" r="90" fill="#FFE066"/>
+                    <div style="background:#f0ece0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;">
+                        <svg viewBox="0 0 200 200" width="72%" xmlns="http://www.w3.org/2000/svg" style="mix-blend-mode:multiply;">
+                            <defs>
+                                <pattern id="dots-r" x="0" y="0" width="6" height="6" patternUnits="userSpaceOnUse">
+                                    <circle cx="3" cy="3" r="2.2" fill="#e8334a"/>
+                                </pattern>
+                                <pattern id="dots-b" x="1.5" y="1.5" width="6" height="6" patternUnits="userSpaceOnUse">
+                                    <circle cx="3" cy="3" r="2.2" fill="#0e7b8a"/>
+                                </pattern>
+                                <mask id="face-mask">
+                                    <circle cx="100" cy="100" r="88" fill="white"/>
+                                </mask>
+                                <mask id="eye-l-mask">
+                                    <circle cx="70" cy="80" r="13" fill="white"/>
+                                </mask>
+                                <mask id="eye-r-mask">
+                                    <circle cx="130" cy="80" r="13" fill="white"/>
+                                </mask>
+                                <mask id="smile-mask">
+                                    <path d="M55 118 Q100 170 145 118" stroke="white" stroke-width="14" fill="none" stroke-linecap="round"/>
+                                </mask>
+                            </defs>
+                            <!-- riso layer 1: red halftone face -->
+                            <rect x="0" y="0" width="200" height="200" fill="url(#dots-r)" mask="url(#face-mask)"/>
+                            <!-- riso layer 2: teal halftone face (offset = misregistration) -->
+                            <rect x="3" y="2" width="200" height="200" fill="url(#dots-b)" mask="url(#face-mask)"/>
                             <!-- eyes -->
-                            <circle cx="70" cy="80" r="12" fill="#222"/>
-                            <circle cx="130" cy="80" r="12" fill="#222"/>
+                            <rect x="0" y="0" width="200" height="200" fill="#e8334a" mask="url(#eye-l-mask)"/>
+                            <rect x="3" y="2" width="200" height="200" fill="#0e7b8a" mask="url(#eye-l-mask)"/>
+                            <rect x="0" y="0" width="200" height="200" fill="#e8334a" mask="url(#eye-r-mask)"/>
+                            <rect x="3" y="2" width="200" height="200" fill="#0e7b8a" mask="url(#eye-r-mask)"/>
                             <!-- smile -->
-                            <path d="M60 120 Q100 165 140 120" stroke="#222" stroke-width="8" fill="none" stroke-linecap="round"/>
+                            <rect x="0" y="0" width="200" height="200" fill="#e8334a" mask="url(#smile-mask)"/>
+                            <rect x="3" y="2" width="200" height="200" fill="#0e7b8a" mask="url(#smile-mask)"/>
                         </svg>
                     </div>
                     <span>TREATMENT</span>
