@@ -52,8 +52,6 @@
                             <dd>Whether the letter effect is filled or outlined (per Typo’s render pipeline).</dd>
                             <dt>Outline</dt>
                             <dd>Stroke weight when using stroke-style rendering.</dd>
-                            <dt>Pause</dt>
-                            <dd>Stops or resumes motion so you can inspect a frame.</dd>
                             <dt>Density</dt>
                             <dd>How many particles / samples build each letter.</dd>
                             <dt>Scale</dt>
@@ -64,6 +62,8 @@
                             <dd>Random positional shake of particles.</dd>
                             <dt>Drift</dt>
                             <dd>Slow wandering motion of the field; <strong>Reset</strong> zeroes drift state.</dd>
+                            <dt>Pause</dt>
+                            <dd>Stops or resumes motion so you can inspect a frame.</dd>
                             <dt>Ink / Background</dt>
                             <dd>Foreground ink and canvas background color.</dd>
                             <dt>Export (bottom of panel)</dt>
@@ -143,9 +143,6 @@
                                 <input type="range" id="ty-stroke-w" min="0.5" max="24" value="1.5" step="0.1">
                                 <span class="param-value" id="val-ty-stroke-w">1.5</span>
                             </div>
-                            <div class="control-row control-row--single">
-                                <button type="button" id="ty-pause" class="panel-button ty-btn-full">PAUSE</button>
-                            </div>
                             <div class="control-row">
                                 <label for="ty-density">Density</label>
                                 <input type="range" id="ty-density" min="1" max="60" value="8" step="1">
@@ -171,6 +168,9 @@
                                 <input type="range" id="ty-drift" min="0" max="500" value="20" step="1">
                                 <span class="param-value" id="val-ty-drift">20</span>
                                 <button type="button" id="ty-drift-reset" class="panel-button ty-btn-compact">RESET</button>
+                            </div>
+                            <div class="control-row control-row--single">
+                                <button type="button" id="ty-pause" class="panel-button ty-btn-full">PAUSE</button>
                             </div>
                             <div class="control-row color-row">
                                 <label for="ty-ink">Ink color</label>
