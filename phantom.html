@@ -3,38 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Phantom — OVRT</title>
+    <title>Cloudoscope — OVRT</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-        .app[aria-label="Phantom"] { background: #000; }
-        .app[aria-label="Phantom"] .control-panel {
+        .app[aria-label="Cloudoscope"] { background: #000; }
+        .app[aria-label="Cloudoscope"] .control-panel {
             background: rgba(0,0,0,0.92);
             border-color: #222;
         }
-        .app[aria-label="Phantom"] .panel-header { border-color: #333; }
-        .app[aria-label="Phantom"] .panel-header h2 { color: #aaa; }
+        .app[aria-label="Cloudoscope"] .panel-header { border-color: #333; }
+        .app[aria-label="Cloudoscope"] .panel-header h2 { color: #aaa; }
         
         /* White buttons / UI as requested */
-        .app[aria-label="Phantom"] .control-window summary { color: #fff; }
-        .app[aria-label="Phantom"] .control-window[open] summary { color: #fff; }
-        .app[aria-label="Phantom"] .global-export-heading { color: #fff; }
-        .app[aria-label="Phantom"] .control-row label { color: #ddd; }
-        .app[aria-label="Phantom"] .param-value { color: #ddd; }
-        .app[aria-label="Phantom"] .control-window { border-color: #333; }
+        .app[aria-label="Cloudoscope"] .control-window summary { color: #fff; }
+        .app[aria-label="Cloudoscope"] .control-window[open] summary { color: #fff; }
+        .app[aria-label="Cloudoscope"] .global-export-heading { color: #fff; }
+        .app[aria-label="Cloudoscope"] .control-row label { color: #ddd; }
+        .app[aria-label="Cloudoscope"] .param-value { color: #ddd; }
+        .app[aria-label="Cloudoscope"] .control-window { border-color: #333; }
         
-        .app[aria-label="Phantom"] .select-input {
+        .app[aria-label="Cloudoscope"] .select-input {
             background: #111; color: #fff; border-color: #555;
         }
-        .app[aria-label="Phantom"] .panel-button {
+        .app[aria-label="Cloudoscope"] .panel-button {
             background: transparent; color: #fff; border-color: #fff;
         }
-        .app[aria-label="Phantom"] .panel-button:hover {
+        .app[aria-label="Cloudoscope"] .panel-button:hover {
             background: #fff; color: #000;
         }
-        .app[aria-label="Phantom"] .panel-button.is-active {
+        .app[aria-label="Cloudoscope"] .panel-button.is-active {
             background: #fff; color: #000;
         }
-        .app[aria-label="Phantom"] .back-link { color: #aaa; }
+        .app[aria-label="Cloudoscope"] .back-link { color: #aaa; }
         #phantom-wrap { flex:1; position:relative; overflow:hidden; }
         canvas { display:block; width:100%!important; height:100%!important; }
     </style>
@@ -43,18 +43,17 @@
     <div class="site-shell">
         <header class="tool-header" style="background:#000;border-color:#222;">
             <a href="index.html" class="back-link" style="color:#aaa;">← Back to OVRT</a>
-            <span class="tool-title" style="color:#fff;">Phantom</span>
+            <span class="tool-title" style="color:#fff;">Cloudoscope</span>
         </header>
-        <div class="app" aria-label="Phantom">
+        <div class="app" aria-label="Cloudoscope">
             <div id="phantom-wrap"></div>
             <aside class="control-panel">
                 <header class="panel-header">
-                    <h2 style="color:#fff;">Phantom</h2>
+                    <h2 style="color:#fff;">Cloudoscope</h2>
                 </header>
                 <div class="panel-body">
                     <details class="control-window" open>
                         <summary>Apparition + Beams</summary>
-                        <p style="font-size:10px;color:#777;margin:0 0 10px 0;line-height:1.35;">Sliders 1–10: most change is in 1–5; 5–10 adds the last ~28%.</p>
                         <section class="control-section">
                             <div class="control-row" style="padding-bottom:12px;">
                                 <label>Mirror Mode</label>
@@ -88,7 +87,7 @@
                             <div class="control-row" style="padding-bottom:8px;">
                                 <button type="button" id="p-mic" class="panel-button">Enable Microphone</button>
                             </div>
-                            <p id="p-mic-status" style="font-size:11px;color:#888;line-height:1.4;margin:0;">Click to request microphone access. Motion driven by live audio.</p>
+                            <p id="p-mic-status" style="font-size:11px;color:#888;line-height:1.4;margin:0;">Click to request microphone access.</p>
                         </section>
                     </details>
 
@@ -324,7 +323,7 @@
             timeBuf = new Float32Array(analyser.fftSize);
             src.connect(analyser);
             const st = el('p-mic-status');
-            if (st) st.textContent = 'Live — Motion driven by different audio features: bass, mids, highs, brightness, complexity.';
+            if (st) st.textContent = 'Microphone on.';
             const btn = el('p-mic');
             if (btn) {
                 btn.textContent = 'Microphone on';
