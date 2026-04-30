@@ -198,7 +198,7 @@ body.is-leaving {
     border: none;
     display: flex;
     flex-direction: row;
-    align-items: center;
+    align-items: flex-start;
     gap: 0;
     text-decoration: none;
     transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
