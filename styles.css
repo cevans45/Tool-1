@@ -277,6 +277,11 @@ body.is-leaving {
     transition: transform 0.35s cubic-bezier(0.2,0.8,0.2,1);
 }
 
+/* Typo — bigger sticker */
+.site-card:nth-child(1) .card-sticker {
+    width: 320px;
+}
+
 /* Cloudscope — bigger, aligned to card top */
 .site-card:nth-child(4) .card-sticker {
     width: 320px;
