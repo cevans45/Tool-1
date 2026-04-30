@@ -24,7 +24,56 @@
             <aside class="control-panel">
                 <header class="panel-header">
                     <h2>Controls</h2>
+                    <button type="button" class="info-btn" id="info-btn" aria-label="What each control does">i</button>
                 </header>
+
+                <div class="info-overlay" id="info-overlay" role="dialog" aria-label="What each control does" hidden>
+                    <div class="info-content">
+                        <h3>What each control does</h3>
+                        <p style="font-size:12px;line-height:1.5;color:#444;margin:0 0 14px;">Custom fonts are loaded in memory for this page only. Drop <strong>.ttf</strong>, <strong>.otf</strong>, or <strong>.woff</strong> on the canvas.</p>
+                        <dl>
+                            <dt>Text</dt>
+                            <dd>What gets drawn on the canvas. Disabled while <strong>Show Alphabet</strong> is on.</dd>
+                            <dt>Show Alphabet</dt>
+                            <dd>Replaces your text with A–Z (capital letters) for specimen-style layouts.</dd>
+                            <dt>Font size</dt>
+                            <dd>Scale of the type on the canvas.</dd>
+                            <dt>Spacing</dt>
+                            <dd>Letter spacing (tracking).</dd>
+                            <dt>Line height</dt>
+                            <dd>Vertical rhythm between lines when you use multiple lines of text.</dd>
+                            <dt>Align (L / C / R)</dt>
+                            <dd>Horizontal alignment of the text block.</dd>
+                            <dt>Font</dt>
+                            <dd>The hint shows the active font filename after a drop. <strong>Reset font</strong> goes back to the default. <strong>Mash fonts</strong> assigns each character a random slot (font + look + particle mode).</dd>
+                            <dt>Mode</dt>
+                            <dd>How letters are rebuilt with particles: circles, squares, grid, etc., or <strong>None</strong> for plain type.</dd>
+                            <dt>Render (Fill / Stroke)</dt>
+                            <dd>Whether the letter effect is filled or outlined (per Typo’s render pipeline).</dd>
+                            <dt>Outline</dt>
+                            <dd>Stroke weight when using stroke-style rendering.</dd>
+                            <dt>Pause</dt>
+                            <dd>Stops or resumes motion so you can inspect a frame.</dd>
+                            <dt>Density</dt>
+                            <dd>How many particles / samples build each letter.</dd>
+                            <dt>Scale</dt>
+                            <dd>Size of the particle pattern relative to the letters.</dd>
+                            <dt>Uniform</dt>
+                            <dd>How even vs varied the particle placement is.</dd>
+                            <dt>Jitter</dt>
+                            <dd>Random positional shake of particles.</dd>
+                            <dt>Drift</dt>
+                            <dd>Slow wandering motion of the field; <strong>Reset</strong> zeroes drift state.</dd>
+                            <dt>Weight</dt>
+                            <dd>Visual heaviness of strokes / particles in the effect.</dd>
+                            <dt>Ink / Background</dt>
+                            <dd>Foreground ink and canvas background color.</dd>
+                            <dt>Export (bottom of panel)</dt>
+                            <dd><strong>SVG</strong>, <strong>PNG</strong>, <strong>IMG</strong> (JPEG), and <strong>MP4</strong> (~10s of the main canvas when your browser supports recording).</dd>
+                        </dl>
+                        <button type="button" class="info-close" id="info-close">Close</button>
+                    </div>
+                </div>
 
                 <div class="panel-body">
                     <section class="control-section typo-section">
@@ -1019,6 +1068,15 @@
             paramChanged(); 
         });
     }
+
+    const infoBtn = document.getElementById('info-btn');
+    const infoOverlay = document.getElementById('info-overlay');
+    const infoClose = document.getElementById('info-close');
+    infoBtn?.addEventListener('click', () => { if (infoOverlay) infoOverlay.hidden = false; });
+    infoClose?.addEventListener('click', () => { if (infoOverlay) infoOverlay.hidden = true; });
+    infoOverlay?.addEventListener('click', (e) => {
+        if (e.target === infoOverlay) infoOverlay.hidden = true;
+    });
 
     $('ty-text').addEventListener('input', e => { S.text = e.target.value; paramChanged(); });
     $('ty-font-size').addEventListener('input', e => {
