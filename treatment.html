@@ -99,6 +99,7 @@
         .tr-hint { font-size:10px; color:#666; margin: -4px 0 8px; line-height:1.4; }
 
         .control-row.is-hidden { display:none; }
+        .tr-color-row.is-hidden { display:none; }
     </style>
 </head>
 <body>
@@ -177,14 +178,16 @@
                             <div class="control-row" data-show="glitch chroma scanlines riso warp kaleido"><label id="lbl-amount2">Secondary</label><input type="range" id="p-amount2" min="0" max="10" value="5" step="0.1"><span class="param-value" id="vp-amount2">5.0</span></div>
                             <div class="control-row" data-show="halftone_cmyk halftone_mono halftone_line halftone_diamond bayer fs posterize edge ascii stipple crosshatch riso threshold pixelate"><label id="lbl-invert">Invert</label><input type="range" id="p-invert" min="0" max="1" value="0" step="1"><span class="param-value" id="vp-invert">0</span></div>
 
-                            <div class="tr-color-row" data-show-color="duotone tritone halftone_mono halftone_line halftone_diamond stipple ascii threshold riso crosshatch edge">
+                            <div class="tr-color-row" data-show-color="halftone_mono halftone_line halftone_diamond stipple ascii threshold duotone tritone riso crosshatch edge">
                                 <label>Ink A</label><input type="color" id="p-color-a" value="#000000">
+                            </div>
+                            <div class="tr-color-row" data-show-color="threshold duotone tritone">
                                 <label>Ink B</label><input type="color" id="p-color-b" value="#ffffff">
                             </div>
                             <div class="tr-color-row" data-show-color="tritone riso">
                                 <label>Ink C</label><input type="color" id="p-color-c" value="#ff3366">
                             </div>
-                            <div class="tr-color-row" data-show-color="duotone tritone halftone_cmyk halftone_mono halftone_line halftone_diamond stipple ascii threshold riso crosshatch edge">
+                            <div class="tr-color-row" data-show-color="halftone_cmyk halftone_mono halftone_line halftone_diamond stipple ascii riso crosshatch edge">
                                 <label>Paper</label><input type="color" id="p-color-bg" value="#f5efe4">
                             </div>
                         </section>
