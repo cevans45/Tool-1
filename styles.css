@@ -277,16 +277,16 @@ body.is-leaving {
     transition: transform 0.35s cubic-bezier(0.2,0.8,0.2,1);
 }
 
-/* Cloudscope — bigger, flush with card top */
+/* Cloudscope — bigger, aligned to card top */
 .site-card:nth-child(4) .card-sticker {
     width: 320px;
-    top: -10px;
+    top: 0;
 }
 
-/* Treatment — biggest, flush with card top */
+/* Treatment — biggest, aligned to card top */
 .site-card:nth-child(6) .card-sticker {
     width: 360px;
-    top: -10px;
+    top: 0;
     right: -28px;
 }
 
