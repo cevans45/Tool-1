@@ -64,8 +64,6 @@
                             <dd>Random positional shake of particles.</dd>
                             <dt>Drift</dt>
                             <dd>Slow wandering motion of the field; <strong>Reset</strong> zeroes drift state.</dd>
-                            <dt>Weight</dt>
-                            <dd>Visual heaviness of strokes / particles in the effect.</dd>
                             <dt>Ink / Background</dt>
                             <dd>Foreground ink and canvas background color.</dd>
                             <dt>Export (bottom of panel)</dt>
@@ -173,11 +171,6 @@
                                 <input type="range" id="ty-drift" min="0" max="500" value="20" step="1">
                                 <span class="param-value" id="val-ty-drift">20</span>
                                 <button type="button" id="ty-drift-reset" class="panel-button ty-btn-compact">RESET</button>
-                            </div>
-                            <div class="control-row">
-                                <label for="ty-weight">Weight</label>
-                                <input type="range" id="ty-weight" min="1" max="100" value="6" step="1">
-                                <span class="param-value" id="val-ty-weight">6</span>
                             </div>
                             <div class="control-row color-row">
                                 <label for="ty-ink">Ink color</label>
@@ -304,10 +297,12 @@
     let letterFontIdx = []; // per-character font slot indices (one slot drives font + effect + mode)
     let mashMode = false;
 
+    const PARTICLE_WEIGHT = 6;
+
     const S = {
         text: 'TYPO', showAlphabet: false, fontSize: 140, letterSpacing: 0, lineHeight: 1.2,
         textAlign: 'center', fontFamily: 'sans-serif', fontFileName: null,
-        mode: 'circles', density: 8, scale: 18, uniform: 0, jitter: 40, drift: 20, weight: 6,
+        mode: 'circles', density: 8, scale: 18, uniform: 0, jitter: 40, drift: 20,
         fill: true, strokeW: 1.5, paused: false,
         ink: '#111111', bg: '#f0ede8',
     };
@@ -659,7 +654,7 @@
         if (fill === undefined) fill = S.fill;
         if (strokeW === undefined) strokeW = S.strokeW;
         const connDist = S.scale * 3;
-        const lineW = fill ? S.weight * 0.15 : strokeW;
+        const lineW = fill ? PARTICLE_WEIGHT * 0.15 : strokeW;
 
         ctx.strokeStyle = S.ink;
         ctx.lineCap = 'round';
@@ -751,7 +746,7 @@
         let svg = sctx.getSerializedSvg(true);
         const mode = S.fill ? 'fill' : 'no-fill';
         const strokeMeta = S.fill ? '' : ` data-ovrt-stroke-width="${S.strokeW}"`;
-        svg = svg.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}" data-ovrt-weight="${S.weight}"${strokeMeta}>`);
+        svg = svg.replace(/<svg([^>]*)>/i, `<svg$1 data-ovrt-render="${mode}" data-ovrt-weight="${PARTICLE_WEIGHT}"${strokeMeta}>`);
         return svg;
     };
 
@@ -858,7 +853,7 @@
         if (fill === undefined) fill = S.fill;
         if (strokeW === undefined) strokeW = S.strokeW;
         const arm = S.scale * 0.4;
-        const thick = fill ? S.weight * 0.2 : strokeW;
+        const thick = fill ? PARTICLE_WEIGHT * 0.2 : strokeW;
         ctx.globalAlpha = 1;
         ctx.strokeStyle = S.ink;
         ctx.lineCap = 'round';
@@ -1170,10 +1165,6 @@
             p.x = p.homeX; p.y = p.homeY;
             p.escaped = 0;
         }
-        if (!animId) fullRender();
-    });
-    $('ty-weight').addEventListener('input', e => {
-        S.weight = +e.target.value; $('val-ty-weight').textContent = S.weight;
         if (!animId) fullRender();
     });
     $('ty-ink').addEventListener('input', e => { S.ink = e.target.value; if (!animId) fullRender(); });
