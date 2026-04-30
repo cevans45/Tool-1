@@ -28,15 +28,15 @@
 
                 <div class="panel-body">
                     <section class="control-section typo-section">
-                            <label class="checkbox-label ty-checkbox-top">
-                                <input type="checkbox" id="ty-show-alpha">
-                                <span class="toggle-box"></span>
-                                <span class="cb-label">Show Alphabet</span>
-                            </label>
                             <div class="control-row control-row--stack">
                                 <textarea id="ty-text" rows="3" spellcheck="false" class="ty-textarea"
                                     aria-label="Text">TYPO</textarea>
                             </div>
+                            <label class="checkbox-label ty-checkbox-below-text">
+                                <input type="checkbox" id="ty-show-alpha">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Show Alphabet</span>
+                            </label>
                             <div class="control-row">
                                 <label for="ty-font-size">Font size</label>
                                 <input type="range" id="ty-font-size" min="20" max="800" value="140" step="1">
@@ -62,8 +62,7 @@
                             </div>
                             <div class="control-row control-row--stack">
                                 <label>Font</label>
-                                <div id="ty-font-label" class="ty-font-hint">System default — drop
-                                    .ttf/.otf/.woff onto canvas</div>
+                                <div id="ty-font-label" class="ty-font-hint">Drop .ttf / .otf / .woff onto the canvas</div>
                                 <button type="button" id="ty-font-reset" class="panel-button" hidden>Reset font</button>
                                 <button type="button" id="ty-mash-fonts" class="panel-button ty-mash-btn">MASH FONTS</button>
                             </div>
@@ -173,7 +172,10 @@
             padding-bottom: 10px;
             margin-bottom: 2px;
         }
-        .app[aria-label="Typo"] .ty-checkbox-top { margin-bottom: 4px; }
+        .app[aria-label="Typo"] .ty-checkbox-below-text {
+            display: flex;
+            margin: 6px 0 8px;
+        }
         .app[aria-label="Typo"] .control-row--stack {
             flex-direction: column;
             align-items: stretch;
@@ -198,7 +200,7 @@
         }
         .app[aria-label="Typo"] .ty-font-hint {
             font-size: 10px;
-            opacity: 0.6;
+            color: #000;
             padding: 2px 0 0;
             line-height: 1.35;
         }
@@ -1039,7 +1041,7 @@
         S.fontFamily = 'sans-serif'; S.fontFileName = null;
         letterFontIdx = [];
         mashMode = false;
-        $('ty-font-label').textContent = 'System default — drop .ttf/.otf/.woff onto canvas';
+        $('ty-font-label').textContent = 'Drop .ttf / .otf / .woff onto the canvas';
         $('ty-font-reset').hidden = true;
         // Re-enable the Render toggle
         $('ty-fill-btn').disabled = false;
