@@ -3,38 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloudoscope (Microphone) — OVRT</title>
+    <title>Cloudscope (Microphone) — OVRT</title>
     <link rel="stylesheet" href="styles.css">
     <style>
-        .app[aria-label="Cloudoscope"] { background: #000; }
-        .app[aria-label="Cloudoscope"] .control-panel {
+        .app[aria-label="Cloudscope"] { background: #000; }
+        .app[aria-label="Cloudscope"] .control-panel {
             background: rgba(0,0,0,0.92);
             border-color: #222;
         }
-        .app[aria-label="Cloudoscope"] .panel-header { border-color: #333; }
-        .app[aria-label="Cloudoscope"] .panel-header h2 { color: #aaa; }
+        .app[aria-label="Cloudscope"] .panel-header { border-color: #333; }
+        .app[aria-label="Cloudscope"] .panel-header h2 { color: #aaa; }
         
         /* White buttons / UI as requested */
-        .app[aria-label="Cloudoscope"] .control-window summary { color: #fff; }
-        .app[aria-label="Cloudoscope"] .control-window[open] summary { color: #fff; }
-        .app[aria-label="Cloudoscope"] .global-export-heading { color: #fff; }
-        .app[aria-label="Cloudoscope"] .control-row label { color: #ddd; }
-        .app[aria-label="Cloudoscope"] .param-value { color: #ddd; }
-        .app[aria-label="Cloudoscope"] .control-window { border-color: #333; }
+        .app[aria-label="Cloudscope"] .control-window summary { color: #fff; }
+        .app[aria-label="Cloudscope"] .control-window[open] summary { color: #fff; }
+        .app[aria-label="Cloudscope"] .global-export-heading { color: #fff; }
+        .app[aria-label="Cloudscope"] .control-row label { color: #ddd; }
+        .app[aria-label="Cloudscope"] .param-value { color: #ddd; }
+        .app[aria-label="Cloudscope"] .control-window { border-color: #333; }
         
-        .app[aria-label="Cloudoscope"] .select-input {
+        .app[aria-label="Cloudscope"] .select-input {
             background: #111; color: #fff; border-color: #555;
         }
-        .app[aria-label="Cloudoscope"] .panel-button {
+        .app[aria-label="Cloudscope"] .panel-button {
             background: transparent; color: #fff; border-color: #fff;
         }
-        .app[aria-label="Cloudoscope"] .panel-button:hover {
+        .app[aria-label="Cloudscope"] .panel-button:hover {
             background: #fff; color: #000;
         }
-        .app[aria-label="Cloudoscope"] .panel-button.is-active {
+        .app[aria-label="Cloudscope"] .panel-button.is-active {
             background: #fff; color: #000;
         }
-        .app[aria-label="Cloudoscope"] .back-link { color: #aaa; }
+        .app[aria-label="Cloudscope"] .back-link { color: #aaa; }
         #phantom-wrap { flex:1; position:relative; overflow:hidden; }
         canvas { display:block; width:100%!important; height:100%!important; }
         .mic-status-live { color: #0f0; }
@@ -44,14 +44,14 @@
     <div class="site-shell">
         <header class="tool-header" style="background:#000;border-color:#222;display:flex;align-items:center;justify-content:space-between;gap:16px;">
             <a href="index.html" class="back-link" style="color:#aaa;">← Back to OVRT</a>
-            <span class="tool-title" style="color:#fff;">Cloudoscope (Microphone)</span>
+            <span class="tool-title" style="color:#fff;">Cloudscope (Microphone)</span>
             <a href="phantom.html" style="border:1px solid #0f0;color:#0f0;background:rgba(0,255,0,0.08);padding:6px 14px;text-decoration:none;font-size:12px;letter-spacing:0.05em;text-transform:uppercase;border-radius:2px;">● Microphone Active</a>
         </header>
-        <div class="app" aria-label="Cloudoscope">
+        <div class="app" aria-label="Cloudscope">
             <div id="phantom-wrap"></div>
             <aside class="control-panel">
                 <header class="panel-header">
-                    <h2 style="color:#fff;">Cloudoscope</h2>
+                    <h2 style="color:#fff;">Cloudscope</h2>
                 </header>
                 <div class="panel-body">
                     <details class="control-window" open>
@@ -939,7 +939,7 @@
         });
         console.log('Render loop initialized successfully');
     } catch (error) {
-        console.error('Cloudoscope-mic initialization error:', error);
+        console.error('Cloudscope-mic initialization error:', error);
         const wrap = el('phantom-wrap');
         if (wrap) {
             wrap.innerHTML = '<div style="color:#f00;padding:20px;font-family:monospace;font-size:12px;">Error: ' + error.message + '</div>';

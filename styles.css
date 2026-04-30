@@ -287,7 +287,7 @@ body.is-leaving {
     text-align: right;
 }
 
-/* Override 4th child (Cloudoscope) to alternate with Sigil */
+/* Override 4th child (Cloudscope) to alternate with Sigil */
 .site-card:nth-child(4) {
     flex-direction: row;
 }
@@ -699,16 +699,16 @@ body.is-leaving {
     border-color: #111;
 }
 
-/* Beat dark-panel .panel-button rules (Treatment, Cloudoscope) */
+/* Beat dark-panel .panel-button rules (Treatment, Cloudscope) */
 .app[aria-label="Treatment"] .panel-button.panel-button--export,
-.app[aria-label="Cloudoscope"] .panel-button.panel-button--export {
+.app[aria-label="Cloudscope"] .panel-button.panel-button--export {
     background: #fff;
     color: #111;
     border: 1px solid #111;
 }
 
 .app[aria-label="Treatment"] .panel-button.panel-button--export:hover,
-.app[aria-label="Cloudoscope"] .panel-button.panel-button--export:hover {
+.app[aria-label="Cloudscope"] .panel-button.panel-button--export:hover {
     background: #f5f5f5;
     color: #111;
     border-color: #111;
