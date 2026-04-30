@@ -126,6 +126,16 @@
             cursor: pointer;
             flex-shrink: 0;
         }
+        .app[aria-label="Treatment"] .info-btn {
+            border-color: #fff;
+            background: transparent;
+            color: #fff;
+        }
+        .app[aria-label="Treatment"] .info-btn:hover {
+            background: #fff;
+            color: #000;
+            border-color: #fff;
+        }
     </style>
 </head>
 <body>
@@ -150,7 +160,84 @@
             <aside class="control-panel">
                 <header class="panel-header">
                     <h2 style="color:#fff;">Treatment</h2>
+                    <button type="button" class="info-btn" id="tr-info-btn" aria-label="What each control does">i</button>
                 </header>
+                <div class="info-overlay" id="tr-info-overlay" role="dialog" aria-label="Treatment parameters" hidden>
+                    <div class="info-content">
+                        <h3>What each control does</h3>
+                        <dl>
+                            <dt>Mode</dt>
+                            <dd>Chooses the look. <strong>None</strong> skips the effect pass so only Adjust / Output apply. Other options are halftones, dithers, ASCII, film-style effects, etc. The line under the menu updates with a short summary of the active mode.</dd>
+
+                            <dt>Scale</dt>
+                            <dd>Meaning depends on mode: halftone dot or line spacing, ASCII cell size, Bayer matrix resolution step, pixel block size, warp noise frequency, edge detection footprint, stipple density scale, and similar. Not shown for modes that do not use it.</dd>
+
+                            <dt>Angle</dt>
+                            <dd>Screen or hatch rotation for halftone, cross-hatch, riso dots, and related modes. Also drives kaleidoscope twist where applicable.</dd>
+
+                            <dt>Threshold / Levels</dt>
+                            <dd>Mode-dependent: B/W cutoff weighting, ordered-dither / FS palette steps, posterize level count, edge threshold, or glitch scan density. Low vs high changes how many tones or how hard the cutoff is.</dd>
+
+                            <dt>Amount</dt>
+                            <dd>Primary strength: halftone vs original blend, glitch shift strength, chroma separation, scanline depth, duotone/tritone tone curve, warp displacement, kaleido segment emphasis, and similar.</dd>
+
+                            <dt>Secondary</dt>
+                            <dd>Second dial where the mode needs it (e.g. glitch slice density, chroma radial weight, scanline vignette, riso misregistration, kaleido segment count, noise-warp second channel).</dd>
+
+                            <dt>Invert</dt>
+                            <dd>Flips light and dark (or swaps ink/paper roles) for modes that support it.</dd>
+
+                            <dt>Characters (ASCII)</dt>
+                            <dd>Your glyph ramp from lightest (left) to darkest (right). Fewer characters = coarser steps; up to 32 characters.</dd>
+
+                            <dt>Ink A, Ink B, Ink C</dt>
+                            <dd>Monochrome inks or duotone/tritone stops where the shader uses them. Riso uses Ink A and Ink C. Modes that only need one ink hide the extras.</dd>
+
+                            <dt>Paper</dt>
+                            <dd>Base paper color for monochrome halftones, ASCII, CMYK highlight base, riso ground, etc., when the mode reads it.</dd>
+
+                            <dt>Brightness</dt>
+                            <dd>Adds or subtracts light on the source before effects.</dd>
+
+                            <dt>Contrast</dt>
+                            <dd>Stretches tones around mid-gray before effects.</dd>
+
+                            <dt>Saturation</dt>
+                            <dd>Raises or lowers color intensity in HSV space before effects.</dd>
+
+                            <dt>Black &amp; white</dt>
+                            <dd>After adjustments, replaces color with luminance so the effect runs on grayscale.</dd>
+
+                            <dt>Hue shift</dt>
+                            <dd>Rotates the hue of the adjusted image before effects.</dd>
+
+                            <dt>Gamma</dt>
+                            <dd>Power curve on RGB after hue/saturation; mid-point on the dial is a linear-ish response.</dd>
+
+                            <dt>Pre-blur</dt>
+                            <dd>Gaussian blur radius on the sampled image (in pixels of the working buffer). Softens detail before halftone, dither, etc.</dd>
+
+                            <dt>Global invert</dt>
+                            <dd>Inverts RGB after all adjustments and grayscale, immediately before the effect stage.</dd>
+
+                            <dt>Image scale</dt>
+                            <dd>Preview size as a percent of “fit in the stage.” Above 100% you may need to scroll the stage. Internal pixel count scales with on-screen size but is capped by <strong>Max dimension</strong>.</dd>
+
+                            <dt>Max dimension (px)</dt>
+                            <dd>Upper limit on the longest side of the internal canvas and of exported PNGs. Higher = sharper dots and dither, more GPU work.</dd>
+
+                            <dt>Upload / drag / drop zone</dt>
+                            <dd>Loads a JPEG, PNG, or WEBP. Processing stays in the browser.</dd>
+
+                            <dt>Sample</dt>
+                            <dd>Loads a built-in test image so you can try effects without a file.</dd>
+
+                            <dt>Reset</dt>
+                            <dd>Restores default values for sliders, colors, and toggles (not the loaded image).</dd>
+                        </dl>
+                        <button type="button" class="info-close" id="tr-info-close">Close</button>
+                    </div>
+                </div>
                 <div class="panel-body">
 
                     <div class="tr-button-row">
@@ -245,8 +332,8 @@
                     <details class="control-window">
                         <summary>Output</summary>
                         <section class="control-section">
-                            <div class="control-row"><label>Image scale</label><input type="range" id="p-img-scale" min="10" max="400" value="100" step="5"><span class="param-value" id="vp-img-scale">100%</span></div>
-                            <p class="tr-hint" style="margin-top:-6px;">% of “fit to stage” size. Larger previews request more pixels (capped by max dimension below).</p>
+                            <div class="control-row"><label>Image scale</label><input type="range" id="p-img-scale" min="10" max="1000" value="100" step="5"><span class="param-value" id="vp-img-scale">100%</span></div>
+                            <p class="tr-hint" style="margin-top:-6px;">% of “fit to stage” size — up to 1000%. Larger previews use more pixels up to max dimension.</p>
                             <div class="control-row"><label>Max dimension (px)</label><input type="range" id="p-maxdim" min="512" max="6144" value="3200" step="64"><span class="param-value" id="vp-maxdim">3200</span></div>
                             <p class="tr-hint">Larger = sharper halftone dots and cleaner dither, but slower. Save PNG exports at this resolution.</p>
                         </section>
@@ -272,6 +359,14 @@
     const resetBtn = document.getElementById('tr-reset-btn');
     const metaEl = document.getElementById('tr-meta');
     const modeHint = document.getElementById('tr-mode-hint');
+    const trInfoBtn = document.getElementById('tr-info-btn');
+    const trInfoOverlay = document.getElementById('tr-info-overlay');
+    const trInfoClose = document.getElementById('tr-info-close');
+    trInfoBtn?.addEventListener('click', () => { if (trInfoOverlay) trInfoOverlay.hidden = false; });
+    trInfoClose?.addEventListener('click', () => { if (trInfoOverlay) trInfoOverlay.hidden = true; });
+    trInfoOverlay?.addEventListener('click', (e) => {
+        if (e.target === trInfoOverlay) trInfoOverlay.hidden = true;
+    });
 
     // ── Slider helpers (value + readout) ──
     const sliderIds = [
@@ -919,7 +1014,7 @@
         const dpr = Math.max(1, window.devicePixelRatio || 1);
         const userMax = parseInt(S['p-maxdim'].value, 10) || 3200;
         const pctRaw = parseFloat(S['p-img-scale'] && S['p-img-scale'].value);
-        const imgScale = Number.isFinite(pctRaw) ? Math.max(0.1, Math.min(4, pctRaw / 100)) : 1;
+        const imgScale = Number.isFinite(pctRaw) ? Math.max(0.1, Math.min(10, pctRaw / 100)) : 1;
         const stageRect = stage.getBoundingClientRect();
         const displayMaxW = Math.max(256, stageRect.width - 48);
         const displayMaxH = Math.max(256, stageRect.height - 48);
