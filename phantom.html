@@ -35,6 +35,16 @@
             background: #fff; color: #000;
         }
         .app[aria-label="Cloudscope"] .back-link { color: #aaa; }
+        .app[aria-label="Cloudscope"] .info-btn {
+            border-color: #fff;
+            background: transparent;
+            color: #fff;
+        }
+        .app[aria-label="Cloudscope"] .info-btn:hover {
+            background: #fff;
+            color: #000;
+            border-color: #fff;
+        }
         #phantom-wrap { flex:1; position:relative; overflow:hidden; }
         canvas { display:block; width:100%!important; height:100%!important; }
     </style>
@@ -50,7 +60,22 @@
             <aside class="control-panel">
                 <header class="panel-header">
                     <h2 style="color:#fff;">Cloudscope</h2>
+                    <button type="button" class="info-btn" id="info-btn" aria-label="What each control does">i</button>
                 </header>
+                <div class="info-overlay" id="info-overlay" role="dialog" aria-label="Cloudscope controls" hidden>
+                    <div class="info-content">
+                        <h3>Cloudscope</h3>
+                        <dl>
+                            <dt>Apparition</dt>
+                            <dd>Mirror layouts, particle count, motion speed, and field noise. Beams add radial light streaks. Fracture and glitch add horizontal breakup and channel jitter.</dd>
+                            <dt>Audio reactive</dt>
+                            <dd>Open the page outside the gallery preview to use the microphone. Audio modulates motion while your dials stay the baseline.</dd>
+                            <dt>Style &amp; FX</dt>
+                            <dd>Particle shape, size, blur, point color, and background.</dd>
+                        </dl>
+                        <button type="button" class="info-close" id="info-close">Close</button>
+                    </div>
+                </div>
                 <div class="panel-body">
                     <details class="control-window" open>
                         <summary>Apparition</summary>
@@ -340,6 +365,15 @@
     } else {
         el('p-mic')?.addEventListener('click', () => setupMic());
     }
+
+    const infoBtn = el('info-btn');
+    const infoOverlay = el('info-overlay');
+    const infoClose = el('info-close');
+    infoBtn?.addEventListener('click', () => { if (infoOverlay) infoOverlay.hidden = false; });
+    infoClose?.addEventListener('click', () => { if (infoOverlay) infoOverlay.hidden = true; });
+    infoOverlay?.addEventListener('click', (e) => {
+        if (e.target === infoOverlay) infoOverlay.hidden = true;
+    });
 
     // Shaders
     const UPDATE_VERT = `#version 300 es
