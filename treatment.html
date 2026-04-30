@@ -39,6 +39,12 @@
             align-items:center;
             justify-content:center;
         }
+        #tr-stage.has-image {
+            align-items: flex-start;
+            justify-content: center;
+            overflow: auto;
+            padding: 24px;
+        }
         #tr-canvas {
             display:none;
             max-width: calc(100% - 48px);
@@ -47,6 +53,11 @@
             box-shadow: 0 6px 40px rgba(0,0,0,0.6);
             image-rendering: -webkit-optimize-contrast;
             image-rendering: crisp-edges;
+        }
+        #tr-stage.has-image #tr-canvas {
+            max-width: none;
+            max-height: none;
+            flex-shrink: 0;
         }
         #tr-stage.has-image #tr-canvas { display:block; }
         #tr-stage.has-image #tr-drop { display:none; }
@@ -234,6 +245,8 @@
                     <details class="control-window">
                         <summary>Output</summary>
                         <section class="control-section">
+                            <div class="control-row"><label>Image scale</label><input type="range" id="p-img-scale" min="10" max="400" value="100" step="5"><span class="param-value" id="vp-img-scale">100%</span></div>
+                            <p class="tr-hint" style="margin-top:-6px;">% of “fit to stage” size. Larger previews request more pixels (capped by max dimension below).</p>
                             <div class="control-row"><label>Max dimension (px)</label><input type="range" id="p-maxdim" min="512" max="6144" value="3200" step="64"><span class="param-value" id="vp-maxdim">3200</span></div>
                             <p class="tr-hint">Larger = sharper halftone dots and cleaner dither, but slower. Save PNG exports at this resolution.</p>
                         </section>
@@ -264,7 +277,7 @@
     const sliderIds = [
         'p-mode','p-scale','p-angle','p-threshold','p-amount','p-amount2',
         'p-brightness','p-contrast','p-saturation','p-hue','p-gamma','p-blur',
-        'p-maxdim','p-color-a','p-color-b','p-color-c','p-color-bg','p-ascii-chars',
+        'p-img-scale','p-maxdim','p-color-a','p-color-b','p-color-c','p-color-bg','p-ascii-chars',
         'p-invert','p-ginvert','p-bw'
     ];
     const S = {};
@@ -289,6 +302,7 @@
     wireReadout('p-hue');
     wireReadout('p-gamma');
     wireReadout('p-blur');
+    wireReadout('p-img-scale', v => Math.round(Number(v)) + '%');
     wireReadout('p-maxdim', v => String(Math.round(v)));
 
     // Mode hints
@@ -334,9 +348,10 @@
         });
     }
 
-    // All controls trigger re-render
+    // All controls trigger re-render (layout sliders refit canvas first — see refitSourceLayout)
     Object.values(S).forEach(input => {
         if (!input) return;
+        if (input.id === 'p-maxdim' || input.id === 'p-img-scale') return;
         if (input.type === 'checkbox' || input.tagName === 'SELECT') {
             input.addEventListener('change', () => { render(); });
         } else {
@@ -903,8 +918,8 @@
     function setCanvasSizeForImage(img) {
         const dpr = Math.max(1, window.devicePixelRatio || 1);
         const userMax = parseInt(S['p-maxdim'].value, 10) || 3200;
-        // Figure out the CSS size the canvas will actually display at (stage minus padding),
-        // then multiply by DPR so the physical pixel grid matches the screen = no blur.
+        const pctRaw = parseFloat(S['p-img-scale'] && S['p-img-scale'].value);
+        const imgScale = Number.isFinite(pctRaw) ? Math.max(0.1, Math.min(4, pctRaw / 100)) : 1;
         const stageRect = stage.getBoundingClientRect();
         const displayMaxW = Math.max(256, stageRect.width - 48);
         const displayMaxH = Math.max(256, stageRect.height - 48);
@@ -912,16 +927,30 @@
         let dispW = displayMaxW;
         let dispH = dispW / imgAspect;
         if (dispH > displayMaxH) { dispH = displayMaxH; dispW = dispH * imgAspect; }
-        // Target pixel count: max of display*DPR and the image's own resolution, capped by user max.
+        dispW *= imgScale;
+        dispH *= imgScale;
+        dispW = Math.max(32, Math.round(dispW));
+        dispH = Math.max(32, Math.round(dispH));
         const minPix = Math.ceil(Math.max(dispW, dispH) * dpr);
         const imgPix = Math.max(img.width, img.height);
         const target = Math.min(userMax, Math.max(minPix, imgPix));
         const scale = target / Math.max(img.width, img.height);
         canvas.width  = Math.max(16, Math.round(img.width  * scale));
         canvas.height = Math.max(16, Math.round(img.height * scale));
-        canvas.style.width  = Math.round(dispW) + 'px';
-        canvas.style.height = Math.round(dispH) + 'px';
+        canvas.style.width  = dispW + 'px';
+        canvas.style.height = dispH + 'px';
         gl.viewport(0, 0, canvas.width, canvas.height);
+    }
+
+    function refitSourceLayout() {
+        if (!srcImage) return;
+        setCanvasSizeForImage(srcImage);
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, srcImage);
+        metaEl.textContent = srcImage.width + ' × ' + srcImage.height + 'px · rendering at ' + canvas.width + ' × ' + canvas.height;
+        fsNeedsRebuild = true;
+        render();
     }
 
     function uploadImage(img) {
@@ -1021,6 +1050,7 @@
     resetBtn.addEventListener('click', () => {
         const defaults = {
             'p-scale': 4, 'p-angle': 4.5, 'p-threshold': 5, 'p-amount': 5, 'p-amount2': 5,
+            'p-img-scale': 100,
             'p-brightness': 0, 'p-contrast': 0, 'p-saturation': 0, 'p-hue': 0, 'p-gamma': 5, 'p-blur': 0,
             'p-color-a': '#000000', 'p-color-b': '#ffffff', 'p-color-c': '#ff3366', 'p-color-bg': '#f5efe4'
         };
@@ -1055,17 +1085,9 @@
     }
     window.exportPagePNG = exportTreatmentPng;
 
-    // maxdim change: re-fit canvas
-    S['p-maxdim'].addEventListener('input', () => {
-        if (!srcImage) return;
-        setCanvasSizeForImage(srcImage);
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, srcImage);
-        metaEl.textContent = srcImage.width + ' × ' + srcImage.height + 'px · rendering at ' + canvas.width + ' × ' + canvas.height;
-        fsNeedsRebuild = true;
-        render();
-    });
+    // maxdim / image scale / window resize: re-fit canvas + texture
+    S['p-maxdim'].addEventListener('input', refitSourceLayout);
+    S['p-img-scale'].addEventListener('input', refitSourceLayout);
 
     // Window resize: re-fit display so canvas stays sharp at current DPR
     let resizeRaf = 0;
@@ -1074,13 +1096,7 @@
         if (resizeRaf) cancelAnimationFrame(resizeRaf);
         resizeRaf = requestAnimationFrame(() => {
             resizeRaf = 0;
-            setCanvasSizeForImage(srcImage);
-            gl.bindTexture(gl.TEXTURE_2D, tex);
-            gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, srcImage);
-            metaEl.textContent = srcImage.width + ' × ' + srcImage.height + 'px · rendering at ' + canvas.width + ' × ' + canvas.height;
-            fsNeedsRebuild = true;
-            render();
+            refitSourceLayout();
         });
     });
 
