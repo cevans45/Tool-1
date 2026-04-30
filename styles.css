@@ -192,6 +192,7 @@ body.is-leaving {
 }
 
 .site-card {
+    position: relative;
     background: transparent;
     color: #ccc;
     border-radius: 0;
@@ -248,6 +249,10 @@ body.is-leaving {
     transition: border-color 0.3s;
 }
 
+.site-card-preview > .card-sticker {
+    overflow: visible;
+}
+
 .site-card:hover .site-card-preview {
     border-color: #555;
 }
@@ -263,6 +268,33 @@ body.is-leaving {
     color: #bbb;
     padding: 6px 10px;
     border-radius: 4px;
+}
+
+.card-sticker {
+    position: absolute;
+    z-index: 4;
+    bottom: -36px;
+    right: -20px;
+    width: 160px;
+    height: auto;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    transform: rotate(6deg);
+    transition: transform 0.35s cubic-bezier(0.2,0.8,0.2,1);
+}
+
+.site-card:nth-child(even) .card-sticker {
+    right: auto;
+    left: -20px;
+    transform: rotate(-6deg);
+}
+
+.site-card:hover .card-sticker {
+    transform: rotate(3deg) scale(1.08) translateY(-5px);
+}
+
+.site-card:nth-child(even):hover .card-sticker {
+    transform: rotate(-3deg) scale(1.08) translateY(-5px);
 }
 
 .tool-preview-frame {
@@ -840,6 +872,16 @@ body.is-leaving {
     .site-card-body {
         width: 100%;
         padding: 0 12px;
+    }
+
+    .card-sticker {
+        width: 120px;
+        bottom: -24px;
+        right: -12px;
+    }
+
+    .site-card:nth-child(even) .card-sticker {
+        left: -12px;
     }
 }
 
