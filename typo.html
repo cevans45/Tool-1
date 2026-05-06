@@ -649,8 +649,10 @@
                 const w = mg.measureText(ch).width;
 
                 if (ch !== ' ' && w > 0) {
-                    const aw = Math.ceil(w + fs * 0.5);
-                    const ah = Math.ceil(fs * 1.5);
+                    // Tight local canvas: just a tiny buffer so drift can wander a few px.
+                    // (Wider buffer = particles "fall off" the bottom/sides of each letter.)
+                    const aw = Math.ceil(w + fs * 0.18);
+                    const ah = Math.ceil(fs * 1.15);
 
                     // Render glyph mask
                     const tc = document.createElement('canvas');
@@ -704,9 +706,10 @@
     }
 
     function stepFloatLetterParticles(l) {
-        const speedMul = S.jitter * 0.03;
-        const driftChance = S.drift * 0.01;
-        const driftRange = S.drift * 0.6;
+        // Home-page-tuned physics: gentle in-glyph wander rather than fast escape.
+        const speedMul = Math.max(0.024, S.jitter * 0.0036);
+        const driftChance = S.drift * 0.0075;
+        const driftRange = S.drift * 0.78;
         for (const p of l.particles) {
             const nx = p.x + p.vx * speedMul;
             const ny = p.y + p.vy * speedMul;
