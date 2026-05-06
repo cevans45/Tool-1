@@ -1434,16 +1434,16 @@
         
         if (floatMode) {
             const letter = getLetterAtPoint(mx, my);
-            if (letter && mashMode) {
+            if (letter) {
                 if (clickMode === 'fill') {
                     letter.fill = !letter.fill;
                 } else if (clickMode === 'effect') {
                     cycleEffectForLetter(letter);
-                } else if (clickMode === 'font') {
+                } else if (clickMode === 'font' && mashMode) {
                     cycleFontForLetter(letter);
                 }
             }
-        } else if (mashMode) {
+        } else {
             if (needsRecompute) recompute();
             const idx = charIdxAtPoint(mx, my);
             if (idx >= 0) {
@@ -1452,13 +1452,18 @@
                 } else if (clickMode === 'effect') {
                     cycleEffectForChar(idx);
                     if (!animId) fullRender();
-                } else if (clickMode === 'font') {
+                } else if (clickMode === 'font' && mashMode) {
                     cycleFontForChar(idx);
                     if (!animId) fullRender();
                 }
             }
         }
     });
+
+    // Initialize font button as disabled
+    $('ty-click-font-btn').disabled = true;
+    $('ty-click-font-btn').style.opacity = '0.5';
+    $('ty-click-font-btn').title = 'Disabled: Enable Mash Fonts first';
 
     // ─── Font drag-and-drop ──────────────────────────────────────
 
@@ -1574,6 +1579,15 @@
         $('ty-stroke-btn').style.opacity = '1';
         $('ty-fill-btn').title = '';
         $('ty-stroke-btn').title = '';
+        
+        // Disable the font click button
+        $('ty-click-font-btn').disabled = true;
+        $('ty-click-font-btn').style.opacity = '0.5';
+        $('ty-click-font-btn').title = 'Disabled: Enable Mash Fonts first';
+        
+        // Hide font selector
+        $('ty-font-selector').style.display = 'none';
+        
         paramChanged();
     });
     $('ty-mash-fonts').addEventListener('click', () => {
@@ -1591,6 +1605,10 @@
         $('ty-stroke-btn').style.opacity = '0.5';
         $('ty-fill-btn').title = 'Disabled: each char has its own effect in Mash mode';
         $('ty-stroke-btn').title = 'Disabled: each char has its own effect in Mash mode';
+        
+        // Enable the font click button
+        $('ty-click-font-btn').disabled = false;
+        $('ty-click-font-btn').style.opacity = '1';
         
         // Show font selector
         $('ty-font-selector').style.display = '';
