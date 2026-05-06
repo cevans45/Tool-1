@@ -649,13 +649,15 @@
                 const w = mg.measureText(ch).width;
 
                 if (ch !== ' ' && w > 0) {
-                    const aw = Math.ceil(w + fs * 0.4);
-                    const ah = Math.ceil(fs * 1.4);
+                    // Tight local canvas: just a tiny buffer so drift can wander a few px.
+                    // (Wider buffer = particles "fall off" the bottom/sides of each letter.)
+                    const aw = Math.ceil(w + fs * 0.18);
+                    const ah = Math.ceil(fs * 1.15);
 
-                    // maskCanvas: the actual glyph (used as alpha stencil).
-                    const maskCanvas = document.createElement('canvas');
-                    maskCanvas.width = aw; maskCanvas.height = ah;
-                    const tg = maskCanvas.getContext('2d');
+                    // Render glyph mask
+                    const tc = document.createElement('canvas');
+                    tc.width = aw; tc.height = ah;
+                    const tg = tc.getContext('2d');
                     tg.font = fStr;
                     tg.textAlign = 'center';
                     tg.textBaseline = 'middle';
@@ -664,11 +666,6 @@
                     const id = tg.getImageData(0, 0, aw, ah);
                     const alpha = new Uint8Array(aw * ah);
                     for (let k = 0; k < alpha.length; k++) alpha[k] = id.data[k * 4 + 3];
-
-                    // workCanvas: per-letter scratch buffer, particles render here then get masked.
-                    const workCanvas = document.createElement('canvas');
-                    workCanvas.width = aw; workCanvas.height = ah;
-                    const workCtx = workCanvas.getContext('2d');
 
                     // Spawn particles in local letter space
                     const count = Math.round(60 + S.density * S.density * 4);
@@ -693,7 +690,6 @@
 
                     floatLetters.push({
                         ch, aw, ah, alpha, particles: parts,
-                        maskCanvas, workCanvas, workCtx,
                         hx: cx + w / 2,
                         hy: y,
                         offX: 0, offY: 0, rot: 0,
@@ -746,8 +742,6 @@
         const easePos = 0.095;
         const easeRot = 0.11;
 
-        const mainCtx = ctx;
-
         for (const l of floatLetters) {
             if (!S.paused) {
                 const desiredX = Math.sin(tt * 0.38 + l.phase) * amp
@@ -768,14 +762,17 @@
                 if (S.jitter > 0) stepFloatLetterParticles(l);
             }
 
+            const cx = l.hx + l.offX;
+            const cy = l.hy + l.offY;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(l.rot);
+            ctx.translate(-l.aw / 2, -l.ah / 2);
+
             const mode = modeForChar(l.charIdx);
             const effect = effectForChar(l.charIdx);
             const fn = modes[mode];
-
-            // Render this letter to its own offscreen canvas, then alpha-mask to the glyph.
-            ctx = l.workCtx;
-            ctx.setTransform(1, 0, 0, 1, 0, 0);
-            ctx.clearRect(0, 0, l.aw, l.ah);
 
             if (fn && l.particles.length > 0 && mode !== 'none') {
                 const flags = applyEffect(effect);
@@ -797,17 +794,6 @@
                 clearShadow();
             }
 
-            // Clip everything we just drew to the glyph silhouette.
-            ctx.globalCompositeOperation = 'destination-in';
-            ctx.drawImage(l.maskCanvas, 0, 0);
-            ctx.globalCompositeOperation = 'source-over';
-
-            // Composite the masked letter onto the main canvas, swayed and rotated.
-            ctx = mainCtx;
-            ctx.save();
-            ctx.translate(l.hx + l.offX, l.hy + l.offY);
-            ctx.rotate(l.rot);
-            ctx.drawImage(l.workCanvas, -l.aw / 2, -l.ah / 2);
             ctx.restore();
         }
 
