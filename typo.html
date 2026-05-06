@@ -1369,31 +1369,49 @@
         dialog.addEventListener('click', e => e.stopPropagation());
     }
 
+    function cycleFontForLetter(letter) {
+        const availableFonts = Array.from(activeFontSlots).sort((a, b) => a - b);
+        if (availableFonts.length === 0) return;
+        
+        const currentIdx = letter.fontSlotIdx !== undefined ? letter.fontSlotIdx : 0;
+        const currentPos = availableFonts.indexOf(currentIdx);
+        const nextPos = (currentPos + 1) % availableFonts.length;
+        letter.fontSlotIdx = availableFonts[nextPos];
+    }
+
+    function cycleFontForChar(charIdx) {
+        const availableFonts = Array.from(activeFontSlots).sort((a, b) => a - b);
+        if (availableFonts.length === 0) return;
+        
+        const currentIdx = letterFontIdx[charIdx] !== undefined ? letterFontIdx[charIdx] : 0;
+        const currentPos = availableFonts.indexOf(currentIdx);
+        const nextPos = (currentPos + 1) % availableFonts.length;
+        letterFontIdx[charIdx] = availableFonts[nextPos];
+    }
+
     canvas.addEventListener('click', (e) => {
         const rect = canvas.getBoundingClientRect();
         const mx = (e.clientX - rect.left) / (rect.width / cssW);
         const my = (e.clientY - rect.top) / (rect.height / cssH);
         
         if (floatMode) {
-            if (fontClickMode && mashMode) {
-                // Font selection mode in float
-                const letter = getLetterAtPoint(mx, my);
-                if (letter) {
-                    showFontPicker(letter);
-                }
-            } else {
-                // Fill/stroke toggle in float
-                const letter = getLetterAtPoint(mx, my);
-                if (letter) {
+            const letter = getLetterAtPoint(mx, my);
+            if (letter) {
+                if (fontClickMode && mashMode) {
+                    // Font cycling mode in float
+                    cycleFontForLetter(letter);
+                } else {
+                    // Fill/stroke toggle in float
                     letter.fill = !letter.fill;
                 }
             }
-        } else if (fontClickMode && mashMode) {
-            // Font selection mode in regular mode - need to recompute to rebuild charBounds
+        } else if (mashMode && fontClickMode) {
+            // Font cycling in regular mode
             if (needsRecompute) recompute();
             const idx = charIdxAtPoint(mx, my);
             if (idx >= 0) {
-                showFontPickerForChar(idx);
+                cycleFontForChar(idx);
+                if (!animId) fullRender();
             }
         }
     });
