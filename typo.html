@@ -649,10 +649,9 @@
                 const w = mg.measureText(ch).width;
 
                 if (ch !== ' ' && w > 0) {
-                    // Tight local canvas: just a tiny buffer so drift can wander a few px.
-                    // (Wider buffer = particles "fall off" the bottom/sides of each letter.)
-                    const aw = Math.ceil(w + fs * 0.18);
-                    const ah = Math.ceil(fs * 1.0);
+                    // Match home screen canvas sizing (index.html uses fs * 1.42)
+                    const aw = Math.ceil(w + fs * 0.42);
+                    const ah = Math.ceil(fs * 1.42);
 
                     // Render glyph mask
                     const tc = document.createElement('canvas');
