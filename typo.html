@@ -333,6 +333,7 @@
     let activeFontSlots = new Set();
     for (let i = 0; i < FONT_SLOTS.length; i++) activeFontSlots.add(i);
     let letterEffects = {}; // track per-character effects
+    let letterFontsDisplay = {}; // track per-character DISPLAY fonts (just the font, not effect/mode)
 
     function getActiveText() {
         if (S.showAlphabet) {
@@ -374,6 +375,15 @@
     }
 
     function fontStrForChar(charIdx) {
+        // First check if there's a custom display font for this character
+        const displayFontIdx = letterFontsDisplay['font_' + charIdx];
+        if (displayFontIdx !== undefined) {
+            const slot = FONT_SLOTS[displayFontIdx];
+            if (slot && !S.fontFileName) {
+                return slot.style + ' ' + slot.weight + ' ' + getActiveFontSize() + 'px ' + slot.family;
+            }
+        }
+        
         const slot = slotForChar(charIdx);
         if (slot && !S.fontFileName) {
             return slot.style + ' ' + slot.weight + ' ' + getActiveFontSize() + 'px ' + slot.family;
@@ -789,19 +799,13 @@
             let mode = modeForChar(l.charIdx);
             let effect = effectForChar(l.charIdx);
             
-            // If a custom font was selected for this letter, use that font's effect and mode
-            if (l.fontSlotIdx !== undefined) {
-                const slot = FONT_SLOTS[l.fontSlotIdx];
-                if (slot) {
-                    effect = slot.effect;
-                    mode = slot.mode;
-                }
-            }
-            
-            // If a custom effect was set for this letter, use it
+            // If a custom effect was set for this letter, use it (check this FIRST so it has priority)
             if (l.currentEffect) {
                 effect = l.currentEffect;
             }
+            
+            // If a custom font was selected, only use the font (NOT the mode/effect from that slot)
+            // The fontSlotIdx is just used to look up the font family, we handle effect/mode separately
             
             const fn = modes[mode];
             const letterFill = l.fill !== undefined ? l.fill : (effect === 'stroke' || effect === 'stroke-light' ? false : true);
@@ -1170,8 +1174,10 @@
         // Particles tagged charIdx === -1 (rare edge case) fall back to S.mode/S.fill.
         const buckets = new Map();
         for (const p of particles) {
-            let m = p.charIdx >= 0 ? modeForChar(p.charIdx) : S.mode;
-            let e = p.charIdx >= 0 ? effectForChar(p.charIdx) : (S.fill ? 'fill' : 'stroke');
+            // When there's a custom display font selected, DON'T use that font's mode
+            // Just use the default mode
+            let m = S.mode;
+            let e = S.fill ? 'fill' : 'stroke';
             
             // Check for custom effect on this character
             if (p.charIdx >= 0) {
@@ -1393,20 +1399,21 @@
         const availableFonts = Array.from(activeFontSlots).sort((a, b) => a - b);
         if (availableFonts.length === 0) return;
         
-        const currentIdx = letter.fontSlotIdx !== undefined ? letter.fontSlotIdx : 0;
+        const charIdx = letter.charIdx;
+        const currentIdx = letterFontsDisplay['font_' + charIdx] !== undefined ? letterFontsDisplay['font_' + charIdx] : 0;
         const currentPos = availableFonts.indexOf(currentIdx);
         const nextPos = (currentPos + 1) % availableFonts.length;
-        letter.fontSlotIdx = availableFonts[nextPos];
+        letterFontsDisplay['font_' + charIdx] = availableFonts[nextPos];
     }
 
     function cycleFontForChar(charIdx) {
         const availableFonts = Array.from(activeFontSlots).sort((a, b) => a - b);
         if (availableFonts.length === 0) return;
         
-        const currentIdx = letterFontIdx[charIdx] !== undefined ? letterFontIdx[charIdx] : 0;
+        const currentIdx = letterFontsDisplay['font_' + charIdx] !== undefined ? letterFontsDisplay['font_' + charIdx] : 0;
         const currentPos = availableFonts.indexOf(currentIdx);
         const nextPos = (currentPos + 1) % availableFonts.length;
-        letterFontIdx[charIdx] = availableFonts[nextPos];
+        letterFontsDisplay['font_' + charIdx] = availableFonts[nextPos];
     }
 
     function cycleEffectForLetter(letter) {
