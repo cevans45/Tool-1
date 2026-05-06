@@ -721,6 +721,53 @@
         }
     }
 
+    function rebuildFloatLetterParticles(letterObj, charIdx) {
+        // Rebuild particles for a single letter (used when font changes)
+        const fs = getActiveFontSize();
+        const fStr = fontStrForChar(charIdx);
+        
+        // Render glyph mask
+        const tc = document.createElement('canvas');
+        const aw = letterObj.aw;
+        const ah = letterObj.ah;
+        tc.width = aw;
+        tc.height = ah;
+        const tg = tc.getContext('2d');
+        tg.font = fStr;
+        tg.textAlign = 'center';
+        tg.textBaseline = 'middle';
+        tg.fillStyle = '#fff';
+        tg.fillText(letterObj.ch, aw / 2, ah / 2);
+        const id = tg.getImageData(0, 0, aw, ah);
+        const alpha = new Uint8Array(aw * ah);
+        for (let k = 0; k < alpha.length; k++) alpha[k] = id.data[k * 4 + 3];
+        
+        // Update the letter's alpha
+        letterObj.alpha = alpha;
+        
+        // Respawn particles in local letter space
+        const count = Math.round(60 + S.density * S.density * 4);
+        const parts = [];
+        let attempts = 0;
+        while (parts.length < count && attempts < count * 80) {
+            const px = 3 + Math.random() * (aw - 6);
+            const py = 3 + Math.random() * (ah - 6);
+            attempts++;
+            if (alpha[Math.round(py) * aw + Math.round(px)] < 80) continue;
+            const angle = Math.random() * Math.PI * 2;
+            const spd = 0.3 + Math.random() * 0.8;
+            parts.push({
+                x: px, y: py, homeX: px, homeY: py,
+                vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
+                scale: (0.2 + Math.random() * 0.8) * (1 - S.uniform / 100) + (S.uniform / 100),
+                phase: Math.random() * Math.PI * 2,
+                escaped: 0,
+                charIdx: charIdx,
+            });
+        }
+        letterObj.particles = parts;
+    }
+
     function stepFloatLetterParticles(l) {
         // Float mode: particles stay strictly inside the glyph alpha. No drift escape.
         const speedMul = Math.max(0.024, S.jitter * 0.0036);
@@ -1403,6 +1450,9 @@
         }
         const nextPos = (currentPos + 1) % availableFonts.length;
         letterFontIdx[charIdx] = availableFonts[nextPos];
+        
+        // Rebuild the particles for this letter with the new font
+        rebuildFloatLetterParticles(letter, charIdx);
     }
 
     function cycleFontForChar(charIdx) {
