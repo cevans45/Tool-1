@@ -172,6 +172,14 @@
                             <div class="control-row control-row--single">
                                 <button type="button" id="ty-pause" class="panel-button ty-btn-full">PAUSE</button>
                             </div>
+                            <div class="control-row control-row--single">
+                                <button type="button" id="ty-float-btn" class="panel-button ty-btn-full">FLOAT</button>
+                            </div>
+                            <div class="control-row" id="row-float-speed" style="display:none;">
+                                <label for="ty-float-speed">Float speed</label>
+                                <input type="range" id="ty-float-speed" min="0.1" max="5" value="1" step="0.1">
+                                <span class="param-value" id="val-ty-float-speed">1.0</span>
+                            </div>
                             <div class="control-row color-row">
                                 <label for="ty-ink">Ink color</label>
                                 <input type="color" id="ty-ink" value="#111111">
@@ -305,7 +313,11 @@
         mode: 'circles', density: 8, scale: 18, uniform: 0, jitter: 40, drift: 20,
         fill: true, strokeW: 1.5, paused: false,
         ink: '#111111', bg: '#f0ede8',
+        floatSpeed: 1,
     };
+
+    let floatMode = false;
+    let floatLetters = [];
 
     function getActiveText() {
         if (S.showAlphabet) {
@@ -593,6 +605,164 @@
                 p.vx *= -1; p.vy *= -1;
             }
         }
+    }
+
+    // ─── Float mode ───────────────────────────────────────────────
+
+    function buildFloatLetters() {
+        floatLetters = [];
+        const text = getActiveText().replace(/\n/g, '');
+        const fs = getActiveFontSize();
+
+        let globalCharIdx = 0;
+        for (let i = 0; i < text.length; i++) {
+            const ch = text[i];
+            if (ch === ' ') { globalCharIdx++; continue; }
+
+            const fStr = fontStrForChar(globalCharIdx);
+
+            // Measure glyph width
+            const mc = document.createElement('canvas');
+            mc.width = 4; mc.height = 4;
+            const mg = mc.getContext('2d');
+            mg.font = fStr;
+            const mw = mg.measureText(ch).width;
+
+            const aw = Math.ceil(mw + fs * 0.5);
+            const ah = Math.ceil(fs * 1.5);
+
+            // Render glyph mask
+            const tc = document.createElement('canvas');
+            tc.width = aw; tc.height = ah;
+            const tg = tc.getContext('2d');
+            tg.font = fStr;
+            tg.textAlign = 'center';
+            tg.textBaseline = 'middle';
+            tg.fillStyle = '#fff';
+            tg.fillText(ch, aw / 2, ah / 2);
+
+            const id = tg.getImageData(0, 0, aw, ah);
+            const alpha = new Uint8Array(aw * ah);
+            for (let k = 0; k < alpha.length; k++) alpha[k] = id.data[k * 4 + 3];
+
+            // Spawn particles in local letter space
+            const count = Math.round(60 + S.density * S.density * 4);
+            const parts = [];
+            let attempts = 0;
+            while (parts.length < count && attempts < count * 80) {
+                const px = Math.random() * aw;
+                const py = Math.random() * ah;
+                attempts++;
+                if (alpha[Math.round(py) * aw + Math.round(px)] < 80) continue;
+                const angle = Math.random() * Math.PI * 2;
+                const spd = 0.3 + Math.random() * 0.8;
+                parts.push({
+                    x: px, y: py, homeX: px, homeY: py,
+                    vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
+                    scale: (0.2 + Math.random() * 0.8) * (1 - S.uniform / 100) + (S.uniform / 100),
+                    phase: Math.random() * Math.PI * 2,
+                    escaped: 0,
+                    charIdx: globalCharIdx,
+                });
+            }
+
+            // Random start position keeping letter inside canvas
+            const lx = aw / 2 + Math.random() * Math.max(1, cssW - aw);
+            const ly = ah / 2 + Math.random() * Math.max(1, cssH - ah);
+            const angle = Math.random() * Math.PI * 2;
+            const spd = (0.5 + Math.random() * 1.5);
+
+            floatLetters.push({
+                ch, aw, ah, alpha, particles: parts,
+                lx, ly,
+                lvx: Math.cos(angle) * spd,
+                lvy: Math.sin(angle) * spd,
+                charIdx: globalCharIdx,
+            });
+
+            globalCharIdx++;
+        }
+    }
+
+    function stepFloatLetterParticles(l) {
+        const speedMul = S.jitter * 0.03;
+        const driftChance = S.drift * 0.01;
+        const driftRange = S.drift * 0.6;
+        for (const p of l.particles) {
+            const nx = p.x + p.vx * speedMul;
+            const ny = p.y + p.vy * speedMul;
+            const xOk = nx >= 0 && nx < l.aw && l.alpha[Math.round(p.y) * l.aw + Math.round(nx)] > 80;
+            const yOk = ny >= 0 && ny < l.ah && l.alpha[Math.round(ny) * l.aw + Math.round(p.x)] > 80;
+            if (!xOk) {
+                if (p.escaped < driftRange && Math.random() < driftChance) p.escaped += speedMul;
+                else { p.vx *= -1; if (p.escaped > 0) p.escaped -= speedMul * 0.5; }
+            } else if (p.escaped > 0) p.escaped -= speedMul * 0.3;
+            if (!yOk) {
+                if (p.escaped < driftRange && Math.random() < driftChance) p.escaped += speedMul;
+                else { p.vy *= -1; if (p.escaped > 0) p.escaped -= speedMul * 0.5; }
+            } else if (p.escaped > 0) p.escaped -= speedMul * 0.3;
+            p.x += p.vx * speedMul;
+            p.y += p.vy * speedMul;
+            if (p.x < -10 || p.x > l.aw + 10 || p.y < -10 || p.y > l.ah + 10) {
+                p.x = p.homeX; p.y = p.homeY; p.escaped = 0; p.vx *= -1; p.vy *= -1;
+            }
+        }
+    }
+
+    function tickFloat() {
+        if (!animId) return;
+
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.fillStyle = S.bg;
+        ctx.fillRect(0, 0, cssW, cssH);
+
+        for (const l of floatLetters) {
+            // Step particles inside letter
+            if (S.jitter > 0 && !S.paused) stepFloatLetterParticles(l);
+
+            // Move letter, bounce off walls
+            if (!S.paused) {
+                l.lx += l.lvx * S.floatSpeed;
+                l.ly += l.lvy * S.floatSpeed;
+                if (l.lx - l.aw / 2 < 0)     { l.lx = l.aw / 2;       l.lvx =  Math.abs(l.lvx); }
+                if (l.lx + l.aw / 2 > cssW)   { l.lx = cssW - l.aw / 2; l.lvx = -Math.abs(l.lvx); }
+                if (l.ly - l.ah / 2 < 0)     { l.ly = l.ah / 2;       l.lvy =  Math.abs(l.lvy); }
+                if (l.ly + l.ah / 2 > cssH)   { l.ly = cssH - l.ah / 2; l.lvy = -Math.abs(l.lvy); }
+            }
+
+            // Draw letter at its canvas position
+            ctx.save();
+            ctx.translate(l.lx - l.aw / 2, l.ly - l.ah / 2);
+
+            const mode = modeForChar(l.charIdx);
+            const effect = effectForChar(l.charIdx);
+            const fn = modes[mode];
+
+            if (fn && l.particles.length > 0 && mode !== 'none') {
+                const flags = applyEffect(effect);
+                fn(l.particles, flags.fill, flags.strokeW, flags);
+                clearShadow();
+            } else {
+                // None mode: plain glyph
+                ctx.font = fontStrForChar(l.charIdx);
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                const flags = applyEffect(effect);
+                if (flags.fill) {
+                    ctx.fillStyle = S.ink;
+                    ctx.fillText(l.ch, l.aw / 2, l.ah / 2);
+                } else {
+                    ctx.strokeStyle = S.ink;
+                    ctx.lineWidth = Math.max(0.5, flags.strokeW);
+                    ctx.strokeText(l.ch, l.aw / 2, l.ah / 2);
+                }
+                clearShadow();
+            }
+
+            ctx.restore();
+        }
+
+        animId = requestAnimationFrame(tickFloat);
     }
 
     // ─── Drawing modes ────────────────────────────────────────────
@@ -972,6 +1142,13 @@
     }
 
     function fullRender() {
+        if (floatMode) {
+            stopAnim();
+            buildFloatLetters();
+            animId = requestAnimationFrame(tickFloat);
+            return;
+        }
+
         if (needsRecompute) recompute();
 
         const animated = S.mode !== 'none' && S.jitter > 0 && !S.paused;
@@ -1173,6 +1350,26 @@
         document.querySelector('.app[aria-label="Typo"]').style.backgroundColor = S.bg;
         if (!animId) fullRender();
     });
+
+    $('ty-float-btn').addEventListener('click', () => {
+        floatMode = !floatMode;
+        $('ty-float-btn').classList.toggle('is-active', floatMode);
+        $('row-float-speed').style.display = floatMode ? '' : 'none';
+        stopAnim();
+        if (floatMode) {
+            buildFloatLetters();
+            animId = requestAnimationFrame(tickFloat);
+        } else {
+            needsRecompute = true;
+            fullRender();
+        }
+    });
+
+    $('ty-float-speed').addEventListener('input', e => {
+        S.floatSpeed = +e.target.value;
+        $('val-ty-float-speed').textContent = S.floatSpeed.toFixed(1);
+    });
+
     // ─── Init ────────────────────────────────────────────────────
 
     document.querySelector('.app[aria-label="Typo"]').style.backgroundColor = S.bg;
