@@ -671,8 +671,8 @@
                     const parts = [];
                     let attempts = 0;
                     while (parts.length < count && attempts < count * 80) {
-                        const px = Math.random() * aw;
-                        const py = Math.random() * ah;
+                        const px = 3 + Math.random() * (aw - 6);
+                        const py = 3 + Math.random() * (ah - 6);
                         attempts++;
                         if (alpha[Math.round(py) * aw + Math.round(px)] < 80) continue;
                         const angle = Math.random() * Math.PI * 2;
