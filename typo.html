@@ -1321,12 +1321,17 @@
         const availableFonts = Array.from(activeFontSlots).map(i => FONT_SLOTS[i]);
         if (availableFonts.length === 0) return;
         
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999;
+        `;
+        
         const dialog = document.createElement('div');
         dialog.style.cssText = `
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: white; border: 2px solid #333; border-radius: 8px;
-            padding: 20px; z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            max-height: 400px; overflow-y: auto;
+            padding: 20px; z-index: 1001; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            max-height: 400px; overflow-y: auto; min-width: 200px;
         `;
         
         const text = getActiveText().replace(/\n/g, '');
@@ -1338,6 +1343,7 @@
         
         const closeDialog = () => {
             if (dialog.parentNode) document.body.removeChild(dialog);
+            if (backdrop.parentNode) document.body.removeChild(backdrop);
         };
         
         for (const font of availableFonts) {
@@ -1357,9 +1363,10 @@
             dialog.appendChild(btn);
         }
         
+        document.body.appendChild(backdrop);
         document.body.appendChild(dialog);
+        backdrop.addEventListener('click', closeDialog);
         dialog.addEventListener('click', e => e.stopPropagation());
-        document.addEventListener('click', closeDialog, { once: true });
     }
 
     canvas.addEventListener('click', (e) => {
