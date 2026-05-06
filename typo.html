@@ -694,6 +694,7 @@
                         offX: 0, offY: 0, rot: 0,
                         phase: Math.random() * Math.PI * 2,
                         charIdx: idx,
+                        fill: true,
                     });
                 }
 
@@ -772,17 +773,19 @@
             const mode = modeForChar(l.charIdx);
             const effect = effectForChar(l.charIdx);
             const fn = modes[mode];
+            const letterFill = l.fill !== undefined ? l.fill : (effect === 'stroke' || effect === 'stroke-light' ? false : true);
 
             if (fn && l.particles.length > 0 && mode !== 'none') {
                 const flags = applyEffect(effect);
-                fn(l.particles, flags.fill, flags.strokeW, flags);
+                flags.fill = letterFill;
+                fn(l.particles, letterFill, flags.strokeW, flags);
                 clearShadow();
             } else {
                 ctx.font = fontStrForChar(l.charIdx);
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 const flags = applyEffect(effect);
-                if (flags.fill) {
+                if (letterFill) {
                     ctx.fillStyle = S.ink;
                     ctx.fillText(l.ch, l.aw / 2, l.ah / 2);
                 } else {
@@ -1228,6 +1231,33 @@
     }
 
     addEventListener('resize', () => requestAnimationFrame(resize));
+
+    // ─── Click to toggle fill/stroke ──────────────────────────────
+
+    function getLetterAtPoint(mx, my) {
+        if (!floatMode || floatLetters.length === 0) return null;
+        for (const l of floatLetters) {
+            const cx = l.hx + l.offX;
+            const cy = l.hy + l.offY;
+            const halfW = l.aw / 2;
+            const halfH = l.ah / 2;
+            if (mx >= cx - halfW && mx <= cx + halfW && my >= cy - halfH && my <= cy + halfH) {
+                return l;
+            }
+        }
+        return null;
+    }
+
+    canvas.addEventListener('click', (e) => {
+        if (!floatMode) return;
+        const rect = canvas.getBoundingClientRect();
+        const mx = (e.clientX - rect.left) / (rect.width / cssW);
+        const my = (e.clientY - rect.top) / (rect.height / cssH);
+        const letter = getLetterAtPoint(mx, my);
+        if (letter) {
+            letter.fill = !letter.fill;
+        }
+    });
 
     // ─── Font drag-and-drop ──────────────────────────────────────
 
