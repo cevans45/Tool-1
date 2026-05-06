@@ -706,27 +706,24 @@
     }
 
     function stepFloatLetterParticles(l) {
-        // Home-page-tuned physics: gentle in-glyph wander rather than fast escape.
+        // Float mode: particles stay strictly inside the glyph alpha. No drift escape.
         const speedMul = Math.max(0.024, S.jitter * 0.0036);
-        const driftChance = S.drift * 0.0075;
-        const driftRange = S.drift * 0.78;
+        const inAlpha = (x, y) => {
+            const ix = Math.round(x), iy = Math.round(y);
+            if (ix < 0 || ix >= l.aw || iy < 0 || iy >= l.ah) return false;
+            return l.alpha[iy * l.aw + ix] > 80;
+        };
         for (const p of l.particles) {
             const nx = p.x + p.vx * speedMul;
             const ny = p.y + p.vy * speedMul;
-            const xOk = nx >= 0 && nx < l.aw && l.alpha[Math.round(p.y) * l.aw + Math.round(nx)] > 80;
-            const yOk = ny >= 0 && ny < l.ah && l.alpha[Math.round(ny) * l.aw + Math.round(p.x)] > 80;
-            if (!xOk) {
-                if (p.escaped < driftRange && Math.random() < driftChance) p.escaped += speedMul;
-                else { p.vx *= -1; if (p.escaped > 0) p.escaped -= speedMul * 0.5; }
-            } else if (p.escaped > 0) p.escaped -= speedMul * 0.3;
-            if (!yOk) {
-                if (p.escaped < driftRange && Math.random() < driftChance) p.escaped += speedMul;
-                else { p.vy *= -1; if (p.escaped > 0) p.escaped -= speedMul * 0.5; }
-            } else if (p.escaped > 0) p.escaped -= speedMul * 0.3;
+            if (!inAlpha(nx, p.y)) p.vx *= -1;
+            if (!inAlpha(p.x, ny)) p.vy *= -1;
             p.x += p.vx * speedMul;
             p.y += p.vy * speedMul;
-            if (p.x < -10 || p.x > l.aw + 10 || p.y < -10 || p.y > l.ah + 10) {
-                p.x = p.homeX; p.y = p.homeY; p.escaped = 0; p.vx *= -1; p.vy *= -1;
+            // Safety net: if a fast jitter step jumped over the glyph, snap home.
+            if (!inAlpha(p.x, p.y)) {
+                p.x = p.homeX; p.y = p.homeY;
+                p.vx *= -1; p.vy *= -1;
             }
         }
     }
