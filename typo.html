@@ -115,7 +115,12 @@
                                 <div id="ty-font-selector" style="display:none; margin-top: 8px;">
                                     <div style="font-size: 11px; color: #666; margin-bottom: 6px;">Select fonts to use:</div>
                                     <div id="ty-font-checkboxes" style="display:flex; flex-direction:column; gap:4px; max-height:150px; overflow-y:auto; padding:4px; border:1px solid #ddd; border-radius:3px; background:#fafafa;"></div>
-                                    <button type="button" id="ty-font-mode-btn" class="panel-button" style="margin-top:6px; width:100%;">Font Click Mode</button>
+                                    <div style="font-size: 11px; color: #666; margin-top: 8px; margin-bottom: 4px;">Click mode:</div>
+                                    <div class="mode-switch mode-switch--full">
+                                        <button type="button" class="panel-button is-active" id="ty-click-fill-btn" data-click-mode="fill">Fill/Stroke</button>
+                                        <button type="button" class="panel-button" id="ty-click-effect-btn" data-click-mode="effect">Effect</button>
+                                        <button type="button" class="panel-button" id="ty-click-font-btn" data-click-mode="font">Font</button>
+                                    </div>
                                 </div>
                             </div>
                     </section>
@@ -324,9 +329,10 @@
     let floatMode = false;
     let floatLetters = [];
 
-    let fontClickMode = false;
+    let clickMode = 'fill'; // 'fill', 'effect', or 'font'
     let activeFontSlots = new Set();
     for (let i = 0; i < FONT_SLOTS.length; i++) activeFontSlots.add(i);
+    let letterEffects = {}; // track per-character effects
 
     function getActiveText() {
         if (S.showAlphabet) {
@@ -783,13 +789,18 @@
             let mode = modeForChar(l.charIdx);
             let effect = effectForChar(l.charIdx);
             
-            // If in font click mode and a font was selected for this letter, use that font's effect and mode
-            if (fontClickMode && l.fontSlotIdx !== undefined) {
+            // If a custom font was selected for this letter, use that font's effect and mode
+            if (l.fontSlotIdx !== undefined) {
                 const slot = FONT_SLOTS[l.fontSlotIdx];
                 if (slot) {
                     effect = slot.effect;
                     mode = slot.mode;
                 }
+            }
+            
+            // If a custom effect was set for this letter, use it
+            if (l.currentEffect) {
+                effect = l.currentEffect;
             }
             
             const fn = modes[mode];
@@ -1159,8 +1170,17 @@
         // Particles tagged charIdx === -1 (rare edge case) fall back to S.mode/S.fill.
         const buckets = new Map();
         for (const p of particles) {
-            const m = p.charIdx >= 0 ? modeForChar(p.charIdx) : S.mode;
-            const e = p.charIdx >= 0 ? effectForChar(p.charIdx) : (S.fill ? 'fill' : 'stroke');
+            let m = p.charIdx >= 0 ? modeForChar(p.charIdx) : S.mode;
+            let e = p.charIdx >= 0 ? effectForChar(p.charIdx) : (S.fill ? 'fill' : 'stroke');
+            
+            // Check for custom effect on this character
+            if (p.charIdx >= 0) {
+                const customEffect = letterEffects['effect_' + p.charIdx];
+                if (customEffect) {
+                    e = customEffect;
+                }
+            }
+            
             const key = m + '|' + e;
             let bucket = buckets.get(key);
             if (!bucket) { bucket = { mode: m, effect: e, parts: [] }; buckets.set(key, bucket); }
@@ -1389,6 +1409,24 @@
         letterFontIdx[charIdx] = availableFonts[nextPos];
     }
 
+    function cycleEffectForLetter(letter) {
+        const EFFECTS = ['fill', 'stroke', 'stroke-light', 'double'];
+        if (!letter.currentEffect) letter.currentEffect = 'fill';
+        const currentIdx = EFFECTS.indexOf(letter.currentEffect);
+        const nextIdx = (currentIdx + 1) % EFFECTS.length;
+        letter.currentEffect = EFFECTS[nextIdx];
+    }
+
+    function cycleEffectForChar(charIdx) {
+        const EFFECTS = ['fill', 'stroke', 'stroke-light', 'double'];
+        if (!letterEffects) letterEffects = {};
+        const key = 'effect_' + charIdx;
+        if (!letterEffects[key]) letterEffects[key] = 'fill';
+        const currentIdx = EFFECTS.indexOf(letterEffects[key]);
+        const nextIdx = (currentIdx + 1) % EFFECTS.length;
+        letterEffects[key] = EFFECTS[nextIdx];
+    }
+
     canvas.addEventListener('click', (e) => {
         const rect = canvas.getBoundingClientRect();
         const mx = (e.clientX - rect.left) / (rect.width / cssW);
@@ -1396,22 +1434,28 @@
         
         if (floatMode) {
             const letter = getLetterAtPoint(mx, my);
-            if (letter) {
-                if (fontClickMode && mashMode) {
-                    // Font cycling mode in float
-                    cycleFontForLetter(letter);
-                } else {
-                    // Fill/stroke toggle in float
+            if (letter && mashMode) {
+                if (clickMode === 'fill') {
                     letter.fill = !letter.fill;
+                } else if (clickMode === 'effect') {
+                    cycleEffectForLetter(letter);
+                } else if (clickMode === 'font') {
+                    cycleFontForLetter(letter);
                 }
             }
-        } else if (mashMode && fontClickMode) {
-            // Font cycling in regular mode
+        } else if (mashMode) {
             if (needsRecompute) recompute();
             const idx = charIdxAtPoint(mx, my);
             if (idx >= 0) {
-                cycleFontForChar(idx);
-                if (!animId) fullRender();
+                if (clickMode === 'fill') {
+                    // This would need per-character fill tracking too
+                } else if (clickMode === 'effect') {
+                    cycleEffectForChar(idx);
+                    if (!animId) fullRender();
+                } else if (clickMode === 'font') {
+                    cycleFontForChar(idx);
+                    if (!animId) fullRender();
+                }
             }
         }
     });
@@ -1620,12 +1664,24 @@
         if (!animId) fullRender();
     });
 
-    $('ty-font-mode-btn').addEventListener('click', () => {
-        fontClickMode = !fontClickMode;
-        $('ty-font-mode-btn').classList.toggle('is-active', fontClickMode);
-        $('ty-font-mode-btn').textContent = fontClickMode ? 'Font Click Mode (ON)' : 'Font Click Mode (OFF)';
-        canvas.style.cursor = fontClickMode ? 'pointer' : 'auto';
-    });
+    // Click mode buttons
+    const clickModeButtons = {
+        fill: $('ty-click-fill-btn'),
+        effect: $('ty-click-effect-btn'),
+        font: $('ty-click-font-btn')
+    };
+
+    for (const [mode, btn] of Object.entries(clickModeButtons)) {
+        btn.addEventListener('click', () => {
+            clickMode = mode;
+            // Update button states
+            for (const b of Object.values(clickModeButtons)) {
+                b.classList.remove('is-active');
+            }
+            btn.classList.add('is-active');
+            canvas.style.cursor = mashMode ? 'pointer' : 'auto';
+        });
+    }
 
     $('ty-float-btn').addEventListener('click', () => {
         floatMode = !floatMode;
