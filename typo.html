@@ -799,7 +799,12 @@
             let mode = modeForChar(l.charIdx);
             let effect = effectForChar(l.charIdx);
             
-            // If a custom effect was set for this letter, use it (check this FIRST so it has priority)
+            // If a custom mode was set for this letter, use it (check this FIRST so it has priority)
+            if (l.currentMode) {
+                mode = l.currentMode;
+            }
+            
+            // If a custom effect was set for this letter, use it
             if (l.currentEffect) {
                 effect = l.currentEffect;
             }
@@ -1179,11 +1184,11 @@
             let m = S.mode;
             let e = S.fill ? 'fill' : 'stroke';
             
-            // Check for custom effect on this character
+            // Check for custom mode or effect on this character
             if (p.charIdx >= 0) {
-                const customEffect = letterEffects['effect_' + p.charIdx];
-                if (customEffect) {
-                    e = customEffect;
+                const customMode = letterEffects['mode_' + p.charIdx];
+                if (customMode) {
+                    m = customMode;
                 }
             }
             
@@ -1417,21 +1422,21 @@
     }
 
     function cycleEffectForLetter(letter) {
-        const EFFECTS = ['fill', 'stroke', 'stroke-light', 'double'];
-        if (!letter.currentEffect) letter.currentEffect = 'fill';
-        const currentIdx = EFFECTS.indexOf(letter.currentEffect);
-        const nextIdx = (currentIdx + 1) % EFFECTS.length;
-        letter.currentEffect = EFFECTS[nextIdx];
+        const MODES = ['circles', 'squares', 'grid', 'diamonds', 'crosses', 'stars', 'fragment'];
+        if (!letter.currentMode) letter.currentMode = 'circles';
+        const currentIdx = MODES.indexOf(letter.currentMode);
+        const nextIdx = (currentIdx + 1) % MODES.length;
+        letter.currentMode = MODES[nextIdx];
     }
 
     function cycleEffectForChar(charIdx) {
-        const EFFECTS = ['fill', 'stroke', 'stroke-light', 'double'];
+        const MODES = ['circles', 'squares', 'grid', 'diamonds', 'crosses', 'stars', 'fragment'];
         if (!letterEffects) letterEffects = {};
-        const key = 'effect_' + charIdx;
-        if (!letterEffects[key]) letterEffects[key] = 'fill';
-        const currentIdx = EFFECTS.indexOf(letterEffects[key]);
-        const nextIdx = (currentIdx + 1) % EFFECTS.length;
-        letterEffects[key] = EFFECTS[nextIdx];
+        const key = 'mode_' + charIdx;
+        if (!letterEffects[key]) letterEffects[key] = 'circles';
+        const currentIdx = MODES.indexOf(letterEffects[key]);
+        const nextIdx = (currentIdx + 1) % MODES.length;
+        letterEffects[key] = MODES[nextIdx];
     }
 
     canvas.addEventListener('click', (e) => {
