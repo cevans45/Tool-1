@@ -300,11 +300,11 @@
     const FONT_SLOTS = [
         { label: 'Badger',        style: 'normal', weight: '400', family: '"Bangers", cursive',              effect: 'stroke',       mode: 'circles'  },
         { label: 'Hofmann',       style: 'normal', weight: '600', family: '"NG Hofmann", sans-serif',        effect: 'fill',         mode: 'squares'  },
-        { label: 'Display',       style: 'normal', weight: '700', family: '"DM Sans", sans-serif',           effect: 'shadow',       mode: 'grid'     },
+        { label: 'Display',       style: 'normal', weight: '700', family: '"DM Sans", sans-serif',           effect: 'fill',         mode: 'grid'     },
         { label: 'Galapagos',     style: 'normal', weight: '700', family: '"Space Grotesk", sans-serif',     effect: 'stroke-light', mode: 'diamonds' },
         { label: 'Maxi Plus',     style: 'normal', weight: '400', family: '"Bebas Neue", sans-serif',        effect: 'double',       mode: 'stars'    },
         { label: 'Averia Italic', style: 'italic', weight: '400', family: '"Averia Serif Libre", serif',     effect: 'fill',         mode: 'fragment' },
-        { label: 'Brush',         style: 'normal', weight: '400', family: '"Permanent Marker", cursive',     effect: 'shadow-soft',  mode: 'circles'  },
+        { label: 'Brush',         style: 'normal', weight: '400', family: '"Permanent Marker", cursive',     effect: 'fill',         mode: 'circles'  },
     ];
 
     let letterFontIdx = []; // per-character font slot indices (one slot drives font + effect + mode)
@@ -1533,9 +1533,11 @@
         paramChanged();
     });
     $('ty-mash-fonts').addEventListener('click', () => {
-        // Shuffle each character to a random font and effect from the pool
+        // Shuffle each character to a random font and effect from the pool (only if not already set)
         mashMode = true;
-        shuffleLetterFonts();
+        if (letterFontIdx.length === 0) {
+            shuffleLetterFonts();
+        }
         $('ty-font-label').textContent = letterFontIdx.length + ' chars, each a random font + effect!';
         $('ty-font-reset').hidden = false;
         // Disable the global Render toggle since each char now has its own effect
