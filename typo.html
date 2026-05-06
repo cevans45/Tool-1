@@ -1272,18 +1272,28 @@
         const availableFonts = Array.from(activeFontSlots).map(i => FONT_SLOTS[i]);
         if (availableFonts.length === 0) return;
         
+        const backdrop = document.createElement('div');
+        backdrop.style.cssText = `
+            position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999;
+        `;
+        
         const dialog = document.createElement('div');
         dialog.style.cssText = `
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             background: white; border: 2px solid #333; border-radius: 8px;
-            padding: 20px; z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            max-height: 400px; overflow-y: auto;
+            padding: 20px; z-index: 1001; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            max-height: 400px; overflow-y: auto; min-width: 200px;
         `;
         
         const title = document.createElement('div');
         title.style.cssText = 'font-weight: bold; margin-bottom: 12px; font-size: 14px;';
         title.textContent = 'Select Font for "' + letter.ch + '"';
         dialog.appendChild(title);
+        
+        const closeDialog = () => {
+            if (dialog.parentNode) document.body.removeChild(dialog);
+            if (backdrop.parentNode) document.body.removeChild(backdrop);
+        };
         
         for (const font of availableFonts) {
             const btn = document.createElement('button');
@@ -1296,16 +1306,15 @@
             btn.addEventListener('click', () => {
                 const idx = FONT_SLOTS.indexOf(font);
                 letter.fontSlotIdx = idx;
-                document.body.removeChild(dialog);
+                closeDialog();
             });
             dialog.appendChild(btn);
         }
         
+        document.body.appendChild(backdrop);
         document.body.appendChild(dialog);
+        backdrop.addEventListener('click', closeDialog);
         dialog.addEventListener('click', e => e.stopPropagation());
-        document.addEventListener('click', () => {
-            if (dialog.parentNode) document.body.removeChild(dialog);
-        }, { once: true });
     }
 
     function showFontPickerForChar(charIdx) {
@@ -1327,6 +1336,10 @@
         title.textContent = 'Select Font for "' + ch + '"';
         dialog.appendChild(title);
         
+        const closeDialog = () => {
+            if (dialog.parentNode) document.body.removeChild(dialog);
+        };
+        
         for (const font of availableFonts) {
             const btn = document.createElement('button');
             btn.style.cssText = `
@@ -1338,7 +1351,7 @@
             btn.addEventListener('click', () => {
                 const idx = FONT_SLOTS.indexOf(font);
                 letterFontIdx[charIdx] = idx;
-                document.body.removeChild(dialog);
+                closeDialog();
                 if (!animId) fullRender();
             });
             dialog.appendChild(btn);
@@ -1346,9 +1359,7 @@
         
         document.body.appendChild(dialog);
         dialog.addEventListener('click', e => e.stopPropagation());
-        document.addEventListener('click', () => {
-            if (dialog.parentNode) document.body.removeChild(dialog);
-        }, { once: true });
+        document.addEventListener('click', closeDialog, { once: true });
     }
 
     canvas.addEventListener('click', (e) => {
@@ -1371,10 +1382,11 @@
                 }
             }
         } else if (fontClickMode && mashMode) {
-            // Font selection mode in regular mode
-            const charIdx = getCharIdxAtPoint(mx, my);
-            if (charIdx >= 0) {
-                showFontPickerForChar(charIdx);
+            // Font selection mode in regular mode - need to recompute to rebuild charBounds
+            if (needsRecompute) recompute();
+            const idx = charIdxAtPoint(mx, my);
+            if (idx >= 0) {
+                showFontPickerForChar(idx);
             }
         }
     });
