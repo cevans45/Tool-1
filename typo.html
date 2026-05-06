@@ -333,7 +333,6 @@
     let activeFontSlots = new Set();
     for (let i = 0; i < FONT_SLOTS.length; i++) activeFontSlots.add(i);
     let letterEffects = {}; // track per-character effects (particle modes)
-    let letterFontsDisplay = {}; // track per-character DISPLAY fonts (just typeface, not mode)
 
     function getActiveText() {
         if (S.showAlphabet) {
@@ -375,15 +374,6 @@
     }
 
     function fontStrForChar(charIdx) {
-        // Check if there's a custom display font for this character
-        const displayFontIdx = letterFontsDisplay['font_' + charIdx];
-        if (displayFontIdx !== undefined) {
-            const slot = FONT_SLOTS[displayFontIdx];
-            if (slot && !S.fontFileName) {
-                return slot.style + ' ' + slot.weight + ' ' + getActiveFontSize() + 'px ' + slot.family;
-            }
-        }
-        
         const slot = slotForChar(charIdx);
         if (slot && !S.fontFileName) {
             return slot.style + ' ' + slot.weight + ' ' + getActiveFontSize() + 'px ' + slot.family;
@@ -1226,12 +1216,10 @@
         // Particles tagged charIdx === -1 (rare edge case) fall back to S.mode/S.fill.
         const buckets = new Map();
         for (const p of particles) {
-            // When there's a custom display font selected, DON'T use that font's mode
-            // Just use the default mode
-            let m = S.mode;
-            let e = S.fill ? 'fill' : 'stroke';
+            let m = p.charIdx >= 0 ? modeForChar(p.charIdx) : S.mode;
+            let e = p.charIdx >= 0 ? effectForChar(p.charIdx) : (S.fill ? 'fill' : 'stroke');
             
-            // Check for custom mode or effect on this character
+            // Check for custom mode on this character (from clicking Effect button)
             if (p.charIdx >= 0) {
                 const customMode = letterEffects['mode_' + p.charIdx];
                 if (customMode) {
@@ -1452,28 +1440,31 @@
         if (availableFonts.length === 0) return;
         
         const charIdx = letter.charIdx;
-        const currentIdx = letterFontsDisplay['font_' + charIdx];
+        const currentIdx = letterFontIdx[charIdx];
         let currentPos = 0;
         if (currentIdx !== undefined) {
             currentPos = availableFonts.indexOf(currentIdx);
             if (currentPos === -1) currentPos = 0;
         }
         const nextPos = (currentPos + 1) % availableFonts.length;
-        letterFontsDisplay['font_' + charIdx] = availableFonts[nextPos];
+        letterFontIdx[charIdx] = availableFonts[nextPos];
+        
+        // Rebuild particles with new font's particle mode
+        rebuildFloatLetterParticles(letter, charIdx);
     }
 
     function cycleFontForChar(charIdx) {
         const availableFonts = Array.from(activeFontSlots).sort((a, b) => a - b);
         if (availableFonts.length === 0) return;
         
-        const currentIdx = letterFontsDisplay['font_' + charIdx];
+        const currentIdx = letterFontIdx[charIdx];
         let currentPos = 0;
         if (currentIdx !== undefined) {
             currentPos = availableFonts.indexOf(currentIdx);
             if (currentPos === -1) currentPos = 0;
         }
         const nextPos = (currentPos + 1) % availableFonts.length;
-        letterFontsDisplay['font_' + charIdx] = availableFonts[nextPos];
+        letterFontIdx[charIdx] = availableFonts[nextPos];
     }
 
     function cycleEffectForLetter(letter) {
