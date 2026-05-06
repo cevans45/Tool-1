@@ -611,76 +611,95 @@
 
     function buildFloatLetters() {
         floatLetters = [];
-        const text = getActiveText().replace(/\n/g, '');
         const fs = getActiveFontSize();
+        const lines = getActiveText().split('\n');
+        const lineH = fs * S.lineHeight;
+        const totalH = (lines.length - 1) * lineH;
+        const startY = cssH / 2 - totalH / 2;
+        const baseX = S.textAlign === 'left' ? 40
+            : S.textAlign === 'right' ? cssW - 40
+            : cssW / 2;
+
+        const mc = document.createElement('canvas');
+        mc.width = 4; mc.height = 4;
+        const mg = mc.getContext('2d');
 
         let globalCharIdx = 0;
-        for (let i = 0; i < text.length; i++) {
-            const ch = text[i];
-            if (ch === ' ') { globalCharIdx++; continue; }
+        for (let li = 0; li < lines.length; li++) {
+            const text = lines[li];
+            const y = startY + li * lineH;
 
-            const fStr = fontStrForChar(globalCharIdx);
-
-            // Measure glyph width
-            const mc = document.createElement('canvas');
-            mc.width = 4; mc.height = 4;
-            const mg = mc.getContext('2d');
-            mg.font = fStr;
-            const mw = mg.measureText(ch).width;
-
-            const aw = Math.ceil(mw + fs * 0.5);
-            const ah = Math.ceil(fs * 1.5);
-
-            // Render glyph mask
-            const tc = document.createElement('canvas');
-            tc.width = aw; tc.height = ah;
-            const tg = tc.getContext('2d');
-            tg.font = fStr;
-            tg.textAlign = 'center';
-            tg.textBaseline = 'middle';
-            tg.fillStyle = '#fff';
-            tg.fillText(ch, aw / 2, ah / 2);
-
-            const id = tg.getImageData(0, 0, aw, ah);
-            const alpha = new Uint8Array(aw * ah);
-            for (let k = 0; k < alpha.length; k++) alpha[k] = id.data[k * 4 + 3];
-
-            // Spawn particles in local letter space
-            const count = Math.round(60 + S.density * S.density * 4);
-            const parts = [];
-            let attempts = 0;
-            while (parts.length < count && attempts < count * 80) {
-                const px = Math.random() * aw;
-                const py = Math.random() * ah;
-                attempts++;
-                if (alpha[Math.round(py) * aw + Math.round(px)] < 80) continue;
-                const angle = Math.random() * Math.PI * 2;
-                const spd = 0.3 + Math.random() * 0.8;
-                parts.push({
-                    x: px, y: py, homeX: px, homeY: py,
-                    vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
-                    scale: (0.2 + Math.random() * 0.8) * (1 - S.uniform / 100) + (S.uniform / 100),
-                    phase: Math.random() * Math.PI * 2,
-                    escaped: 0,
-                    charIdx: globalCharIdx,
-                });
+            // Compute total width using per-char fonts so alignment is correct
+            let totalW = 0;
+            for (let i = 0; i < text.length; i++) {
+                mg.font = fontStrForChar(globalCharIdx + i);
+                totalW += mg.measureText(text[i]).width;
+                if (i < text.length - 1) totalW += S.letterSpacing;
             }
 
-            // Random start position keeping letter inside canvas
-            const lx = aw / 2 + Math.random() * Math.max(1, cssW - aw);
-            const ly = ah / 2 + Math.random() * Math.max(1, cssH - ah);
-            const angle = Math.random() * Math.PI * 2;
-            const spd = (0.5 + Math.random() * 1.5);
+            let cx = baseX;
+            if (S.textAlign === 'center') cx -= totalW / 2;
+            else if (S.textAlign === 'right') cx -= totalW;
 
-            floatLetters.push({
-                ch, aw, ah, alpha, particles: parts,
-                lx, ly,
-                lvx: Math.cos(angle) * spd,
-                lvy: Math.sin(angle) * spd,
-                charIdx: globalCharIdx,
-            });
+            for (let i = 0; i < text.length; i++) {
+                const idx = globalCharIdx + i;
+                const ch = text[i];
+                const fStr = fontStrForChar(idx);
+                mg.font = fStr;
+                const w = mg.measureText(ch).width;
 
-            globalCharIdx++;
+                if (ch !== ' ' && w > 0) {
+                    const aw = Math.ceil(w + fs * 0.5);
+                    const ah = Math.ceil(fs * 1.5);
+
+                    // Render glyph mask
+                    const tc = document.createElement('canvas');
+                    tc.width = aw; tc.height = ah;
+                    const tg = tc.getContext('2d');
+                    tg.font = fStr;
+                    tg.textAlign = 'center';
+                    tg.textBaseline = 'middle';
+                    tg.fillStyle = '#fff';
+                    tg.fillText(ch, aw / 2, ah / 2);
+                    const id = tg.getImageData(0, 0, aw, ah);
+                    const alpha = new Uint8Array(aw * ah);
+                    for (let k = 0; k < alpha.length; k++) alpha[k] = id.data[k * 4 + 3];
+
+                    // Spawn particles in local letter space
+                    const count = Math.round(60 + S.density * S.density * 4);
+                    const parts = [];
+                    let attempts = 0;
+                    while (parts.length < count && attempts < count * 80) {
+                        const px = Math.random() * aw;
+                        const py = Math.random() * ah;
+                        attempts++;
+                        if (alpha[Math.round(py) * aw + Math.round(px)] < 80) continue;
+                        const angle = Math.random() * Math.PI * 2;
+                        const spd = 0.3 + Math.random() * 0.8;
+                        parts.push({
+                            x: px, y: py, homeX: px, homeY: py,
+                            vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
+                            scale: (0.2 + Math.random() * 0.8) * (1 - S.uniform / 100) + (S.uniform / 100),
+                            phase: Math.random() * Math.PI * 2,
+                            escaped: 0,
+                            charIdx: idx,
+                        });
+                    }
+
+                    floatLetters.push({
+                        ch, aw, ah, alpha, particles: parts,
+                        hx: cx + w / 2,
+                        hy: y,
+                        offX: 0, offY: 0, rot: 0,
+                        phase: Math.random() * Math.PI * 2,
+                        charIdx: idx,
+                    });
+                }
+
+                cx += w + S.letterSpacing;
+            }
+
+            globalCharIdx += text.length;
         }
     }
 
@@ -716,23 +735,40 @@
         ctx.fillStyle = S.bg;
         ctx.fillRect(0, 0, cssW, cssH);
 
-        for (const l of floatLetters) {
-            // Step particles inside letter
-            if (S.jitter > 0 && !S.paused) stepFloatLetterParticles(l);
+        // Gentle sine-wave sway around each letter's home position (mirrors index.html hero).
+        const tt = performance.now() * 0.00058 * S.floatSpeed;
+        const amp = 24;
+        const maxOff = 32;
+        const easePos = 0.095;
+        const easeRot = 0.11;
 
-            // Move letter, bounce off walls
+        for (const l of floatLetters) {
             if (!S.paused) {
-                l.lx += l.lvx * S.floatSpeed;
-                l.ly += l.lvy * S.floatSpeed;
-                if (l.lx - l.aw / 2 < 0)     { l.lx = l.aw / 2;       l.lvx =  Math.abs(l.lvx); }
-                if (l.lx + l.aw / 2 > cssW)   { l.lx = cssW - l.aw / 2; l.lvx = -Math.abs(l.lvx); }
-                if (l.ly - l.ah / 2 < 0)     { l.ly = l.ah / 2;       l.lvy =  Math.abs(l.lvy); }
-                if (l.ly + l.ah / 2 > cssH)   { l.ly = cssH - l.ah / 2; l.lvy = -Math.abs(l.lvy); }
+                const desiredX = Math.sin(tt * 0.38 + l.phase) * amp
+                    + Math.sin(tt * 0.13 + l.phase * 1.85) * amp * 0.36;
+                const desiredY = Math.cos(tt * 0.34 + l.phase * 2.02) * amp * 0.68
+                    + Math.sin(tt * 0.095 + l.phase * 0.72) * amp * 0.32;
+                l.offX += (desiredX - l.offX) * easePos;
+                l.offY += (desiredY - l.offY) * easePos;
+                l.offX = Math.max(-maxOff, Math.min(maxOff, l.offX));
+                l.offY = Math.max(-maxOff, Math.min(maxOff, l.offY));
+                const desiredRot =
+                    Math.sin(tt * 1.15 + l.phase) * 0.13
+                    + Math.sin(tt * 0.68 + l.phase * 2.2) * 0.075
+                    + l.offX * 0.00085
+                    + l.offY * 0.00065;
+                l.rot += (desiredRot - l.rot) * easeRot;
+
+                if (S.jitter > 0) stepFloatLetterParticles(l);
             }
 
-            // Draw letter at its canvas position
+            const cx = l.hx + l.offX;
+            const cy = l.hy + l.offY;
+
             ctx.save();
-            ctx.translate(l.lx - l.aw / 2, l.ly - l.ah / 2);
+            ctx.translate(cx, cy);
+            ctx.rotate(l.rot);
+            ctx.translate(-l.aw / 2, -l.ah / 2);
 
             const mode = modeForChar(l.charIdx);
             const effect = effectForChar(l.charIdx);
@@ -743,7 +779,6 @@
                 fn(l.particles, flags.fill, flags.strokeW, flags);
                 clearShadow();
             } else {
-                // None mode: plain glyph
                 ctx.font = fontStrForChar(l.charIdx);
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
