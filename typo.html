@@ -1366,13 +1366,25 @@
         S.fill = true;
         $('ty-fill-btn').classList.add('is-active');
         $('ty-stroke-btn').classList.remove('is-active');
-        if (!animId) fullRender();
+        if (floatMode) {
+            for (const l of floatLetters) {
+                l.fill = true;
+            }
+        } else if (!animId) {
+            fullRender();
+        }
     });
     $('ty-stroke-btn').addEventListener('click', () => {
         S.fill = false;
         $('ty-stroke-btn').classList.add('is-active');
         $('ty-fill-btn').classList.remove('is-active');
-        if (!animId) fullRender();
+        if (floatMode) {
+            for (const l of floatLetters) {
+                l.fill = false;
+            }
+        } else if (!animId) {
+            fullRender();
+        }
     });
     $('ty-stroke-w').addEventListener('input', e => {
         S.strokeW = +e.target.value; $('val-ty-stroke-w').textContent = S.strokeW.toFixed(1);
@@ -1422,6 +1434,10 @@
         stopAnim();
         if (floatMode) {
             buildFloatLetters();
+            // Apply current S.fill to all letters
+            for (const l of floatLetters) {
+                l.fill = S.fill;
+            }
             animId = requestAnimationFrame(tickFloat);
         } else {
             needsRecompute = true;
