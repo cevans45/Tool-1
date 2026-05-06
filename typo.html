@@ -333,7 +333,6 @@
     let activeFontSlots = new Set();
     for (let i = 0; i < FONT_SLOTS.length; i++) activeFontSlots.add(i);
     let letterEffects = {}; // track per-character effects
-    let letterFontsDisplay = {}; // track per-character DISPLAY fonts (just the font, not effect/mode)
 
     function getActiveText() {
         if (S.showAlphabet) {
@@ -375,15 +374,6 @@
     }
 
     function fontStrForChar(charIdx) {
-        // First check if there's a custom display font for this character
-        const displayFontIdx = letterFontsDisplay['font_' + charIdx];
-        if (displayFontIdx !== undefined) {
-            const slot = FONT_SLOTS[displayFontIdx];
-            if (slot && !S.fontFileName) {
-                return slot.style + ' ' + slot.weight + ' ' + getActiveFontSize() + 'px ' + slot.family;
-            }
-        }
-        
         const slot = slotForChar(charIdx);
         if (slot && !S.fontFileName) {
             return slot.style + ' ' + slot.weight + ' ' + getActiveFontSize() + 'px ' + slot.family;
@@ -1405,20 +1395,28 @@
         if (availableFonts.length === 0) return;
         
         const charIdx = letter.charIdx;
-        const currentIdx = letterFontsDisplay['font_' + charIdx] !== undefined ? letterFontsDisplay['font_' + charIdx] : 0;
-        const currentPos = availableFonts.indexOf(currentIdx);
+        const currentIdx = letterFontIdx[charIdx];
+        let currentPos = 0;
+        if (currentIdx !== undefined) {
+            currentPos = availableFonts.indexOf(currentIdx);
+            if (currentPos === -1) currentPos = 0;
+        }
         const nextPos = (currentPos + 1) % availableFonts.length;
-        letterFontsDisplay['font_' + charIdx] = availableFonts[nextPos];
+        letterFontIdx[charIdx] = availableFonts[nextPos];
     }
 
     function cycleFontForChar(charIdx) {
         const availableFonts = Array.from(activeFontSlots).sort((a, b) => a - b);
         if (availableFonts.length === 0) return;
         
-        const currentIdx = letterFontsDisplay['font_' + charIdx] !== undefined ? letterFontsDisplay['font_' + charIdx] : 0;
-        const currentPos = availableFonts.indexOf(currentIdx);
+        const currentIdx = letterFontIdx[charIdx];
+        let currentPos = 0;
+        if (currentIdx !== undefined) {
+            currentPos = availableFonts.indexOf(currentIdx);
+            if (currentPos === -1) currentPos = 0;
+        }
         const nextPos = (currentPos + 1) % availableFonts.length;
-        letterFontsDisplay['font_' + charIdx] = availableFonts[nextPos];
+        letterFontIdx[charIdx] = availableFonts[nextPos];
     }
 
     function cycleEffectForLetter(letter) {
