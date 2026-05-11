@@ -523,7 +523,7 @@
   }
 
   const VIDEO_RECORD_MS = 10000;
-  const VIDEO_FPS = 60;
+  const VIDEO_FPS = 50;
 
   function pickVideoMimeType() {
     if (typeof MediaRecorder === 'undefined') return '';
@@ -584,7 +584,7 @@
     const chunks = [];
     const rec = new MediaRecorder(stream, {
       mimeType,
-      videoBitsPerSecond: 25e6,
+      videoBitsPerSecond: 15e6,
     });
 
     await new Promise((resolve, reject) => {
