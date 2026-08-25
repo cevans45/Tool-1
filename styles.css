@@ -491,6 +491,13 @@ body.is-leaving {
     margin: 0 0 20px;
 }
 
+.info-content .info-note {
+    font-size: 12px;
+    color: #999;
+    line-height: 1.5;
+    margin: 0 0 18px;
+}
+
 .info-content dt {
     font-size: 12px;
     font-weight: 700;
@@ -541,6 +548,12 @@ body.is-leaving {
 
 .control-section:last-child {
     margin-bottom: 0;
+}
+
+/* Pearls stacks sections straight into the panel body, without .control-window wrappers. */
+.app[aria-label="Pearls generator"] .panel-body > .control-section {
+    padding: 12px 16px 4px;
+    margin-bottom: 8px;
 }
 
 .control-window {
@@ -793,6 +806,11 @@ body.is-leaving {
 
 .mode-switch .panel-button + .panel-button {
     border-left: 1px solid #000;
+}
+
+.control-row--tabs .mode-switch {
+    flex: 1;
+    min-width: 0;
 }
 
 .control-row--disabled {
