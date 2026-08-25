@@ -71,10 +71,12 @@
                             <dd><strong>Space</strong> — clear canvas. <strong>⌘Z / Ctrl+Z</strong> — undo last stroke. <strong>Shift</strong> while drawing — constrain each step to horizontal or vertical from the previous point.</dd>
                         </dl>
                         <h3>Animate tab</h3>
-                        <p style="font-size:12px;line-height:1.5;color:#444;margin:0 0 14px;">Your drawing is not changed. Its strokes are held still while a charge travels along the path you drew — so the particles and bleed flow through the lines instead of pulsing all at once. Leaving the tab restores the plain still drawing.</p>
+                        <p style="font-size:12px;line-height:1.5;color:#444;margin:0 0 14px;">A charge travels along the path you drew. It bends the line, pumps its thickness and runs the ink hot as it passes, so the outline itself moves rather than only the particles around it. Your saved drawing is untouched — leaving the tab restores the plain still.</p>
                         <dl>
                             <dt>Pause / Play</dt>
                             <dd>Freezes on the current frame, so you can tune it and export the exact still you want.</dd>
+                            <dt>New path</dt>
+                            <dd>Rolls a fresh generated composition without leaving the tab.</dd>
                             <dt>Style</dt>
                             <dd><strong>Current</strong> — a charge running the lines. <strong>Static</strong> — noisy interference. <strong>Storm</strong> — violent, with dropouts. <strong>Comet chase</strong> — a bright head with a fading tail. <strong>Breathe</strong> — slow swell.</dd>
                             <dt>Speed</dt>
@@ -85,8 +87,12 @@
                             <dd>Scatters timing per spot so nothing moves in unison.</dd>
                             <dt>Reverse flow</dt>
                             <dd>Runs the charge back the other way through the drawing.</dd>
+                            <dt>Warp</dt>
+                            <dd>How far the line bends off the course you drew. This is what makes the outline travel and reshape; 0 holds the exact drawn form.</dd>
+                            <dt>Swell</dt>
+                            <dd>Pumps stroke thickness with the charge — fat where it passes, thinner behind it — so the silhouette breathes.</dd>
                             <dt>Charge</dt>
-                            <dd>Brightness and thickness of the pulse riding the strokes.</dd>
+                            <dd>How hot the ink runs where the charge sits, flashing toward the spark color.</dd>
                             <dt>Bleed reach</dt>
                             <dd>How far ink growth reaches across gaps as the charge arrives, retracting behind it. Uses Sticky dist to decide which gaps can bridge.</dd>
                             <dt>Jitter</dt>
@@ -287,6 +293,18 @@
                                 <span class="toggle-box"></span>
                                 <span class="cb-label">Reverse flow</span>
                             </label>
+
+                            <div class="control-row">
+                                <label for="el-anim-warp">Warp</label>
+                                <input type="range" id="el-anim-warp" min="0" max="100" value="40" step="5">
+                                <span class="param-value" id="val-el-anim-warp">40%</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-anim-swell">Swell</label>
+                                <input type="range" id="el-anim-swell" min="0" max="100" value="55" step="5">
+                                <span class="param-value" id="val-el-anim-swell">55%</span>
+                            </div>
 
                             <div class="control-row">
                                 <label for="el-anim-charge">Charge</label>
@@ -1808,9 +1826,10 @@
         window.exportPagePNG = exportWithFilter;
 
         // ─── Animation ─────────────────────────────────────────────────
-        // The drawn path is the composition and stays put: its strokes are cached once into a
-        // base layer. Only the particles and bleed are regenerated each frame, driven by a
-        // charge that travels along the path, so movement runs through the lines that were made.
+        // The drawn path is the composition, and it is redrawn every frame rather than cached, so
+        // a charge travelling along it can bend the path and swell its thickness — the silhouette
+        // itself moves. The particles and bleed ride the same charge, so movement runs through
+        // the lines that were made instead of pulsing everywhere at once.
 
         const anim = {
             active: false,
@@ -1820,7 +1839,9 @@
             spread: 2.4,   // charge cycles along the whole drawing
             desync: 0.35,  // per-site phase scatter, so nothing moves in unison
             reverse: false,
-            charge: 0.55,  // brightness/thickness of the pulse riding the strokes
+            warp: 0.4,     // how far the path bends off its drawn course
+            swell: 0.55,   // how much thickness pumps with the charge
+            charge: 0.55,  // how hot the strokes run where the charge is
             bleed: 0.7,    // how far growth reaches as the charge arrives
             jitter: 0.3,
             flicker: 0.45,
@@ -1833,24 +1854,24 @@
 
         // Each style sets the personality; the sliders scale it.
         const ANIM_STYLES = {
-            current: { wave: 0.85, staticW: 0.18, shape: 'cos', tight: 5, staticFreq: 0.9, jitterMul: 0.5, dropout: 0.05 },
-            static: { wave: 0.28, staticW: 0.78, shape: 'cos', tight: 2, staticFreq: 3.4, jitterMul: 1.7, dropout: 0.25 },
-            storm: { wave: 0.62, staticW: 0.42, shape: 'comet', tight: 8, staticFreq: 2.2, jitterMul: 1.2, dropout: 0.4 },
-            comet: { wave: 1.0, staticW: 0.04, shape: 'comet', tight: 14, staticFreq: 0.6, jitterMul: 0.3, dropout: 0 },
-            breathe: { wave: 1.0, staticW: 0.1, shape: 'cos', tight: 1.2, staticFreq: 0.35, jitterMul: 0.15, dropout: 0 }
+            current: { wave: 0.85, staticW: 0.18, shape: 'cos', tight: 5, staticFreq: 0.9, jitterMul: 0.5, dropout: 0.05, warpMul: 1, swellMul: 1 },
+            static: { wave: 0.28, staticW: 0.78, shape: 'cos', tight: 2, staticFreq: 3.4, jitterMul: 1.7, dropout: 0.25, warpMul: 0.55, swellMul: 0.7 },
+            storm: { wave: 0.62, staticW: 0.42, shape: 'comet', tight: 8, staticFreq: 2.2, jitterMul: 1.2, dropout: 0.4, warpMul: 1.5, swellMul: 1.3 },
+            comet: { wave: 1.0, staticW: 0.04, shape: 'comet', tight: 14, staticFreq: 0.6, jitterMul: 0.3, dropout: 0, warpMul: 0.8, swellMul: 1.45 },
+            breathe: { wave: 1.0, staticW: 0.1, shape: 'cos', tight: 1.2, staticFreq: 0.35, jitterMul: 0.15, dropout: 0, warpMul: 1.25, swellMul: 1.6 }
         };
 
         const ANIM_MAX_SITES = 5000;
         const ANIM_BLINK_OUT = 0.24;
+        const ANIM_TAU = Math.PI * 2;
 
         const animData = {
-            base: null, baseCtx: null,
             trail: null, trailCtx: null,
             pts: [], segs: [], sites: [],
             hotColors: [], sparkStyle: '', rampKey: '',
             signature: '', raf: 0, time: 0, lastTs: 0, dirty: true,
-            // Emitting growth for every site is the one costly pass, so its density self-tunes
-            // to whatever frame budget the machine and drawing size allow.
+            // Redrawing the form and emitting growth are the costly passes, so growth density
+            // self-tunes to whatever frame budget the machine and drawing size allow.
             quality: 1, frameCost: 8
         };
 
@@ -1886,6 +1907,8 @@
                 spread: anim.spread,
                 desync: anim.desync,
                 reverse: anim.reverse,
+                warp: anim.warp * s.warpMul,
+                swell: anim.swell * s.swellMul,
                 charge: anim.charge,
                 bleed: anim.bleed,
                 flicker: anim.flicker,
@@ -1949,25 +1972,18 @@
             animData.sparkStyle = `rgb(${spark[0]},${spark[1]},${spark[2]})`;
         }
 
-        /** Anything that changes the still composition also invalidates the cached base layer. */
+        /** Only the precomputed path geometry needs rebuilding; look is read live each frame. */
         function animSignature() {
             return [
-                state.points.length, state.brushSize, state.marker, state.stickyDistance,
-                state.taperEnabled, state.fillEnabled, state.inkColor, state.fillColor,
-                state.mirrorEnabled, state.mirrorYEnabled, state.generateSeed,
-                canvas.width, canvas.height,
-                state.traceImage ? state.traceImageOpacity + ':' + state.traceImageScale : 'none'
+                state.points.length, state.brushSize, state.stickyDistance,
+                state.taperEnabled, state.generateSeed, canvas.width, canvas.height
             ].join('|');
         }
 
         function animEnsureBuffers() {
             const w = canvas.width;
             const h = canvas.height;
-            if (animData.base && animData.base.width === w && animData.base.height === h) return;
-            animData.base = document.createElement('canvas');
-            animData.base.width = w;
-            animData.base.height = h;
-            animData.baseCtx = animData.base.getContext('2d');
+            if (animData.trail && animData.trail.width === w && animData.trail.height === h) return;
             animData.trail = document.createElement('canvas');
             animData.trail.width = w;
             animData.trail.height = h;
@@ -2019,6 +2035,9 @@
                         by: p.y - ny * strokeR,
                         px: -ny,
                         py: nx,
+                        // Kept so growth follows its two points when the path warps.
+                        pa: a,
+                        pb: b,
                         closeness,
                         s: (a.s + b.s) / 2,
                         phase: animHash01(Math.imul(idx, 2654435761) + i)
@@ -2040,23 +2059,6 @@
         function animRebuild() {
             animEnsureBuffers();
             const snap = state.points.slice();
-
-            // Base layer = the strokes only. The sticky growth is what the animation takes over.
-            const prevSticky = state.stickyStrength;
-            state.stickyStrength = 0;
-            if (snap.length) {
-                renderFromPoints(snap);
-            } else {
-                ctx.setTransform(1, 0, 0, 1, 0, 0);
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                if (state.traceImage) drawTraceImage();
-                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            }
-            state.stickyStrength = prevSticky;
-
-            animData.baseCtx.setTransform(1, 0, 0, 1, 0, 0);
-            animData.baseCtx.clearRect(0, 0, canvas.width, canvas.height);
-            animData.baseCtx.drawImage(canvas, 0, 0);
             animData.trailCtx.setTransform(1, 0, 0, 1, 0, 0);
             animData.trailCtx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -2064,16 +2066,56 @@
             let live = 0;
             for (let i = 0; i < snap.length; i++) if (snap[i]) live++;
 
+            const strokeDists = state.taperEnabled ? computeStrokeTotalDists(snap) : null;
             const pts = [];
             const segs = [];
             let n = 0;
             for (let i = 0; i < snap.length; i++) {
                 const p = snap[i];
                 if (!p) continue;
-                const rec = { x: p.x, y: p.y, s: live > 1 ? n / (live - 1) : 0, id: n, srcIdx: i };
-                if (i > 0 && snap[i - 1] && pts.length) segs.push({ a: pts[pts.length - 1], b: rec });
+                const rec = {
+                    x: p.x, y: p.y,
+                    wx: p.x, wy: p.y, dx: 0, dy: 0,
+                    tx: 0, ty: 0, nx: 0, ny: 0,
+                    a: 0,
+                    s: live > 1 ? n / (live - 1) : 0,
+                    phase: animHash01(Math.imul(n + 1, 1103515245)),
+                    id: n, srcIdx: i
+                };
+                const prev = i > 0 ? snap[i - 1] : null;
+                if (prev && pts.length) {
+                    const prevRec = pts[pts.length - 1];
+                    const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
+                    if (dist) {
+                        // Everything scratchLine needs to reproduce this segment's original look.
+                        segs.push({
+                            a: prevRec, b: rec, dist, src: p,
+                            cum1: prev.cumDist || 0,
+                            cum2: p.cumDist || 0,
+                            total: strokeDists ? (strokeDists[i] || 1e9) : 1e9,
+                            speed: ((prev.speed || 0) + (p.speed || 0)) * 0.5
+                        });
+                    }
+                }
                 pts.push(rec);
                 n++;
+            }
+
+            // Local normals, so the warp pushes each point sideways off the path it was drawn on.
+            for (let i = 0; i < segs.length; i++) {
+                const sg = segs[i];
+                const tx = (sg.b.x - sg.a.x) / sg.dist;
+                const ty = (sg.b.y - sg.a.y) / sg.dist;
+                sg.a.tx += tx; sg.a.ty += ty;
+                sg.b.tx += tx; sg.b.ty += ty;
+            }
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                const len = Math.hypot(p.tx, p.ty);
+                if (len > 1e-6) {
+                    p.nx = -p.ty / len;
+                    p.ny = p.tx / len;
+                }
             }
 
             animData.pts = pts;
@@ -2086,55 +2128,102 @@
             animData.frameCost = 8;
         }
 
-        /** A bright pulse riding the strokes themselves. */
-        function animDrawCharge(cfg) {
-            if (cfg.charge <= 0.01) return;
+        /**
+         * Push each point sideways off the course it was drawn on. Two travelling waves keep the
+         * displacement smooth along the path — so the line bends as a whole rather than fraying —
+         * and the charge scales it, so the bend flows through the drawing.
+         */
+        function animWarpPath(cfg) {
+            const pts = animData.pts;
+            const amp = cfg.warp * state.brushSize * 4.5;
+            const t = animData.time;
+            const slow = cfg.spread * 0.55 + 0.7;
+            const fast = cfg.spread * 1.7 + 2.3;
+
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                const a = animActivation(p.s, p.phase, p.id, cfg);
+                p.a = a;
+
+                if (amp <= 0.001) {
+                    p.dx = 0; p.dy = 0;
+                    p.wx = p.x; p.wy = p.y;
+                    continue;
+                }
+
+                const bend = Math.sin((p.s * slow - t * 0.7) * ANIM_TAU) * 0.68
+                    + Math.sin((p.s * fast + t * 1.13) * ANIM_TAU) * 0.32;
+                const push = bend * amp * (0.4 + a * 1.1);
+                p.dx = p.nx * push;
+                p.dy = p.ny * push;
+                p.wx = p.x + p.dx;
+                p.wy = p.y + p.dy;
+            }
+        }
+
+        /**
+         * Redraw the composition along its warped course, pumping thickness and running the ink
+         * hot where the charge sits. Reuses scratchLine so every marker keeps its own texture,
+         * and feeds it the original per-segment taper and speed so the look is unchanged at rest.
+         */
+        function animDrawForm(cfg) {
             const segs = animData.segs;
             if (!segs.length) return;
 
-            ctx.globalCompositeOperation = 'source-over';
-            ctx.lineCap = 'round';
-            ctx.lineJoin = 'round';
+            const baseBrush = state.brushSize;
+            const prevInk = state.inkColor;
+            const prevFill = state.fillColor;
+            const prevTaper = state.currentTaper;
+            const prevSpeed = state.currentSpeed;
+            const prevTotal = state.strokeTotalDist;
+            const tintFill = state.fillEnabled;
+            const hot = cfg.charge > 0.005;
             let lastBucket = -1;
 
             for (let i = 0; i < segs.length; i++) {
                 const sg = segs[i];
-                const s = (sg.a.s + sg.b.s) / 2;
-                const a = animActivation(s, sg.a.id * 0.017, sg.a.id, cfg);
-                if (a < 0.42) continue;
-                const level = animPresence(a, sg.a.id + 2000, cfg);
-                if (level < ANIM_BLINK_OUT) continue;
+                const a = (sg.a.a + sg.b.a) * 0.5;
 
-                const heat = (a - 0.42) / 0.58;
-                const bucket = Math.min(8, Math.round(heat * 8 * Math.max(0.15, cfg.glow + 0.35)));
-                if (bucket !== lastBucket) {
-                    ctx.strokeStyle = animData.hotColors[bucket];
-                    lastBucket = bucket;
-                }
-                ctx.lineWidth = Math.max(0.6, state.brushSize * (0.35 + heat * cfg.charge * 1.5) * level);
-                if (cfg.glow > 0 && heat > 0.45) {
-                    ctx.shadowBlur = state.brushSize * 2.2 * cfg.glow * heat;
-                    ctx.shadowColor = animData.sparkStyle;
-                } else {
-                    ctx.shadowBlur = 0;
+                // Flicker only thins the form — it never punches holes in the drawing, and at zero
+                // it leaves the drawn thickness exactly alone.
+                const shimmer = cfg.flicker > 0.005
+                    ? 1 - (1 - animPresence(a, sg.b.id + 2000, cfg)) * 0.45
+                    : 1;
+                const pump = 1 + cfg.swell * (a - 0.3) * 1.7;
+                state.brushSize = Math.max(0.2, baseBrush * pump * shimmer);
+
+                if (hot) {
+                    const bucket = Math.max(0, Math.min(8, Math.round(a * 8 * cfg.charge)));
+                    if (bucket !== lastBucket) {
+                        const c = animData.hotColors[bucket];
+                        if (tintFill) state.fillColor = c;
+                        else state.inkColor = c;
+                        lastBucket = bucket;
+                    }
                 }
 
-                const lines = mirroredLines(sg.a.x, sg.a.y, sg.b.x, sg.b.y);
-                for (let li = 0; li < lines.length; li++) {
-                    const ln = lines[li];
-                    ctx.beginPath();
-                    ctx.moveTo(ln.x1, ln.y1);
-                    ctx.lineTo(ln.x2, ln.y2);
-                    ctx.stroke();
-                }
+                state.currentTaper = { cumDist1: sg.cum1, cumDist2: sg.cum2, totalDist: sg.total };
+                state.currentSpeed = sg.speed;
+                state.strokeTotalDist = sg.total;
+
+                const sgRef = sg;
+                withPointOverrides(sg.src, () => {
+                    scratchLine(sgRef.a.wx, sgRef.a.wy, sgRef.b.wx, sgRef.b.wy, sgRef.dist, 0, 0);
+                });
             }
-            ctx.shadowBlur = 0;
+
+            state.brushSize = baseBrush;
+            state.inkColor = prevInk;
+            state.fillColor = prevFill;
+            state.currentTaper = prevTaper;
+            state.currentSpeed = prevSpeed;
+            state.strokeTotalDist = prevTotal;
         }
 
         /** Bleed: growth reaches across each gap as the charge arrives, then retracts behind it. */
         function animDrawBleed(cfg) {
             const sites = animData.sites;
-            if (!sites.length) return;
+            if (!sites.length || cfg.bleed <= 0.005) return;
 
             const reachAmt = cfg.bleed;
             const strokeR = state.brushSize * 3.5;
@@ -2149,6 +2238,12 @@
                 const a = animActivation(site.s, site.phase, site.id, cfg);
                 const level = animPresence(a, site.id + 5000, cfg);
                 if (level < ANIM_BLINK_OUT) continue;
+
+                // Ride along with the warp so growth stays attached to the strokes.
+                const ax = site.ax + site.pa.dx;
+                const ay = site.ay + site.pa.dy;
+                const bx = site.bx + site.pb.dx;
+                const by = site.by + site.pb.dy;
 
                 const bucket = Math.min(8, Math.round(a * 8 * Math.max(0.1, cfg.glow)));
                 if (bucket !== lastBucket) {
@@ -2168,8 +2263,8 @@
                     const jitA = (Math.random() - 0.5) * jitterAmt;
                     const taperA = Math.pow(1 - tA / growReach, 0.6);
                     drawStickyParticle(
-                        site.ax + (site.bx - site.ax) * tA + site.px * jitA,
-                        site.ay + (site.by - site.ay) * tA + site.py * jitA,
+                        ax + (bx - ax) * tA + site.px * jitA,
+                        ay + (by - ay) * tA + site.py * jitA,
                         Math.max(0.5, rBase * taperA)
                     );
 
@@ -2177,8 +2272,8 @@
                     const jitB = (Math.random() - 0.5) * jitterAmt;
                     const taperB = Math.pow(1 - tB / growReach, 0.6);
                     drawStickyParticle(
-                        site.bx + (site.ax - site.bx) * tB + site.px * jitB,
-                        site.by + (site.ay - site.by) * tB + site.py * jitB,
+                        bx + (ax - bx) * tB + site.px * jitB,
+                        by + (ay - by) * tB + site.py * jitB,
                         Math.max(0.5, rBase * taperB)
                     );
 
@@ -2186,8 +2281,8 @@
                         const branchT = tA * (0.2 + Math.random() * 0.6);
                         const branchOff = (Math.random() - 0.5) * jitterAmt * 1.5;
                         drawStickyParticle(
-                            site.ax + (site.bx - site.ax) * branchT + site.px * branchOff,
-                            site.ay + (site.by - site.ay) * branchT + site.py * branchOff,
+                            ax + (bx - ax) * branchT + site.px * branchOff,
+                            ay + (by - ay) * branchT + site.py * branchOff,
                             Math.max(0.4, rBase * taperA * 0.6)
                         );
                     }
@@ -2213,8 +2308,8 @@
                 const pos = u * segs.length;
                 const sg = segs[Math.min(segs.length - 1, Math.floor(pos))];
                 const f = pos - Math.floor(pos);
-                const x = sg.a.x + (sg.b.x - sg.a.x) * f;
-                const y = sg.a.y + (sg.b.y - sg.a.y) * f;
+                const x = sg.a.wx + (sg.b.wx - sg.a.wx) * f;
+                const y = sg.a.wy + (sg.b.wy - sg.a.wy) * f;
 
                 const twinkle = animNoise(i + 4242, animData.time * (2 + cfg.crackle * 10));
                 const r = Math.max(0.4, state.brushSize * (0.16 + cfg.sparks * 0.34) * (0.45 + twinkle));
@@ -2254,11 +2349,16 @@
                 animData.rampKey = rampKey;
             }
 
-            // The composition, straight from the cached base layer.
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            if (animData.base) ctx.drawImage(animData.base, 0, 0);
+            if (state.traceImage) drawTraceImage();
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            // The composition itself, redrawn along its warped course. Kept on the main canvas so
+            // the form stays crisp while only the particles smear into the trail buffer.
+            const formStart = performance.now();
+            animWarpPath(cfg);
+            animDrawForm(cfg);
 
             const useTrail = anim.trails > 0.01;
             if (useTrail) {
@@ -2279,9 +2379,7 @@
             // Reuse the existing particle/mirror drawing helpers by pointing them at the target.
             const mainCtx = ctx;
             ctx = useTrail ? animData.trailCtx : ctx;
-            const drawStart = performance.now();
             try {
-                animDrawCharge(cfg);
                 animDrawBleed(cfg);
                 animDrawSparks(cfg);
             } finally {
@@ -2290,7 +2388,7 @@
                 ctx = mainCtx;
             }
 
-            animData.frameCost = animData.frameCost * 0.85 + (performance.now() - drawStart) * 0.15;
+            animData.frameCost = animData.frameCost * 0.85 + (performance.now() - formStart) * 0.15;
             if (animData.frameCost > 11) animData.quality = Math.max(0.2, animData.quality - 0.05);
             else if (animData.frameCost < 7) animData.quality = Math.min(1, animData.quality + 0.02);
 
@@ -2411,6 +2509,8 @@
             ['speed', multLabel],
             ['spread', plainLabel],
             ['desync', pctLabel],
+            ['warp', pctLabel],
+            ['swell', pctLabel],
             ['charge', pctLabel],
             ['bleed', pctLabel],
             ['jitter', pctLabel],
