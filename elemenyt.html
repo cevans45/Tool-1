@@ -31,8 +31,8 @@
                         <h3>What each control does</h3>
                         <p style="font-size:12px;line-height:1.5;color:#444;margin:0 0 14px;">Trace images sit behind your drawing for reference only—they are not included in PNG or SVG export.</p>
                         <dl>
-                            <dt>Sketch / Generate</dt>
-                            <dd><strong>Sketch</strong> — draw by hand. <strong>Generate</strong> — procedural random paths.</dd>
+                            <dt>Sketch / Generate / Animate</dt>
+                            <dd><strong>Sketch</strong> — draw by hand. <strong>Generate</strong> — procedural random paths. <strong>Animate</strong> — bring the drawing to life; see the animation list below.</dd>
                             <dt>Upload image</dt>
                             <dd>Loads a reference behind the canvas for tracing.</dd>
                             <dt>Image opacity</dt>
@@ -70,21 +70,57 @@
                             <dt>Keyboard</dt>
                             <dd><strong>Space</strong> — clear canvas. <strong>⌘Z / Ctrl+Z</strong> — undo last stroke. <strong>Shift</strong> while drawing — constrain each step to horizontal or vertical from the previous point.</dd>
                         </dl>
+                        <h3>Animate tab</h3>
+                        <p style="font-size:12px;line-height:1.5;color:#444;margin:0 0 14px;">Your drawing is not changed. Its strokes are held still while a charge travels along the path you drew — so the particles and bleed flow through the lines instead of pulsing all at once. Leaving the tab restores the plain still drawing.</p>
+                        <dl>
+                            <dt>Pause / Play</dt>
+                            <dd>Freezes on the current frame, so you can tune it and export the exact still you want.</dd>
+                            <dt>Style</dt>
+                            <dd><strong>Current</strong> — a charge running the lines. <strong>Static</strong> — noisy interference. <strong>Storm</strong> — violent, with dropouts. <strong>Comet chase</strong> — a bright head with a fading tail. <strong>Breathe</strong> — slow swell.</dd>
+                            <dt>Speed</dt>
+                            <dd>How fast the charge travels along the path.</dd>
+                            <dt>Flow spread</dt>
+                            <dd>How many pulses fit along the drawing at once. Low = one sweep; high = many tight bands chasing each other.</dd>
+                            <dt>Desync</dt>
+                            <dd>Scatters timing per spot so nothing moves in unison.</dd>
+                            <dt>Reverse flow</dt>
+                            <dd>Runs the charge back the other way through the drawing.</dd>
+                            <dt>Charge</dt>
+                            <dd>Brightness and thickness of the pulse riding the strokes.</dd>
+                            <dt>Bleed reach</dt>
+                            <dd>How far ink growth reaches across gaps as the charge arrives, retracting behind it. Uses Sticky dist to decide which gaps can bridge.</dd>
+                            <dt>Jitter</dt>
+                            <dd>Shake on the growth — the static / electricity feel.</dd>
+                            <dt>Flicker</dt>
+                            <dd>How much blinks out between pulses.</dd>
+                            <dt>Sparks</dt>
+                            <dd>Number and size of bright dots running along the lines.</dd>
+                            <dt>Crackle</dt>
+                            <dd>High-frequency noise on everything. Sharpens pulses and adds dropouts.</dd>
+                            <dt>Trails</dt>
+                            <dd>How long each frame smears behind the next. High = long light trails.</dd>
+                            <dt>Glow / Spark color</dt>
+                            <dd>Bloom on charged areas and the color they flash toward.</dd>
+                        </dl>
+                        <p style="font-size:12px;line-height:1.5;color:#444;margin:0 0 14px;">Export MP4 records about ten seconds of the canvas, so a run can be saved as video. Pause first if you want a still instead.</p>
                         <button type="button" class="info-close" id="info-close">Close</button>
                     </div>
                 </div>
 
                 <div class="panel-body">
-                    <details class="control-window" open>
+                    <section class="control-section" id="el-tab-row">
+                        <div class="control-row" style="margin:0;">
+                            <div class="mode-switch" style="width:100%; margin:0;">
+                                <button type="button" id="el-tab-sketch" class="panel-button is-active">Sketch</button>
+                                <button type="button" id="el-tab-generate" class="panel-button">Generate</button>
+                                <button type="button" id="el-tab-animate" class="panel-button">Animate</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <details class="control-window" id="el-sketch-window" open>
                         <summary>Sketch pad</summary>
                         <section class="control-section">
-                            <div class="control-row" style="margin-bottom:12px;">
-                                <div class="mode-switch" style="width:100%; margin:0;">
-                                    <button type="button" id="el-tab-sketch" class="panel-button is-active">Sketch</button>
-                                    <button type="button" id="el-tab-generate" class="panel-button">Generate</button>
-                                </div>
-                            </div>
-
                             <div class="control-row" style="gap:6px; margin-bottom:12px;">
                                 <button type="button" id="el-upload-image" class="panel-button" style="flex:1;">Upload image</button>
                                 <input type="file" id="el-image-input" accept="image/*" style="display:none;">
@@ -208,6 +244,109 @@
                             </div>
                         </section>
                     </details>
+
+                    <details class="control-window" id="el-anim-window" style="display:none;" open>
+                        <summary>Animation</summary>
+                        <section class="control-section">
+                            <div class="control-row" style="gap:6px; margin-bottom:10px;">
+                                <button type="button" id="el-anim-toggle" class="panel-button is-active" style="flex:1;">Pause</button>
+                                <button type="button" id="el-anim-new" class="panel-button" style="flex:1;">New path</button>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-anim-style">Style</label>
+                                <select id="el-anim-style" class="select-input">
+                                    <option value="current" selected>Current</option>
+                                    <option value="static">Static</option>
+                                    <option value="storm">Storm</option>
+                                    <option value="comet">Comet chase</option>
+                                    <option value="breathe">Breathe</option>
+                                </select>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-anim-speed">Speed</label>
+                                <input type="range" id="el-anim-speed" min="5" max="300" value="60" step="5">
+                                <span class="param-value" id="val-el-anim-speed">0.6×</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-anim-spread">Flow spread</label>
+                                <input type="range" id="el-anim-spread" min="30" max="900" value="240" step="10">
+                                <span class="param-value" id="val-el-anim-spread">2.4</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-anim-desync">Desync</label>
+                                <input type="range" id="el-anim-desync" min="0" max="100" value="35" step="5">
+                                <span class="param-value" id="val-el-anim-desync">35%</span>
+                            </div>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-anim-reverse">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Reverse flow</span>
+                            </label>
+
+                            <div class="control-row">
+                                <label for="el-anim-charge">Charge</label>
+                                <input type="range" id="el-anim-charge" min="0" max="100" value="55" step="5">
+                                <span class="param-value" id="val-el-anim-charge">55%</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-anim-bleed">Bleed reach</label>
+                                <input type="range" id="el-anim-bleed" min="0" max="100" value="70" step="5">
+                                <span class="param-value" id="val-el-anim-bleed">70%</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-anim-jitter">Jitter</label>
+                                <input type="range" id="el-anim-jitter" min="0" max="100" value="30" step="5">
+                                <span class="param-value" id="val-el-anim-jitter">30%</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-anim-flicker">Flicker</label>
+                                <input type="range" id="el-anim-flicker" min="0" max="100" value="45" step="5">
+                                <span class="param-value" id="val-el-anim-flicker">45%</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-anim-sparks">Sparks</label>
+                                <input type="range" id="el-anim-sparks" min="0" max="100" value="60" step="5">
+                                <span class="param-value" id="val-el-anim-sparks">60%</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-anim-crackle">Crackle</label>
+                                <input type="range" id="el-anim-crackle" min="0" max="100" value="35" step="5">
+                                <span class="param-value" id="val-el-anim-crackle">35%</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-anim-trails">Trails</label>
+                                <input type="range" id="el-anim-trails" min="0" max="100" value="30" step="5">
+                                <span class="param-value" id="val-el-anim-trails">30%</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-anim-glow">Glow</label>
+                                <input type="range" id="el-anim-glow" min="0" max="100" value="50" step="5">
+                                <span class="param-value" id="val-el-anim-glow">50%</span>
+                            </div>
+
+                            <div class="control-row color-row">
+                                <label for="el-anim-spark-color">Spark color</label>
+                                <input type="color" id="el-anim-spark-color" value="#ffffff">
+                            </div>
+
+                            <div class="shortcuts-block" style="margin-top:12px;">
+                                Charge travels along the path you drew, so motion runs
+                                through the lines instead of pulsing all at once.
+                            </div>
+                        </section>
+                    </details>
                 </div>
             </aside>
         </div>
@@ -282,9 +421,24 @@
             flex: 0 0 90px;
         }
 
-        /* Taller canvas: remove the default panel-body max-height cap. */
+        /* Taller canvas: the panel fills the app height and scrolls its own body, so added
+           sections stay reachable instead of being clipped. */
+        .app[aria-label="Sigil"] .control-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
         .app[aria-label="Sigil"] .panel-body {
             max-height: none;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .app[aria-label="Sigil"] #el-tab-row {
+            margin: 0;
+            padding: 10px 16px;
+            border-bottom: 1px solid #ddd;
         }
 
         /* Only apply the jagged outline filter when we are NOT in Fill mode. */
@@ -327,6 +481,9 @@
         const mirrorYEl = el('el-mirror-y');
         const tabSketchBtn = el('el-tab-sketch');
         const tabGenerateBtn = el('el-tab-generate');
+        const tabAnimateBtn = el('el-tab-animate');
+        const animWindow = el('el-anim-window');
+        const sketchWindow = el('el-sketch-window');
         const generateRow = el('el-generate-row');
         const generateBtn = el('el-generate');
         const genTimeRow = el('el-generate-time-row');
@@ -626,13 +783,20 @@
             if (tab !== 'sketch') state.isDrawing = false;
             tabSketchBtn?.classList.toggle('is-active', tab === 'sketch');
             tabGenerateBtn?.classList.toggle('is-active', tab === 'generate');
+            tabAnimateBtn?.classList.toggle('is-active', tab === 'animate');
+
             if (generateRow) generateRow.style.display = tab === 'generate' ? 'flex' : 'none';
             if (genTimeRow) genTimeRow.style.display = tab === 'generate' ? 'flex' : 'none';
+            if (animWindow) animWindow.style.display = tab === 'animate' ? '' : 'none';
+            // Fold the sketch controls away on Animate so the animation panel is right there.
+            if (sketchWindow) sketchWindow.open = tab !== 'animate';
 
             // Mode controls are only for Sketch. Generate always draws.
             if (modeRowEl) modeRowEl.style.display = tab === 'sketch' ? '' : 'none';
-            if (tab === 'generate') setMode('ink');
-            else setMode(state.sketchMode);
+            if (tab === 'sketch') setMode(state.sketchMode);
+            else setMode('ink');
+
+            animSetActive(tab === 'animate');
         }
 
         function drawTraceImage() {
@@ -1643,6 +1807,529 @@
         }
         window.exportPagePNG = exportWithFilter;
 
+        // ─── Animation ─────────────────────────────────────────────────
+        // The drawn path is the composition and stays put: its strokes are cached once into a
+        // base layer. Only the particles and bleed are regenerated each frame, driven by a
+        // charge that travels along the path, so movement runs through the lines that were made.
+
+        const anim = {
+            active: false,
+            playing: true,
+            style: 'current',
+            speed: 0.6,
+            spread: 2.4,   // charge cycles along the whole drawing
+            desync: 0.35,  // per-site phase scatter, so nothing moves in unison
+            reverse: false,
+            charge: 0.55,  // brightness/thickness of the pulse riding the strokes
+            bleed: 0.7,    // how far growth reaches as the charge arrives
+            jitter: 0.3,
+            flicker: 0.45,
+            sparks: 0.6,
+            crackle: 0.35,
+            trails: 0.3,
+            glow: 0.5,
+            sparkColor: '#ffffff'
+        };
+
+        // Each style sets the personality; the sliders scale it.
+        const ANIM_STYLES = {
+            current: { wave: 0.85, staticW: 0.18, shape: 'cos', tight: 5, staticFreq: 0.9, jitterMul: 0.5, dropout: 0.05 },
+            static: { wave: 0.28, staticW: 0.78, shape: 'cos', tight: 2, staticFreq: 3.4, jitterMul: 1.7, dropout: 0.25 },
+            storm: { wave: 0.62, staticW: 0.42, shape: 'comet', tight: 8, staticFreq: 2.2, jitterMul: 1.2, dropout: 0.4 },
+            comet: { wave: 1.0, staticW: 0.04, shape: 'comet', tight: 14, staticFreq: 0.6, jitterMul: 0.3, dropout: 0 },
+            breathe: { wave: 1.0, staticW: 0.1, shape: 'cos', tight: 1.2, staticFreq: 0.35, jitterMul: 0.15, dropout: 0 }
+        };
+
+        const ANIM_MAX_SITES = 5000;
+        const ANIM_BLINK_OUT = 0.24;
+
+        const animData = {
+            base: null, baseCtx: null,
+            trail: null, trailCtx: null,
+            pts: [], segs: [], sites: [],
+            hotColors: [], sparkStyle: '', rampKey: '',
+            signature: '', raf: 0, time: 0, lastTs: 0, dirty: true,
+            // Emitting growth for every site is the one costly pass, so its density self-tunes
+            // to whatever frame budget the machine and drawing size allow.
+            quality: 1, frameCost: 8
+        };
+
+        function animHash01(n) {
+            n = (n ^ 61) ^ (n >>> 16);
+            n = (n + (n << 3)) | 0;
+            n = n ^ (n >>> 4);
+            n = Math.imul(n, 0x27d4eb2d);
+            n = n ^ (n >>> 15);
+            return (n >>> 0) / 4294967296;
+        }
+
+        /** Smooth value noise over time for a given site id. */
+        function animNoise(id, t) {
+            const i = Math.floor(t);
+            const f = t - i;
+            const a = animHash01(Math.imul(id, 374761393) + Math.imul(i, 668265263));
+            const b = animHash01(Math.imul(id, 374761393) + Math.imul(i + 1, 668265263));
+            const u = f * f * (3 - 2 * f);
+            return a + (b - a) * u;
+        }
+
+        function animConfig() {
+            const s = ANIM_STYLES[anim.style] || ANIM_STYLES.current;
+            return {
+                wave: s.wave,
+                staticW: s.staticW,
+                shape: s.shape,
+                tight: s.tight * (1 + anim.crackle * 0.8),
+                staticFreq: s.staticFreq,
+                dropout: s.dropout * (0.4 + anim.crackle * 1.6),
+                jitter: anim.jitter * s.jitterMul,
+                spread: anim.spread,
+                desync: anim.desync,
+                reverse: anim.reverse,
+                charge: anim.charge,
+                bleed: anim.bleed,
+                flicker: anim.flicker,
+                sparks: anim.sparks,
+                crackle: anim.crackle,
+                glow: anim.glow
+            };
+        }
+
+        /** How charged a spot on the path is right now, 0..1. `s` is its position along the drawing. */
+        function animActivation(s, phase, id, cfg) {
+            const dir = cfg.reverse ? -1 : 1;
+            const ph = s * cfg.spread * dir - animData.time + phase * cfg.desync;
+            const w = ph - Math.floor(ph);
+            const wave = cfg.shape === 'comet'
+                ? Math.exp(-w * cfg.tight)
+                : Math.pow(0.5 + 0.5 * Math.cos(Math.PI * 2 * w), cfg.tight);
+
+            let a = cfg.wave * wave + cfg.staticW * animNoise(id, animData.time * cfg.staticFreq * 1.6);
+            if (cfg.crackle > 0) {
+                a += cfg.crackle * (animNoise(id + 7777, animData.time * (3 + cfg.crackle * 12)) - 0.38) * 0.95;
+            }
+            return clamp(a, 0, 1);
+        }
+
+        /** Flicker and hard dropouts, so parts blink out between pulses. */
+        function animPresence(a, id, cfg) {
+            let level = 1;
+            if (cfg.flicker > 0) {
+                const n = animNoise(id + 313, animData.time * (1.5 + cfg.crackle * 6));
+                level = 1 - cfg.flicker * (1 - clamp(a * 1.15, 0, 1)) * (0.3 + n * 0.95);
+            }
+            if (cfg.dropout > 0) {
+                const n = animNoise(id + 991, animData.time * (2.5 + cfg.crackle * 8));
+                if (n < cfg.dropout * (1 - a) * 0.85) level = 0;
+            }
+            return clamp(level, 0, 1);
+        }
+
+        function animParseHex(hex) {
+            const h = String(hex || '#000000').replace('#', '');
+            const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+            const v = parseInt(full, 16) || 0;
+            return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+        }
+
+        /** Ink → spark ramp, quantised so fillStyle only changes a handful of times per frame. */
+        function animBuildColorRamp() {
+            const ink = animParseHex(currentInkColor());
+            const spark = animParseHex(anim.sparkColor);
+            const steps = 8;
+            const ramp = [];
+            for (let i = 0; i <= steps; i++) {
+                const m = i / steps;
+                const r = Math.round(ink[0] + (spark[0] - ink[0]) * m);
+                const g = Math.round(ink[1] + (spark[1] - ink[1]) * m);
+                const b = Math.round(ink[2] + (spark[2] - ink[2]) * m);
+                ramp.push(`rgb(${r},${g},${b})`);
+            }
+            animData.hotColors = ramp;
+            animData.sparkStyle = `rgb(${spark[0]},${spark[1]},${spark[2]})`;
+        }
+
+        /** Anything that changes the still composition also invalidates the cached base layer. */
+        function animSignature() {
+            return [
+                state.points.length, state.brushSize, state.marker, state.stickyDistance,
+                state.taperEnabled, state.fillEnabled, state.inkColor, state.fillColor,
+                state.mirrorEnabled, state.mirrorYEnabled, state.generateSeed,
+                canvas.width, canvas.height,
+                state.traceImage ? state.traceImageOpacity + ':' + state.traceImageScale : 'none'
+            ].join('|');
+        }
+
+        function animEnsureBuffers() {
+            const w = canvas.width;
+            const h = canvas.height;
+            if (animData.base && animData.base.width === w && animData.base.height === h) return;
+            animData.base = document.createElement('canvas');
+            animData.base.width = w;
+            animData.base.height = h;
+            animData.baseCtx = animData.base.getContext('2d');
+            animData.trail = document.createElement('canvas');
+            animData.trail.width = w;
+            animData.trail.height = h;
+            animData.trailCtx = animData.trail.getContext('2d');
+        }
+
+        /**
+         * Growth sites: pairs of nearby path points whose outer edges can grow toward each other.
+         * Same geometry as particleGrowth, resolved once so each frame only has to emit particles.
+         */
+        function animBuildSites(snap, pts) {
+            const byIndex = new Map();
+            for (const p of pts) byIndex.set(p.srcIdx, p);
+
+            const strokeR = state.brushSize * 3.5;
+            const maxGap = state.brushSize * (2 + (state.stickyDistance / 10) * 22);
+            const maxCenterDist = maxGap + strokeR * 2;
+            const sites = [];
+
+            for (let idx = 0; idx < snap.length; idx++) {
+                const p = snap[idx];
+                if (!p) continue;
+                const endSearch = idx - 20;
+                if (endSearch <= 0) continue;
+                const searchStart = Math.max(0, endSearch - 800);
+                for (let i = searchStart; i < endSearch; i++) {
+                    const prev = snap[i];
+                    if (!prev) continue;
+                    const dx = p.x - prev.x;
+                    const dy = p.y - prev.y;
+                    const centerDist = Math.hypot(dx, dy);
+                    if (centerDist <= 0 || centerDist >= maxCenterDist) continue;
+                    const edgeGap = centerDist - strokeR * 2;
+                    if (edgeGap >= maxGap) continue;
+                    if (edgeGap < -strokeR * 1.5) continue;
+                    const closeness = clamp(1 - Math.max(0, edgeGap) / maxGap, 0, 1);
+                    if (closeness < 0.02) continue;
+
+                    const a = byIndex.get(i);
+                    const b = byIndex.get(idx);
+                    if (!a || !b) continue;
+
+                    const nx = dx / centerDist;
+                    const ny = dy / centerDist;
+                    sites.push({
+                        ax: prev.x + nx * strokeR,
+                        ay: prev.y + ny * strokeR,
+                        bx: p.x - nx * strokeR,
+                        by: p.y - ny * strokeR,
+                        px: -ny,
+                        py: nx,
+                        closeness,
+                        s: (a.s + b.s) / 2,
+                        phase: animHash01(Math.imul(idx, 2654435761) + i)
+                    });
+                }
+            }
+
+            // Thin evenly rather than truncating, so a dense drawing still animates end to end.
+            let kept = sites;
+            if (sites.length > ANIM_MAX_SITES) {
+                const stride = sites.length / ANIM_MAX_SITES;
+                kept = [];
+                for (let i = 0; i < ANIM_MAX_SITES; i++) kept.push(sites[Math.floor(i * stride)]);
+            }
+            for (let i = 0; i < kept.length; i++) kept[i].id = i;
+            return kept;
+        }
+
+        function animRebuild() {
+            animEnsureBuffers();
+            const snap = state.points.slice();
+
+            // Base layer = the strokes only. The sticky growth is what the animation takes over.
+            const prevSticky = state.stickyStrength;
+            state.stickyStrength = 0;
+            if (snap.length) {
+                renderFromPoints(snap);
+            } else {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (state.traceImage) drawTraceImage();
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+            state.stickyStrength = prevSticky;
+
+            animData.baseCtx.setTransform(1, 0, 0, 1, 0, 0);
+            animData.baseCtx.clearRect(0, 0, canvas.width, canvas.height);
+            animData.baseCtx.drawImage(canvas, 0, 0);
+            animData.trailCtx.setTransform(1, 0, 0, 1, 0, 0);
+            animData.trailCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Walk the path once: position along the drawing drives the travelling charge.
+            let live = 0;
+            for (let i = 0; i < snap.length; i++) if (snap[i]) live++;
+
+            const pts = [];
+            const segs = [];
+            let n = 0;
+            for (let i = 0; i < snap.length; i++) {
+                const p = snap[i];
+                if (!p) continue;
+                const rec = { x: p.x, y: p.y, s: live > 1 ? n / (live - 1) : 0, id: n, srcIdx: i };
+                if (i > 0 && snap[i - 1] && pts.length) segs.push({ a: pts[pts.length - 1], b: rec });
+                pts.push(rec);
+                n++;
+            }
+
+            animData.pts = pts;
+            animData.segs = segs;
+            animData.sites = animBuildSites(snap, pts);
+            animData.signature = animSignature();
+            animData.dirty = true;
+            // Let a new composition earn back full density instead of inheriting an old verdict.
+            animData.quality = 1;
+            animData.frameCost = 8;
+        }
+
+        /** A bright pulse riding the strokes themselves. */
+        function animDrawCharge(cfg) {
+            if (cfg.charge <= 0.01) return;
+            const segs = animData.segs;
+            if (!segs.length) return;
+
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            let lastBucket = -1;
+
+            for (let i = 0; i < segs.length; i++) {
+                const sg = segs[i];
+                const s = (sg.a.s + sg.b.s) / 2;
+                const a = animActivation(s, sg.a.id * 0.017, sg.a.id, cfg);
+                if (a < 0.42) continue;
+                const level = animPresence(a, sg.a.id + 2000, cfg);
+                if (level < ANIM_BLINK_OUT) continue;
+
+                const heat = (a - 0.42) / 0.58;
+                const bucket = Math.min(8, Math.round(heat * 8 * Math.max(0.15, cfg.glow + 0.35)));
+                if (bucket !== lastBucket) {
+                    ctx.strokeStyle = animData.hotColors[bucket];
+                    lastBucket = bucket;
+                }
+                ctx.lineWidth = Math.max(0.6, state.brushSize * (0.35 + heat * cfg.charge * 1.5) * level);
+                if (cfg.glow > 0 && heat > 0.45) {
+                    ctx.shadowBlur = state.brushSize * 2.2 * cfg.glow * heat;
+                    ctx.shadowColor = animData.sparkStyle;
+                } else {
+                    ctx.shadowBlur = 0;
+                }
+
+                const lines = mirroredLines(sg.a.x, sg.a.y, sg.b.x, sg.b.y);
+                for (let li = 0; li < lines.length; li++) {
+                    const ln = lines[li];
+                    ctx.beginPath();
+                    ctx.moveTo(ln.x1, ln.y1);
+                    ctx.lineTo(ln.x2, ln.y2);
+                    ctx.stroke();
+                }
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        /** Bleed: growth reaches across each gap as the charge arrives, then retracts behind it. */
+        function animDrawBleed(cfg) {
+            const sites = animData.sites;
+            if (!sites.length) return;
+
+            const reachAmt = cfg.bleed;
+            const strokeR = state.brushSize * 3.5;
+            const jitterAmt = state.brushSize * (0.6 + cfg.jitter * 3.4);
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.shadowBlur = 0;
+            let lastBucket = -1;
+
+            const step = animData.quality >= 0.999 ? 1 : Math.max(1, Math.round(1 / animData.quality));
+            for (let k = 0; k < sites.length; k += step) {
+                const site = sites[k];
+                const a = animActivation(site.s, site.phase, site.id, cfg);
+                const level = animPresence(a, site.id + 5000, cfg);
+                if (level < ANIM_BLINK_OUT) continue;
+
+                const bucket = Math.min(8, Math.round(a * 8 * Math.max(0.1, cfg.glow)));
+                if (bucket !== lastBucket) {
+                    ctx.fillStyle = animData.hotColors[bucket];
+                    lastBucket = bucket;
+                }
+
+                const growReach = Math.pow(site.closeness, 0.8) * (0.2 + reachAmt * 0.8) * (0.2 + a);
+                if (growReach < 0.02) continue;
+                const count = Math.max(1, Math.floor(site.closeness * (1 + a * (2 + reachAmt * 7))));
+                const rBase = strokeR * (0.18 + reachAmt * 0.4) * Math.pow(site.closeness, 0.5) * level;
+
+                for (let j = 0; j < count; j++) {
+                    const frac = (j + 0.2 + Math.random() * 0.6) / count;
+
+                    const tA = frac * growReach;
+                    const jitA = (Math.random() - 0.5) * jitterAmt;
+                    const taperA = Math.pow(1 - tA / growReach, 0.6);
+                    drawStickyParticle(
+                        site.ax + (site.bx - site.ax) * tA + site.px * jitA,
+                        site.ay + (site.by - site.ay) * tA + site.py * jitA,
+                        Math.max(0.5, rBase * taperA)
+                    );
+
+                    const tB = (1 - frac) * growReach;
+                    const jitB = (Math.random() - 0.5) * jitterAmt;
+                    const taperB = Math.pow(1 - tB / growReach, 0.6);
+                    drawStickyParticle(
+                        site.bx + (site.ax - site.bx) * tB + site.px * jitB,
+                        site.by + (site.ay - site.by) * tB + site.py * jitB,
+                        Math.max(0.5, rBase * taperB)
+                    );
+
+                    if (Math.random() < site.closeness * 0.4 * a) {
+                        const branchT = tA * (0.2 + Math.random() * 0.6);
+                        const branchOff = (Math.random() - 0.5) * jitterAmt * 1.5;
+                        drawStickyParticle(
+                            site.ax + (site.bx - site.ax) * branchT + site.px * branchOff,
+                            site.ay + (site.by - site.ay) * branchT + site.py * branchOff,
+                            Math.max(0.4, rBase * taperA * 0.6)
+                        );
+                    }
+                }
+            }
+        }
+
+        /** Sparks running downstream through the lines. */
+        function animDrawSparks(cfg) {
+            if (cfg.sparks <= 0.01) return;
+            const segs = animData.segs;
+            if (!segs.length) return;
+
+            const count = Math.max(1, Math.round(cfg.sparks * 42));
+            const dir = cfg.reverse ? -1 : 1;
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = animData.sparkStyle;
+
+            for (let i = 0; i < count; i++) {
+                const phase = animHash01(Math.imul(i + 1, 2246822519));
+                let u = animData.time * (0.25 + cfg.sparks * 0.55) * dir + phase;
+                u -= Math.floor(u);
+                const pos = u * segs.length;
+                const sg = segs[Math.min(segs.length - 1, Math.floor(pos))];
+                const f = pos - Math.floor(pos);
+                const x = sg.a.x + (sg.b.x - sg.a.x) * f;
+                const y = sg.a.y + (sg.b.y - sg.a.y) * f;
+
+                const twinkle = animNoise(i + 4242, animData.time * (2 + cfg.crackle * 10));
+                const r = Math.max(0.4, state.brushSize * (0.16 + cfg.sparks * 0.34) * (0.45 + twinkle));
+                if (cfg.glow > 0) {
+                    ctx.shadowBlur = r * 3.2 * cfg.glow;
+                    ctx.shadowColor = animData.sparkStyle;
+                }
+                const pts = mirroredPoints(x, y);
+                for (let pi = 0; pi < pts.length; pi++) {
+                    ctx.beginPath();
+                    ctx.arc(pts[pi].x, pts[pi].y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        function animFrame(ts) {
+            if (!anim.active) {
+                animData.raf = 0;
+                return;
+            }
+            animData.raf = requestAnimationFrame(animFrame);
+
+            const dt = animData.lastTs ? Math.min(80, ts - animData.lastTs) : 16;
+            animData.lastTs = ts;
+            if (anim.playing) animData.time += (dt / 1000) * anim.speed;
+            else if (!animData.dirty) return;
+            animData.dirty = false;
+
+            if (animSignature() !== animData.signature) animRebuild();
+
+            const cfg = animConfig();
+            const rampKey = currentInkColor() + '|' + anim.sparkColor;
+            if (rampKey !== animData.rampKey) {
+                animBuildColorRamp();
+                animData.rampKey = rampKey;
+            }
+
+            // The composition, straight from the cached base layer.
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (animData.base) ctx.drawImage(animData.base, 0, 0);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            const useTrail = anim.trails > 0.01;
+            if (useTrail) {
+                const tctx = animData.trailCtx;
+                tctx.setTransform(1, 0, 0, 1, 0, 0);
+                if (anim.playing) {
+                    // Partial erase leaves the last frames behind as a decaying trail.
+                    tctx.globalCompositeOperation = 'destination-out';
+                    tctx.fillStyle = 'rgba(0,0,0,' + Math.max(0.03, 0.6 - anim.trails * 0.55).toFixed(3) + ')';
+                    tctx.fillRect(0, 0, canvas.width, canvas.height);
+                    tctx.globalCompositeOperation = 'source-over';
+                } else {
+                    tctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+                tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+
+            // Reuse the existing particle/mirror drawing helpers by pointing them at the target.
+            const mainCtx = ctx;
+            ctx = useTrail ? animData.trailCtx : ctx;
+            const drawStart = performance.now();
+            try {
+                animDrawCharge(cfg);
+                animDrawBleed(cfg);
+                animDrawSparks(cfg);
+            } finally {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.shadowBlur = 0;
+                ctx = mainCtx;
+            }
+
+            animData.frameCost = animData.frameCost * 0.85 + (performance.now() - drawStart) * 0.15;
+            if (animData.frameCost > 11) animData.quality = Math.max(0.2, animData.quality - 0.05);
+            else if (animData.frameCost < 7) animData.quality = Math.min(1, animData.quality + 0.02);
+
+            if (useTrail) {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.drawImage(animData.trail, 0, 0);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+        }
+
+        function animSetActive(on) {
+            if (anim.active === on) return;
+            anim.active = on;
+            if (on) {
+                animRebuild();
+                animData.lastTs = 0;
+                animData.dirty = true;
+                if (!animData.raf) animData.raf = requestAnimationFrame(animFrame);
+                return;
+            }
+            if (animData.raf) {
+                cancelAnimationFrame(animData.raf);
+                animData.raf = 0;
+            }
+            // Back to the untouched still composition.
+            if (state.points.length) {
+                renderFromPoints(state.points);
+            } else {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (state.traceImage) drawTraceImage();
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+        }
+
+        function animTouch() {
+            animData.dirty = true;
+        }
+
         // Mouse + touch
         canvas.addEventListener('mousedown', startDrawing);
         canvas.addEventListener('mousemove', drawMove);
@@ -1684,7 +2371,67 @@
 
         tabSketchBtn?.addEventListener('click', () => setUiTab('sketch'));
         tabGenerateBtn?.addEventListener('click', () => setUiTab('generate'));
+        tabAnimateBtn?.addEventListener('click', () => setUiTab('animate'));
         generateBtn?.addEventListener('click', generateRandomDrawing);
+
+        // Animation controls
+        const animToggleBtn = el('el-anim-toggle');
+        animToggleBtn?.addEventListener('click', () => {
+            anim.playing = !anim.playing;
+            animToggleBtn.textContent = anim.playing ? 'Pause' : 'Play';
+            animToggleBtn.classList.toggle('is-active', anim.playing);
+            animTouch();
+        });
+
+        el('el-anim-new')?.addEventListener('click', () => {
+            generateRandomDrawing();
+            animTouch();
+        });
+
+        el('el-anim-style')?.addEventListener('change', (e) => {
+            anim.style = e.target.value;
+            animTouch();
+        });
+
+        el('el-anim-reverse')?.addEventListener('change', (e) => {
+            anim.reverse = e.target.checked;
+            animTouch();
+        });
+
+        el('el-anim-spark-color')?.addEventListener('input', (e) => {
+            anim.sparkColor = e.target.value;
+            animTouch();
+        });
+
+        const pctLabel = (v) => v + '%';
+        const multLabel = (v) => (v / 100).toFixed(1) + '\u00d7';
+        const plainLabel = (v) => (v / 100).toFixed(1);
+
+        [
+            ['speed', multLabel],
+            ['spread', plainLabel],
+            ['desync', pctLabel],
+            ['charge', pctLabel],
+            ['bleed', pctLabel],
+            ['jitter', pctLabel],
+            ['flicker', pctLabel],
+            ['sparks', pctLabel],
+            ['crackle', pctLabel],
+            ['trails', pctLabel],
+            ['glow', pctLabel]
+        ].forEach(([key, fmt]) => {
+            const input = el('el-anim-' + key);
+            const out = el('val-el-anim-' + key);
+            if (!input) return;
+            input.value = String(Math.round(anim[key] * 100));
+            if (out) out.textContent = fmt(parseInt(input.value, 10));
+            input.addEventListener('input', () => {
+                const raw = parseInt(input.value, 10);
+                anim[key] = raw / 100;
+                if (out) out.textContent = fmt(raw);
+                animTouch();
+            });
+        });
 
         const uploadImageBtn = el('el-upload-image');
         const imageInput = el('el-image-input');
@@ -1973,6 +2720,10 @@
         resize();
         if (urlTab === 'generate') {
             generateRandomDrawing({ newSeed: true, pushUndo: false });
+        } else if (urlTab === 'animate') {
+            // Needs a sized canvas, so this runs after resize().
+            generateRandomDrawing({ newSeed: true, pushUndo: false });
+            setUiTab('animate');
         }
         requestAnimationFrame(resize);
     </script>
