@@ -684,7 +684,9 @@
             ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
             ctx.strokeStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
 
-            for (let i = searchStart; i < endSearch; i++) {
+            const candidates = stickyCandidates(p, searchStart, endSearch, maxCenterDist);
+            for (let ci = 0; ci < candidates.length; ci++) {
+                const i = candidates[ci];
                 const prev = state.points[i];
                 if (!prev) continue;
 
@@ -762,13 +764,84 @@
             ctx.globalCompositeOperation = 'source-over';
         }
 
-        /** Dispatch to the active sticky mode */
+        // Spatial index for Sticky. The old path checked up to 800 prior points
+        // for every pointer event, even when almost all were nowhere nearby.
+        // Candidate indexes are sorted so the drawing and seeded random sequence
+        // remain identical to the old linear scan.
+        const stickyIndex = {
+            cells: new Map(),
+            cellSize: 1,
+            geometryKey: '',
+            indexedThrough: 0
+        };
+
+        function stickyCellKey(x, y, cellSize) {
+            return Math.floor(x / cellSize) + ',' + Math.floor(y / cellSize);
+        }
+
+        function stickyIndexPoint(point, idx) {
+            if (!point) return;
+            const key = stickyCellKey(point.x, point.y, stickyIndex.cellSize);
+            let bucket = stickyIndex.cells.get(key);
+            if (!bucket) {
+                bucket = [];
+                stickyIndex.cells.set(key, bucket);
+            }
+            bucket.push(idx);
+        }
+
+        function stickyEnsureIndex(endIdx, cellSize) {
+            const size = Math.max(1, cellSize);
+            const geometryKey = size.toFixed(3);
+            if (stickyIndex.geometryKey !== geometryKey || stickyIndex.indexedThrough > endIdx) {
+                stickyIndex.cells.clear();
+                stickyIndex.cellSize = size;
+                stickyIndex.geometryKey = geometryKey;
+                stickyIndex.indexedThrough = 0;
+            }
+            while (stickyIndex.indexedThrough < endIdx) {
+                const idx = stickyIndex.indexedThrough++;
+                stickyIndexPoint(state.points[idx], idx);
+            }
+        }
+
+        function stickyCandidates(point, startIdx, endIdx, radius) {
+            stickyEnsureIndex(endIdx, radius);
+            const size = stickyIndex.cellSize;
+            const minX = Math.floor((point.x - radius) / size);
+            const maxX = Math.floor((point.x + radius) / size);
+            const minY = Math.floor((point.y - radius) / size);
+            const maxY = Math.floor((point.y + radius) / size);
+            const out = [];
+
+            for (let cy = minY; cy <= maxY; cy++) {
+                for (let cx = minX; cx <= maxX; cx++) {
+                    const bucket = stickyIndex.cells.get(cx + ',' + cy);
+                    if (!bucket) continue;
+                    for (let i = 0; i < bucket.length; i++) {
+                        const idx = bucket[i];
+                        if (idx >= startIdx && idx < endIdx) out.push(idx);
+                    }
+                }
+            }
+            out.sort((a, b) => a - b);
+            return out;
+        }
+
+        /** Dispatch to the active sticky mode and index every point. */
         function applyStickyMode(p, idx) {
             if (state.stickyStrength > 0) particleGrowth(p, idx);
+            stickyEnsureIndex(idx, state.brushSize * (
+                2 + (state.stickyDistance / 10) * 22 + 7
+            ));
+            stickyIndexPoint(p, idx);
+            stickyIndex.indexedThrough = idx + 1;
         }
 
         function resetStickyData() {
-            // Nothing to reset for particle growth (stateless per-point).
+            stickyIndex.cells.clear();
+            stickyIndex.geometryKey = '';
+            stickyIndex.indexedThrough = 0;
         }
 
         function mirroredPoints(x, y) {
@@ -940,10 +1013,8 @@
         function updateFilterEnabled() {
             // Fill ON = solid strokes, no SVG filter.
             // Fill OFF = jagged-edge outline filter active.
-            // While the pen is down the filter is lifted too: it re-blurs the whole
-            // canvas after every dab, which is what made live drawing feel delayed.
             const container = document.getElementById('sketch-container');
-            if (state.fillEnabled || state.isDrawing) {
+            if (state.fillEnabled) {
                 container.removeAttribute('data-outline');
                 container.style.filter = 'none';
                 container.style.webkitFilter = 'none';
@@ -1539,9 +1610,9 @@
             });
         }
 
-        const DRAW_MIN_DIST = 1.6;
-        let drawQueue = [];
-        let drawFlushRaf = 0;
+        // scratchLine already fills the space between samples. Ignoring sub-pixel
+        // pointer chatter avoids redundant work without delaying visible movement.
+        const DRAW_MIN_DIST = 1.25;
 
         function startDrawing(e) {
             if (state.uiTab !== 'sketch') return;
@@ -1549,7 +1620,6 @@
             if (state.isDrawing) return;
             if (e && e.preventDefault) e.preventDefault();
             state.isDrawing = true;
-            updateFilterEnabled();
             state.selectionRng = Math.random;
             pushUndoSnapshot();
 
@@ -1560,7 +1630,6 @@
             state.currentSpeed = 0;
             state.strokeTotalDist = 1e9;
             state.currentTaper = { cumDist1: 0, cumDist2: 0, totalDist: 1e9 };
-            drawQueue.length = 0;
 
             const p = canvasCoordsFromEvent(e);
             addPoint(p.x, p.y);
@@ -1568,13 +1637,7 @@
 
         function stopDrawing() {
             if (!state.isDrawing) return;
-            if (drawFlushRaf) {
-                cancelAnimationFrame(drawFlushRaf);
-                drawFlushRaf = 0;
-            }
-            if (drawQueue.length) flushDrawQueue();
             state.isDrawing = false;
-            updateFilterEnabled();
             if (state.uiTab === 'sketch') {
                 if (state.taperEnabled && state.undoStack.length > 0) {
                     finalizeStrokeTaper();
@@ -1583,26 +1646,7 @@
             }
         }
 
-        function queueDrawSample(x, y, shift) {
-            drawQueue.push(x, y, shift ? 1 : 0);
-            if (!drawFlushRaf) drawFlushRaf = requestAnimationFrame(flushDrawQueue);
-        }
-
-        function flushDrawQueue() {
-            drawFlushRaf = 0;
-            if (!state.isDrawing || state.uiTab !== 'sketch') {
-                drawQueue.length = 0;
-                return;
-            }
-            const q = drawQueue;
-            drawQueue = [];
-            const last = q.length - 3;
-            for (let i = 0; i < q.length; i += 3) {
-                commitDrawMove(q[i], q[i + 1], q[i + 2] !== 0, i === last);
-            }
-        }
-
-        function commitDrawMove(x, y, shift, force) {
+        function commitDrawMove(x, y, shift) {
             const prevIdx = state.points.length - 1;
             const prevPt = prevIdx >= 0 ? state.points[prevIdx] : null;
 
@@ -1618,7 +1662,7 @@
                 ny = y + (Math.random() - 0.5) * noiseScale;
             }
 
-            if (!force && prevPt && Math.hypot(nx - prevPt.x, ny - prevPt.y) < DRAW_MIN_DIST) return;
+            if (prevPt && Math.hypot(nx - prevPt.x, ny - prevPt.y) < DRAW_MIN_DIST) return;
             addPoint(nx, ny);
         }
 
@@ -1678,27 +1722,12 @@
             if (state.uiTab !== 'sketch') return;
             if (!state.isDrawing) return;
             if (e && e.preventDefault) e.preventDefault();
-            const shift = shiftConstrainActive(e);
-            if (typeof e.getCoalescedEvents === 'function') {
-                const evs = e.getCoalescedEvents();
-                for (let i = 0; i < evs.length; i++) {
-                    const p = canvasCoordsFromEvent(evs[i]);
-                    queueDrawSample(p.x, p.y, shift);
-                }
-                return;
-            }
             const p = canvasCoordsFromEvent(e);
-            queueDrawSample(p.x, p.y, shift);
+            commitDrawMove(p.x, p.y, shiftConstrainActive(e));
         }
 
         function clearAll() {
-            if (drawFlushRaf) {
-                cancelAnimationFrame(drawFlushRaf);
-                drawFlushRaf = 0;
-            }
-            drawQueue.length = 0;
             state.isDrawing = false;
-            updateFilterEnabled();
             state.points = [];
             state.edges = [];
             state.undoStack = [];
