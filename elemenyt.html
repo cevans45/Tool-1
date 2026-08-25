@@ -482,7 +482,7 @@
         }
 
         const canvas = document.getElementById('canvas');
-        let ctx = canvas.getContext('2d', { willReadFrequently: true });
+        let ctx = canvas.getContext('2d');
         let cssWidth = 1;
         let cssHeight = 1;
         let dpr = 1;
@@ -797,6 +797,7 @@
         }
 
         function setUiTab(tab) {
+            if (state.isDrawing) stopDrawing();
             state.uiTab = tab;
             if (tab !== 'sketch') state.isDrawing = false;
             tabSketchBtn?.classList.toggle('is-active', tab === 'sketch');
@@ -939,8 +940,10 @@
         function updateFilterEnabled() {
             // Fill ON = solid strokes, no SVG filter.
             // Fill OFF = jagged-edge outline filter active.
+            // While the pen is down the filter is lifted too: it re-blurs the whole
+            // canvas after every dab, which is what made live drawing feel delayed.
             const container = document.getElementById('sketch-container');
-            if (state.fillEnabled) {
+            if (state.fillEnabled || state.isDrawing) {
                 container.removeAttribute('data-outline');
                 container.style.filter = 'none';
                 container.style.webkitFilter = 'none';
@@ -1536,9 +1539,17 @@
             });
         }
 
+        const DRAW_MIN_DIST = 1.6;
+        let drawQueue = [];
+        let drawFlushRaf = 0;
+
         function startDrawing(e) {
             if (state.uiTab !== 'sketch') return;
+            if (e && e.button != null && e.button !== 0) return;
+            if (state.isDrawing) return;
+            if (e && e.preventDefault) e.preventDefault();
             state.isDrawing = true;
+            updateFilterEnabled();
             state.selectionRng = Math.random;
             pushUndoSnapshot();
 
@@ -1549,6 +1560,7 @@
             state.currentSpeed = 0;
             state.strokeTotalDist = 1e9;
             state.currentTaper = { cumDist1: 0, cumDist2: 0, totalDist: 1e9 };
+            drawQueue.length = 0;
 
             const p = canvasCoordsFromEvent(e);
             addPoint(p.x, p.y);
@@ -1556,13 +1568,58 @@
 
         function stopDrawing() {
             if (!state.isDrawing) return;
+            if (drawFlushRaf) {
+                cancelAnimationFrame(drawFlushRaf);
+                drawFlushRaf = 0;
+            }
+            if (drawQueue.length) flushDrawQueue();
             state.isDrawing = false;
+            updateFilterEnabled();
             if (state.uiTab === 'sketch') {
                 if (state.taperEnabled && state.undoStack.length > 0) {
                     finalizeStrokeTaper();
                 }
                 state.points.push(null);
             }
+        }
+
+        function queueDrawSample(x, y, shift) {
+            drawQueue.push(x, y, shift ? 1 : 0);
+            if (!drawFlushRaf) drawFlushRaf = requestAnimationFrame(flushDrawQueue);
+        }
+
+        function flushDrawQueue() {
+            drawFlushRaf = 0;
+            if (!state.isDrawing || state.uiTab !== 'sketch') {
+                drawQueue.length = 0;
+                return;
+            }
+            const q = drawQueue;
+            drawQueue = [];
+            const last = q.length - 3;
+            for (let i = 0; i < q.length; i += 3) {
+                commitDrawMove(q[i], q[i + 1], q[i + 2] !== 0, i === last);
+            }
+        }
+
+        function commitDrawMove(x, y, shift, force) {
+            const prevIdx = state.points.length - 1;
+            const prevPt = prevIdx >= 0 ? state.points[prevIdx] : null;
+
+            let nx = x;
+            let ny = y;
+            if (prevPt && shift) {
+                const s = snapToAxisHV(prevPt.x, prevPt.y, x, y);
+                nx = s.x;
+                ny = s.y;
+            } else {
+                const noiseScale = state.brushSize * 0.8;
+                nx = x + (Math.random() - 0.5) * noiseScale;
+                ny = y + (Math.random() - 0.5) * noiseScale;
+            }
+
+            if (!force && prevPt && Math.hypot(nx - prevPt.x, ny - prevPt.y) < DRAW_MIN_DIST) return;
+            addPoint(nx, ny);
         }
 
         function finalizeStrokeTaper() {
@@ -1620,23 +1677,28 @@
         function drawMove(e) {
             if (state.uiTab !== 'sketch') return;
             if (!state.isDrawing) return;
-            const p = canvasCoordsFromEvent(e);
-            const prevIdx = state.points.length - 1;
-            const prevPt = prevIdx >= 0 ? state.points[prevIdx] : null;
-
-            if (prevPt && shiftConstrainActive(e)) {
-                const s = snapToAxisHV(prevPt.x, prevPt.y, p.x, p.y);
-                addPoint(s.x, s.y);
+            if (e && e.preventDefault) e.preventDefault();
+            const shift = shiftConstrainActive(e);
+            if (typeof e.getCoalescedEvents === 'function') {
+                const evs = e.getCoalescedEvents();
+                for (let i = 0; i < evs.length; i++) {
+                    const p = canvasCoordsFromEvent(evs[i]);
+                    queueDrawSample(p.x, p.y, shift);
+                }
                 return;
             }
-
-            let noiseScale = state.brushSize * 0.8;
-            let noiseX = (Math.random() - 0.5) * noiseScale;
-            let noiseY = (Math.random() - 0.5) * noiseScale;
-            addPoint(p.x + noiseX, p.y + noiseY);
+            const p = canvasCoordsFromEvent(e);
+            queueDrawSample(p.x, p.y, shift);
         }
 
         function clearAll() {
+            if (drawFlushRaf) {
+                cancelAnimationFrame(drawFlushRaf);
+                drawFlushRaf = 0;
+            }
+            drawQueue.length = 0;
+            state.isDrawing = false;
+            updateFilterEnabled();
             state.points = [];
             state.edges = [];
             state.undoStack = [];
@@ -2328,16 +2390,18 @@
         }
 
         function animFrame(ts) {
-            if (!anim.active) {
+            if (!anim.active || state.uiTab !== 'animate') {
                 animData.raf = 0;
                 return;
             }
-            animData.raf = requestAnimationFrame(animFrame);
 
             const dt = animData.lastTs ? Math.min(80, ts - animData.lastTs) : 16;
             animData.lastTs = ts;
             if (anim.playing) animData.time += (dt / 1000) * anim.speed;
-            else if (!animData.dirty) return;
+            else if (!animData.dirty) {
+                animData.raf = requestAnimationFrame(animFrame);
+                return;
+            }
             animData.dirty = false;
 
             if (animSignature() !== animData.signature) animRebuild();
@@ -2385,6 +2449,7 @@
             } finally {
                 ctx.globalCompositeOperation = 'source-over';
                 ctx.shadowBlur = 0;
+                ctx.shadowColor = 'rgba(0,0,0,0)';
                 ctx = mainCtx;
             }
 
@@ -2397,6 +2462,21 @@
                 ctx.drawImage(animData.trail, 0, 0);
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             }
+
+            if (anim.active && state.uiTab === 'animate') {
+                animData.raf = requestAnimationFrame(animFrame);
+            } else {
+                animData.raf = 0;
+            }
+        }
+
+        function animResetCtx() {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'rgba(0,0,0,0)';
+            ctx.globalAlpha = 1;
+            ctx.filter = 'none';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         }
 
         function animSetActive(on) {
@@ -2413,6 +2493,13 @@
                 cancelAnimationFrame(animData.raf);
                 animData.raf = 0;
             }
+            animResetCtx();
+            animData.trail = null;
+            animData.trailCtx = null;
+            animData.pts = [];
+            animData.segs = [];
+            animData.sites = [];
+            animData.signature = '';
             // Back to the untouched still composition.
             if (state.points.length) {
                 renderFromPoints(state.points);
