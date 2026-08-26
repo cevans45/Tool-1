@@ -80,15 +80,20 @@
                             <dt>Style</dt>
                             <dd><strong>Current</strong> — a charge running the lines. <strong>Static</strong> — noisy interference. <strong>Storm</strong> — violent, with dropouts. <strong>Comet chase</strong> — a bright head with a fading tail. <strong>Breathe</strong> — slow swell.</dd>
                             <dt>Motion</dt>
-                            <dd>What the charge does to the form. Style sets the charge, Motion sets the movement, so any pairing works.<br>
-                            <strong>Flow</strong> — smooth liquid bend, the line curves as a whole.<br>
-                            <strong>Glitch</strong> — chunks of the path dislocate at random, hold, then snap elsewhere; hard-edged and travelling, never liquid.<br>
-                            <strong>Ratchet</strong> — quantised in time and distance, so the form lurches between held poses.<br>
-                            <strong>Shatter</strong> — each point has its own escape direction, so the form bursts apart where the charge lands and reassembles behind it.<br>
-                            <strong>Coil</strong> — sideways and lengthways a quarter turn apart, winding the line into a corkscrew.<br>
-                            <strong>Slither</strong> — moves only along its own course, bunching and stretching the ink without leaving the path.<br>
-                            <strong>Burst</strong> — rings shoving out from the canvas centre and sucking back in.<br>
-                            <strong>Swirl</strong> — twists about the canvas centre, winding up and unwinding.</dd>
+                            <dd>What the charge does to the form. Style sets the charge, Motion sets the movement, so any pairing works. The <em>Hit</em> and <em>Broken</em> groups are driven by impulses that land at uneven times and decay unevenly, which is what keeps them from reading as water.<br><br>
+                            <strong>Whip</strong> — a crack travels through the drawing. Nothing moves ahead of the front, everything snaps the instant it arrives, then drags out in a long tail behind.<br>
+                            <strong>Stomp</strong> — lopsided chunks get slammed sideways and spring back past their resting place, wobbling as they settle.<br>
+                            <strong>Jolt</strong> — the whole form takes the hit at once, but the far end hears about it late, so it whips instead of sliding as one block.<br>
+                            <strong>Glitch</strong> — chunks tear loose in any direction, hold for an uneven stretch, then snap somewhere else.<br>
+                            <strong>Stutter</strong> — dead still, then a chunk teleports to a spot on a coarse grid, then dead still again. No travel between poses at all.<br>
+                            <strong>Shatter</strong> — every point has its own escape direction, so impulses blast the pieces out and they drift back into place.<br>
+                            <strong>Tendril</strong> — each chunk wanders on its own clock at its own rate, so neighbours disagree and nothing sweeps through as one wave.<br>
+                            <strong>Ratchet</strong> — quantised in time and distance; the form lurches between held poses.<br>
+                            <strong>Flow</strong> — the liquid one: smooth travelling waves, the line bends as a whole.<br>
+                            <strong>Slither</strong> — lunges forward along its own course then creeps back, so it crawls in a direction.<br>
+                            <strong>Coil</strong> — winds the line into a corkscrew that screws along its own course.<br>
+                            <strong>Burst</strong> — rings punching out from the canvas centre and sagging back in.<br>
+                            <strong>Swirl</strong> — twists about the canvas centre, winding up fast and unwinding slowly.</dd>
                             <dt>Speed</dt>
                             <dd>How fast the charge travels along the path.</dd>
                             <dt>Flow spread</dt>
@@ -112,7 +117,7 @@
                             <dt>Sparks</dt>
                             <dd>Number and size of bright dots running along the lines.</dd>
                             <dt>Crackle</dt>
-                            <dd>High-frequency noise on everything. Sharpens pulses and adds dropouts. Also sets how fast Glitch and Ratchet snap between poses.</dd>
+                            <dd>High-frequency noise on everything. Sharpens pulses and adds dropouts. Also drives how often impulses land and how fast the stepped motions snap between poses — turn it up for a constant barrage.</dd>
                             <dt>Trails</dt>
                             <dd>How long each frame smears behind the next. High = long light trails.</dd>
                             <dt>Glow / Spark color</dt>
@@ -283,14 +288,27 @@
                             <div class="control-row">
                                 <label for="el-anim-motion">Motion</label>
                                 <select id="el-anim-motion" class="select-input">
-                                    <option value="flow" selected>Flow — liquid bend</option>
-                                    <option value="glitch">Glitch — blocks snap</option>
-                                    <option value="ratchet">Ratchet — lurching steps</option>
-                                    <option value="shatter">Shatter — flies apart</option>
-                                    <option value="coil">Coil — corkscrew</option>
-                                    <option value="slither">Slither — slides along itself</option>
-                                    <option value="burst">Burst — rings from centre</option>
-                                    <option value="swirl">Swirl — twists around centre</option>
+                                    <optgroup label="Hit">
+                                        <option value="whip" selected>Whip — cracks through it</option>
+                                        <option value="stomp">Stomp — chunks slam, spring back</option>
+                                        <option value="jolt">Jolt — whole form gets hit</option>
+                                    </optgroup>
+                                    <optgroup label="Broken">
+                                        <option value="glitch">Glitch — tears and snaps</option>
+                                        <option value="stutter">Stutter — freeze, teleport, freeze</option>
+                                        <option value="shatter">Shatter — blasts apart</option>
+                                    </optgroup>
+                                    <optgroup label="Loose">
+                                        <option value="tendril">Tendril — wanders, no wave</option>
+                                        <option value="ratchet">Ratchet — mechanical lurch</option>
+                                    </optgroup>
+                                    <optgroup label="Waves">
+                                        <option value="flow">Flow — liquid bend</option>
+                                        <option value="slither">Slither — crawls along itself</option>
+                                        <option value="coil">Coil — corkscrew</option>
+                                        <option value="burst">Burst — rings from centre</option>
+                                        <option value="swirl">Swirl — twists around centre</option>
+                                    </optgroup>
                                 </select>
                             </div>
 
@@ -1950,7 +1968,7 @@
             active: false,
             playing: true,
             style: 'current',
-            motion: 'flow',  // how the form itself is displaced; see ANIM_MOTIONS
+            motion: 'whip',  // how the form itself is displaced; see ANIM_MOTIONS
             speed: 0.6,
             spread: 2.4,   // charge cycles along the whole drawing
             desync: 0.35,  // per-site phase scatter, so nothing moves in unison
@@ -1979,7 +1997,12 @@
 
         // Style decides how the charge behaves; Motion decides what the charge does to the form.
         // They are independent, so any charge can drive any kind of displacement.
-        const ANIM_MOTIONS = ['flow', 'glitch', 'ratchet', 'shatter', 'coil', 'slither', 'burst', 'swirl'];
+        const ANIM_MOTIONS = [
+            'whip', 'stomp', 'jolt',              // impulse-driven, hard attack and long decay
+            'glitch', 'stutter', 'shatter',       // discrete poses, nothing eases
+            'tendril', 'ratchet',                 // incoherent wander, mechanical lurch
+            'flow', 'slither', 'coil', 'burst', 'swirl'  // travelling waves
+        ];
 
         const ANIM_MAX_SITES = 5000;
         const ANIM_BLINK_OUT = 0.24;
@@ -1989,7 +2012,9 @@
             trail: null, trailCtx: null,
             pts: [], segs: [], sites: [],
             hotColors: [], sparkStyle: '', rampKey: '',
-            signature: '', raf: 0, time: 0, lastTs: 0, dirty: true,
+            signature: '', raf: 0, time: 0, dt: 0, lastTs: 0, dirty: true,
+            // Impulses in flight, plus the schedule that spawns them.
+            events: [], eventDue: 0, eventSeq: 0,
             // Redrawing the form and emitting growth are the costly passes, so growth density
             // self-tunes to whatever frame budget the machine and drawing size allow.
             quality: 1, frameCost: 8
@@ -2198,6 +2223,7 @@
                     x: p.x, y: p.y,
                     wx: p.x, wy: p.y, dx: 0, dy: 0,
                     tx: 0, ty: 0, nx: 0, ny: 0, ux: 0, uy: 0,
+                    ox: 0, oy: 0, vx: 0, vy: 0, chunk: 0,
                     a: 0,
                     s: live > 1 ? n / (live - 1) : 0,
                     phase: animHash01(Math.imul(n + 1, 1103515245)),
@@ -2242,8 +2268,22 @@
                 }
             }
 
+            // Chunks group points that move together. Their lengths are deliberately uneven, so
+            // motions built on them tear the drawing into lopsided pieces instead of even bands.
+            let chunk = 0;
+            let bound = 0.03 + animHash01(1319) * 0.22;
+            for (let i = 0; i < pts.length; i++) {
+                while (pts[i].s > bound) {
+                    chunk++;
+                    bound += 0.02 + animHash01(Math.imul(chunk + 1, 7919)) * 0.2;
+                }
+                pts[i].chunk = chunk;
+            }
+
             animData.pts = pts;
             animData.segs = segs;
+            animData.events.length = 0;
+            animData.eventDue = 0;
             animData.sites = animBuildSites(snap, pts);
             animData.signature = animSignature();
             animData.dirty = true;
@@ -2253,109 +2293,326 @@
         }
 
         /**
+         * Asymmetric periodic wave, -1..1. It climbs over `rise` of the cycle and drains back over
+         * the rest, so a small `rise` lunges and then sags instead of rocking evenly like a sine.
+         * Symmetry is what makes motion read as water, so most motions lean on this.
+         */
+        function animSkewWave(ph, rise) {
+            const w = ph - Math.floor(ph);
+            const u = w < rise ? w / rise : 1 - (w - rise) / (1 - rise);
+            return (u * u * (3 - 2 * u)) * 2 - 1;
+        }
+
+        /**
+         * Poses that last an uneven number of ticks. Each tick may decline to re-roll, so the form
+         * holds for one beat or five and never settles into a rhythm you can predict.
+         */
+        function animHoldSlot(t, rate) {
+            let k = Math.floor(t * rate);
+            for (let i = 0; i < 6; i++) {
+                if (animHash01(Math.imul(k + 1, 1274126177)) < 0.55) break;
+                k--;
+            }
+            return k;
+        }
+
+        const ANIM_MAX_EVENTS = 14;
+
+        /**
+         * Impulses are what stop the motion reading as water. They land at uneven times, hit a
+         * region of random length, and decay asymmetrically — full strength the instant they land,
+         * then draining away. Gaps and magnitudes are both skewed, so most hits are small and the
+         * occasional one is violent.
+         */
+        function animStepEvents(cfg, dt) {
+            const ev = animData.events;
+            const t = animData.time;
+            for (let i = ev.length - 1; i >= 0; i--) {
+                if (t - ev[i].t0 > ev[i].life) ev.splice(i, 1);
+            }
+            if (dt <= 0) return;
+
+            animData.eventDue -= dt * (0.9 + cfg.spread * 0.25 + cfg.crackle * 3.5);
+            let guard = 0;
+            while (animData.eventDue <= 0 && guard++ < 8) {
+                const q = animData.eventSeq++;
+                const r = (n) => animHash01(Math.imul(q + 1, 374761393) ^ Math.imul(n, 668265263));
+                animData.eventDue += 0.18 + r(1) * r(2) * 2.4;
+                if (ev.length >= ANIM_MAX_EVENTS) continue;
+
+                const ang = r(4) * ANIM_TAU;
+                const decay = 1.4 + r(5) * 4.5;
+                ev.push({
+                    t0: t,
+                    s0: r(6),
+                    span: 0.03 + Math.pow(r(3), 2.2) * 0.55,
+                    travel: (0.35 + r(7) * 1.5) * (r(8) < 0.5 ? -1 : 1),
+                    ax: Math.cos(ang), ay: Math.sin(ang),
+                    side: r(9) < 0.5 ? -1 : 1,
+                    spin: r(11) * 2 - 1,
+                    mag: 0.3 + Math.pow(r(10), 3) * 2.6,
+                    decay,
+                    life: 4.2 / decay
+                });
+            }
+        }
+
+        /**
          * Move every point off the course it was drawn on, and record how charged it is. The charge
-         * always travels along the drawing, but each motion turns that charge into a different kind
-         * of displacement, so the silhouette moves in a different way. Warp at 0 leaves the form
+         * always travels along the drawing, but each motion turns it into a different kind of
+         * displacement, so the silhouette moves in a different way. Warp at 0 leaves the form
          * exactly where it was drawn, whichever motion is picked.
          */
         function animWarpPath(cfg) {
             const pts = animData.pts;
+            if (!pts.length) return;
+
+            // Every pass reads activation — form heat, bleed and sparks all ride it.
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                p.a = animActivation(p.s, p.phase, p.id, cfg);
+            }
+
             const amp = cfg.warp * state.brushSize * 4.5;
-            const t = animData.time;
+            if (amp <= 0.001) {
+                for (let i = 0; i < pts.length; i++) {
+                    const p = pts[i];
+                    p.dx = 0; p.dy = 0; p.ox = 0; p.oy = 0; p.vx = 0; p.vy = 0;
+                    p.wx = p.x; p.wy = p.y;
+                }
+                animData.events.length = 0;
+                return;
+            }
+
+            animStepEvents(cfg, animData.dt);
+
             const motion = cfg.motion;
+            if (motion === 'stomp' || motion === 'jolt' || motion === 'tendril') {
+                animWarpSprung(cfg, amp, motion);
+            } else if (motion === 'whip') {
+                animWarpWhip(cfg, amp);
+            } else {
+                animWarpShaped(cfg, amp, motion);
+            }
+
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                p.wx = p.x + p.dx;
+                p.wy = p.y + p.dy;
+            }
+        }
+
+        /**
+         * Chase an impulse-driven target with a damped spring. The spring is what makes these fun
+         * rather than fluid: the form gets slammed somewhere and springs back past its resting
+         * place, wobbling as it settles, instead of easing smoothly there and back.
+         */
+        function animWarpSprung(cfg, amp, motion) {
+            const pts = animData.pts;
+            const ev = animData.events;
+            const t = animData.time;
+            // Clamped so a big frame gap or a high speed setting cannot make the spring blow up.
+            const dt = Math.min(0.05, animData.dt || 0.016);
+            const cap = amp * 7;
+            const wander = motion === 'tendril';
+            // Light damping relative to the stiffness, so everything overshoots and rings.
+            const damp = wander ? 3.5 : 8;
+
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                let tx = 0, ty = 0;
+
+                if (wander) {
+                    // Each chunk picks its own destinations on its own clock at its own rate, so
+                    // neighbours disagree and nothing sweeps through as a single wave. The target
+                    // is a staircase rather than a smooth drift, so the spring gets yanked to each
+                    // new spot and rings on arrival instead of gliding.
+                    const b = p.chunk;
+                    const rate = 1.2 + animHash01(Math.imul(b + 1, 971)) * 4.5;
+                    const off = animHash01(Math.imul(b + 1, 33391)) * 40;
+                    const step = Math.floor(t * rate + off);
+                    const key = Math.imul(b + 1, 2654435761) ^ Math.imul(step + 1, 40503);
+                    tx = (animHash01(key) * 2 - 1) * amp * 1.7;
+                    ty = (animHash01(key ^ 0x7b1) * 2 - 1) * amp * 1.7;
+                } else {
+                    for (let k = 0; k < ev.length; k++) {
+                        const e = ev[k];
+                        const age = t - e.t0;
+                        if (age < 0) continue;
+                        let w;
+                        if (motion === 'jolt') {
+                            // The whole form takes the hit at once, but the far end of the drawing
+                            // gets the news late, so it whips rather than sliding as one block.
+                            const lag = p.s * 0.14;
+                            w = age >= lag ? Math.exp(-(age - lag) * e.decay) : 0;
+                        } else {
+                            // A hard-edged region of random length moves; the rest holds still.
+                            w = Math.abs(p.s - e.s0) <= e.span ? Math.exp(-age * e.decay) : 0;
+                        }
+                        if (w < 0.01) continue;
+                        tx += e.ax * e.mag * w * amp * 1.7;
+                        ty += e.ay * e.mag * w * amp * 1.7;
+                    }
+                }
+
+                const stiff = wander
+                    ? 90 + animHash01(Math.imul(p.chunk + 1, 6151)) * 130
+                    : 240 + animHash01(Math.imul(p.chunk + 1, 313)) * 260;
+                p.vx += (tx - p.ox) * stiff * dt - p.vx * damp * dt;
+                p.vy += (ty - p.oy) * stiff * dt - p.vy * damp * dt;
+                p.ox += p.vx * dt;
+                p.oy += p.vy * dt;
+
+                const m = Math.hypot(p.ox, p.oy);
+                if (m > cap) {
+                    const f = cap / m;
+                    p.ox *= f; p.oy *= f;
+                    p.vx *= f; p.vy *= f;
+                }
+                p.dx = p.ox;
+                p.dy = p.oy;
+            }
+        }
+
+        /**
+         * A crack travelling along the drawing: nothing moves ahead of the front, everything snaps
+         * the instant it arrives, then drags out in a long tail behind. The hard leading edge is
+         * the whole point — a smooth front would just be a wave again.
+         */
+        function animWarpWhip(cfg, amp) {
+            const pts = animData.pts;
+            const ev = animData.events;
+            const t = animData.time;
+            const gain = amp * 2.4;
+
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                let side = 0, along = 0;
+                for (let k = 0; k < ev.length; k++) {
+                    const e = ev[k];
+                    const age = t - e.t0;
+                    if (age < 0) continue;
+                    const env = Math.exp(-age * e.decay * 0.55);
+                    if (env < 0.01) continue;
+                    const head = e.s0 + e.travel * age;
+                    const behind = e.travel < 0 ? p.s - head : head - p.s;
+                    if (behind < 0 || behind > e.span * 6) continue;
+                    const w = Math.exp(-behind / Math.max(0.02, e.span)) * env * e.mag;
+                    side += e.side * w;
+                    along += e.spin * w * 0.55;
+                }
+                p.dx = (p.nx * side + p.ux * along) * gain;
+                p.dy = (p.ny * side + p.uy * along) * gain;
+            }
+        }
+
+        /** Wave-shaped and hard-stepped motions: no physics state, just a pose per frame. */
+        function animWarpShaped(cfg, amp, motion) {
+            const pts = animData.pts;
+            const ev = animData.events;
+            const t = animData.time;
             const dir = cfg.reverse ? -1 : 1;
 
             // Per-motion constants, hoisted out of the loop.
             const slow = cfg.spread * 0.55 + 0.7;
             const fast = cfg.spread * 1.7 + 2.3;
-            const blocks = Math.max(3, Math.round(4 + cfg.spread * 5));
-            const beat = Math.floor(t * (2.5 + cfg.crackle * 9));
             const lurch = 3 + Math.round(cfg.crackle * 8);
+            const glitchSlot = animHoldSlot(t, 3 + cfg.crackle * 10);
+            const stutterSlot = animHoldSlot(t, 2.2 + cfg.crackle * 7);
             const cx = cssWidth * 0.5;
             const cy = cssHeight * 0.5;
-            const swirlMax = cfg.warp * 0.14;
             const swirlCap = amp * 5;
 
             for (let i = 0; i < pts.length; i++) {
                 const p = pts[i];
-                const a = animActivation(p.s, p.phase, p.id, cfg);
-                p.a = a;
-
-                if (amp <= 0.001) {
-                    p.dx = 0; p.dy = 0;
-                    p.wx = p.x; p.wy = p.y;
-                    continue;
-                }
-
+                const a = p.a;
                 let dx = 0, dy = 0;
 
                 if (motion === 'glitch') {
-                    // Whole blocks of the path dislocate on a stepped clock, hold there, then snap
-                    // somewhere else. Nothing eases between poses, so it reads as displacement
-                    // travelling through the drawing rather than liquid flow.
-                    const b = Math.min(blocks - 1, Math.floor(p.s * blocks));
-                    const key = Math.imul(b + 1, 9176) ^ Math.imul(beat + 1, 131071);
-                    if (animHash01(key ^ 0x5f3a) < 0.3 + a * 0.6) {
-                        const kick = amp * (0.45 + a * 1.35);
-                        const side = (animHash01(key) * 2 - 1) * kick;
-                        const along = (animHash01(key ^ 0x2ab3) * 2 - 1) * kick * 0.55;
-                        dx = p.nx * side + p.ux * along;
-                        dy = p.ny * side + p.uy * along;
+                    // Lopsided chunks dislocate, hold for an uneven stretch, then snap somewhere
+                    // else. Offsets point anywhere rather than along the path, so the drawing tears
+                    // instead of bending.
+                    const key = Math.imul(p.chunk + 1, 9176) ^ Math.imul(glitchSlot + 1, 131071);
+                    if (animHash01(key ^ 0x5f3a) < 0.25 + a * 0.5) {
+                        const ang = animHash01(key) * ANIM_TAU;
+                        const kick = amp * (0.4 + Math.pow(animHash01(key ^ 0x2ab3), 2.5) * 3.4);
+                        dx = Math.cos(ang) * kick;
+                        dy = Math.sin(ang) * kick;
+                    }
+                } else if (motion === 'stutter') {
+                    // Dead still, then a chunk teleports to a spot on a coarse grid, then dead
+                    // still again. Never any travel between poses.
+                    const key = Math.imul(p.chunk + 1, 2246822519) ^ Math.imul(stutterSlot + 1, 40503);
+                    if (animHash01(key) < 0.45) {
+                        const step = amp * 0.85;
+                        dx = Math.round((animHash01(key ^ 0x1f7) * 2 - 1) * 2.4) * step;
+                        dy = Math.round((animHash01(key ^ 0x9c3) * 2 - 1) * 2.4) * step;
                     }
                 } else if (motion === 'shatter') {
-                    // Every point owns one fixed escape direction, so the form flies apart where
-                    // the charge lands and reassembles exactly as the charge leaves.
+                    // Each point owns one fixed escape direction. Impulses blast the pieces out on
+                    // arrival and they drift back, so the form breaks and reassembles in place.
                     const ang = animHash01(Math.imul(p.id + 1, 40503)) * ANIM_TAU;
-                    const grit = 0.55 + animNoise(p.id + 1201, t * (2 + cfg.crackle * 9)) * 0.9;
-                    const mag = amp * 1.5 * Math.pow(a, 1.7) * grit;
-                    dx = Math.cos(ang) * mag;
-                    dy = Math.sin(ang) * mag;
+                    let blast = 0;
+                    for (let k = 0; k < ev.length; k++) {
+                        const e = ev[k];
+                        const age = t - e.t0;
+                        if (age < 0 || Math.abs(p.s - e.s0) > e.span) continue;
+                        blast += Math.exp(-age * e.decay) * e.mag;
+                    }
+                    if (blast > 0.001) {
+                        // Overlapping impulses would otherwise stack into an explosion that throws
+                        // the pieces clean off the canvas.
+                        if (blast > 1.8) blast = 1.8;
+                        const grit = 0.6 + animNoise(p.id + 1201, t * (2 + cfg.crackle * 9)) * 0.9;
+                        const mag = amp * 2 * blast * grit;
+                        dx = Math.cos(ang) * mag;
+                        dy = Math.sin(ang) * mag;
+                    }
                 } else if (motion === 'ratchet') {
-                    // Quantised in both time and distance, so the form lurches between held poses
-                    // instead of easing between them.
+                    // Quantised in both time and distance, so the form lurches between held poses.
                     const tq = Math.floor(t * 2.2 * lurch) / lurch;
-                    const bend = Math.sin((p.s * slow - tq * 0.85 * dir) * ANIM_TAU);
+                    const bend = animSkewWave(p.s * slow - tq * 0.85 * dir, 0.3);
                     const push = (Math.round(bend * 4) / 4) * amp * (0.45 + a);
                     dx = p.nx * push;
                     dy = p.ny * push;
                 } else if (motion === 'coil') {
-                    // Sideways and lengthways a quarter turn apart, which winds the line into a
+                    // Sideways and lengthways a quarter turn apart, winding the line into a
                     // corkscrew that screws along its own course.
-                    const ph = (p.s * (cfg.spread * 1.1 + 1.5) - t * 1.25 * dir) * ANIM_TAU;
+                    const ph = p.s * (cfg.spread * 1.1 + 1.5) - t * 1.25 * dir;
                     const gain = amp * (0.35 + a * 0.95);
-                    const side = Math.sin(ph) * gain;
-                    const along = Math.cos(ph) * gain * 0.75;
+                    const side = animSkewWave(ph, 0.22) * gain;
+                    const along = animSkewWave(ph + 0.25, 0.22) * gain * 0.75;
                     dx = p.nx * side + p.ux * along;
                     dy = p.ny * side + p.uy * along;
                 } else if (motion === 'slither') {
-                    // Purely lengthways: the ink bunches and stretches without ever leaving the
-                    // course it was drawn on.
-                    const slide = Math.sin((p.s * (cfg.spread * 1.3 + 1) - t * 1.4 * dir) * ANIM_TAU)
+                    // Lengthways only, and lopsided: the ink lunges forward along its own course
+                    // then creeps back, so it crawls in a direction instead of sloshing.
+                    const slide = animSkewWave(p.s * (cfg.spread * 1.3 + 1) - t * 1.4 * dir, 0.18)
                         * amp * 1.7 * (0.35 + a * 0.9);
                     dx = p.ux * slide;
                     dy = p.uy * slide;
                 } else if (motion === 'burst') {
-                    // Rings shoving outward from the middle of the canvas and sucking back in.
+                    // Rings punching out from the middle of the canvas and sagging back in.
                     const vx = p.x - cx, vy = p.y - cy;
                     const len = Math.hypot(vx, vy) || 1;
-                    const ring = Math.sin((p.s * cfg.spread * 0.8 - t * 1.1 * dir) * ANIM_TAU);
+                    const ring = animSkewWave(p.s * cfg.spread * 0.8 - t * 1.1 * dir, 0.15);
                     const push = ring * amp * 1.6 * (0.35 + a);
                     dx = (vx / len) * push;
                     dy = (vy / len) * push;
                 } else if (motion === 'swirl') {
-                    // Rotation about the canvas centre, winding up and unwinding. Displacement
+                    // Rotation about the canvas centre: winds up fast, unwinds slowly. Displacement
                     // grows with distance from the centre, so it is capped to stay on canvas.
                     const vx = p.x - cx, vy = p.y - cy;
-                    const wind = Math.sin((p.s * cfg.spread * 0.5 - t * 0.8 * dir) * ANIM_TAU);
-                    const ang = swirlMax * wind * (0.35 + a);
+                    const wind = animSkewWave(p.s * cfg.spread * 0.5 - t * 0.8 * dir, 0.2);
+                    const ang = cfg.warp * 0.14 * wind * (0.35 + a);
                     const cs = Math.cos(ang), sn = Math.sin(ang);
                     dx = vx * cs - vy * sn - vx;
                     dy = vx * sn + vy * cs - vy;
                     const m = Math.hypot(dx, dy);
                     if (m > swirlCap) { dx = dx / m * swirlCap; dy = dy / m * swirlCap; }
                 } else {
-                    // flow — two travelling waves keep the displacement smooth along the path, so
-                    // the line bends as a whole rather than fraying.
+                    // flow — two smooth travelling waves, the one motion that is meant to read as
+                    // liquid. The line bends as a whole rather than fraying.
                     const bend = Math.sin((p.s * slow - t * 0.7) * ANIM_TAU) * 0.68
                         + Math.sin((p.s * fast + t * 1.13) * ANIM_TAU) * 0.32;
                     const push = bend * amp * (0.4 + a * 1.1);
@@ -2363,9 +2620,8 @@
                     dy = p.ny * push;
                 }
 
-                p.dx = dx; p.dy = dy;
-                p.wx = p.x + dx;
-                p.wy = p.y + dy;
+                p.dx = dx;
+                p.dy = dy;
             }
         }
 
@@ -2543,7 +2799,8 @@
 
             const dt = animData.lastTs ? Math.min(80, ts - animData.lastTs) : 16;
             animData.lastTs = ts;
-            if (anim.playing) animData.time += (dt / 1000) * anim.speed;
+            animData.dt = anim.playing ? (dt / 1000) * anim.speed : 0;
+            if (anim.playing) animData.time += animData.dt;
             else if (!animData.dirty) {
                 animData.raf = requestAnimationFrame(animFrame);
                 return;
@@ -2646,6 +2903,8 @@
             animData.segs = [];
             animData.sites = [];
             animData.signature = '';
+            animData.events.length = 0;
+            animData.eventDue = 0;
             // Back to the untouched still composition.
             if (state.points.length) {
                 renderFromPoints(state.points);
@@ -2659,6 +2918,17 @@
 
         function animTouch() {
             animData.dirty = true;
+        }
+
+        /** Drop impulses in flight and any spring momentum, so a switch starts from rest. */
+        function animResetMotionState() {
+            animData.events.length = 0;
+            animData.eventDue = 0;
+            const pts = animData.pts;
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                p.ox = 0; p.oy = 0; p.vx = 0; p.vy = 0;
+            }
         }
 
         // Mouse + touch
@@ -2725,7 +2995,9 @@
         });
 
         el('el-anim-motion')?.addEventListener('change', (e) => {
-            anim.motion = ANIM_MOTIONS.includes(e.target.value) ? e.target.value : 'flow';
+            anim.motion = ANIM_MOTIONS.includes(e.target.value) ? e.target.value : 'whip';
+            // Spring and impulse state belongs to the motion that made it.
+            animResetMotionState();
             animTouch();
         });
 
