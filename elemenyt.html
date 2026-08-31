@@ -46,7 +46,7 @@
                             <dt>DRAW / ERASE</dt>
                             <dd>DRAW adds ink. ERASE removes with a soft cut (destination-out). Sketch tab only.</dd>
                             <dt>Mirror</dt>
-                            <dd>Duplicates strokes across the vertical and/or horizontal axis from the canvas center.</dd>
+                            <dd>Duplicates strokes across the vertical and/or horizontal axis from the canvas center. The same two toggles sit in the Animation panel, so you can flip them while a composition is moving — the reflections pick up the motion too.</dd>
                             <dt>Stroke size</dt>
                             <dd>Brush thickness for segments and marker textures.</dd>
                             <dt>Sticky / Sticky dist</dt>
@@ -336,6 +336,18 @@
                                 <span class="cb-label">Reverse flow</span>
                             </label>
 
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-anim-mirror" checked>
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Mirror left-right</span>
+                            </label>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-anim-mirror-y">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Mirror top-bottom</span>
+                            </label>
+
                             <div class="control-row">
                                 <label for="el-anim-warp">Warp</label>
                                 <input type="range" id="el-anim-warp" min="0" max="100" value="40" step="5">
@@ -539,6 +551,9 @@
         const btnCut = el('el-mode-cut');
         const mirrorEl = el('el-mirror');
         const mirrorYEl = el('el-mirror-y');
+        // The same two mirror toggles also live in the Animate panel.
+        const animMirrorEl = el('el-anim-mirror');
+        const animMirrorYEl = el('el-anim-mirror-y');
         const tabSketchBtn = el('el-tab-sketch');
         const tabGenerateBtn = el('el-tab-generate');
         const tabAnimateBtn = el('el-tab-animate');
@@ -1122,26 +1137,39 @@
             btnCut.classList.toggle('is-active', mode === 'cut');
         }
 
+        /** Mirror is offered in both the Sketch and Animate panels, so both copies show the truth. */
+        function syncMirrorInputs() {
+            if (mirrorEl) mirrorEl.checked = state.mirrorEnabled;
+            if (animMirrorEl) animMirrorEl.checked = state.mirrorEnabled;
+            if (mirrorYEl) mirrorYEl.checked = state.mirrorYEnabled;
+            if (animMirrorYEl) animMirrorYEl.checked = state.mirrorYEnabled;
+        }
+
+        function applyMirrorChange() {
+            syncMirrorInputs();
+            if (state.uiTab === 'animate') {
+                // The animation redraws the whole frame anyway; just make sure one runs even
+                // while paused. Clearing here would leave a blank canvas until play resumes.
+                animTouch();
+                return;
+            }
+            if (state.uiTab === 'generate') {
+                rerenderGenerateCurrent();
+                return;
+            }
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
         function setMirror(enabled) {
             state.mirrorEnabled = enabled;
-            mirrorEl.checked = enabled;
-            if (state.uiTab === 'generate') rerenderGenerateCurrent();
-            else {
-                ctx.setTransform(1, 0, 0, 1, 0, 0);
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            }
+            applyMirrorChange();
         }
 
         function setMirrorY(enabled) {
             state.mirrorYEnabled = enabled;
-            mirrorYEl.checked = enabled;
-            if (state.uiTab === 'generate') rerenderGenerateCurrent();
-            else {
-                ctx.setTransform(1, 0, 0, 1, 0, 0);
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            }
+            applyMirrorChange();
         }
 
         function pushUndoSnapshot() {
@@ -2969,6 +2997,8 @@
         });
         mirrorEl?.addEventListener('change', () => setMirror(mirrorEl.checked));
         mirrorYEl?.addEventListener('change', () => setMirrorY(mirrorYEl.checked));
+        animMirrorEl?.addEventListener('change', () => setMirror(animMirrorEl.checked));
+        animMirrorYEl?.addEventListener('change', () => setMirrorY(animMirrorYEl.checked));
 
         tabSketchBtn?.addEventListener('click', () => setUiTab('sketch'));
         tabGenerateBtn?.addEventListener('click', () => setUiTab('generate'));
@@ -3321,6 +3351,7 @@
         if (stickyDistanceEl) stickyDistanceEl.value = String(state.stickyDistance);
         if (stickyDistanceVal) stickyDistanceVal.textContent = state.stickyDistance % 1 === 0 ? String(state.stickyDistance) : state.stickyDistance.toFixed(1);
         if (taperEl) taperEl.checked = state.taperEnabled;
+        syncMirrorInputs();
         updateFilter();
         updateFilterEnabled();
         applyBackgroundColor();
