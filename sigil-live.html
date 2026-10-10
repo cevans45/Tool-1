@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sigil Live — OVRT</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="site-shell">
+        <header class="tool-header">
+            <a href="index.html" class="back-link">← Back to OVRT</a>
+            <span class="tool-title">Sigil Live</span>
+        </header>
+
+        <div class="app" aria-label="Sigil Live">
+            <div id="stage">
+                <div id="stage-inner">
+                    <!-- Authoring surface: hand-drawn strokes and text, Canvas 2D. -->
+                    <canvas id="author-canvas"></canvas>
+                    <!-- Live surface: the GPU pass that becomes the FFGL plugin. -->
+                    <canvas id="live-canvas"></canvas>
+                </div>
+                <div id="stage-badge"><span id="stage-mode">DRAW</span> <span id="stage-res">1920×1080</span></div>
+            </div>
+
+            <aside class="control-panel">
+                <header class="panel-header">
+                    <h2>Sigil Live</h2>
+                    <button class="info-btn" id="info-btn" aria-label="About this tool">i</button>
+                </header>
+
+                <div class="info-overlay" id="info-overlay" hidden>
+                    <div class="info-content">
+                        <button class="info-close" id="info-close" aria-label="Close">×</button>
+                        <h3>Sigil Live</h3>
+                        <p>Draw a sigil, set type, then bake both into a distance field that the
+                            GPU animates. The live pass is a single fragment shader, so what you tune
+                            here is what ships to Resolume.</p>
+                        <h4>Draw</h4>
+                        <p>Click and drag to draw. Hold <b>Shift</b> to constrain to an axis.
+                            <b>Space</b> clears, <b>⌘Z</b> undoes. Mirror and marker change the
+                            character of the stroke.</p>
+                        <h4>Type</h4>
+                        <p>Type into the text field and drop a <b>.ttf/.otf/.woff</b> onto the canvas
+                            to use your own font. Text and sigil bake into the same field but stay
+                            separately controllable.</p>
+                        <h4>Live</h4>
+                        <p>The charge travels along the path in the order you drew it, and through text
+                            in character order. Everything else is post on top of the distance field.</p>
+                        <h4>Output</h4>
+                        <p><b>Open Output Window</b> gives you a chromeless render window to capture or
+                            share. <b>Export FFGL Bundle</b> writes the atlas, parameters and shader
+                            source for the plugin build.</p>
+                    </div>
+                </div>
+
+                <div class="panel-body">
+                    <div class="control-row control-row--tabs">
+                        <div class="mode-switch" id="tab-switch">
+                            <button class="panel-button is-active" data-tab="draw">Draw</button>
+                            <button class="panel-button" data-tab="type">Type</button>
+                            <button class="panel-button" data-tab="live">Live</button>
+                            <button class="panel-button" data-tab="output">Output</button>
+                        </div>
+                    </div>
+
+                    <!-- ── Draw ─────────────────────────────────────────── -->
+                    <div class="tab-pane" data-pane="draw">
+                        <details class="control-window" open>
+                            <summary>Stroke</summary>
+                            <section class="control-section">
+                                <div class="control-row">
+                                    <label for="sl-brush">Size</label>
+                                    <input type="range" id="sl-brush" min="1" max="40" step="1" value="5">
+                                    <span class="param-value" id="val-sl-brush">5</span>
+                                </div>
+                                <div class="control-row">
+                                    <label for="sl-marker">Marker</label>
+                                    <select class="select-input" id="sl-marker">
+                                        <option value="line">Line</option>
+                                        <option value="none">Smooth</option>
+                                        <option value="sprinkle">Sprinkle</option>
+                                        <option value="grain">Grain</option>
+                                        <option value="inkblot">Inkblot</option>
+                                        <option value="grid">Grid</option>
+                                        <option value="hatch">Hatch</option>
+                                        <option value="dash">Dash</option>
+                                    </select>
+                                </div>
+                                <div class="control-row">
+                                    <label>Taper</label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="sl-taper">
+                                        <span class="toggle-box"></span>
+                                        <span class="cb-label">Ends</span>
+                                    </label>
+                                </div>
+                            </section>
+                        </details>
+
+                        <details class="control-window" open>
+                            <summary>Mirror</summary>
+                            <section class="control-section">
+                                <div class="control-row">
+                                    <label>Axis</label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="sl-mirror-x" checked>
+                                        <span class="toggle-box"></span>
+                                        <span class="cb-label">X</span>
+                                    </label>
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" id="sl-mirror-y">
+                                        <span class="toggle-box"></span>
+                                        <span class="cb-label">Y</span>
+                                    </label>
+                                </div>
+                            </section>
+                        </details>
+
+                        <details class="control-window" open>
+                            <summary>Generate</summary>
+                            <section class="control-section">
+                                <div class="control-row">
+                                    <label for="sl-gen-time">Density</label>
+                                    <input type="range" id="sl-gen-time" min="0" max="100" step="1" value="55">
+                                    <span class="param-value" id="val-sl-gen-time">55</span>
+                                </div>
+                                <div class="control-row">
+                                    <button class="panel-button" id="sl-generate">Generate Sigil</button>
+                                </div>
+                                <div class="control-row">
+                                    <button class="panel-button" id="sl-undo">Undo</button>
+                                    <button class="panel-button" id="sl-clear">Clear</button>
+                                </div>
+                            </section>
+                        </details>
+                    </div>
+
+                    <!-- ── Type ─────────────────────────────────────────── -->
+                    <div class="tab-pane" data-pane="type" hidden>
+                        <details class="control-window" open>
+                            <summary>Text</summary>
+                            <section class="control-section">
+                                <div class="control-row control-row--stack">
+                                    <textarea id="sl-text" rows="2" placeholder="Type here"></textarea>
+                                </div>
+                                <div class="control-row">
+                                    <label for="sl-font-size">Size</label>
+                                    <input type="range" id="sl-font-size" min="12" max="400" step="1" value="120">
+                                    <span class="param-value" id="val-sl-font-size">120</span>
+                                </div>
+                                <div class="control-row">
+                                    <label for="sl-tracking">Tracking</label>
+                                    <input type="range" id="sl-tracking" min="-40" max="200" step="1" value="0">
+                                    <span class="param-value" id="val-sl-tracking">0</span>
+                                </div>
+                                <div class="control-row">
+                                    <label for="sl-leading">Leading</label>
+                                    <input type="range" id="sl-leading" min="0.4" max="3" step="0.05" value="1.1">
+                                    <span class="param-value" id="val-sl-leading">1.10</span>
+                                </div>
+                                <div class="control-row control-row--tabs">
+                                    <div class="mode-switch" id="sl-align">
+                                        <button class="panel-button" data-align="left">L</button>
+                                        <button class="panel-button is-active" data-align="center">C</button>
+                                        <button class="panel-button" data-align="right">R</button>
+                                    </div>
+                                </div>
+                            </section>
+                        </details>
+
+                        <details class="control-window" open>
+                            <summary>Placement</summary>
+                            <section class="control-section">
+                                <div class="control-row">
+                                    <label for="sl-text-x">X</label>
+                                    <input type="range" id="sl-text-x" min="0" max="1" step="0.005" value="0.5">
+                                    <span class="param-value" id="val-sl-text-x">0.50</span>
+                                </div>
+                                <div class="control-row">
+                                    <label for="sl-text-y">Y</label>
+                                    <input type="range" id="sl-text-y" min="0" max="1" step="0.005" value="0.5">
+                                    <span class="param-value" id="val-sl-text-y">0.50</span>
+                                </div>
+                                <div class="control-row">
+                                    <label for="sl-text-rot">Rotate</label>
+                                    <input type="range" id="sl-text-rot" min="-180" max="180" step="1" value="0">
+                                    <span class="param-value" id="val-sl-text-rot">0</span>
+                                </div>
+                            </section>
+                        </details>
+
+                        <details class="control-window" open>
+                            <summary>Font</summary>
+                            <section class="control-section">
+                                <div class="control-row">
+                                    <label for="sl-font">Family</label>
+                                    <select class="select-input" id="sl-font">
+                                        <option value="'ABC Diatype Mono', monospace">Diatype Mono</option>
+                                        <option value="'NG Hofmann', serif">NG Hofmann</option>
+                                        <option value="'Arnold', serif">Arnold</option>
+                                        <option value="sans-serif">Sans</option>
+                                        <option value="serif">Serif</option>
+                                        <option value="monospace">Mono</option>
+                                    </select>
+                                </div>
+                                <p class="hint">Drop a .ttf / .otf / .woff file onto the canvas to load
+                                    your own.</p>
+                            </section>
+                        </details>
+                    </div>
+
+                    <!-- ── Live (built from the shader param schema) ─────── -->
+                    <div class="tab-pane" data-pane="live" hidden>
+                        <div class="control-row">
+                            <button class="panel-button is-active" id="sl-play">Pause</button>
+                            <button class="panel-button" id="sl-reset-params">Reset</button>
+                        </div>
+                        <div id="live-controls"></div>
+                    </div>
+
+                    <!-- ── Output ───────────────────────────────────────── -->
+                    <div class="tab-pane" data-pane="output" hidden>
+                        <details class="control-window" open>
+                            <summary>Resolution</summary>
+                            <section class="control-section">
+                                <div class="control-row">
+                                    <label for="sl-res">Preset</label>
+                                    <select class="select-input" id="sl-res">
+                                        <option value="1920x1080">1920 × 1080</option>
+                                        <option value="1280x720">1280 × 720</option>
+                                        <option value="1080x1080">1080 × 1080</option>
+                                        <option value="1080x1920">1080 × 1920</option>
+                                        <option value="2560x1440">2560 × 1440</option>
+                                        <option value="3840x2160">3840 × 2160</option>
+                                    </select>
+                                </div>
+                            </section>
+                        </details>
+
+                        <details class="control-window" open>
+                            <summary>Audio</summary>
+                            <section class="control-section">
+                                <div class="control-row">
+                                    <button class="panel-button" id="sl-audio">Enable Mic</button>
+                                </div>
+                                <div class="control-row">
+                                    <label>Level</label>
+                                    <div class="meter"><span id="sl-audio-meter"></span></div>
+                                </div>
+                                <p class="hint">Drives the Audio section on the Live tab.</p>
+                            </section>
+                        </details>
+
+                        <details class="control-window" open>
+                            <summary>Send</summary>
+                            <section class="control-section">
+                                <div class="control-row">
+                                    <button class="panel-button" id="sl-popout">Open Output Window</button>
+                                </div>
+                                <div class="control-row">
+                                    <button class="panel-button" id="sl-export-ffgl">Export FFGL Bundle</button>
+                                </div>
+                                <p class="hint">The output window is chromeless and stays in sync over
+                                    BroadcastChannel. The bundle contains the baked atlas, the parameter
+                                    manifest and the shader source.</p>
+                            </section>
+                        </details>
+                    </div>
+
+                    <div class="shortcuts-block">
+                        <span>Shift — straight line</span>
+                        <span>Space — clear</span>
+                        <span>⌘Z — undo</span>
+                        <span>Tab — cycle tabs</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <style>
+        .app[aria-label="Sigil Live"] {
+            height: calc(100vh - 56px);
+            padding: 0;
+            gap: 0;
+        }
+
+        #stage {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0b0b0b;
+            overflow: hidden;
+        }
+
+        #stage-inner {
+            position: relative;
+            box-shadow: 0 0 0 1px #262626;
+        }
+
+        #stage-inner canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* The authoring canvas sits on top while drawing and hides once baked. */
+        #author-canvas {
+            background: #000;
+            cursor: crosshair;
+            touch-action: none;
+            z-index: 2;
+        }
+
+        #live-canvas {
+            z-index: 1;
+        }
+
+        #stage[data-mode="live"] #author-canvas {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #stage[data-mode="author"] #live-canvas {
+            opacity: 0;
+        }
+
+        #stage-badge {
+            position: absolute;
+            left: 12px;
+            bottom: 10px;
+            display: flex;
+            gap: 10px;
+            font: 10px/1 'ABC Diatype Mono', monospace;
+            letter-spacing: 0.08em;
+            color: #666;
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        #stage-badge span {
+            text-transform: uppercase;
+        }
+
+        .app[aria-label="Sigil Live"] .control-panel {
+            width: 292px;
+            flex: 0 0 292px;
+        }
+
+        .app[aria-label="Sigil Live"] .panel-body {
+            overflow-y: auto;
+        }
+
+        .app[aria-label="Sigil Live"] .control-row label:first-child {
+            width: 78px;
+            flex: 0 0 78px;
+        }
+
+        .control-row--stack {
+            display: block;
+        }
+
+        #sl-text {
+            width: 100%;
+            box-sizing: border-box;
+            font: 12px/1.4 'ABC Diatype Mono', monospace;
+            padding: 7px 8px;
+            border: 1px solid #000;
+            border-radius: 7px;
+            resize: vertical;
+            background: #fff;
+            color: #111;
+        }
+
+        .hint {
+            margin: 6px 0 0;
+            font-size: 10px;
+            line-height: 1.5;
+            color: #777;
+        }
+
+        .meter {
+            flex: 1;
+            height: 4px;
+            background: #ddd;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .meter span {
+            display: block;
+            height: 100%;
+            width: 0%;
+            background: #000;
+            transition: width 60ms linear;
+        }
+
+        .group-heading {
+            margin: 14px 0 4px;
+            font-size: 10px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: #999;
+        }
+
+        .group-heading:first-child {
+            margin-top: 4px;
+        }
+
+        .app[aria-label="Sigil Live"] .shortcuts-block {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        body.is-preview #stage {
+            background: #000;
+        }
+
+        body.is-preview #stage-badge {
+            display: none;
+        }
+
+        /* Output window: nothing but the render surface. */
+        body.is-output .site-shell {
+            height: 100vh;
+        }
+
+        body.is-output .tool-header,
+        body.is-output .control-panel,
+        body.is-output #stage-badge,
+        body.is-output #author-canvas {
+            display: none !important;
+        }
+
+        body.is-output #stage,
+        body.is-output .app[aria-label="Sigil Live"] {
+            height: 100vh;
+            padding: 0;
+            background: #000;
+        }
+
+        body.is-output #stage-inner {
+            box-shadow: none;
+        }
+    </style>
+
+    <script src="page-transition.js"></script>
+    <script src="sigil-shader.js"></script>
+    <script src="sigil-live.js"></script>
+</body>
+
+</html>
