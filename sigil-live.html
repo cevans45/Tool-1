@@ -125,8 +125,8 @@
                             <section class="control-section">
                                 <div class="control-row">
                                     <label for="sl-gen-time">Density</label>
-                                    <input type="range" id="sl-gen-time" min="0" max="100" step="1" value="55">
-                                    <span class="param-value" id="val-sl-gen-time">55</span>
+                                    <input type="range" id="sl-gen-time" min="0" max="100" step="1" value="32">
+                                    <span class="param-value" id="val-sl-gen-time">32</span>
                                 </div>
                                 <div class="control-row">
                                     <button class="panel-button" id="sl-generate">Generate Sigil</button>
@@ -293,6 +293,10 @@
             position: relative;
             flex: 1;
             min-width: 0;
+            min-height: 0;
+            /* Preview mode centres .app's children, which would collapse the stage to the
+               height of its contents — and its contents are sized from the stage. */
+            align-self: stretch;
             display: flex;
             align-items: center;
             justify-content: center;

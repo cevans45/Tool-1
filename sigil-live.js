@@ -44,7 +44,7 @@
         taperEnabled: false,
         mirrorX: true,
         mirrorY: false,
-        genTime: 55,
+        genTime: 32,
         genSeed: (Math.random() * 0x7fffffff) | 0,
 
         isDrawing: false,
@@ -110,7 +110,9 @@
         out.h = h;
         applyScale();
 
-        for (const c of [authorCanvas, liveCanvas, sigilCanvas, textCanvas]) {
+        // Authoring always works at full design resolution; the live canvas is sized by
+        // fitStage, which keeps the editor preview cheap.
+        for (const c of [authorCanvas, sigilCanvas, textCanvas]) {
             c.width = w;
             c.height = h;
         }
@@ -125,8 +127,42 @@
         const aw = Math.max(1, stage.clientWidth - pad * 2);
         const ah = Math.max(1, stage.clientHeight - pad * 2);
         const scale = Math.min(aw / out.w, ah / out.h);
-        stageInner.style.width = `${Math.round(out.w * scale)}px`;
-        stageInner.style.height = `${Math.round(out.h * scale)}px`;
+        // Before first layout the stage reports no size; fall back to the full output
+        // resolution rather than locking the canvas to a couple of pixels.
+        if (stage.clientWidth < 8 || stage.clientHeight < 8) {
+            stageInner.style.width = '';
+            stageInner.style.height = '';
+            setLiveSize(out.w, out.h);
+            return;
+        }
+        const dispW = Math.max(16, Math.round(out.w * scale));
+        const dispH = Math.max(16, Math.round(out.h * scale));
+        stageInner.style.width = `${dispW}px`;
+        stageInner.style.height = `${dispH}px`;
+
+        // The editor preview only ever gets seen at its displayed size, so rendering it
+        // at full output resolution burns fill rate for nothing. The output window and the
+        // export path still run at the real resolution.
+        setLiveSize(IS_OUTPUT ? out.w : Math.min(out.w, dispW), IS_OUTPUT ? out.h : Math.min(out.h, dispH));
+    }
+
+    // The preview canvas tracks the stage, and the stage settles after first layout and on
+    // every panel or window change, so observe it rather than guessing when to re-measure.
+    function observeStage() {
+        if (typeof ResizeObserver === 'undefined') return;
+        new ResizeObserver(() => fitStage()).observe(stage);
+    }
+
+    function setLiveSize(w, h) {
+        if (liveCanvas.width !== w) liveCanvas.width = w;
+        if (liveCanvas.height !== h) liveCanvas.height = h;
+    }
+
+    /** Render one frame at full output resolution and hand back the canvas. */
+    function renderAtFullSize() {
+        setLiveSize(out.w, out.h);
+        if (renderer && renderer.atlasReady) renderer.render(params, clock, audio);
+        return liveCanvas;
     }
 
     function designCoords(e) {
@@ -789,7 +825,9 @@
         requestAnimationFrame(frame);
         const dt = lastFrame ? Math.min(0.1, (ts - lastFrame) / 1000) : 0;
         lastFrame = ts;
-        if (state.playing) clock += dt;
+        // Speed scales the clock here rather than inside the shader, so moving the slider
+        // ramps the motion instead of jumping its phase. The FFGL port does the same.
+        if (state.playing) clock += dt * (params.speed != null ? params.speed : 1);
 
         pollAudio();
         if (renderer && renderer.atlasReady) renderer.render(params, clock, audio);
@@ -923,14 +961,18 @@
             for (const p of items) {
                 const row = document.createElement('div');
                 row.className = 'control-row';
+                row.dataset.paramRow = p.key;
 
                 const label = document.createElement('label');
                 label.textContent = p.label;
                 row.appendChild(label);
 
+                // data-param makes every generated control addressable by key, which is
+                // what a preset recall or an OSC mapping would bind against.
                 if (p.type === 'color') {
                     const input = document.createElement('input');
                     input.type = 'color';
+                    input.dataset.param = p.key;
                     input.value = p.def;
                     input.addEventListener('input', () => {
                         params[p.key] = input.value;
@@ -940,6 +982,7 @@
                 } else if (p.options) {
                     const sel = document.createElement('select');
                     sel.className = 'select-input';
+                    sel.dataset.param = p.key;
                     p.options.forEach((o, i) => {
                         const opt = document.createElement('option');
                         opt.value = String(i);
@@ -955,6 +998,7 @@
                 } else {
                     const input = document.createElement('input');
                     input.type = 'range';
+                    input.dataset.param = p.key;
                     input.min = p.min;
                     input.max = p.max;
                     input.step = p.step;
@@ -1204,11 +1248,16 @@
 
     // Hooks the shared export chrome in page-transition.js looks for.
     window.exportPagePNG = function () {
-        const live = state.tab === 'live' || state.tab === 'output';
-        return (live ? liveCanvas : authorCanvas).toDataURL('image/png');
+        if (state.tab !== 'live' && state.tab !== 'output') return authorCanvas.toDataURL('image/png');
+        const url = renderAtFullSize().toDataURL('image/png');
+        fitStage();   // back to the cheap preview size
+        return url;
     };
     window.prepareCanvasVideoExport = function () {
         setTab('live');
+        // Recording wants the real resolution for its whole duration, so fitStage is not
+        // called back until the next layout change.
+        setLiveSize(out.w, out.h);
         return liveCanvas;
     };
 
@@ -1226,6 +1275,7 @@
             liveCanvas.width = out.w;
             liveCanvas.height = out.h;
             fitStage();
+            observeStage();
             window.addEventListener('resize', fitStage);
             if (bus) bus.postMessage({ type: 'hello' });
             requestAnimationFrame(frame);
@@ -1237,6 +1287,7 @@
         setOutputSize(out.w, out.h);
         bindDrawing();
         setTab('draw');
+        observeStage();
         window.addEventListener('resize', fitStage);
 
         // Something on screen from the first frame beats an empty canvas.
