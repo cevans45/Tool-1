@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rite — OVRT</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="site-shell">
+        <header class="tool-header">
+            <a href="index.html" class="back-link">← Back to OVRT</a>
+            <span class="tool-title">Rite</span>
+        </header>
+
+        <div class="app" aria-label="Rite">
+            <div id="stage" data-mode="live">
+                <div id="stage-inner">
+                    <canvas id="rite-canvas"></canvas>
+                    <canvas id="ink-canvas"></canvas>
+                </div>
+                <div id="stage-badge">
+                    <span class="badge-name">RITE</span>
+                    <span id="badge-res">1920×1080</span>
+                    <span id="badge-fps">60 FPS</span>
+                    <span id="badge-bpm">120 BPM</span>
+                    <span id="badge-src">FREE RUN</span>
+                    <span id="badge-meter"><i></i><i></i><i></i><i></i></span>
+                </div>
+            </div>
+
+            <aside class="control-panel">
+                <header class="panel-header">
+                    <h2>Rite</h2>
+                    <button class="info-btn" id="info-btn" aria-label="About this tool">i</button>
+                </header>
+
+                <div class="info-overlay" id="info-overlay" hidden>
+                    <div class="info-content">
+                        <button class="info-close" id="info-close" aria-label="Close">×</button>
+                        <h3>Rite</h3>
+                        <p>The frame is cut into blocks. Each block holds one word set to its
+                            edges, a sigil, a field of colour, or nothing. A seed is a whole
+                            composition, so reseeding is a cut — and the music decides when to cut.</p>
+                        <h4>Motion</h4>
+                        <p>The six dials are routings, not parameters. Each one says how hard a
+                            part of the music drives a behaviour, so you wire the track to the
+                            frame once and then leave it alone.</p>
+                        <h4>Sigils</h4>
+                        <p><b>Draw a Sigil</b> opens a surface over the stage. Anything you keep
+                            goes into the library and gets placed into blocks, where it scratches
+                            itself in over four beats. With an empty library the engine draws its own.</p>
+                        <h4>Audio</h4>
+                        <p>Enable input and feed it from the desk. It tracks four bands, picks out
+                            onsets, locks a beat clock to the track, and flags breaks, drops and
+                            changes of sound. With nothing connected the clock free-runs at 120.</p>
+                        <h4>Output</h4>
+                        <p>Any resolution, including LED strips. <b>Fullscreen</b> renders at the
+                            true output size on whichever display it is on; <b>Output Window</b>
+                            gives you a chromeless copy that stays in step.</p>
+                    </div>
+                </div>
+
+                <div class="panel-body">
+                    <details class="control-window" open>
+                        <summary>Type</summary>
+                        <section class="control-section">
+                            <div class="control-row control-row--stack">
+                                <textarea id="rt-text" rows="3" placeholder="One word per block"></textarea>
+                            </div>
+                            <div class="control-row">
+                                <label for="rt-font">Face</label>
+                                <select class="select-input" id="rt-font">
+                                    <option value="'ABC Diatype Mono', monospace">Diatype Mono</option>
+                                    <option value="'NG Hofmann', serif">NG Hofmann</option>
+                                    <option value="'Arnold', serif">Arnold</option>
+                                    <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica</option>
+                                    <option value="Georgia, serif">Georgia</option>
+                                    <option value="Impact, sans-serif">Impact</option>
+                                </select>
+                            </div>
+                            <div class="control-row">
+                                <label for="rt-weight">Weight</label>
+                                <select class="select-input" id="rt-weight">
+                                    <option value="400">Regular</option>
+                                    <option value="700" selected>Bold</option>
+                                </select>
+                            </div>
+                            <div class="control-row">
+                                <label for="rt-name">Tag</label>
+                                <input type="text" class="text-input" id="rt-name" placeholder="OVRT">
+                            </div>
+                            <p class="hint">Drop a .otf / .ttf / .woff anywhere to use your own face.</p>
+                        </section>
+                    </details>
+
+                    <details class="control-window" open>
+                        <summary>Form</summary>
+                        <section class="control-section">
+                            <div class="control-row">
+                                <label for="rt-density">Density</label>
+                                <input type="range" id="rt-density" min="0" max="1" step="0.01">
+                                <span class="param-value" id="val-rt-density">45</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="rt-chaos">Chaos</label>
+                                <input type="range" id="rt-chaos" min="0" max="1" step="0.01">
+                                <span class="param-value" id="val-rt-chaos">35</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="rt-inkmix">Ink</label>
+                                <input type="range" id="rt-inkmix" min="0" max="1" step="0.01">
+                                <span class="param-value" id="val-rt-inkmix">30</span>
+                            </div>
+                            <div class="control-row">
+                                <button class="panel-button" id="rt-seed">New Seed</button>
+                                <button class="panel-button" id="rt-restructure">Restructure</button>
+                            </div>
+                        </section>
+                    </details>
+
+                    <details class="control-window" open>
+                        <summary>Motion</summary>
+                        <section class="control-section">
+                            <div id="route-controls"></div>
+                            <p class="hint">Each dial is a routing: how hard that part of the
+                                music drives that behaviour.</p>
+                        </section>
+                    </details>
+
+                    <details class="control-window" open>
+                        <summary>Colour</summary>
+                        <section class="control-section">
+                            <div class="control-row control-row--tabs">
+                                <div class="mode-switch mode-switch--wrap" id="scheme-switch"></div>
+                            </div>
+                            <div class="control-row">
+                                <button class="panel-button" id="rt-invert">Invert</button>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="rt-flip" checked>
+                                    <span class="toggle-box"></span>
+                                    <span class="cb-label">Flip on cut</span>
+                                </label>
+                            </div>
+                        </section>
+                    </details>
+
+                    <details class="control-window">
+                        <summary>Sigils</summary>
+                        <section class="control-section">
+                            <div class="control-row">
+                                <button class="panel-button" id="rt-draw">Draw a Sigil</button>
+                            </div>
+                            <div class="control-row">
+                                <label for="rt-marker">Mark</label>
+                                <select class="select-input" id="rt-marker">
+                                    <option value="line">Line</option>
+                                    <option value="none">Smooth</option>
+                                    <option value="grain">Grain</option>
+                                    <option value="dash">Dash</option>
+                                    <option value="hatch">Hatch</option>
+                                    <option value="grid">Grid</option>
+                                    <option value="sprinkle">Sprinkle</option>
+                                    <option value="inkblot">Inkblot</option>
+                                </select>
+                            </div>
+                            <div class="control-row">
+                                <label for="rt-brush">Weight</label>
+                                <input type="range" id="rt-brush" min="1" max="12" step="0.5">
+                                <span class="param-value" id="val-rt-brush">3</span>
+                            </div>
+                            <div class="control-row">
+                                <label>Mirror</label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="rt-mirror" checked>
+                                    <span class="toggle-box"></span>
+                                    <span class="cb-label">Axis</span>
+                                </label>
+                            </div>
+                            <div class="control-row">
+                                <button class="panel-button" id="rt-keep">Keep</button>
+                                <button class="panel-button" id="rt-discard">Discard</button>
+                            </div>
+                            <div id="ink-library" class="ink-library"></div>
+                        </section>
+                    </details>
+
+                    <details class="control-window">
+                        <summary>Audio</summary>
+                        <section class="control-section">
+                            <div class="control-row">
+                                <button class="panel-button" id="rt-mic">Enable Input</button>
+                            </div>
+                            <div class="control-row">
+                                <label for="rt-audio-file">File</label>
+                                <input type="file" id="rt-audio-file" accept="audio/*">
+                            </div>
+                            <p class="hint" id="audio-note"></p>
+                        </section>
+                    </details>
+
+                    <details class="control-window">
+                        <summary>Output</summary>
+                        <section class="control-section">
+                            <div class="control-row">
+                                <label for="rt-res">Preset</label>
+                                <select class="select-input" id="rt-res">
+                                    <option value="1920x1080">1920 × 1080</option>
+                                    <option value="1280x720">1280 × 720</option>
+                                    <option value="1080x1920">1080 × 1920</option>
+                                    <option value="1080x1080">1080 × 1080</option>
+                                    <option value="1536x256">1536 × 256 — strip</option>
+                                    <option value="768x256">768 × 256 — strip</option>
+                                    <option value="2560x1440">2560 × 1440</option>
+                                    <option value="3840x2160">3840 × 2160</option>
+                                </select>
+                            </div>
+                            <div class="control-row">
+                                <label for="rt-w">Size</label>
+                                <input type="number" class="text-input num-input" id="rt-w" value="1920" min="64"
+                                    max="7680">
+                                <input type="number" class="text-input num-input" id="rt-h" value="1080" min="64"
+                                    max="4320">
+                            </div>
+                            <div class="control-row">
+                                <button class="panel-button" id="rt-fullscreen">Fullscreen</button>
+                                <button class="panel-button" id="rt-popout">Output Window</button>
+                            </div>
+                            <div class="control-row">
+                                <button class="panel-button" id="rt-snapshot">Snapshot PNG</button>
+                            </div>
+                            <p class="hint">Fullscreen on a second display is the route into
+                                Resolume — capture that display, or point a Screen Capture source
+                                at it. The output window follows this one, so leave this one
+                                visible; a minimised window stops sending.</p>
+                        </section>
+                    </details>
+
+                    <div class="shortcuts-block">
+                        <span>Space — new seed</span>
+                        <span>C — restructure</span>
+                        <span>I — invert · B — scheme</span>
+                        <span>←→ chaos · ↑↓ density</span>
+                        <span>D — draw · S — snapshot</span>
+                        <span>F — fullscreen · H — hide UI</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <style>
+        .app[aria-label="Rite"] {
+            height: calc(100vh - 56px);
+            padding: 0;
+            gap: 0;
+        }
+
+        #stage {
+            position: relative;
+            flex: 1;
+            min-width: 0;
+            min-height: 0;
+            /* Preview mode centres .app's children, which would collapse the stage to the
+               height of its contents — and its contents are sized from the stage. */
+            align-self: stretch;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0b0b0b;
+            overflow: hidden;
+        }
+
+        #stage-inner {
+            position: relative;
+            box-shadow: 0 0 0 1px #262626;
+        }
+
+        #stage-inner canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #ink-canvas {
+            z-index: 2;
+            opacity: 0;
+            pointer-events: none;
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        #stage[data-mode="draw"] #ink-canvas {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #stage-badge {
+            position: absolute;
+            left: 12px;
+            top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font: 10px/1 'ABC Diatype Mono', monospace;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: #6c6c6c;
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        #stage-badge .badge-name {
+            color: #ccc;
+        }
+
+        #badge-meter {
+            display: flex;
+            gap: 3px;
+        }
+
+        #badge-meter i {
+            width: 7px;
+            height: 7px;
+            background: #d8d8d8;
+            opacity: 0.15;
+        }
+
+        .app[aria-label="Rite"] .control-panel {
+            width: 300px;
+            flex: 0 0 300px;
+        }
+
+        .app[aria-label="Rite"] .panel-body {
+            overflow-y: auto;
+        }
+
+        .app[aria-label="Rite"] .control-row label:first-child {
+            width: 104px;
+            flex: 0 0 104px;
+        }
+
+        .control-row--stack {
+            display: block;
+        }
+
+        .mode-switch--wrap {
+            flex-wrap: wrap;
+        }
+
+        #rt-text,
+        .text-input {
+            width: 100%;
+            box-sizing: border-box;
+            font: 12px/1.4 'ABC Diatype Mono', monospace;
+            padding: 7px 8px;
+            border: 1px solid #000;
+            border-radius: 7px;
+            background: #fff;
+            color: #111;
+        }
+
+        #rt-text {
+            resize: vertical;
+            text-transform: uppercase;
+        }
+
+        .num-input {
+            flex: 1;
+            min-width: 0;
+        }
+
+        #rt-audio-file {
+            flex: 1;
+            min-width: 0;
+            font: 10px/1.2 'ABC Diatype Mono', monospace;
+        }
+
+        .ink-library {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .ink-thumb {
+            width: 46px;
+            height: 46px;
+            border-radius: 5px;
+            cursor: pointer;
+            border: 1px solid #000;
+        }
+
+        .hint {
+            margin: 6px 0 0;
+            font-size: 10px;
+            line-height: 1.5;
+            color: #777;
+        }
+
+        .app[aria-label="Rite"] .shortcuts-block {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        body.hide-ui .tool-header,
+        body.hide-ui .control-panel,
+        body.hide-ui #stage-badge {
+            display: none !important;
+        }
+
+        body.hide-ui .app[aria-label="Rite"] {
+            height: 100vh;
+        }
+
+        body.is-preview #stage {
+            background: #000;
+        }
+
+        body.is-preview #stage-badge {
+            display: none;
+        }
+
+        /* Output window: nothing but the render surface. */
+        body.is-output .tool-header,
+        body.is-output .control-panel,
+        body.is-output #stage-badge,
+        body.is-output #ink-canvas {
+            display: none !important;
+        }
+
+        body.is-output .site-shell,
+        body.is-output #stage,
+        body.is-output .app[aria-label="Rite"] {
+            height: 100vh;
+            padding: 0;
+            background: #000;
+        }
+
+        body.is-output #stage-inner {
+            box-shadow: none;
+        }
+    </style>
+
+    <script src="page-transition.js"></script>
+    <script src="rite-audio.js"></script>
+    <script src="rite-sigil.js"></script>
+    <script src="rite.js"></script>
+</body>
+
+</html>
