@@ -19,7 +19,6 @@
             <div id="stage" data-mode="live">
                 <div id="stage-inner">
                     <canvas id="rite-canvas"></canvas>
-                    <canvas id="ink-canvas"></canvas>
                 </div>
                 <div id="stage-badge">
                     <span class="badge-name" id="badge-mode">BLOCKS</span>
@@ -45,8 +44,8 @@
                         <button class="info-close" id="info-close" aria-label="Close">×</button>
                         <h3>Rite</h3>
                         <p>The frame is cut into blocks. Each block holds one word set to its
-                            edges, a sigil, a dropped image, a field of colour, or nothing. A seed
-                            is a whole composition, so reseeding is a cut — and the music decides
+                            edges, a dropped image, a field of colour, or nothing. A seed is a
+                            whole composition, so reseeding is a cut — and the music decides
                             when to cut.</p>
                         <h4>Modes</h4>
                         <p><b>1–6</b> switch how the frame is partitioned: Blocks, Stack, Column,
@@ -58,15 +57,11 @@
                             then leave it alone.</p>
                         <h4>Training</h4>
                         <p><b>T</b> turns training on. Space keeps a composition, X rejects it.
-                            The generator then leans toward what you kept — density, chaos, ink
+                            The generator then leans toward what you kept — density, chaos, fill
                             and mode — without moving the sliders themselves.</p>
                         <h4>Scenes</h4>
                         <p><b>Ctrl+1–8</b> stores the current look. <b>Shift+1–8</b> recalls it.
                             Slots survive a reload.</p>
-                        <h4>Sigils</h4>
-                        <p>This is the twist. <b>Draw a Sigil</b> opens a surface over the stage.
-                            Anything you keep goes into the library and scratches itself into
-                            blocks over four beats. With an empty library the engine draws its own.</p>
                         <h4>Audio</h4>
                         <p>Enable input and feed it from the desk. It tracks four bands, picks out
                             onsets, locks a beat clock, and flags breaks, drops and changes of
@@ -117,17 +112,17 @@
                             <div class="control-row">
                                 <label for="rt-density">Density</label>
                                 <input type="range" id="rt-density" min="0" max="1" step="0.01">
-                                <span class="param-value" id="val-rt-density">45</span>
+                                <span class="param-value" id="val-rt-density">55</span>
                             </div>
                             <div class="control-row">
                                 <label for="rt-chaos">Chaos</label>
                                 <input type="range" id="rt-chaos" min="0" max="1" step="0.01">
-                                <span class="param-value" id="val-rt-chaos">35</span>
+                                <span class="param-value" id="val-rt-chaos">62</span>
                             </div>
                             <div class="control-row">
-                                <label for="rt-inkmix">Ink</label>
+                                <label for="rt-inkmix">Fill</label>
                                 <input type="range" id="rt-inkmix" min="0" max="1" step="0.01">
-                                <span class="param-value" id="val-rt-inkmix">30</span>
+                                <span class="param-value" id="val-rt-inkmix">72</span>
                             </div>
                             <div class="control-row">
                                 <button class="panel-button" id="rt-seed">New Seed</button>
@@ -173,46 +168,6 @@
                                     <span class="cb-label">Flip on cut</span>
                                 </label>
                             </div>
-                        </section>
-                    </details>
-
-                    <details class="control-window">
-                        <summary>Sigils</summary>
-                        <section class="control-section">
-                            <div class="control-row">
-                                <button class="panel-button" id="rt-draw">Draw a Sigil</button>
-                            </div>
-                            <div class="control-row">
-                                <label for="rt-marker">Mark</label>
-                                <select class="select-input" id="rt-marker">
-                                    <option value="line">Line</option>
-                                    <option value="none">Smooth</option>
-                                    <option value="grain">Grain</option>
-                                    <option value="dash">Dash</option>
-                                    <option value="hatch">Hatch</option>
-                                    <option value="grid">Grid</option>
-                                    <option value="sprinkle">Sprinkle</option>
-                                    <option value="inkblot">Inkblot</option>
-                                </select>
-                            </div>
-                            <div class="control-row">
-                                <label for="rt-brush">Weight</label>
-                                <input type="range" id="rt-brush" min="1" max="12" step="0.5">
-                                <span class="param-value" id="val-rt-brush">3</span>
-                            </div>
-                            <div class="control-row">
-                                <label>Mirror</label>
-                                <label class="checkbox-label">
-                                    <input type="checkbox" id="rt-mirror" checked>
-                                    <span class="toggle-box"></span>
-                                    <span class="cb-label">Axis</span>
-                                </label>
-                            </div>
-                            <div class="control-row">
-                                <button class="panel-button" id="rt-keep">Keep</button>
-                                <button class="panel-button" id="rt-discard">Discard</button>
-                            </div>
-                            <div id="ink-library" class="ink-library"></div>
                         </section>
                     </details>
 
@@ -295,7 +250,7 @@
                         <span>N — name · Enter — edit</span>
                         <span>I invert · B scheme · G free-run</span>
                         <span>←→ chaos · ↑↓ density</span>
-                        <span>D draw · S snapshot · F fullscreen · H hide</span>
+                        <span>S snapshot · F fullscreen · H hide</span>
                     </div>
                 </div>
             </aside>
@@ -335,19 +290,6 @@
             width: 100%;
             height: 100%;
             display: block;
-        }
-
-        #ink-canvas {
-            z-index: 2;
-            opacity: 0;
-            pointer-events: none;
-            cursor: crosshair;
-            touch-action: none;
-        }
-
-        #stage[data-mode="draw"] #ink-canvas {
-            opacity: 1;
-            pointer-events: auto;
         }
 
         #stage-badge {
@@ -445,21 +387,6 @@
             font: 10px/1.2 'ABC Diatype Mono', monospace;
         }
 
-        .ink-library {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 8px;
-        }
-
-        .ink-thumb {
-            width: 46px;
-            height: 46px;
-            border-radius: 5px;
-            cursor: pointer;
-            border: 1px solid #000;
-        }
-
         .slot-row {
             display: flex;
             gap: 4px;
@@ -543,8 +470,7 @@
         /* Output window: nothing but the render surface. */
         body.is-output .tool-header,
         body.is-output .control-panel,
-        body.is-output #stage-badge,
-        body.is-output #ink-canvas {
+        body.is-output #stage-badge {
             display: none !important;
         }
 
@@ -563,7 +489,6 @@
 
     <script src="page-transition.js"></script>
     <script src="rite-audio.js"></script>
-    <script src="rite-sigil.js"></script>
     <script src="rite.js"></script>
 </body>
 

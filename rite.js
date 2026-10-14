@@ -1,9 +1,9 @@
 /*
  * RITE — a composition engine that is performed by the music rather than by sliders.
  *
- * The frame is cut into blocks. Each block holds one word scaled to its edges, a sigil,
- * a flat field of colour, or nothing. The whole partition is derived from a single seed,
- * which means a seed is a composition and reseeding is a cut.
+ * The frame is cut into blocks. Each block holds one word scaled to its edges, a
+ * dropped image, a flat field of colour, or nothing. The whole partition is derived
+ * from a single seed, which means a seed is a composition and reseeding is a cut.
  *
  * Nothing eases between compositions. On a big screen an eased transition reads as a
  * smear; a hard cut on the beat reads as intent.
@@ -19,7 +19,6 @@
     'use strict';
 
     const { AudioEngine } = window.RiteAudio;
-    const { Ink, generate: genSigil, normalise, indexAt } = window.RiteSigil;
 
     const qs = new URLSearchParams(location.search);
     const IS_OUTPUT = qs.get('output') === '1';
@@ -48,8 +47,6 @@
     const stageInner = el('stage-inner');
     const canvas = el('rite-canvas');
     const ctx = canvas.getContext('2d');
-    const inkCanvas = el('ink-canvas');
-    const inkCtx = inkCanvas.getContext('2d');
 
     // ─── Schemes ───────────────────────────────────────────────────────────
     // Two colours only. A cell is either ink-on-paper or paper-on-ink, and that
@@ -94,18 +91,13 @@
         name: 'OVRT',
         font: "'ABC Diatype Mono', monospace",
         weight: 700,
-        density: 0.45,
-        chaos: 0.35,
-        inkMix: 0.3,
+        density: 0.55,
+        chaos: 0.62,
+        inkMix: 0.72,
         scheme: 1,
         invert: false,
         flipOnCut: true,
-        routes: { slam: 0.6, drift: 0.45, fracture: 0.35, cut: 0.35, strip: 0.7, blow: 0.8 },
-        marker: 'line',
-        brush: 3,
-        mirror: true,
-        drawMode: false,
-        library: [],
+        routes: { slam: 0.6, drift: 0.45, fracture: 0.35, cut: 0.55, strip: 0.7, blow: 0.8 },
         mode: 0,
         mediaShare: 0.5,
         seed: (Math.random() * 1e9) | 0,
@@ -168,7 +160,6 @@
     }
 
     const audio = new AudioEngine();
-    const ink = new Ink();
 
     // ─── Plate ─────────────────────────────────────────────────────────────
     // The composition is painted here once per cut. Frames blit rectangles out of it.
@@ -196,8 +187,8 @@
     // uniform. Equal divisions read as a spreadsheet; related ones read as a composition.
     function divide(rng, total, n, chaos) {
         const weights = [];
-        const pool = [1, 1, 1.618, 0.618, 2, 0.5];
-        const wild = [3, 0.33, 4, 0.25];
+        const pool = [1, 1, 1.618, 0.618, 2, 0.5, 2.5];
+        const wild = [3, 0.33, 4, 0.25, 5, 0.18, 0.12];
         for (let i = 0; i < n; i++) {
             const p = rng() < chaos * 0.5 ? wild : pool;
             weights.push(p[Math.floor(rng() * p.length)]);
@@ -214,12 +205,12 @@
      * 1536×256 strip — a wide frame simply splits vertically over and over.
      */
     function layoutBlocks(rng, w, h) {
-        const target = Math.round(lerp(4, 18, built.density) * lerp(0.75, 1.25, built.chaos));
-        const minDim = Math.min(w, h) * lerp(0.2, 0.08, built.density);
+        const target = Math.round(lerp(3, 20, built.density) * lerp(0.55, 1.55, built.chaos));
+        const minDim = Math.min(w, h) * lerp(0.12, 0.035, built.density);
 
         const list = [{ x: 0, y: 0, w, h }];
         const ratios = [0.5, 0.382, 0.618, 0.333, 0.667];
-        const wild = [0.25, 0.75, 0.2, 0.8];
+        const wild = [0.18, 0.82, 0.12, 0.88, 0.25, 0.75];
 
         let guard = 200;
         while (list.length < target && guard-- > 0) {
@@ -395,17 +386,28 @@
 
         list.sort((a, b) => b.w * b.h - a.w * a.h);
 
-        // Words get repeated across blocks rather than appearing once each. A frame with
-        // three words and twelve blocks should still read as typography, not as gaps.
-        const wordSlots = clamp(Math.round(list.length * 0.5), Math.min(list.length, tokens.length), list.length);
+        // How many blocks carry type is itself a seed choice. Repeating every word
+        // across half the frame is what made every cut look the same; the plugin
+        // usually gives a few words the big cells and leaves the rest as colour.
+        const cover = lerp(0.16, 0.38, 1 - built.chaos * 0.5) + rng() * 0.22;
+        const repeat = rng() < 0.28 + built.chaos * 0.25;
+        const wordSlots = repeat
+            ? clamp(Math.round(list.length * cover), Math.min(list.length, tokens.length), Math.max(1, list.length - 1))
+            : clamp(tokens.length, 1, Math.max(1, list.length - 1));
+
+        const order = tokens.slice();
+        if (rng() < built.chaos * 0.7) {
+            for (let i = order.length - 1; i > 0; i--) {
+                const j = Math.floor(rng() * (i + 1));
+                [order[i], order[j]] = [order[j], order[i]];
+            }
+        }
 
         list.forEach((c, i) => {
             c.id = i;
-            c.flip = state.flipOnCut ? rng() < 0.38 : i % 3 === 0;
-            // A mode that needs rotation says so; otherwise it only pays off in a tall
-            // block, because rotating a wide one wastes the space it was given.
+            c.flip = state.flipOnCut ? rng() < 0.48 : i % 3 === 0;
             c.rot = c.forceRot != null ? c.forceRot : 0;
-            if (c.forceRot == null && c.h > c.w * 1.5 && rng() < 0.3 + built.chaos * 0.45) {
+            if (c.forceRot == null && c.h > c.w * 1.35 && rng() < 0.22 + built.chaos * 0.5) {
                 c.rot = rng() < 0.5 ? -90 : 90;
             }
             c.dir = rng() * Math.PI * 2;
@@ -417,23 +419,19 @@
         const rest = list.slice(wordSlots);
         words.forEach((c, i) => {
             c.role = 'word';
-            c.text = tokens[i % tokens.length] || state.name;
+            c.text = order[i % order.length] || state.name;
         });
 
-        // Roles for everything that is not a word, then sorted so empty blocks end up
-        // being the small ones. A large block of flat colour carries the frame; a large
-        // block of nothing just drops a hole in it.
         const n = rest.length;
         if (n) {
-            const nSigil = clamp(Math.round(n * built.inkMix), 0, n - 1);
-            const nMedia = media.length ? clamp(Math.round((n - nSigil) * state.mediaShare), 0, n - nSigil - 1) : 0;
-            const spare = n - nSigil - nMedia - 1;
-            const nVoid = Math.max(0, Math.round(spare * 0.35));
+            const nMedia = media.length ? clamp(Math.round(n * state.mediaShare), 0, n - 1) : 0;
+            const spare = Math.max(0, n - nMedia - 1);
+            const nFill = clamp(Math.round(spare * built.inkMix), 0, spare);
+            const nVoid = spare - nFill;
             const roles = [];
-            for (let i = 0; i < nSigil; i++) roles.push('sigil');
             for (let i = 0; i < nMedia; i++) roles.push('media');
             roles.push('meta');
-            for (let i = 0; i < spare - nVoid; i++) roles.push('fill');
+            for (let i = 0; i < nFill; i++) roles.push('fill');
             for (let i = 0; i < nVoid; i++) roles.push('void');
 
             for (let i = roles.length - 1; i > 0; i--) {
@@ -444,26 +442,14 @@
             roles.sort((a, b) => weight(a) - weight(b));
 
             rest.forEach((c, i) => {
-                c.role = roles[i];
-                if (c.role === 'media') {
-                    c.media = media[Math.floor(rng() * media.length)];
-                    c.crop = { x: rng() * 0.3, y: rng() * 0.3, s: 0.7 + rng() * 0.3 };
-                    return;
-                }
-                if (c.role !== 'sigil') return;
-                c.path = pickPath(rng);
-                c.revealed = 0;
-                c.target = 0;
-                c.marker = state.marker;
+                c.role = roles[i] || 'fill';
+                if (c.role !== 'media') return;
+                c.media = media[Math.floor(rng() * media.length)];
+                c.crop = { x: rng() * 0.35, y: rng() * 0.35, s: 0.55 + rng() * 0.45 };
             });
         }
 
         return list;
-    }
-
-    function pickPath(rng) {
-        if (state.library.length) return state.library[Math.floor(rng() * state.library.length)];
-        return genSigil((rng() * 1e9) | 0, lerp(0.25, 0.9, built.chaos));
     }
 
     // ─── Painting the plate ────────────────────────────────────────────────
@@ -494,7 +480,6 @@
         if (c.role === 'word') paintWord(c, col);
         else if (c.role === 'meta') paintMeta(c, col);
         else if (c.role === 'media' && c.media && c.media.kind === 'image') paintMedia(c);
-        // Sigil cells fill in over the following beats, so nothing is painted now.
         // Video cells are drawn live each frame, since the plate only updates on a cut.
 
         pctx.restore();
@@ -585,7 +570,7 @@
         // A block's proportions almost never match a word's, so a plain contain-fit
         // leaves one axis empty and the frame reads thin. Letting the short axis stretch
         // up to MAX_STRETCH fills the block the way a condensed or extended cut would.
-        const MAX_STRETCH = 1.9;
+        const MAX_STRETCH = 2.6;
         const base = Math.min(boxW / inkW, boxH / inkH);
         const fx = Math.min(boxW / inkW, base * MAX_STRETCH);
         const fy = Math.min(boxH / inkH, base * MAX_STRETCH);
@@ -622,47 +607,19 @@
         lines.forEach((t, i) => pctx.fillText(t, c.x + pad, c.y + pad + i * size * 1.22));
     }
 
-    /*
-     * Advances sigil cells. Each beat extends the target; each frame draws a bounded
-     * slice of the gap onto the plate. The cap is what keeps a dense sigil from
-     * dropping a frame when it first appears.
-     */
-    const DRAW_BUDGET = 60;
-
-    function advanceInk(onBeat) {
-        for (const c of cells) {
-            if (c.role !== 'sigil' || !c.path) continue;
-            const n = c.path.points.length;
-            if (onBeat && c.target < n) {
-                // Four beats to lay a sigil down: fast enough to read as drawing, slow
-                // enough that you see it happen.
-                c.target = Math.min(n, c.target + Math.ceil(n / 4));
-            }
-            if (c.revealed >= c.target) continue;
-
-            const to = Math.min(c.target, c.revealed + DRAW_BUDGET);
-            const col = colorsFor(c);
-            pctx.save();
-            pctx.beginPath();
-            pctx.rect(c.x, c.y, c.w, c.h);
-            pctx.clip();
-            ink.drawRange(pctx, c.path, { x: c.x, y: c.y, w: c.w, h: c.h }, c.revealed, to, {
-                brush: state.brush,
-                marker: c.marker || state.marker,
-                color: col.fg,
-                mirrorX: state.mirror,
-                taper: true,
-            });
-            pctx.restore();
-            c.revealed = to;
-        }
-    }
-
     // ─── Cutting ───────────────────────────────────────────────────────────
 
     function reseed(seed, forceBuilt) {
+        const fresh = seed == null;
         state.seed = seed != null ? seed : (Math.random() * 1e9) | 0;
         state.index++;
+        // A new seed is allowed to hop modes, which is what stops every cut landing
+        // in the same partition family. The mode keys still pin it when you want that.
+        if (fresh && !state.training && !IS_OUTPUT && Math.random() < 0.55 + state.chaos * 0.2) {
+            state.mode = (Math.random() * MODES.length) | 0;
+            const sel = el('rt-mode');
+            if (sel) sel.value = String(state.mode);
+        }
 
         // Every composition records the values it was generated from. In training those
         // are explored around the sliders; otherwise they are the sliders. Either way
@@ -720,11 +677,8 @@
 
         if (ev.beat) {
             motion.beatPulse = 1;
-            advanceInk(true);
             // Training owns the seed, so the music does not steal the frame you are judging.
             if (!state.training && r.cut > 0 && Math.random() < r.cut * r.cut) reseed();
-        } else {
-            advanceInk(false);
         }
         motion.beatPulse = Math.max(0, motion.beatPulse - dt * 4);
 
@@ -861,105 +815,11 @@
     function setCanvasSize(w, h) {
         if (canvas.width !== w) canvas.width = w;
         if (canvas.height !== h) canvas.height = h;
-        inkCanvas.width = Math.min(1024, w);
-        inkCanvas.height = Math.round(inkCanvas.width * (out.h / out.w));
     }
 
     function observeStage() {
         if (typeof ResizeObserver === 'undefined') return;
         new ResizeObserver(() => fitStage()).observe(stage);
-    }
-
-    // ─── Drawing your own sigils ───────────────────────────────────────────
-
-    let drawing = null;
-
-    function inkCoords(e) {
-        const r = inkCanvas.getBoundingClientRect();
-        return {
-            x: (e.clientX - r.left) / r.width,
-            y: (e.clientY - r.top) / r.height,
-        };
-    }
-
-    function repaintInk() {
-        inkCtx.setTransform(1, 0, 0, 1, 0, 0);
-        inkCtx.fillStyle = '#111';
-        inkCtx.fillRect(0, 0, inkCanvas.width, inkCanvas.height);
-        if (!drawing || drawing.length < 2) return;
-        const path = normalise(drawing.map((p) => (p ? { x: p.x, y: p.y, seed: p.seed } : null)));
-        if (!path) return;
-        const pad = inkCanvas.width * 0.06;
-        ink.draw(inkCtx, path, {
-            x: pad, y: pad,
-            w: inkCanvas.width - pad * 2,
-            h: inkCanvas.height - pad * 2,
-        }, { brush: state.brush, marker: state.marker, color: '#fff', mirrorX: state.mirror, taper: true });
-    }
-
-    function bindDrawing() {
-        const down = (e) => {
-            if (!state.drawMode) return;
-            inkCanvas.setPointerCapture(e.pointerId);
-            const p = inkCoords(e);
-            if (drawing && drawing.length) drawing.push(null);
-            else drawing = [];
-            drawing.push({ x: p.x, y: p.y, seed: (Math.random() * 0xFFFFFFFF) >>> 0 });
-            e.preventDefault();
-        };
-        const move = (e) => {
-            if (!state.drawMode || !drawing || !inkCanvas.hasPointerCapture(e.pointerId)) return;
-            const p = inkCoords(e);
-            const prev = drawing[drawing.length - 1];
-            if (prev && Math.hypot(p.x - prev.x, p.y - prev.y) < 0.004) return;
-            drawing.push({ x: p.x, y: p.y, seed: (Math.random() * 0xFFFFFFFF) >>> 0 });
-            repaintInk();
-            e.preventDefault();
-        };
-        const up = (e) => {
-            if (!state.drawMode) return;
-            try { inkCanvas.releasePointerCapture(e.pointerId); } catch (err) { /* already released */ }
-        };
-        inkCanvas.addEventListener('pointerdown', down);
-        inkCanvas.addEventListener('pointermove', move);
-        inkCanvas.addEventListener('pointerup', up);
-        inkCanvas.addEventListener('pointercancel', up);
-    }
-
-    function keepSigil() {
-        if (!drawing || drawing.filter(Boolean).length < 3) return;
-        const path = normalise(drawing.map((p) => (p ? { x: p.x, y: p.y, seed: p.seed, marker: state.marker } : null)));
-        if (!path) return;
-        state.library.push(path);
-        drawing = null;
-        repaintInk();
-        renderLibrary();
-        reseed(state.seed);
-    }
-
-    function renderLibrary() {
-        const host = el('ink-library');
-        host.innerHTML = '';
-        if (!state.library.length) {
-            host.innerHTML = '<p class="hint">No sigils kept yet — the engine will generate its own.</p>';
-            return;
-        }
-        state.library.forEach((path, i) => {
-            const c = document.createElement('canvas');
-            c.width = 56; c.height = 56;
-            c.className = 'ink-thumb';
-            c.title = 'Click to remove';
-            const cc = c.getContext('2d');
-            cc.fillStyle = '#111';
-            cc.fillRect(0, 0, 56, 56);
-            ink.draw(cc, path, { x: 4, y: 4, w: 48, h: 48 }, { brush: 2.5, marker: 'line', color: '#fff' });
-            c.addEventListener('click', () => {
-                state.library.splice(i, 1);
-                renderLibrary();
-                reseed(state.seed);
-            });
-            host.appendChild(c);
-        });
     }
 
     // ─── Output window ─────────────────────────────────────────────────────
@@ -978,9 +838,8 @@
                 text: state.text, name: state.name, font: state.font, weight: state.weight,
                 density: state.density, chaos: state.chaos, inkMix: state.inkMix,
                 scheme: state.scheme, invert: state.invert, flipOnCut: state.flipOnCut,
-                routes: state.routes, marker: state.marker, brush: state.brush,
-                mirror: state.mirror, seed: state.seed, index: state.index,
-                library: state.library, mode: state.mode, mediaShare: state.mediaShare,
+                routes: state.routes, seed: state.seed, index: state.index,
+                mode: state.mode, mediaShare: state.mediaShare,
                 training: state.training, freeRun: state.freeRun, built,
             },
             out: { w: out.w, h: out.h },
@@ -1120,7 +979,6 @@
         bindRange('rt-chaos', () => state.chaos, (v) => { state.chaos = v; reseed(state.seed); }, (v) => String(Math.round(v * 100)));
         bindRange('rt-inkmix', () => state.inkMix, (v) => { state.inkMix = v; reseed(state.seed); }, (v) => String(Math.round(v * 100)));
         bindRange('rt-mediashare', () => state.mediaShare, (v) => { state.mediaShare = v; reseed(state.seed); }, (v) => String(Math.round(v * 100)));
-        bindRange('rt-brush', () => state.brush, (v) => { state.brush = v; repaintInk(); }, (v) => String(Math.round(v)));
 
         el('rt-seed').addEventListener('click', () => reseed());
         el('rt-restructure').addEventListener('click', () => restructure());
@@ -1148,18 +1006,6 @@
         const flip = el('rt-flip');
         flip.checked = state.flipOnCut;
         flip.addEventListener('change', () => { state.flipOnCut = flip.checked; reseed(state.seed); });
-
-        const markerEl = el('rt-marker');
-        markerEl.value = state.marker;
-        markerEl.addEventListener('change', () => { state.marker = markerEl.value; repaintInk(); });
-
-        const mirrorEl = el('rt-mirror');
-        mirrorEl.checked = state.mirror;
-        mirrorEl.addEventListener('change', () => { state.mirror = mirrorEl.checked; repaintInk(); });
-
-        el('rt-draw').addEventListener('click', () => setDrawMode(!state.drawMode));
-        el('rt-keep').addEventListener('click', () => keepSigil());
-        el('rt-discard').addEventListener('click', () => { drawing = null; repaintInk(); });
 
         const resEl = el('rt-res');
         resEl.addEventListener('change', () => {
@@ -1199,14 +1045,6 @@
         state.invert = !state.invert;
         el('rt-invert').classList.toggle('is-active', state.invert);
         reseed(state.seed);
-    }
-
-    function setDrawMode(on) {
-        state.drawMode = on;
-        stage.dataset.mode = on ? 'draw' : 'live';
-        el('rt-draw').classList.toggle('is-active', on);
-        el('rt-draw').textContent = on ? 'Close Drawing' : 'Draw a Sigil';
-        if (on) repaintInk();
     }
 
     function setAudioNote(msg) {
@@ -1258,14 +1096,11 @@
     }
 
     function storeSlot(n) {
-        // The sigil library is deliberately left out: it can be megabytes of path data
-        // and it is not part of what a scene is for.
         slots[n] = {
             text: state.text, name: state.name, font: state.font, weight: state.weight,
             density: state.density, chaos: state.chaos, inkMix: state.inkMix,
             scheme: state.scheme, invert: state.invert, flipOnCut: state.flipOnCut,
             routes: Object.assign({}, state.routes), mode: state.mode,
-            marker: state.marker, brush: state.brush, mirror: state.mirror,
             mediaShare: state.mediaShare, seed: state.seed,
         };
         try { localStorage.setItem(SLOT_KEY, JSON.stringify(slots)); } catch (e) { /* quota, ignore */ }
@@ -1333,7 +1168,6 @@
                 case 'f': case 'F': goFullscreen(); break;
                 case 'h': case 'H': document.body.classList.toggle('hide-ui'); break;
                 case 's': case 'S': snapshot(); break;
-                case 'd': case 'D': setDrawMode(!state.drawMode); break;
                 case 'r': case 'R': resetAll(); break;
                 case 'ArrowRight': setForm('chaos', state.chaos + step); e.preventDefault(); break;
                 case 'ArrowLeft': setForm('chaos', state.chaos - step); e.preventDefault(); break;
@@ -1390,7 +1224,7 @@
 
     function resetAll() {
         Object.assign(state, {
-            density: 0.45, chaos: 0.35, inkMix: 0.3, mode: 0, invert: false,
+            density: 0.55, chaos: 0.62, inkMix: 0.72, mode: 0, invert: false,
             routes: { slam: 0.6, drift: 0.45, fracture: 0.35, cut: 0.35, strip: 0.7, blow: 0.8 },
         });
         taste.bias = { density: 0, chaos: 0, inkMix: 0 };
@@ -1409,18 +1243,16 @@
         const setLabel = (id, v) => { const n = el(`val-${id}`); if (n) n.textContent = v; };
         setVal('rt-text', state.text); setVal('rt-name', state.name);
         setVal('rt-font', state.font); setVal('rt-weight', state.weight);
-        setVal('rt-mode', state.mode); setVal('rt-marker', state.marker);
+        setVal('rt-mode', state.mode);
         for (const [id, v] of [['rt-density', state.density], ['rt-chaos', state.chaos],
         ['rt-inkmix', state.inkMix], ['rt-mediashare', state.mediaShare]]) {
             setVal(id, v); setLabel(id, String(Math.round(v * 100)));
         }
-        setVal('rt-brush', state.brush); setLabel('rt-brush', String(state.brush));
         for (const r of ROUTES) {
             setVal(`rt-${r.key}`, Math.round(state.routes[r.key] * 10));
             setLabel(`rt-${r.key}`, String(Math.round(state.routes[r.key] * 10)));
         }
         const flip = el('rt-flip'); if (flip) flip.checked = state.flipOnCut;
-        const mir = el('rt-mirror'); if (mir) mir.checked = state.mirror;
         const inv = el('rt-invert'); if (inv) inv.classList.toggle('is-active', state.invert);
         [...el('scheme-switch').children].forEach((b, j) => b.classList.toggle('is-active', j === state.scheme));
     }
@@ -1584,8 +1416,6 @@
             buildRoutes();
             buildSchemes();
             wireUI();
-            renderLibrary();
-            bindDrawing();
             bindDrops();
             bindKeys();
             renderSlots();
