@@ -22,12 +22,15 @@
                     <canvas id="ink-canvas"></canvas>
                 </div>
                 <div id="stage-badge">
-                    <span class="badge-name">RITE</span>
+                    <span class="badge-name" id="badge-mode">BLOCKS</span>
                     <span id="badge-res">1920×1080</span>
                     <span id="badge-fps">60 FPS</span>
+                    <span id="badge-ms">16.7 MS</span>
                     <span id="badge-bpm">120 BPM</span>
                     <span id="badge-src">FREE RUN</span>
+                    <span id="badge-zoom">100%</span>
                     <span id="badge-meter"><i></i><i></i><i></i><i></i></span>
+                    <span id="badge-flash"></span>
                 </div>
             </div>
 
@@ -42,24 +45,32 @@
                         <button class="info-close" id="info-close" aria-label="Close">×</button>
                         <h3>Rite</h3>
                         <p>The frame is cut into blocks. Each block holds one word set to its
-                            edges, a sigil, a field of colour, or nothing. A seed is a whole
-                            composition, so reseeding is a cut — and the music decides when to cut.</p>
+                            edges, a sigil, a dropped image, a field of colour, or nothing. A seed
+                            is a whole composition, so reseeding is a cut — and the music decides
+                            when to cut.</p>
+                        <h4>Modes</h4>
+                        <p><b>1–6</b> switch how the frame is partitioned: Blocks, Stack, Column,
+                            Frame, Scatter, Solo. Content, motion and colour are shared, so the
+                            mode is just a different reading of the same machine.</p>
                         <h4>Motion</h4>
-                        <p>The six dials are routings, not parameters. Each one says how hard a
-                            part of the music drives a behaviour, so you wire the track to the
-                            frame once and then leave it alone.</p>
+                        <p>The six dials are routings, 0–10. Each one says how hard a part of the
+                            music drives a behaviour, so you wire the track to the frame once and
+                            then leave it alone.</p>
+                        <h4>Training</h4>
+                        <p><b>T</b> turns training on. Space keeps a composition, X rejects it.
+                            The generator then leans toward what you kept — density, chaos, ink
+                            and mode — without moving the sliders themselves.</p>
+                        <h4>Scenes</h4>
+                        <p><b>Ctrl+1–8</b> stores the current look. <b>Shift+1–8</b> recalls it.
+                            Slots survive a reload.</p>
                         <h4>Sigils</h4>
-                        <p><b>Draw a Sigil</b> opens a surface over the stage. Anything you keep
-                            goes into the library and gets placed into blocks, where it scratches
-                            itself in over four beats. With an empty library the engine draws its own.</p>
+                        <p>This is the twist. <b>Draw a Sigil</b> opens a surface over the stage.
+                            Anything you keep goes into the library and scratches itself into
+                            blocks over four beats. With an empty library the engine draws its own.</p>
                         <h4>Audio</h4>
                         <p>Enable input and feed it from the desk. It tracks four bands, picks out
-                            onsets, locks a beat clock to the track, and flags breaks, drops and
-                            changes of sound. With nothing connected the clock free-runs at 120.</p>
-                        <h4>Output</h4>
-                        <p>Any resolution, including LED strips. <b>Fullscreen</b> renders at the
-                            true output size on whichever display it is on; <b>Output Window</b>
-                            gives you a chromeless copy that stays in step.</p>
+                            onsets, locks a beat clock, and flags breaks, drops and changes of
+                            sound. <b>G</b> free-runs the clock without unplugging anything.</p>
                     </div>
                 </div>
 
@@ -100,6 +111,10 @@
                         <summary>Form</summary>
                         <section class="control-section">
                             <div class="control-row">
+                                <label for="rt-mode">Mode</label>
+                                <select class="select-input" id="rt-mode"></select>
+                            </div>
+                            <div class="control-row">
                                 <label for="rt-density">Density</label>
                                 <input type="range" id="rt-density" min="0" max="1" step="0.01">
                                 <span class="param-value" id="val-rt-density">45</span>
@@ -118,6 +133,20 @@
                                 <button class="panel-button" id="rt-seed">New Seed</button>
                                 <button class="panel-button" id="rt-restructure">Restructure</button>
                             </div>
+                            <div class="control-row">
+                                <button class="panel-button" id="rt-reset">Reset</button>
+                                <button class="panel-button" id="rt-train">Train</button>
+                            </div>
+                            <p class="hint" id="train-readout">0 kept, 0 rejected. Press T to train.</p>
+                        </section>
+                    </details>
+
+                    <details class="control-window" open>
+                        <summary>Scenes</summary>
+                        <section class="control-section">
+                            <div id="slot-row" class="slot-row"></div>
+                            <p class="hint">Click to recall. Shift-click to store. Same as
+                                Shift+1–8 and Ctrl+1–8.</p>
                         </section>
                     </details>
 
@@ -188,10 +217,30 @@
                     </details>
 
                     <details class="control-window">
+                        <summary>Media</summary>
+                        <section class="control-section">
+                            <div class="control-row">
+                                <label for="rt-mediashare">Share</label>
+                                <input type="range" id="rt-mediashare" min="0" max="1" step="0.01">
+                                <span class="param-value" id="val-rt-mediashare">50</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="rt-media-file">Add</label>
+                                <input type="file" id="rt-media-file" accept="image/*,video/*" multiple>
+                            </div>
+                            <div class="control-row">
+                                <button class="panel-button" id="rt-media-clear">Clear media</button>
+                            </div>
+                            <div id="media-library" class="media-library"></div>
+                        </section>
+                    </details>
+
+                    <details class="control-window">
                         <summary>Audio</summary>
                         <section class="control-section">
                             <div class="control-row">
                                 <button class="panel-button" id="rt-mic">Enable Input</button>
+                                <button class="panel-button" id="rt-freerun">Free Run</button>
                             </div>
                             <div class="control-row">
                                 <label for="rt-audio-file">File</label>
@@ -239,12 +288,14 @@
                     </details>
 
                     <div class="shortcuts-block">
-                        <span>Space — new seed</span>
-                        <span>C — restructure</span>
-                        <span>I — invert · B — scheme</span>
+                        <span>1–6 — mode</span>
+                        <span>Space — seed · T — train · X — reject</span>
+                        <span>C — restructure · R — reset</span>
+                        <span>⇧1–8 scene · ⌃1–8 store</span>
+                        <span>N — name · Enter — edit</span>
+                        <span>I invert · B scheme · G free-run</span>
                         <span>←→ chaos · ↑↓ density</span>
-                        <span>D — draw · S — snapshot</span>
-                        <span>F — fullscreen · H — hide UI</span>
+                        <span>D draw · S snapshot · F fullscreen · H hide</span>
                     </div>
                 </div>
             </aside>
@@ -330,6 +381,20 @@
             opacity: 0.15;
         }
 
+        #badge-flash {
+            color: #fff;
+            opacity: 0;
+            transition: opacity 120ms linear;
+        }
+
+        #badge-flash.is-on {
+            opacity: 1;
+        }
+
+        body.is-training #stage-badge .badge-name {
+            color: #ccff00;
+        }
+
         .app[aria-label="Rite"] .control-panel {
             width: 300px;
             flex: 0 0 300px;
@@ -393,6 +458,55 @@
             border-radius: 5px;
             cursor: pointer;
             border: 1px solid #000;
+        }
+
+        .slot-row {
+            display: flex;
+            gap: 4px;
+        }
+
+        .slot {
+            flex: 1;
+            min-width: 0;
+            height: 28px;
+            border: 1px solid #000;
+            border-radius: 6px;
+            background: #fff;
+            font: 11px/1 'ABC Diatype Mono', monospace;
+            cursor: pointer;
+        }
+
+        .slot.is-filled {
+            background: #111;
+            color: #fff;
+        }
+
+        .media-library {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .media-thumb {
+            width: 46px;
+            height: 46px;
+            padding: 0;
+            border-radius: 5px;
+            border: 1px solid #000;
+            background: #111;
+            color: #fff;
+            font: 9px/46px 'ABC Diatype Mono', monospace;
+            text-align: center;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+        .media-thumb img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
 
         .hint {

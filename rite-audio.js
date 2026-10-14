@@ -148,12 +148,14 @@
 
         // ─── Per-frame analysis ────────────────────────────────────────────
 
-        update(dt) {
+        // `free` ignores whatever is connected and runs the internal clock instead, so a
+        // look can be set against a steady pulse without unplugging anything.
+        update(dt, free) {
             const ev = this.events;
             ev.beat = ev.bar = ev.phrase = ev.break = ev.drop = ev.newSound = false;
             dt = clamp(dt, 0.001, 0.1);
 
-            if (!this.ready) { this._freeRun(dt); return; }
+            if (!this.ready || free) { this._freeRun(dt); return; }
 
             this.analyser.getFloatFrequencyData(this.spectrum);
             const spec = this.spectrum;
