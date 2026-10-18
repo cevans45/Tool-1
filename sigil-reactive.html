@@ -31,18 +31,14 @@
                         <h3>What each control does</h3>
                         <p style="font-size:12px;line-height:1.5;color:#444;margin:0 0 14px;">Trace images sit behind your drawing for reference only—they are not included in PNG or SVG export.</p>
                         <dl>
-                            <dt>Sketch / Generate / Live</dt>
-                            <dd><strong>Sketch</strong> — draw by hand. <strong>Generate</strong> — procedural random paths. <strong>Live</strong> — the same drawing, driven by the music.</dd>
+                            <dt>Sketch / Live</dt>
+                            <dd><strong>Sketch</strong> — draw by hand. <strong>Live</strong> — the same drawing, driven by the music.</dd>
                             <dt>Upload image</dt>
                             <dd>Loads a reference behind the canvas for tracing.</dd>
                             <dt>Image opacity</dt>
                             <dd>How visible the trace image is; 0 is invisible.</dd>
                             <dt>Image scale</dt>
                             <dd>100% fits the image within the canvas; lower zooms out, higher zooms in.</dd>
-                            <dt>Generate</dt>
-                            <dd>Runs a new random path in Generate mode.</dd>
-                            <dt>Draw time</dt>
-                            <dd>Higher values produce longer, denser generated paths.</dd>
                             <dt>DRAW / ERASE</dt>
                             <dd>DRAW adds ink. ERASE removes with a soft cut (destination-out). Sketch tab only.</dd>
                             <dt>Mirror</dt>
@@ -94,7 +90,6 @@
                         <div class="control-row" style="margin:0;">
                             <div class="mode-switch" style="width:100%; margin:0;">
                                 <button type="button" id="el-tab-sketch" class="panel-button is-active">Sketch</button>
-                                <button type="button" id="el-tab-generate" class="panel-button">Generate</button>
                                 <button type="button" id="el-tab-animate" class="panel-button">Live</button>
                             </div>
                         </div>
@@ -118,16 +113,6 @@
                                 <label for="el-image-scale">Image scale</label>
                                 <input type="range" id="el-image-scale" min="10" max="200" value="100" step="5">
                                 <span class="param-value" id="val-el-image-scale">100%</span>
-                            </div>
-
-                            <div class="control-row" id="el-generate-row" style="gap:6px; margin-top:0; display:none;">
-                                <button type="button" id="el-generate" class="panel-button" style="flex:1;">Generate</button>
-                            </div>
-
-                            <div class="control-row" id="el-generate-time-row" style="gap:10px; margin-top:0; display:none;">
-                                <label for="el-generate-time">Draw time</label>
-                                <input type="range" id="el-generate-time" min="0" max="100" value="55" step="1">
-                                <span class="param-value" id="val-el-generate-time">55</span>
                             </div>
 
                             <div class="control-row" id="el-mode-row" style="margin-bottom:12px;">
@@ -232,7 +217,6 @@
                         <section class="control-section">
                             <div class="control-row" style="gap:6px; margin-bottom:10px;">
                                 <button type="button" id="el-anim-toggle" class="panel-button is-active" style="flex:1;">Pause</button>
-                                <button type="button" id="el-anim-new" class="panel-button" style="flex:1;">New path</button>
                             </div>
 
                             <div class="control-row rx-source-row">
@@ -590,15 +574,9 @@
         const animMirrorEl = el('el-anim-mirror');
         const animMirrorYEl = el('el-anim-mirror-y');
         const tabSketchBtn = el('el-tab-sketch');
-        const tabGenerateBtn = el('el-tab-generate');
         const tabAnimateBtn = el('el-tab-animate');
         const animWindow = el('el-anim-window');
         const sketchWindow = el('el-sketch-window');
-        const generateRow = el('el-generate-row');
-        const generateBtn = el('el-generate');
-        const genTimeRow = el('el-generate-time-row');
-        const genTimeEl = el('el-generate-time');
-        const genTimeVal = el('val-el-generate-time');
         const modeRowEl = el('el-mode-row');
         const strokeEl = el('el-stroke');
         const strokeVal = el('val-el-stroke');
@@ -962,20 +940,17 @@
         }
 
         function setUiTab(tab) {
+            if (tab !== 'sketch' && tab !== 'animate') tab = 'sketch';
             if (state.isDrawing) stopDrawing();
             state.uiTab = tab;
             if (tab !== 'sketch') state.isDrawing = false;
             tabSketchBtn?.classList.toggle('is-active', tab === 'sketch');
-            tabGenerateBtn?.classList.toggle('is-active', tab === 'generate');
             tabAnimateBtn?.classList.toggle('is-active', tab === 'animate');
 
-            if (generateRow) generateRow.style.display = tab === 'generate' ? 'flex' : 'none';
-            if (genTimeRow) genTimeRow.style.display = tab === 'generate' ? 'flex' : 'none';
             if (animWindow) animWindow.style.display = tab === 'animate' ? '' : 'none';
-            // Fold the sketch controls away on Animate so the animation panel is right there.
+            // Fold the sketch controls away on Live so the audio panel is right there.
             if (sketchWindow) sketchWindow.open = tab !== 'animate';
 
-            // Mode controls are only for Sketch. Generate always draws.
             if (modeRowEl) modeRowEl.style.display = tab === 'sketch' ? '' : 'none';
             if (tab === 'sketch') setMode(state.sketchMode);
             else setMode('ink');
@@ -2038,14 +2013,14 @@
             reverse: false,
             warp: 0.12,    // rest displacement; audio distort stacks on top
             swell: 0.22,
-            charge: 0.42,
+            charge: 0,     // keep sketch fill / ink; no travelling heat tint
             bleed: 0.38,
             jitter: 0.12,
-            flicker: 0.16,
-            sparks: 0.28,
+            flicker: 0.08,
+            sparks: 0.12,
             crackle: 0.16,
             trails: 0.18,
-            glow: 0.42,
+            glow: 0,
             sparkColor: '#ffffff'
         };
 
@@ -2122,9 +2097,9 @@
                 motion: anim.motion,
                 warp: (anim.warp + distort) * s.warpMul,
                 swell: (anim.swell + thick) * s.swellMul,
-                charge: anim.charge + distort * 0.25 + thick * 0.15,
+                charge: 0,
                 bleed: clamp(anim.bleed + growth * 0.9, 0, 1.6),
-                flicker: anim.flicker + detail * 0.45,
+                flicker: anim.flicker + detail * 0.25,
                 sparks: anim.sparks,
                 crackle: anim.crackle,
                 glow: anim.glow
@@ -2393,6 +2368,8 @@
             attack: 0.022,
             release: 0.22,
             env: { low: 0, mid: 0, high: 0 },
+            form: { scale: 1, scaleV: 0, rot: 0, rotV: 0 },
+            realDt: 0.016,
             gate: { low: 0, mid: 0, high: 0 },
             fx: {
                 expand:  { on: true, band: 'low',  amt: 0.85 },
@@ -2430,30 +2407,28 @@
             const a = rx.audio;
             if (!a) return;
             a.update(realDt);
+            rx.realDt = realDt;
             const s = rx.sensitivity;
             let lowT, midT, highT;
             if (!a.ready) {
                 // Idle clock is one pulse. Offset the three bands so the preview
                 // still layers expand / distort / thickness instead of pumping as one.
                 const wrap = (x) => x - Math.floor(x);
-                const pulse = (p, exp) => Math.pow(1 - wrap(p), exp);
+                const sine = (p) => 0.5 - 0.5 * Math.cos(wrap(p) * Math.PI * 2);
                 const ph = a.beatPhase;
-                lowT = clamp((0.08 + pulse(ph, 3) * 0.95) * s, 0, 1.45);
-                midT = clamp((0.07 + pulse(ph + 0.37, 2.2) * 0.65) * s, 0, 1.45);
-                highT = clamp((0.06 + pulse(ph * 2, 1.6) * 0.5 + pulse(ph * 4 + 0.12, 4) * 0.35) * s, 0, 1.45);
+                lowT = clamp((0.1 + sine(ph) * 0.72) * s, 0, 1.2);
+                midT = clamp((0.08 + sine(ph + 0.33) * 0.55) * s, 0, 1.2);
+                highT = clamp((0.06 + sine(ph * 2) * 0.4 + sine(ph * 4) * 0.22) * s, 0, 1.2);
             } else {
-                lowT = clamp((a.bands.bass * 1.15 + a.bands.lowMid * 0.28 + a.onsets.bass * 0.65) * s, 0, 1.45);
-                midT = clamp((a.bands.mid * 1.05 + a.bands.lowMid * 0.4 + a.onsets.mid * 0.5) * s, 0, 1.45);
-                highT = clamp((a.bands.high * 1.25 + a.onsets.high * 0.45) * s, 0, 1.45);
+                // Expand/growth follow band energy, not onsets — onsets are binary spikes
+                // and make scale jump. Mid/high keep a little onset for transients.
+                lowT = clamp((a.bands.bass * 1.45 + a.bands.lowMid * 0.22) * s, 0, 1.2);
+                midT = clamp((a.bands.mid * 1.1 + a.bands.lowMid * 0.35 + a.onsets.mid * 0.22) * s, 0, 1.2);
+                highT = clamp((a.bands.high * 1.3 + a.onsets.high * 0.2) * s, 0, 1.2);
             }
             rx.env.low = rxFollow(rx.env.low, lowT, realDt);
             rx.env.mid = rxFollow(rx.env.mid, midT, realDt);
             rx.env.high = rxFollow(rx.env.high, highT, realDt);
-            if (a.events.beat) rx.env.low = Math.max(rx.env.low, 0.22 + a.onsets.bass * 0.7);
-            if (a.events.drop) {
-                rx.env.low = Math.max(rx.env.low, 0.95);
-                rx.env.mid = Math.max(rx.env.mid, 0.7);
-            }
             rx.gate.low = Math.max(0, rx.gate.low - realDt);
             rx.gate.mid = Math.max(0, rx.gate.mid - realDt);
             rx.gate.high = Math.max(0, rx.gate.high - realDt);
@@ -2517,10 +2492,29 @@
         function animApplyAudioForm() {
             const pts = animData.pts;
             if (!pts.length) return;
-            const expand = rxDrive('expand');
-            const rot = rxDrive('rotate') * 0.55;
-            if (expand < 0.002 && Math.abs(rot) < 0.0008) return;
-            const scale = 1 + expand * 0.62;
+            const dt = Math.min(0.05, Math.max(0.001, rx.realDt || 0.016));
+            const targetScale = 1 + rxDrive('expand') * 0.5;
+            const targetRot = rxDrive('rotate') * 0.42;
+            // Spring so bass pushes scale continuously instead of teleporting
+            // between rest and a hit size.
+            const stiff = 18, damp = 8.2;
+            rx.form.scaleV += ((targetScale - rx.form.scale) * stiff - rx.form.scaleV * damp) * dt;
+            rx.form.scale += rx.form.scaleV * dt;
+            rx.form.rotV += ((targetRot - rx.form.rot) * stiff - rx.form.rotV * damp) * dt;
+            rx.form.rot += rx.form.rotV * dt;
+            if (rx.form.scale < 0.55) { rx.form.scale = 0.55; rx.form.scaleV = 0; }
+            if (rx.form.scale > 1.85) { rx.form.scale = 1.85; rx.form.scaleV = 0; }
+
+            const scale = rx.form.scale;
+            const rot = rx.form.rot;
+            if (Math.abs(scale - 1) < 0.001 && Math.abs(rot) < 0.0004 &&
+                Math.abs(rx.form.scaleV) < 0.002 && Math.abs(rx.form.rotV) < 0.002) {
+                rx.form.scale = 1;
+                rx.form.scaleV = 0;
+                rx.form.rot = 0;
+                rx.form.rotV = 0;
+                return;
+            }
             const cs = Math.cos(rot);
             const sn = Math.sin(rot);
             const cx = cssWidth * 0.5;
@@ -2821,9 +2815,6 @@
             const prevTaper = state.currentTaper;
             const prevSpeed = state.currentSpeed;
             const prevTotal = state.strokeTotalDist;
-            const tintFill = state.fillEnabled;
-            const hot = cfg.charge > 0.005;
-            let lastBucket = -1;
 
             for (let i = 0; i < segs.length; i++) {
                 const sg = segs[i];
@@ -2836,16 +2827,6 @@
                     : 1;
                 const pump = 1 + cfg.swell * (a - 0.3) * 1.7;
                 state.brushSize = Math.max(0.2, baseBrush * pump * shimmer);
-
-                if (hot) {
-                    const bucket = Math.max(0, Math.min(8, Math.round(a * 8 * cfg.charge)));
-                    if (bucket !== lastBucket) {
-                        const c = animData.hotColors[bucket];
-                        if (tintFill) state.fillColor = c;
-                        else state.inkColor = c;
-                        lastBucket = bucket;
-                    }
-                }
 
                 state.currentTaper = { cumDist1: sg.cum1, cumDist2: sg.cum2, totalDist: sg.total };
                 state.currentSpeed = sg.speed;
@@ -2875,7 +2856,7 @@
             const jitterAmt = state.brushSize * (0.6 + cfg.jitter * 3.4);
             ctx.globalCompositeOperation = 'source-over';
             ctx.shadowBlur = 0;
-            let lastBucket = -1;
+            ctx.fillStyle = currentInkColor();
 
             const step = animData.quality >= 0.999 ? 1 : Math.max(1, Math.round(1 / animData.quality));
             for (let k = 0; k < sites.length; k += step) {
@@ -2889,12 +2870,6 @@
                 const ay = site.ay + site.pa.dy;
                 const bx = site.bx + site.pb.dx;
                 const by = site.by + site.pb.dy;
-
-                const bucket = Math.min(8, Math.round(a * 8 * Math.max(0.1, cfg.glow)));
-                if (bucket !== lastBucket) {
-                    ctx.fillStyle = animData.hotColors[bucket];
-                    lastBucket = bucket;
-                }
 
                 const growReach = Math.pow(site.closeness, 0.8) * (0.2 + reachAmt * 0.8) * (0.2 + a);
                 if (growReach < 0.02) continue;
@@ -2944,7 +2919,7 @@
             const count = Math.max(1, Math.round(cfg.sparks * 42));
             const dir = cfg.reverse ? -1 : 1;
             ctx.globalCompositeOperation = 'source-over';
-            ctx.fillStyle = animData.sparkStyle;
+            ctx.fillStyle = currentInkColor();
 
             for (let i = 0; i < count; i++) {
                 const phase = animHash01(Math.imul(i + 1, 2246822519));
@@ -2960,7 +2935,7 @@
                 const r = Math.max(0.4, state.brushSize * (0.16 + cfg.sparks * 0.34) * (0.45 + twinkle));
                 if (cfg.glow > 0) {
                     ctx.shadowBlur = r * 3.2 * cfg.glow;
-                    ctx.shadowColor = animData.sparkStyle;
+                    ctx.shadowColor = currentInkColor();
                 }
                 const pts = mirroredPoints(x, y);
                 for (let pi = 0; pi < pts.length; pi++) {
@@ -3069,6 +3044,10 @@
             if (anim.active === on) return;
             anim.active = on;
             if (on) {
+                rx.form.scale = 1;
+                rx.form.scaleV = 0;
+                rx.form.rot = 0;
+                rx.form.rotV = 0;
                 animRebuild();
                 animData.lastTs = 0;
                 animData.dirty = true;
@@ -3107,6 +3086,10 @@
         function animResetMotionState() {
             animData.events.length = 0;
             animData.eventDue = 0;
+            rx.form.scale = 1;
+            rx.form.scaleV = 0;
+            rx.form.rot = 0;
+            rx.form.rotV = 0;
             const pts = animData.pts;
             for (let i = 0; i < pts.length; i++) {
                 const p = pts[i];
@@ -3156,9 +3139,7 @@
         animMirrorYEl?.addEventListener('change', () => setMirrorY(animMirrorYEl.checked));
 
         tabSketchBtn?.addEventListener('click', () => setUiTab('sketch'));
-        tabGenerateBtn?.addEventListener('click', () => setUiTab('generate'));
         tabAnimateBtn?.addEventListener('click', () => setUiTab('animate'));
-        generateBtn?.addEventListener('click', generateRandomDrawing);
 
         // Animation controls
         const animToggleBtn = el('el-anim-toggle');
@@ -3166,11 +3147,6 @@
             anim.playing = !anim.playing;
             animToggleBtn.textContent = anim.playing ? 'Pause' : 'Play';
             animToggleBtn.classList.toggle('is-active', anim.playing);
-            animTouch();
-        });
-
-        el('el-anim-new')?.addEventListener('click', () => {
-            generateRandomDrawing();
             animTouch();
         });
 
@@ -3462,12 +3438,6 @@
             rerenderGenerateCurrent();
         });
 
-        genTimeEl?.addEventListener('input', (e) => {
-            state.generateTime = parseInt(e.target.value, 10);
-            genTimeVal.textContent = String(state.generateTime);
-            if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
-        });
-
         function escapeXmlAttr(str) {
             return String(str)
                 .replace(/&/g, '&amp;')
@@ -3599,12 +3569,10 @@
         const bootParams = new URLSearchParams(window.location.search);
         const urlTab = bootParams.get('tab');
         const isPreview = bootParams.get('preview') === '1';
-        setUiTab(urlTab === 'generate' ? 'generate' : 'sketch');
+        setUiTab('sketch');
         renderMarkerPreview();
         resize();
-        if (urlTab === 'generate') {
-            generateRandomDrawing({ newSeed: true, pushUndo: false });
-        } else if (urlTab === 'animate' || isPreview) {
+        if (urlTab === 'animate' || isPreview) {
             generateRandomDrawing({ newSeed: true, pushUndo: false });
             setUiTab('animate');
         }
