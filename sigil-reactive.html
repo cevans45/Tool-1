@@ -16,6 +16,83 @@
         </header>
 
         <div class="app" aria-label="Sigil Pulse">
+            <div class="pulse-typebar" id="el-type-panel">
+                <div class="typebar-row">
+                    <button type="button" id="el-mode-type" class="panel-button">TYPE</button>
+                    <textarea id="el-type-text" rows="1" spellcheck="false" class="sg-textarea" aria-label="Text">SIGIL</textarea>
+                    <div class="typebar-item">
+                        <label for="el-type-size">Size</label>
+                        <input type="range" id="el-type-size" min="20" max="800" value="140" step="1">
+                        <span class="param-value" id="val-el-type-size">140</span>
+                    </div>
+                    <div class="typebar-item">
+                        <label for="el-type-spacing">Spacing</label>
+                        <input type="range" id="el-type-spacing" min="-50" max="250" value="0" step="1">
+                        <span class="param-value" id="val-el-type-spacing">0</span>
+                    </div>
+                    <div class="typebar-item">
+                        <label for="el-type-line">Line</label>
+                        <input type="range" id="el-type-line" min="0.1" max="8.0" value="1.2" step="0.05">
+                        <span class="param-value" id="val-el-type-line">1.20</span>
+                    </div>
+                    <div class="typebar-item">
+                        <span class="typebar-kicker">Align</span>
+                        <div class="mode-switch" id="el-type-align">
+                            <button type="button" class="panel-button" data-align="left">L</button>
+                            <button type="button" class="panel-button is-active" data-align="center">C</button>
+                            <button type="button" class="panel-button" data-align="right">R</button>
+                        </div>
+                    </div>
+                    <div class="typebar-item">
+                        <span class="typebar-kicker">Render</span>
+                        <div class="mode-switch">
+                            <button type="button" class="panel-button is-active" id="el-type-fill-btn">FILL</button>
+                            <button type="button" class="panel-button" id="el-type-stroke-btn">STROKE</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="typebar-row">
+                    <div class="typebar-item typebar-color">
+                        <label for="el-type-fill-color">Fill</label>
+                        <input type="color" id="el-type-fill-color" value="#000000" aria-label="Type fill color">
+                    </div>
+                    <div class="typebar-item typebar-color">
+                        <label for="el-type-stroke-color">Stroke</label>
+                        <input type="color" id="el-type-stroke-color" value="#000000" aria-label="Type stroke color">
+                    </div>
+                    <div class="typebar-item">
+                        <label for="el-type-outline">Outline</label>
+                        <input type="range" id="el-type-outline" min="0.5" max="24" value="1.5" step="0.1">
+                        <span class="param-value" id="val-el-type-outline">1.5</span>
+                    </div>
+                    <div class="typebar-item typebar-color">
+                        <label for="el-type-offset-color">Offset</label>
+                        <input type="color" id="el-type-offset-color" value="#000000" aria-label="Type offset color">
+                    </div>
+                    <div class="typebar-item">
+                        <label for="el-type-offset">Path</label>
+                        <input type="range" id="el-type-offset" min="0" max="80" value="0" step="1">
+                        <span class="param-value" id="val-el-type-offset">0</span>
+                    </div>
+                    <div class="typebar-item">
+                        <label for="el-type-offstroke">Weight</label>
+                        <input type="range" id="el-type-offstroke" min="0.5" max="24" value="2" step="0.1">
+                        <span class="param-value" id="val-el-type-offstroke">2.0</span>
+                    </div>
+                    <div class="typebar-item">
+                        <span class="typebar-kicker">Layer</span>
+                        <div class="mode-switch" id="el-type-layer">
+                            <button type="button" class="panel-button is-active" data-layer="front">FRONT</button>
+                            <button type="button" class="panel-button" data-layer="back">BEHIND</button>
+                        </div>
+                    </div>
+                    <div class="typebar-item typebar-font">
+                        <div id="el-type-font-hint" class="sg-font-hint">Drop a font on the canvas</div>
+                        <button type="button" id="el-type-font-reset" class="panel-button" hidden>Reset font</button>
+                    </div>
+                </div>
+            </div>
+            <div class="pulse-main">
             <div id="sketch-container">
                 <canvas id="canvas"></canvas>
                 <canvas id="type-canvas"></canvas>
@@ -42,9 +119,9 @@
                             <dt>Image scale</dt>
                             <dd>100% fits the image within the canvas; lower zooms out, higher zooms in.</dd>
                             <dt>DRAW / ERASE / TYPE</dt>
-                            <dd>DRAW sketches. ERASE cuts. TYPE places and moves real, readable text — click empty canvas to add a block, drag to reposition. Sketching is locked while TYPE is on.</dd>
+                            <dd>DRAW and ERASE live on the right. TYPE is in the top bar — click empty canvas to add a block, drag to reposition. Sketching is locked while TYPE is on.</dd>
                             <dt>Text</dt>
-                            <dd>Same layout as Typo: size, tracking, line height, L/C/R align. Fill and Stroke are the letter itself. Outline is the stroke weight. Offset path draws a separate stroked contour around the type. Drop a <strong>.ttf / .otf / .woff</strong> on the canvas for a custom face. Delete removes the selected block.</dd>
+                            <dd>Type lives in the top bar, independent of the sketch. Fill / Stroke / Offset each have their own color. Outline is letter stroke weight. Offset path is a separate contour. Layer puts type in front of or behind the sketch. Drop a <strong>.ttf / .otf / .woff</strong> on the canvas for a custom face. Delete removes the selected block.</dd>
                             <dt>Mirror</dt>
                             <dd>Duplicates strokes across the vertical and/or horizontal axis from the canvas center. The same two toggles sit in the Animation panel, so you can flip them while a composition is moving — the reflections pick up the motion too.</dd>
                             <dt>Stroke size</dt>
@@ -123,61 +200,7 @@
                                 <div class="mode-switch" style="width:100%; margin:0;">
                                     <button type="button" id="el-mode-ink" class="panel-button is-active">DRAW</button>
                                     <button type="button" id="el-mode-cut" class="panel-button">ERASE</button>
-                                    <button type="button" id="el-mode-type" class="panel-button">TYPE</button>
                                 </div>
-                            </div>
-
-                            <div id="el-type-panel" hidden>
-                            <div class="control-row control-row--stack" style="margin-bottom:8px;">
-                                <textarea id="el-type-text" rows="2" spellcheck="false" class="sg-textarea" aria-label="Text">SIGIL</textarea>
-                            </div>
-                            <div class="control-row">
-                                <label for="el-type-size">Font size</label>
-                                <input type="range" id="el-type-size" min="20" max="800" value="140" step="1">
-                                <span class="param-value" id="val-el-type-size">140</span>
-                            </div>
-                            <div class="control-row">
-                                <label for="el-type-spacing">Spacing</label>
-                                <input type="range" id="el-type-spacing" min="-50" max="250" value="0" step="1">
-                                <span class="param-value" id="val-el-type-spacing">0</span>
-                            </div>
-                            <div class="control-row">
-                                <label for="el-type-line">Line height</label>
-                                <input type="range" id="el-type-line" min="0.1" max="8.0" value="1.2" step="0.05">
-                                <span class="param-value" id="val-el-type-line">1.20</span>
-                            </div>
-                            <div class="control-row">
-                                <label>Align</label>
-                                <div class="mode-switch mode-switch--full" id="el-type-align">
-                                    <button type="button" class="panel-button" data-align="left">L</button>
-                                    <button type="button" class="panel-button is-active" data-align="center">C</button>
-                                    <button type="button" class="panel-button" data-align="right">R</button>
-                                </div>
-                            </div>
-                            <div class="control-row">
-                                <label>Render</label>
-                                <div class="mode-switch mode-switch--full">
-                                    <button type="button" class="panel-button is-active" id="el-type-fill-btn">FILL</button>
-                                    <button type="button" class="panel-button" id="el-type-stroke-btn">STROKE</button>
-                                </div>
-                            </div>
-                            <div class="control-row">
-                                <label for="el-type-outline">Outline</label>
-                                <input type="range" id="el-type-outline" min="0.5" max="24" value="1.5" step="0.1">
-                                <span class="param-value" id="val-el-type-outline">1.5</span>
-                            </div>
-                            <div class="control-row">
-                                <label for="el-type-offset">Offset</label>
-                                <input type="range" id="el-type-offset" min="0" max="80" value="0" step="1">
-                                <span class="param-value" id="val-el-type-offset">0</span>
-                            </div>
-                            <div class="control-row">
-                                <label for="el-type-offstroke">Offset stroke</label>
-                                <input type="range" id="el-type-offstroke" min="0.5" max="24" value="2" step="0.1">
-                                <span class="param-value" id="val-el-type-offstroke">2.0</span>
-                            </div>
-                            <div id="el-type-font-hint" class="sg-font-hint">Drop a font on the canvas</div>
-                            <button type="button" id="el-type-font-reset" class="panel-button" hidden style="margin-bottom:10px;">Reset font</button>
                             </div>
 
                             <label class="checkbox-label">
@@ -459,6 +482,7 @@
                     </details>
                 </div>
             </aside>
+            </div>
         </div>
     </div>
 
@@ -490,8 +514,94 @@
             padding: 0;
             gap: 0;
             align-items: stretch;
-            /* Make the canvas fill the space the panel isn't covering (no centering). */
+            flex-direction: column;
             justify-content: flex-start;
+        }
+        .pulse-main {
+            display: flex;
+            flex: 1 1 auto;
+            min-height: 0;
+            min-width: 0;
+            align-items: stretch;
+            justify-content: flex-start;
+        }
+        .pulse-main .control-panel {
+            height: auto;
+            align-self: stretch;
+        }
+        .pulse-typebar {
+            flex: 0 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px 12px;
+            border-bottom: 1px solid #111;
+            background: #fff;
+        }
+        .pulse-typebar .typebar-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px 12px;
+        }
+        .pulse-typebar.is-type-on {
+            background: #f6f6f6;
+        }
+        .app[aria-label="Sigil Pulse"] .pulse-typebar .sg-textarea {
+            width: 148px;
+            min-height: 32px;
+            height: 32px;
+            resize: none;
+            margin: 0;
+        }
+        .pulse-typebar .typebar-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            min-width: 0;
+        }
+        .pulse-typebar .typebar-item label,
+        .pulse-typebar .typebar-kicker {
+            flex: none;
+            width: auto;
+            font-size: 10px;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #444;
+            white-space: nowrap;
+        }
+        .pulse-typebar .typebar-item input[type="range"] {
+            width: 84px;
+        }
+        .pulse-typebar .param-value {
+            min-width: 28px;
+            font-size: 10px;
+        }
+        .pulse-typebar .mode-switch {
+            margin: 0;
+            width: auto;
+        }
+        .pulse-typebar .mode-switch .panel-button {
+            min-width: 36px;
+            padding: 4px 8px;
+        }
+        .pulse-typebar input[type="color"] {
+            width: 28px;
+            height: 22px;
+            padding: 0;
+            border: 1px solid #000;
+            background: #fff;
+            cursor: pointer;
+        }
+        .pulse-typebar .typebar-font {
+            gap: 8px;
+        }
+        .pulse-typebar .sg-font-hint {
+            margin: 0;
+            white-space: nowrap;
+        }
+        body.is-preview .pulse-typebar {
+            display: none;
         }
 
         #sketch-container canvas {
@@ -501,6 +611,10 @@
             touch-action: none;
             background: transparent;
         }
+        #sketch-container #canvas {
+            position: relative;
+            z-index: 1;
+        }
         #type-canvas {
             position: absolute;
             inset: 0;
@@ -508,6 +622,15 @@
             height: 100%;
             pointer-events: none;
             z-index: 2;
+        }
+        #sketch-container.is-type-behind #canvas {
+            z-index: 2;
+        }
+        #sketch-container.is-type-behind #type-canvas {
+            z-index: 1;
+        }
+        #sketch-container.is-type-tool.is-type-behind #canvas {
+            pointer-events: none;
         }
         #sketch-container.is-type-tool #type-canvas {
             pointer-events: auto;
@@ -767,8 +890,12 @@
             typeOutline: 1.5,
             typeOffset: 0,
             typeOffsetStroke: 2,
+            typeFillColor: '#000000',
+            typeStrokeColor: '#000000',
+            typeOffsetColor: '#000000',
             typeFontFamily: 'Helvetica, Arial, sans-serif',
             typeFontFile: null,
+            typeLayer: 'front',
             texts: [],
             activeTextId: null,
             mirrorEnabled: true,   // left-right
@@ -1334,10 +1461,18 @@
             const container = document.getElementById('sketch-container');
             const typeOn = tool === 'type' && state.uiTab === 'sketch';
             container?.classList.toggle('is-type-tool', typeOn);
-            const typePanel = el('el-type-panel');
-            if (typePanel) typePanel.hidden = !typeOn;
+            el('el-type-panel')?.classList.toggle('is-type-on', typeOn);
             if (tool !== 'type') state.activeTextId = null;
+            applyTypeLayer();
             drawTypeLayer();
+        }
+
+        function applyTypeLayer() {
+            const container = document.getElementById('sketch-container');
+            container?.classList.toggle('is-type-behind', state.typeLayer === 'back');
+            document.querySelectorAll('#el-type-layer [data-layer]').forEach((b) => {
+                b.classList.toggle('is-active', b.getAttribute('data-layer') === state.typeLayer);
+            });
         }
 
         /** Mirror is offered in both the Sketch and Animate panels, so both copies show the truth. */
@@ -1932,7 +2067,10 @@
                 strokeOn: state.typeStrokeOn,
                 outline: state.typeOutline,
                 offset: state.typeOffset,
-                offsetStroke: state.typeOffsetStroke
+                offsetStroke: state.typeOffsetStroke,
+                fillColor: state.typeFillColor,
+                strokeColor: state.typeStrokeColor,
+                offsetColor: state.typeOffsetColor
             };
         }
 
@@ -1998,7 +2136,7 @@
                     const dist = Math.max(0, t.offset);
                     const w = Math.max(0.5, t.offsetStroke || 0.5);
                     c.save();
-                    c.strokeStyle = state.outlineColor;
+                    c.strokeStyle = t.offsetColor || state.typeOffsetColor || '#000000';
                     c.lineWidth = dist * 2 + w;
                     typeDrawString(c, t, 'stroke');
                     c.globalCompositeOperation = 'destination-out';
@@ -2012,11 +2150,11 @@
                     c.restore();
                 }
                 if (t.fillOn !== false) {
-                    c.fillStyle = state.inkColor;
+                    c.fillStyle = t.fillColor || state.typeFillColor || '#000000';
                     typeDrawString(c, t, 'fill');
                 }
                 if (t.strokeOn) {
-                    c.strokeStyle = state.outlineColor;
+                    c.strokeStyle = t.strokeColor || state.typeStrokeColor || '#000000';
                     c.lineWidth = Math.max(0.5, t.outline);
                     typeDrawString(c, t, 'stroke');
                 }
@@ -2060,10 +2198,27 @@
             t.outline = state.typeOutline;
             t.offset = state.typeOffset;
             t.offsetStroke = state.typeOffsetStroke;
+            t.fillColor = state.typeFillColor;
+            t.strokeColor = state.typeStrokeColor;
+            t.offsetColor = state.typeOffsetColor;
         }
 
         function typeSyncPanel() {
             const t = typeActive() || typeDefaults();
+            state.typeText = t.text || '';
+            state.typeSize = t.size;
+            state.typeSpacing = t.spacing;
+            state.typeLine = t.lineHeight;
+            state.typeAlign = t.align;
+            state.typeFontFamily = t.fontFamily || state.typeFontFamily;
+            state.typeFillOn = t.fillOn !== false;
+            state.typeStrokeOn = !!t.strokeOn;
+            state.typeOutline = t.outline;
+            state.typeOffset = t.offset;
+            state.typeOffsetStroke = t.offsetStroke;
+            state.typeFillColor = t.fillColor || state.typeFillColor || '#000000';
+            state.typeStrokeColor = t.strokeColor || state.typeStrokeColor || '#000000';
+            state.typeOffsetColor = t.offsetColor || state.typeOffsetColor || '#000000';
             const textEl = el('el-type-text');
             if (textEl && textEl !== document.activeElement) textEl.value = t.text || '';
             const sizeEl = el('el-type-size');
@@ -2095,6 +2250,12 @@
             if (osEl) osEl.value = String(t.offsetStroke);
             const osVal = el('val-el-type-offstroke');
             if (osVal) osVal.textContent = Number(t.offsetStroke).toFixed(1);
+            const fillCol = el('el-type-fill-color');
+            if (fillCol) fillCol.value = t.fillColor || state.typeFillColor || '#000000';
+            const strokeCol = el('el-type-stroke-color');
+            if (strokeCol) strokeCol.value = t.strokeColor || state.typeStrokeColor || '#000000';
+            const offCol = el('el-type-offset-color');
+            if (offCol) offCol.value = t.offsetColor || state.typeOffsetColor || '#000000';
         }
 
         function typeCommitPanel() {
@@ -2445,9 +2606,11 @@
             outCtx.fillStyle = state.bgColor;
             outCtx.fillRect(0, 0, canvas.width, canvas.height);
 
-            if (state.fillEnabled) {
-                outCtx.drawImage(canvas, 0, 0);
-            } else {
+            const paintSketch = () => {
+                if (state.fillEnabled) {
+                    outCtx.drawImage(canvas, 0, 0);
+                    return;
+                }
                 const strokeCanvas = document.createElement('canvas');
                 strokeCanvas.width = canvas.width;
                 strokeCanvas.height = canvas.height;
@@ -2462,14 +2625,22 @@
                 fctx.drawImage(strokeCanvas, 0, 0);
 
                 outCtx.drawImage(filterCanvas, 0, 0);
-            }
-            if (typeCanvas) {
+            };
+            const paintType = () => {
+                if (!typeCanvas) return;
                 const keep = state.activeTextId;
                 state.activeTextId = null;
                 drawTypeLayer();
                 outCtx.drawImage(typeCanvas, 0, 0);
                 state.activeTextId = keep;
                 drawTypeLayer();
+            };
+            if (state.typeLayer === 'back') {
+                paintType();
+                paintSketch();
+            } else {
+                paintSketch();
+                paintType();
             }
             return outCanvas.toDataURL('image/png');
         }
@@ -3705,6 +3876,12 @@
             el('el-type-stroke-btn').classList.toggle('is-active', state.typeStrokeOn);
             typeCommitPanel();
         });
+        document.querySelectorAll('#el-type-layer [data-layer]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                state.typeLayer = btn.getAttribute('data-layer') === 'back' ? 'back' : 'front';
+                applyTypeLayer();
+            });
+        });
         el('el-type-outline')?.addEventListener('input', (e) => {
             state.typeOutline = parseFloat(e.target.value);
             const out = el('val-el-type-outline');
@@ -3721,6 +3898,18 @@
             state.typeOffsetStroke = parseFloat(e.target.value);
             const out = el('val-el-type-offstroke');
             if (out) out.textContent = state.typeOffsetStroke.toFixed(1);
+            typeCommitPanel();
+        });
+        el('el-type-fill-color')?.addEventListener('input', (e) => {
+            state.typeFillColor = e.target.value;
+            typeCommitPanel();
+        });
+        el('el-type-stroke-color')?.addEventListener('input', (e) => {
+            state.typeStrokeColor = e.target.value;
+            typeCommitPanel();
+        });
+        el('el-type-offset-color')?.addEventListener('input', (e) => {
+            state.typeOffsetColor = e.target.value;
             typeCommitPanel();
         });
         typeFontReset?.addEventListener('click', () => {
@@ -4061,14 +4250,12 @@
             state.inkColor = e.target.value;
             if (!state.fillEnabled) updateFilter();
             rerenderGenerateCurrent();
-            drawTypeLayer();
         });
 
         outlineColorEl?.addEventListener('input', (e) => {
             state.outlineColor = e.target.value;
             if (!state.fillEnabled) updateFilter();
             rerenderGenerateCurrent();
-            drawTypeLayer();
         });
 
         fillColorEl?.addEventListener('input', (e) => {
