@@ -18,6 +18,7 @@
         <div class="app" aria-label="Sigil Pulse">
             <div id="sketch-container">
                 <canvas id="canvas"></canvas>
+                <canvas id="type-canvas"></canvas>
                 <div id="drop-overlay" hidden>Drop .ttf / .otf / .woff here</div>
             </div>
 
@@ -41,9 +42,9 @@
                             <dt>Image scale</dt>
                             <dd>100% fits the image within the canvas; lower zooms out, higher zooms in.</dd>
                             <dt>DRAW / ERASE / TYPE</dt>
-                            <dd>DRAW adds ink. ERASE removes with a soft cut. TYPE — click the canvas to stamp the text as Sigil strokes (same marker, sticky, and mirrors as a drawn line). <strong>Stamp</strong> places it in the middle.</dd>
+                            <dd>DRAW sketches. ERASE cuts. TYPE places and moves real, readable text — click empty canvas to add a block, drag to reposition. Sketching is locked while TYPE is on.</dd>
                             <dt>Text</dt>
-                            <dd>What gets stamped. Size, spacing, and line height follow Typo. Align is relative to the click (or the canvas centre when you Stamp). Fill letters hatches the inside of each glyph. Drop a <strong>.ttf / .otf / .woff</strong> on the canvas to use a custom face.</dd>
+                            <dd>Same layout as Typo: size, tracking, line height, L/C/R align. Fill and Stroke are the letter itself. Outline is the stroke weight. Offset path draws a separate stroked contour around the type. Drop a <strong>.ttf / .otf / .woff</strong> on the canvas for a custom face. Delete removes the selected block.</dd>
                             <dt>Mirror</dt>
                             <dd>Duplicates strokes across the vertical and/or horizontal axis from the canvas center. The same two toggles sit in the Animation panel, so you can flip them while a composition is moving — the reflections pick up the motion too.</dd>
                             <dt>Stroke size</dt>
@@ -126,23 +127,24 @@
                                 </div>
                             </div>
 
+                            <div id="el-type-panel" hidden>
                             <div class="control-row control-row--stack" style="margin-bottom:8px;">
                                 <textarea id="el-type-text" rows="2" spellcheck="false" class="sg-textarea" aria-label="Text">SIGIL</textarea>
                             </div>
                             <div class="control-row">
-                                <label for="el-type-size">Type size</label>
-                                <input type="range" id="el-type-size" min="24" max="420" value="140" step="2">
+                                <label for="el-type-size">Font size</label>
+                                <input type="range" id="el-type-size" min="20" max="800" value="140" step="1">
                                 <span class="param-value" id="val-el-type-size">140</span>
                             </div>
                             <div class="control-row">
                                 <label for="el-type-spacing">Spacing</label>
-                                <input type="range" id="el-type-spacing" min="-20" max="80" value="6" step="1">
-                                <span class="param-value" id="val-el-type-spacing">6</span>
+                                <input type="range" id="el-type-spacing" min="-50" max="250" value="0" step="1">
+                                <span class="param-value" id="val-el-type-spacing">0</span>
                             </div>
                             <div class="control-row">
                                 <label for="el-type-line">Line height</label>
-                                <input type="range" id="el-type-line" min="0.7" max="2.4" value="1.1" step="0.05">
-                                <span class="param-value" id="val-el-type-line">1.10</span>
+                                <input type="range" id="el-type-line" min="0.1" max="8.0" value="1.2" step="0.05">
+                                <span class="param-value" id="val-el-type-line">1.20</span>
                             </div>
                             <div class="control-row">
                                 <label>Align</label>
@@ -152,16 +154,31 @@
                                     <button type="button" class="panel-button" data-align="right">R</button>
                                 </div>
                             </div>
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="el-type-fill">
-                                <span class="toggle-box"></span>
-                                <span class="cb-label">Fill letters</span>
-                            </label>
-                            <div class="control-row" style="gap:6px; margin-bottom:12px;">
-                                <button type="button" id="el-type-stamp" class="panel-button" style="flex:1;">Stamp</button>
+                            <div class="control-row">
+                                <label>Render</label>
+                                <div class="mode-switch mode-switch--full">
+                                    <button type="button" class="panel-button is-active" id="el-type-fill-btn">FILL</button>
+                                    <button type="button" class="panel-button" id="el-type-stroke-btn">STROKE</button>
+                                </div>
+                            </div>
+                            <div class="control-row">
+                                <label for="el-type-outline">Outline</label>
+                                <input type="range" id="el-type-outline" min="0.5" max="24" value="1.5" step="0.1">
+                                <span class="param-value" id="val-el-type-outline">1.5</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="el-type-offset">Offset</label>
+                                <input type="range" id="el-type-offset" min="0" max="80" value="0" step="1">
+                                <span class="param-value" id="val-el-type-offset">0</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="el-type-offstroke">Offset stroke</label>
+                                <input type="range" id="el-type-offstroke" min="0.5" max="24" value="2" step="0.1">
+                                <span class="param-value" id="val-el-type-offstroke">2.0</span>
                             </div>
                             <div id="el-type-font-hint" class="sg-font-hint">Drop a font on the canvas</div>
                             <button type="button" id="el-type-font-reset" class="panel-button" hidden style="margin-bottom:10px;">Reset font</button>
+                            </div>
 
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-mirror" checked>
@@ -249,7 +266,8 @@
                                 <span>[Space]</span> Clear canvas<br>
                                 <span>[⌘Z / Ctrl+Z]</span> Undo last stroke<br>
                                 <span>[Shift]</span> Horizontal / vertical only while drawing<br>
-                                <span>[TYPE]</span> Click canvas to stamp text as strokes
+                                <span>[TYPE]</span> Click to place, drag to move text<br>
+                                <span>[Delete]</span> Remove selected text
                             </div>
                         </section>
                     </details>
@@ -483,6 +501,21 @@
             touch-action: none;
             background: transparent;
         }
+        #type-canvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+        }
+        #sketch-container.is-type-tool #type-canvas {
+            pointer-events: auto;
+            cursor: grab;
+        }
+        #sketch-container.is-type-tool #type-canvas.is-dragging {
+            cursor: grabbing;
+        }
 
         #sketch-container {
             /* Fill leftover space; do not steal width from the control panel. */
@@ -583,8 +616,8 @@
             border-bottom: 1px solid #ddd;
         }
 
-        /* Only apply the jagged outline filter when we are NOT in Fill mode. */
-        #sketch-container[data-outline="true"] {
+        /* Jagged outline on the sketch only, so type stays crisp. */
+        #sketch-container[data-outline="true"] #canvas {
             -webkit-filter: url(#jagged-edge);
             filter: url(#jagged-edge);
         }
@@ -677,7 +710,9 @@
         }
 
         const canvas = document.getElementById('canvas');
+        const typeCanvas = document.getElementById('type-canvas');
         let ctx = canvas.getContext('2d');
+        let typeCtx = typeCanvas ? typeCanvas.getContext('2d') : null;
         let cssWidth = 1;
         let cssHeight = 1;
         let dpr = 1;
@@ -724,12 +759,18 @@
             sketchMode: 'ink', // 'ink' | 'cut' | 'type'
             typeText: 'SIGIL',
             typeSize: 140,
-            typeSpacing: 6,
-            typeLine: 1.1,
+            typeSpacing: 0,
+            typeLine: 1.2,
             typeAlign: 'center',
-            typeFill: false,
-            typeFontFamily: 'Arial Black, Impact, sans-serif',
+            typeFillOn: true,
+            typeStrokeOn: false,
+            typeOutline: 1.5,
+            typeOffset: 0,
+            typeOffsetStroke: 2,
+            typeFontFamily: 'Helvetica, Arial, sans-serif',
             typeFontFile: null,
+            texts: [],
+            activeTextId: null,
             mirrorEnabled: true,   // left-right
             mirrorYEnabled: false, // top-bottom
             brushSize: 6,
@@ -1084,7 +1125,12 @@
 
             if (modeRowEl) modeRowEl.style.display = tab === 'sketch' ? '' : 'none';
             if (tab === 'sketch') setSketchTool(state.sketchMode);
-            else setMode('ink');
+            else {
+                setMode('ink');
+                document.getElementById('sketch-container')?.classList.remove('is-type-tool');
+                state.activeTextId = null;
+                drawTypeLayer();
+            }
 
             animSetActive(tab === 'animate');
         }
@@ -1210,17 +1256,10 @@
 
         function updateFilterEnabled() {
             // Fill ON = solid strokes, no SVG filter.
-            // Fill OFF = jagged-edge outline filter active.
+            // Fill OFF = jagged-edge outline filter on the sketch canvas only.
             const container = document.getElementById('sketch-container');
-            if (state.fillEnabled) {
-                container.removeAttribute('data-outline');
-                container.style.filter = 'none';
-                container.style.webkitFilter = 'none';
-            } else {
-                container.setAttribute('data-outline', 'true');
-                container.style.filter = '';
-                container.style.webkitFilter = '';
-            }
+            if (state.fillEnabled) container.removeAttribute('data-outline');
+            else container.setAttribute('data-outline', 'true');
         }
 
         function updateFilter() {
@@ -1264,10 +1303,18 @@
 
             // Draw in CSS pixel space.
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-            // Background is the browser white; the filter is on the container.
+            if (typeCanvas) {
+                typeCanvas.style.width = `${wCss}px`;
+                typeCanvas.style.height = `${hCss}px`;
+                typeCanvas.width = Math.floor(wCss * dpr);
+                typeCanvas.height = Math.floor(hCss * dpr);
+                if (typeCtx) typeCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+            // Background is the browser white; the filter is on the sketch canvas.
             // We clear the canvas so CUT/UNDO behaves predictably.
             updateFilter();
             updateFilterEnabled();
+            drawTypeLayer();
         }
 
         window.addEventListener('resize', () => requestAnimationFrame(resize));
@@ -1283,7 +1330,14 @@
             if (tool !== 'ink' && tool !== 'cut' && tool !== 'type') tool = 'ink';
             state.sketchMode = tool;
             setMode(tool === 'cut' ? 'cut' : 'ink');
-            canvas.style.cursor = tool === 'type' ? 'text' : 'crosshair';
+            canvas.style.cursor = 'crosshair';
+            const container = document.getElementById('sketch-container');
+            const typeOn = tool === 'type' && state.uiTab === 'sketch';
+            container?.classList.toggle('is-type-tool', typeOn);
+            const typePanel = el('el-type-panel');
+            if (typePanel) typePanel.hidden = !typeOn;
+            if (tool !== 'type') state.activeTextId = null;
+            drawTypeLayer();
         }
 
         /** Mirror is offered in both the Sketch and Animate panels, so both copies show the truth. */
@@ -1328,7 +1382,12 @@
             snap.height = canvas.height;
             const sctx = snap.getContext('2d');
             sctx.drawImage(canvas, 0, 0);
-            state.undoStack.push({ snapCanvas: snap, pointsLen: state.points.length });
+            state.undoStack.push({
+                snapCanvas: snap,
+                pointsLen: state.points.length,
+                texts: JSON.parse(JSON.stringify(state.texts)),
+                activeTextId: state.activeTextId
+            });
             if (state.undoStack.length > 30) state.undoStack.shift();
         }
 
@@ -1341,6 +1400,10 @@
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             state.points.length = rec.pointsLen;
             state.edges = [];
+            if (rec.texts) state.texts = rec.texts;
+            state.activeTextId = rec.activeTextId != null ? rec.activeTextId : null;
+            typeSyncPanel();
+            drawTypeLayer();
         }
 
         function getEventClientXY(e) {
@@ -1833,194 +1896,273 @@
             });
         }
 
-        function typeFontStr() {
-            return state.typeSize + 'px ' + state.typeFontFamily;
+        let typeIdSeq = 1;
+        const typeDrag = { on: false, id: null, dx: 0, dy: 0, moved: false };
+
+        function typeFontStrFor(t) {
+            return (t.size || 140) + 'px ' + (t.fontFamily || state.typeFontFamily);
         }
 
-        function typeMeasureLine(ctx2, line) {
+        function typeMeasureLine(ctx2, line, spacing) {
             let w = 0;
             for (let i = 0; i < line.length; i++) {
                 w += ctx2.measureText(line[i]).width;
-                if (i < line.length - 1) w += state.typeSpacing;
+                if (i < line.length - 1) w += spacing;
             }
             return w;
         }
 
-        const TYPE_MOORE = [[-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1]];
-
-        function typeTraceContours(bin, w, h) {
-            const seen = new Uint8Array(w * h);
-            const contours = [];
-            const on = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !!bin[y * w + x];
-            const edge = (x, y) => on(x, y) && (!on(x - 1, y) || !on(x + 1, y) || !on(x, y - 1) || !on(x, y + 1));
-            for (let y = 0; y < h; y++) {
-                for (let x = 0; x < w; x++) {
-                    if (!edge(x, y) || seen[y * w + x]) continue;
-                    const path = [];
-                    let cx = x, cy = y, dir = 0, guard = w * h;
-                    do {
-                        path.push({ x: cx, y: cy });
-                        seen[cy * w + cx] = 1;
-                        let found = false;
-                        for (let k = 0; k < 8; k++) {
-                            const i = (dir + 6 + k) % 8;
-                            const nx = cx + TYPE_MOORE[i][0];
-                            const ny = cy + TYPE_MOORE[i][1];
-                            if (edge(nx, ny) && !seen[ny * w + nx]) {
-                                dir = i;
-                                cx = nx;
-                                cy = ny;
-                                found = true;
-                                break;
-                            }
-                            if (nx === x && ny === y && path.length > 8) {
-                                dir = i;
-                                cx = nx;
-                                cy = ny;
-                                found = true;
-                                break;
-                            }
-                        }
-                        if (!found) break;
-                    } while ((cx !== x || cy !== y) && --guard > 0);
-                    if (path.length >= 12) contours.push(path);
-                }
+        function typeActive() {
+            if (state.activeTextId == null) return null;
+            for (let i = 0; i < state.texts.length; i++) {
+                if (state.texts[i].id === state.activeTextId) return state.texts[i];
             }
-            return contours;
+            return null;
         }
 
-        function typeResample(path, step) {
-            if (path.length < 2) return path.slice();
-            const out = [{ x: path[0].x, y: path[0].y }];
-            let acc = 0;
-            for (let i = 1; i < path.length; i++) {
-                let x0 = path[i - 1].x, y0 = path[i - 1].y;
-                const x1 = path[i].x, y1 = path[i].y;
-                let dx = x1 - x0, dy = y1 - y0;
-                let dist = Math.hypot(dx, dy);
-                if (!dist) continue;
-                while (acc + dist >= step) {
-                    const t = (step - acc) / dist;
-                    x0 += dx * t;
-                    y0 += dy * t;
-                    out.push({ x: x0, y: y0 });
-                    dx = x1 - x0;
-                    dy = y1 - y0;
-                    dist = Math.hypot(dx, dy);
-                    acc = 0;
-                }
-                acc += dist;
-            }
-            const last = path[path.length - 1];
-            const tail = out[out.length - 1];
-            if (Math.hypot(last.x - tail.x, last.y - tail.y) > 0.6) out.push({ x: last.x, y: last.y });
-            return out;
+        function typeDefaults() {
+            return {
+                text: state.typeText,
+                size: state.typeSize,
+                spacing: state.typeSpacing,
+                lineHeight: state.typeLine,
+                align: state.typeAlign,
+                fontFamily: state.typeFontFamily,
+                fillOn: state.typeFillOn,
+                strokeOn: state.typeStrokeOn,
+                outline: state.typeOutline,
+                offset: state.typeOffset,
+                offsetStroke: state.typeOffsetStroke
+            };
         }
 
-        function typeStrokePoints(pts) {
-            if (!pts || pts.length < 2) return;
-            state.strokeCumDist = 0;
-            state.strokeStartIdx = state.points.length;
-            state.lastDrawTime = performance.now();
-            state.lastDrawSpeed = 0.35;
-            state.currentSpeed = 0.35;
-            state.strokeTotalDist = 1e9;
-            state.currentTaper = { cumDist1: 0, cumDist2: 0, totalDist: 1e9 };
-            for (let i = 0; i < pts.length; i++) addPoint(pts[i].x, pts[i].y);
-            if (state.taperEnabled) finalizeStrokeTaper();
-            state.points.push(null);
+        function typeLayout(t, ctx2) {
+            const lines = String(t.text || '').replace(/\r/g, '').split('\n');
+            ctx2.font = typeFontStrFor(t);
+            const fs = t.size;
+            const spacing = t.spacing;
+            const lineH = fs * t.lineHeight;
+            const lineWs = lines.map((ln) => typeMeasureLine(ctx2, ln, spacing));
+            const maxW = Math.max(0, ...lineWs, 8);
+            const totalH = Math.max(fs, (Math.max(1, lines.length) - 1) * lineH + fs);
+            let left = t.x;
+            if (t.align === 'center') left = t.x - maxW / 2;
+            else if (t.align === 'right') left = t.x - maxW;
+            const top = t.y - totalH / 2;
+            return { lines, lineWs, maxW, totalH, lineH, fs, spacing, left, top };
         }
 
-        function typeRasterGlyph(ch) {
-            const fs = state.typeSize;
-            const pad = Math.ceil(fs * 0.22);
-            const mc = document.createElement('canvas');
-            const mg = mc.getContext('2d');
-            mg.font = typeFontStr();
-            const gw = Math.max(4, Math.ceil(mg.measureText(ch).width));
-            const w = gw + pad * 2;
-            const h = Math.ceil(fs * 1.45);
-            mc.width = w;
-            mc.height = h;
-            mg.font = typeFontStr();
-            mg.fillStyle = '#000';
-            mg.textBaseline = 'alphabetic';
-            mg.textAlign = 'left';
-            mg.fillText(ch, pad, fs);
-            const img = mg.getImageData(0, 0, w, h);
-            const bin = new Uint8Array(w * h);
-            for (let i = 0; i < w * h; i++) bin[i] = img.data[i * 4 + 3] > 80 ? 1 : 0;
-            return { bin, w, h, pad, fs };
-        }
-
-        function typeStampGlyph(ch, originX, originY) {
-            if (!ch || ch === ' ') return;
-            const g = typeRasterGlyph(ch);
-            const step = Math.max(2.4, state.brushSize * 0.7);
-            const toWorld = (p) => ({
-                x: originX - g.pad + p.x,
-                y: originY - g.fs + p.y
-            });
-
-            const contours = typeTraceContours(g.bin, g.w, g.h);
-            for (let c = 0; c < contours.length; c++) {
-                const pts = typeResample(contours[c], step).map(toWorld);
-                typeStrokePoints(pts);
-            }
-
-            if (!state.typeFill) return;
-            const hatch = Math.max(2, Math.round(state.brushSize * 0.85));
-            for (let y = 2; y < g.h - 2; y += hatch) {
-                let x = 0;
-                while (x < g.w) {
-                    while (x < g.w && !g.bin[y * g.w + x]) x++;
-                    const x0 = x;
-                    while (x < g.w && g.bin[y * g.w + x]) x++;
-                    if (x - x0 < 4) continue;
-                    const run = [];
-                    for (let sx = x0; sx < x; sx += step) {
-                        run.push(toWorld({ x: sx, y: y + (Math.random() - 0.5) * 0.6 }));
-                    }
-                    run.push(toWorld({ x: x - 1, y: y }));
-                    typeStrokePoints(run);
-                }
-            }
-        }
-
-        function stampTypeAt(anchorX, anchorY) {
-            const raw = (state.typeText || '').replace(/\r/g, '');
-            const lines = raw.split('\n');
-            if (!lines.some((ln) => ln.length)) return;
-
-            pushUndoSnapshot();
-            state.selectionRng = Math.random;
-            const mc = document.createElement('canvas').getContext('2d');
-            mc.font = typeFontStr();
-            const fs = state.typeSize;
-            const lineH = fs * state.typeLine;
-            const lineWs = lines.map((ln) => typeMeasureLine(mc, ln));
-            const maxW = Math.max(0, ...lineWs);
-            const totalH = Math.max(fs, (lines.length - 1) * lineH + fs);
-            let left = anchorX;
-            if (state.typeAlign === 'center') left = anchorX - maxW / 2;
-            else if (state.typeAlign === 'right') left = anchorX - maxW;
-            const top = anchorY - totalH / 2;
-            const baseline0 = top + fs * 0.82;
-
-            for (let li = 0; li < lines.length; li++) {
-                const line = lines[li];
-                const lw = lineWs[li];
-                let x = left;
-                if (state.typeAlign === 'center') x = left + (maxW - lw) / 2;
-                else if (state.typeAlign === 'right') x = left + (maxW - lw);
-                const baseline = baseline0 + li * lineH;
+        function typeEachGlyph(t, ctx2, fn) {
+            const L = typeLayout(t, ctx2);
+            ctx2.font = typeFontStrFor(t);
+            ctx2.textBaseline = 'alphabetic';
+            ctx2.textAlign = 'left';
+            for (let li = 0; li < L.lines.length; li++) {
+                const line = L.lines[li];
+                let x = L.left;
+                if (t.align === 'center') x = L.left + (L.maxW - L.lineWs[li]) / 2;
+                else if (t.align === 'right') x = L.left + (L.maxW - L.lineWs[li]);
+                const baseline = L.top + L.fs * 0.82 + li * L.lineH;
                 for (let i = 0; i < line.length; i++) {
                     const ch = line[i];
-                    const cw = mc.measureText(ch).width;
-                    if (ch !== ' ') typeStampGlyph(ch, x, baseline);
-                    x += cw + state.typeSpacing;
+                    const cw = ctx2.measureText(ch).width;
+                    if (ch !== ' ') fn(ch, x, baseline, cw, L.fs);
+                    x += cw + L.spacing;
                 }
             }
+            return L;
+        }
+
+        function typeDrawString(c, t, mode) {
+            typeEachGlyph(t, c, (ch, x, y) => {
+                if (mode === 'fill') c.fillText(ch, x, y);
+                else c.strokeText(ch, x, y);
+            });
+        }
+
+        function drawTypeLayer(targetCtx) {
+            const c = targetCtx || typeCtx;
+            if (!c || !typeCanvas) return;
+            const exportDraw = !!targetCtx;
+            c.setTransform(1, 0, 0, 1, 0, 0);
+            c.clearRect(0, 0, (exportDraw ? typeCanvas.width : typeCanvas.width), (exportDraw ? typeCanvas.height : typeCanvas.height));
+            c.setTransform(dpr, 0, 0, dpr, 0, 0);
+            c.globalCompositeOperation = 'source-over';
+            for (let i = 0; i < state.texts.length; i++) {
+                const t = state.texts[i];
+                c.font = typeFontStrFor(t);
+                c.lineJoin = 'round';
+                c.lineCap = 'round';
+                c.miterLimit = 2;
+                if (t.offset > 0) {
+                    const dist = Math.max(0, t.offset);
+                    const w = Math.max(0.5, t.offsetStroke || 0.5);
+                    c.save();
+                    c.strokeStyle = state.outlineColor;
+                    c.lineWidth = dist * 2 + w;
+                    typeDrawString(c, t, 'stroke');
+                    c.globalCompositeOperation = 'destination-out';
+                    const punch = dist * 2 - w;
+                    if (punch > 0.5) {
+                        c.lineWidth = punch;
+                        typeDrawString(c, t, 'stroke');
+                    }
+                    c.fillStyle = '#000';
+                    typeDrawString(c, t, 'fill');
+                    c.restore();
+                }
+                if (t.fillOn !== false) {
+                    c.fillStyle = state.inkColor;
+                    typeDrawString(c, t, 'fill');
+                }
+                if (t.strokeOn) {
+                    c.strokeStyle = state.outlineColor;
+                    c.lineWidth = Math.max(0.5, t.outline);
+                    typeDrawString(c, t, 'stroke');
+                }
+            }
+            const sel = !exportDraw && state.sketchMode === 'type' && state.uiTab === 'sketch' ? typeActive() : null;
+            if (sel) {
+                const L = typeLayout(sel, c);
+                const pad = 8 + (sel.offset || 0) + (sel.strokeOn ? sel.outline : 0);
+                c.save();
+                c.strokeStyle = '#111';
+                c.lineWidth = 1;
+                c.setLineDash([5, 4]);
+                c.strokeRect(L.left - pad, L.top - pad, L.maxW + pad * 2, L.totalH + pad * 2);
+                c.restore();
+            }
+        }
+
+        function typeHit(x, y) {
+            if (!typeCtx) return null;
+            for (let i = state.texts.length - 1; i >= 0; i--) {
+                const t = state.texts[i];
+                const L = typeLayout(t, typeCtx);
+                const pad = 10 + (t.offset || 0);
+                if (x >= L.left - pad && x <= L.left + L.maxW + pad && y >= L.top - pad && y <= L.top + L.totalH + pad) {
+                    return t;
+                }
+            }
+            return null;
+        }
+
+        function typeApplyPanelTo(t) {
+            if (!t) return;
+            t.text = state.typeText;
+            t.size = state.typeSize;
+            t.spacing = state.typeSpacing;
+            t.lineHeight = state.typeLine;
+            t.align = state.typeAlign;
+            t.fontFamily = state.typeFontFamily;
+            t.fillOn = state.typeFillOn;
+            t.strokeOn = state.typeStrokeOn;
+            t.outline = state.typeOutline;
+            t.offset = state.typeOffset;
+            t.offsetStroke = state.typeOffsetStroke;
+        }
+
+        function typeSyncPanel() {
+            const t = typeActive() || typeDefaults();
+            const textEl = el('el-type-text');
+            if (textEl && textEl !== document.activeElement) textEl.value = t.text || '';
+            const sizeEl = el('el-type-size');
+            if (sizeEl) sizeEl.value = String(t.size);
+            const sizeVal = el('val-el-type-size');
+            if (sizeVal) sizeVal.textContent = String(Math.round(t.size));
+            const spEl = el('el-type-spacing');
+            if (spEl) spEl.value = String(t.spacing);
+            const spVal = el('val-el-type-spacing');
+            if (spVal) spVal.textContent = String(Math.round(t.spacing));
+            const lnEl = el('el-type-line');
+            if (lnEl) lnEl.value = String(t.lineHeight);
+            const lnVal = el('val-el-type-line');
+            if (lnVal) lnVal.textContent = Number(t.lineHeight).toFixed(2);
+            document.querySelectorAll('#el-type-align [data-align]').forEach((b) => {
+                b.classList.toggle('is-active', b.getAttribute('data-align') === t.align);
+            });
+            el('el-type-fill-btn')?.classList.toggle('is-active', t.fillOn !== false);
+            el('el-type-stroke-btn')?.classList.toggle('is-active', !!t.strokeOn);
+            const olEl = el('el-type-outline');
+            if (olEl) olEl.value = String(t.outline);
+            const olVal = el('val-el-type-outline');
+            if (olVal) olVal.textContent = Number(t.outline).toFixed(1);
+            const offEl = el('el-type-offset');
+            if (offEl) offEl.value = String(t.offset);
+            const offVal = el('val-el-type-offset');
+            if (offVal) offVal.textContent = String(Math.round(t.offset));
+            const osEl = el('el-type-offstroke');
+            if (osEl) osEl.value = String(t.offsetStroke);
+            const osVal = el('val-el-type-offstroke');
+            if (osVal) osVal.textContent = Number(t.offsetStroke).toFixed(1);
+        }
+
+        function typeCommitPanel() {
+            const t = typeActive();
+            if (t) typeApplyPanelTo(t);
+            drawTypeLayer();
+        }
+
+        function typeCreateAt(x, y) {
+            pushUndoSnapshot();
+            const t = Object.assign({ id: typeIdSeq++, x, y }, typeDefaults());
+            if (!(t.text || '').trim()) t.text = 'SIGIL';
+            state.texts.push(t);
+            state.activeTextId = t.id;
+            typeSyncPanel();
+            drawTypeLayer();
+            return t;
+        }
+
+        function typePointerDown(e) {
+            if (state.uiTab !== 'sketch' || state.sketchMode !== 'type') return;
+            if (e && e.button != null && e.button !== 0) return;
+            if (e.preventDefault) e.preventDefault();
+            const p = canvasCoordsFromEvent(e);
+            const hit = typeHit(p.x, p.y);
+            if (hit) {
+                state.activeTextId = hit.id;
+                typeSyncPanel();
+                typeDrag.on = true;
+                typeDrag.id = hit.id;
+                typeDrag.dx = p.x - hit.x;
+                typeDrag.dy = p.y - hit.y;
+                typeDrag.moved = false;
+                typeCanvas?.classList.add('is-dragging');
+                drawTypeLayer();
+                return;
+            }
+            typeCreateAt(p.x, p.y);
+            const t = typeActive();
+            if (t) {
+                typeDrag.on = true;
+                typeDrag.id = t.id;
+                typeDrag.dx = 0;
+                typeDrag.dy = 0;
+                typeDrag.moved = false;
+                typeCanvas?.classList.add('is-dragging');
+            }
+        }
+
+        function typePointerMove(e) {
+            if (!typeDrag.on) return;
+            if (e.preventDefault) e.preventDefault();
+            const p = canvasCoordsFromEvent(e);
+            const t = state.texts.find((n) => n.id === typeDrag.id);
+            if (!t) return;
+            if (!typeDrag.moved) {
+                pushUndoSnapshot();
+                typeDrag.moved = true;
+            }
+            t.x = p.x - typeDrag.dx;
+            t.y = p.y - typeDrag.dy;
+            drawTypeLayer();
+        }
+
+        function typePointerUp() {
+            typeDrag.on = false;
+            typeDrag.id = null;
+            typeCanvas?.classList.remove('is-dragging');
         }
 
         // scratchLine already fills the space between samples. Ignoring sub-pixel
@@ -2030,12 +2172,7 @@
         function startDrawing(e) {
             if (state.uiTab !== 'sketch') return;
             if (e && e.button != null && e.button !== 0) return;
-            if (state.sketchMode === 'type') {
-                if (e && e.preventDefault) e.preventDefault();
-                const p = canvasCoordsFromEvent(e);
-                stampTypeAt(p.x, p.y);
-                return;
-            }
+            if (state.sketchMode === 'type') return;
             if (state.isDrawing) return;
             if (e && e.preventDefault) e.preventDefault();
             state.isDrawing = true;
@@ -2150,10 +2287,13 @@
             state.points = [];
             state.edges = [];
             state.undoStack = [];
+            state.texts = [];
+            state.activeTextId = null;
             resetStickyData();
             ctx.setTransform(1, 0, 0, 1, 0, 0);
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            drawTypeLayer();
         }
 
         function computeStrokeTotalDists(pts) {
@@ -2322,6 +2462,14 @@
                 fctx.drawImage(strokeCanvas, 0, 0);
 
                 outCtx.drawImage(filterCanvas, 0, 0);
+            }
+            if (typeCanvas) {
+                const keep = state.activeTextId;
+                state.activeTextId = null;
+                drawTypeLayer();
+                outCtx.drawImage(typeCanvas, 0, 0);
+                state.activeTextId = keep;
+                drawTypeLayer();
             }
             return outCanvas.toDataURL('image/png');
         }
@@ -3513,42 +3661,89 @@
         const typeSpacingVal = el('val-el-type-spacing');
         const typeLineEl = el('el-type-line');
         const typeLineVal = el('val-el-type-line');
-        const typeFillEl = el('el-type-fill');
-        const typeStampBtn = el('el-type-stamp');
         const typeFontHint = el('el-type-font-hint');
         const typeFontReset = el('el-type-font-reset');
 
-        typeTextEl?.addEventListener('input', () => { state.typeText = typeTextEl.value; });
+        typeTextEl?.addEventListener('input', () => {
+            state.typeText = typeTextEl.value;
+            typeCommitPanel();
+        });
         typeSizeEl?.addEventListener('input', () => {
-            state.typeSize = clamp(parseFloat(typeSizeEl.value), 24, 420);
+            state.typeSize = clamp(parseFloat(typeSizeEl.value), 20, 800);
             if (typeSizeVal) typeSizeVal.textContent = String(Math.round(state.typeSize));
+            typeCommitPanel();
         });
         typeSpacingEl?.addEventListener('input', () => {
             state.typeSpacing = parseFloat(typeSpacingEl.value);
             if (typeSpacingVal) typeSpacingVal.textContent = String(Math.round(state.typeSpacing));
+            typeCommitPanel();
         });
         typeLineEl?.addEventListener('input', () => {
             state.typeLine = parseFloat(typeLineEl.value);
             if (typeLineVal) typeLineVal.textContent = state.typeLine.toFixed(2);
+            typeCommitPanel();
         });
-        typeFillEl?.addEventListener('change', () => { state.typeFill = !!typeFillEl.checked; });
         document.querySelectorAll('#el-type-align [data-align]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 document.querySelectorAll('#el-type-align [data-align]').forEach((b) => b.classList.remove('is-active'));
                 btn.classList.add('is-active');
                 state.typeAlign = btn.getAttribute('data-align') || 'center';
+                typeCommitPanel();
             });
         });
-        typeStampBtn?.addEventListener('click', () => {
-            if (state.uiTab !== 'sketch') return;
-            stampTypeAt(cssWidth * 0.5, cssHeight * 0.5);
+        el('el-type-fill-btn')?.addEventListener('click', () => {
+            state.typeFillOn = !state.typeFillOn;
+            if (!state.typeFillOn && !state.typeStrokeOn) state.typeStrokeOn = true;
+            el('el-type-fill-btn').classList.toggle('is-active', state.typeFillOn);
+            el('el-type-stroke-btn')?.classList.toggle('is-active', state.typeStrokeOn);
+            typeCommitPanel();
+        });
+        el('el-type-stroke-btn')?.addEventListener('click', () => {
+            state.typeStrokeOn = !state.typeStrokeOn;
+            if (!state.typeFillOn && !state.typeStrokeOn) state.typeFillOn = true;
+            el('el-type-fill-btn')?.classList.toggle('is-active', state.typeFillOn);
+            el('el-type-stroke-btn').classList.toggle('is-active', state.typeStrokeOn);
+            typeCommitPanel();
+        });
+        el('el-type-outline')?.addEventListener('input', (e) => {
+            state.typeOutline = parseFloat(e.target.value);
+            const out = el('val-el-type-outline');
+            if (out) out.textContent = state.typeOutline.toFixed(1);
+            typeCommitPanel();
+        });
+        el('el-type-offset')?.addEventListener('input', (e) => {
+            state.typeOffset = parseFloat(e.target.value);
+            const out = el('val-el-type-offset');
+            if (out) out.textContent = String(Math.round(state.typeOffset));
+            typeCommitPanel();
+        });
+        el('el-type-offstroke')?.addEventListener('input', (e) => {
+            state.typeOffsetStroke = parseFloat(e.target.value);
+            const out = el('val-el-type-offstroke');
+            if (out) out.textContent = state.typeOffsetStroke.toFixed(1);
+            typeCommitPanel();
         });
         typeFontReset?.addEventListener('click', () => {
-            state.typeFontFamily = 'Arial Black, Impact, sans-serif';
+            state.typeFontFamily = 'Helvetica, Arial, sans-serif';
             state.typeFontFile = null;
             if (typeFontHint) typeFontHint.textContent = 'Drop a font on the canvas';
             if (typeFontReset) typeFontReset.hidden = true;
+            typeCommitPanel();
         });
+
+        typeCanvas?.addEventListener('mousedown', typePointerDown);
+        window.addEventListener('mousemove', typePointerMove);
+        window.addEventListener('mouseup', typePointerUp);
+        typeCanvas?.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            typePointerDown(e);
+        }, { passive: false });
+        window.addEventListener('touchmove', (e) => {
+            if (!typeDrag.on) return;
+            e.preventDefault();
+            typePointerMove(e);
+        }, { passive: false });
+        window.addEventListener('touchend', typePointerUp);
 
         const sketchContainer = document.getElementById('sketch-container');
         const dropOv = el('drop-overlay');
@@ -3585,6 +3780,7 @@
                 state.typeFontFile = file.name;
                 if (typeFontHint) typeFontHint.textContent = file.name;
                 if (typeFontReset) typeFontReset.hidden = false;
+                typeCommitPanel();
             } catch (err) {
                 console.error('Font load failed:', err);
             }
@@ -3865,12 +4061,14 @@
             state.inkColor = e.target.value;
             if (!state.fillEnabled) updateFilter();
             rerenderGenerateCurrent();
+            drawTypeLayer();
         });
 
         outlineColorEl?.addEventListener('input', (e) => {
             state.outlineColor = e.target.value;
             if (!state.fillEnabled) updateFilter();
             rerenderGenerateCurrent();
+            drawTypeLayer();
         });
 
         fillColorEl?.addEventListener('input', (e) => {
@@ -4003,6 +4201,15 @@
                 return;
             }
 
+            if ((e.key === 'Backspace' || e.key === 'Delete') && state.sketchMode === 'type' && state.activeTextId != null) {
+                e.preventDefault();
+                pushUndoSnapshot();
+                state.texts = state.texts.filter((t) => t.id !== state.activeTextId);
+                state.activeTextId = null;
+                drawTypeLayer();
+                return;
+            }
+
             // DRAW/ERASE controls only exist on the Sketch tab.
             else if (e.code === 'Space') {
                 e.preventDefault();
@@ -4026,6 +4233,7 @@
         const urlTab = bootParams.get('tab');
         const isPreview = bootParams.get('preview') === '1';
         setUiTab('sketch');
+        typeSyncPanel();
         renderMarkerPreview();
         resize();
         if (urlTab === 'animate' || isPreview) {
