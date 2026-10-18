@@ -453,10 +453,10 @@
             background: transparent;
         }
 
-        /* Wider sliders: keep the panel a real column so thumbs stay hittable. */
+        /* Wider sliders: widen the control panel + shrink the label column. */
         .app[aria-label="Sigil Pulse"] .control-panel {
-            width: 340px;
-            min-width: 340px;
+            width: 280px;
+            min-width: 280px;
             flex-shrink: 0;
         }
 
@@ -467,46 +467,11 @@
 
         .app[aria-label="Sigil Pulse"] .control-row {
             gap: 12px;
-            margin-bottom: 6px;
+            margin-bottom: 2px;
         }
 
         .app[aria-label="Sigil Pulse"] .control-row label {
             flex: 0 0 90px;
-        }
-
-        .app[aria-label="Sigil Pulse"] .control-row input[type="range"] {
-            height: 28px;
-            background: transparent;
-        }
-        .app[aria-label="Sigil Pulse"] .control-row input[type="range"]::-webkit-slider-runnable-track {
-            height: 6px;
-            border-radius: 3px;
-        }
-        .app[aria-label="Sigil Pulse"] .control-row input[type="range"]::-webkit-slider-thumb {
-            width: 22px;
-            height: 22px;
-            margin-top: -8px;
-        }
-        .app[aria-label="Sigil Pulse"] .control-row input[type="range"]::-moz-range-track {
-            height: 6px;
-            border-radius: 3px;
-        }
-        .app[aria-label="Sigil Pulse"] .control-row input[type="range"]::-moz-range-thumb {
-            width: 22px;
-            height: 22px;
-        }
-
-        .app[aria-label="Sigil Pulse"] .checkbox-label {
-            min-height: 28px;
-            gap: 10px;
-        }
-        .app[aria-label="Sigil Pulse"] .checkbox-label .toggle-box {
-            width: 20px;
-            height: 20px;
-            border-radius: 5px;
-        }
-        .app[aria-label="Sigil Pulse"] .checkbox-label .cb-label {
-            font-size: 11px;
         }
 
         /* Taller canvas: the panel fills the app height and scrolls its own body, so added
@@ -569,51 +534,33 @@
         }
         .rx-meter-labels span { flex: 1; }
         .rx-effect-row {
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
+            align-items: center;
             gap: 8px;
-            margin-bottom: 12px;
-            padding: 8px 0 12px;
-            border-bottom: 1px solid #eee;
+            margin-bottom: 6px;
         }
         .app[aria-label="Sigil Pulse"] .rx-effect-row label {
-            flex: none;
-            width: 100%;
-            min-height: 36px;
+            flex: 0 0 72px;
             margin: 0;
-            flex-direction: row;
-            justify-content: flex-start;
-        }
-        .app[aria-label="Sigil Pulse"] .rx-effect-row .toggle-box {
-            width: 24px;
-            height: 24px;
-        }
-        .app[aria-label="Sigil Pulse"] .rx-effect-row .cb-label {
-            font-size: 12px;
         }
         .rx-effect-row .select-input {
-            flex: none;
-            width: 100%;
+            flex: 0 0 64px;
             min-width: 0;
-            min-height: 36px;
-            padding: 8px 10px;
-            font-size: 13px;
+            padding: 4px 8px;
+            font-size: 11px;
         }
         .rx-effect-slider {
             display: flex;
             align-items: center;
-            gap: 10px;
-            width: 100%;
+            gap: 6px;
+            flex: 1;
+            min-width: 0;
         }
         .rx-effect-slider input[type="range"] {
-            flex: 1 1 auto;
+            flex: 1;
             min-width: 0;
-            height: 32px;
         }
         .rx-effect-row .param-value {
-            flex: 0 0 44px;
-            font-size: 12px;
+            flex: 0 0 36px;
         }
         .rx-source-row { gap: 6px; margin-bottom: 8px; }
 
@@ -2101,15 +2048,15 @@
             spread: 2.4,   // charge cycles along the whole drawing
             desync: 0.35,  // per-site phase scatter, so nothing moves in unison
             reverse: false,
-            warp: 0.12,    // rest displacement; audio distort stacks on top
-            swell: 0.22,
+            warp: 0,       // rest is the sketch; audio distort adds displacement
+            swell: 0,      // rest keeps drawn thickness; audio thick pumps it
             charge: 0,     // keep sketch fill / ink; no travelling heat tint
-            bleed: 0.38,
+            bleed: 0,      // rest bleed is the sketch sticky; audio growth adds extra
             jitter: 0.12,
-            flicker: 0.08,
-            sparks: 0.12,
+            flicker: 0,
+            sparks: 0,
             crackle: 0.16,
-            trails: 0.18,
+            trails: 0,
             glow: 0,
             sparkColor: '#ffffff'
         };
@@ -2173,6 +2120,7 @@
             const thick = rxDrive('thick');
             const detail = rxDrive('detail');
             const growth = rxDrive('growth');
+            const sticky = clamp(state.stickyStrength / 10, 0, 1);
             return {
                 wave: s.wave,
                 staticW: s.staticW,
@@ -2188,7 +2136,9 @@
                 warp: (anim.warp + distort) * s.warpMul,
                 swell: (anim.swell + thick) * s.swellMul,
                 charge: 0,
-                bleed: clamp(anim.bleed + growth * 0.9, 0, 1.6),
+                sticky,
+                growth,
+                bleed: clamp(sticky + growth * 0.9, 0, 1.6),
                 flicker: anim.flicker + detail * 0.25,
                 sparks: anim.sparks,
                 crackle: anim.crackle,
@@ -2257,7 +2207,7 @@
         /** Only the precomputed path geometry needs rebuilding; look is read live each frame. */
         function animSignature() {
             return [
-                state.points.length, state.stickyDistance,
+                state.points.length, state.stickyDistance, state.stickyStrength,
                 state.taperEnabled, state.generateSeed, canvas.width, canvas.height
             ].join('|');
         }
@@ -2289,23 +2239,21 @@
                 const endSearch = idx - 20;
                 if (endSearch <= 0) continue;
                 const searchStart = Math.max(0, endSearch - 800);
-                const brushB = storedBrush(p);
-                const strokeRB = brushB * 3.5;
+                // Same radii as particleGrowth: the later point's stroke, both edges.
+                const brush = storedBrush(p);
+                const strokeR = brush * 3.5;
+                const maxGap = brush * (2 + distT * 22);
+                const maxCenterDist = maxGap + strokeR * 2;
                 for (let i = searchStart; i < endSearch; i++) {
                     const prev = snap[i];
                     if (!prev) continue;
-                    const brushA = storedBrush(prev);
-                    const strokeRA = brushA * 3.5;
-                    const brushMid = (brushA + brushB) * 0.5;
-                    const maxGap = brushMid * (2 + distT * 22);
-                    const maxCenterDist = maxGap + strokeRA + strokeRB;
                     const dx = p.x - prev.x;
                     const dy = p.y - prev.y;
                     const centerDist = Math.hypot(dx, dy);
                     if (centerDist <= 0 || centerDist >= maxCenterDist) continue;
-                    const edgeGap = centerDist - strokeRA - strokeRB;
+                    const edgeGap = centerDist - strokeR * 2;
                     if (edgeGap >= maxGap) continue;
-                    if (edgeGap < -Math.max(strokeRA, strokeRB) * 1.5) continue;
+                    if (edgeGap < -strokeR * 1.5) continue;
                     const closeness = clamp(1 - Math.max(0, edgeGap) / maxGap, 0, 1);
                     if (closeness < 0.02) continue;
 
@@ -2316,10 +2264,10 @@
                     const nx = dx / centerDist;
                     const ny = dy / centerDist;
                     sites.push({
-                        ax: prev.x + nx * strokeRA,
-                        ay: prev.y + ny * strokeRA,
-                        bx: p.x - nx * strokeRB,
-                        by: p.y - ny * strokeRB,
+                        ax: prev.x + nx * strokeR,
+                        ay: prev.y + ny * strokeR,
+                        bx: p.x - nx * strokeR,
+                        by: p.y - ny * strokeR,
                         px: -ny,
                         py: nx,
                         // Kept so growth follows its two points when the path warps.
@@ -2330,7 +2278,7 @@
                         phase: animHash01(Math.imul(idx, 2654435761) + i),
                         marker: (p.marker != null ? p.marker : prev.marker) || 'none',
                         seed: p.seed != null ? p.seed : prev.seed,
-                        brushSize: brushMid
+                        brushSize: brush
                     });
                 }
             }
@@ -2939,16 +2887,18 @@
                 const shimmer = cfg.flicker > 0.005
                     ? 1 - (1 - animPresence(a, sg.b.id + 2000, cfg)) * 0.45
                     : 1;
-                const pump = 1 + cfg.swell * (a - 0.3) * 1.7;
-                const baseBrush = storedBrush(sg);
+                const pump = cfg.swell > 0.005 ? 1 + cfg.swell * (a - 0.3) * 1.7 : 1;
+                const baseBrush = storedBrush(sg.src || sg);
 
                 state.currentTaper = { cumDist1: sg.cum1, cumDist2: sg.cum2, totalDist: sg.total };
                 state.currentSpeed = sg.speed;
                 state.strokeTotalDist = sg.total;
 
                 const sgRef = sg;
-                withPointOverrides({ marker: sg.marker, seed: sg.seed, brushSize: sg.brushSize }, () => {
-                    state.brushSize = Math.max(0.2, baseBrush * pump * shimmer);
+                withPointOverrides(sg.src || { marker: sg.marker, seed: sg.seed, brushSize: sg.brushSize }, () => {
+                    if (pump !== 1 || shimmer !== 1) {
+                        state.brushSize = Math.max(0.2, baseBrush * pump * shimmer);
+                    }
                     scratchLine(sgRef.a.wx, sgRef.a.wy, sgRef.b.wx, sgRef.b.wy, sgRef.dist, 0, 0);
                 });
             }
@@ -2959,22 +2909,29 @@
             state.strokeTotalDist = prevTotal;
         }
 
-        /** Bleed: growth reaches across each gap as the charge arrives, then retracts behind it. */
+        /** Bleed: sketch sticky is always on; audio growth reaches further as the charge arrives. */
         function animDrawBleed(cfg) {
             const sites = animData.sites;
-            if (!sites.length || cfg.bleed <= 0.005) return;
+            const tSticky = cfg.sticky || 0;
+            const growth = cfg.growth || 0;
+            if (!sites.length || (tSticky <= 0.005 && growth <= 0.005)) return;
 
-            const reachAmt = cfg.bleed;
             ctx.globalCompositeOperation = 'source-over';
             ctx.shadowBlur = 0;
             ctx.fillStyle = currentInkColor();
 
-            const step = animData.quality >= 0.999 ? 1 : Math.max(1, Math.round(1 / animData.quality));
+            const step = tSticky > 0.005 || animData.quality >= 0.999
+                ? 1
+                : Math.max(1, Math.round(1 / animData.quality));
             for (let k = 0; k < sites.length; k += step) {
                 const site = sites[k];
                 const a = animActivation(site.s, site.phase, site.id, cfg);
-                const level = animPresence(a, site.id + 5000, cfg);
-                if (level < ANIM_BLINK_OUT) continue;
+                const t = tSticky + growth * a;
+                if (t <= 0.005) continue;
+                if (tSticky <= 0.005) {
+                    const level = animPresence(a, site.id + 5000, cfg);
+                    if (level < ANIM_BLINK_OUT) continue;
+                }
 
                 // Ride along with the warp so growth stays attached to the strokes.
                 const ax = site.ax + site.pa.dx;
@@ -2982,13 +2939,16 @@
                 const bx = site.bx + site.pb.dx;
                 const by = site.by + site.pb.dy;
 
-                const growReach = Math.pow(site.closeness, 0.8) * (0.2 + reachAmt * 0.8) * (0.2 + a);
+                // particleGrowth formulas, with audio only stretching past the sketch amount.
+                const tDraw = Math.min(1, t);
+                let growReach = Math.pow(site.closeness, 0.8) * (0.5 + tDraw * 0.5);
+                if (t > 1) growReach *= 1 + (t - 1) * 0.45;
                 if (growReach < 0.02) continue;
-                const count = Math.max(1, Math.floor(site.closeness * (1 + a * (2 + reachAmt * 7))));
+                const count = Math.max(1, Math.floor(site.closeness * (3 + tDraw * 8)));
                 const siteBrush = storedBrush(site);
                 const strokeR = siteBrush * 3.5;
-                const jitterAmt = siteBrush * (0.6 + cfg.jitter * 3.4);
-                const rBase = strokeR * (0.18 + reachAmt * 0.4) * Math.pow(site.closeness, 0.5) * level;
+                const jitterAmt = siteBrush * 0.8;
+                const rBase = strokeR * (0.2 + tDraw * 0.4) * Math.pow(site.closeness, 0.5);
 
                 withPointOverrides({ marker: site.marker, seed: site.seed, brushSize: site.brushSize }, () => {
                     for (let j = 0; j < count; j++) {
@@ -2996,7 +2956,7 @@
 
                         const tA = frac * growReach;
                         const jitA = (Math.random() - 0.5) * jitterAmt;
-                        const taperA = Math.pow(1 - tA / growReach, 0.6);
+                        const taperA = Math.pow(1 - tA / Math.max(0.01, growReach), 0.6);
                         drawStickyParticle(
                             ax + (bx - ax) * tA + site.px * jitA,
                             ay + (by - ay) * tA + site.py * jitA,
@@ -3005,16 +2965,16 @@
 
                         const tB = (1 - frac) * growReach;
                         const jitB = (Math.random() - 0.5) * jitterAmt;
-                        const taperB = Math.pow(1 - tB / growReach, 0.6);
+                        const taperB = Math.pow(1 - tB / Math.max(0.01, growReach), 0.6);
                         drawStickyParticle(
                             bx + (ax - bx) * tB + site.px * jitB,
                             by + (ay - by) * tB + site.py * jitB,
                             Math.max(0.5, rBase * taperB)
                         );
 
-                        if (Math.random() < site.closeness * 0.4 * a) {
+                        if (Math.random() < site.closeness * 0.4) {
                             const branchT = tA * (0.2 + Math.random() * 0.6);
-                            const branchOff = (Math.random() - 0.5) * jitterAmt * 1.5;
+                            const branchOff = (Math.random() - 0.5) * jitterAmt * 1.2;
                             drawStickyParticle(
                                 ax + (bx - ax) * branchT + site.px * branchOff,
                                 ay + (by - ay) * branchT + site.py * branchOff,
