@@ -310,8 +310,10 @@
                                     <option value="mid">Mids</option>
                                     <option value="high">Highs</option>
                                 </select>
-                                <input type="range" id="rx-expand-amt" min="0" max="100" value="85" step="5">
-                                <span class="param-value" id="val-rx-expand-amt">85%</span>
+                                <div class="rx-effect-slider">
+                                    <input type="range" id="rx-expand-amt" min="0" max="100" value="85" step="5">
+                                    <span class="param-value" id="val-rx-expand-amt">85%</span>
+                                </div>
                             </div>
                             <div class="control-row rx-effect-row">
                                 <label class="checkbox-label" style="margin:0;">
@@ -324,8 +326,10 @@
                                     <option value="mid">Mids</option>
                                     <option value="high">Highs</option>
                                 </select>
-                                <input type="range" id="rx-growth-amt" min="0" max="100" value="55" step="5">
-                                <span class="param-value" id="val-rx-growth-amt">55%</span>
+                                <div class="rx-effect-slider">
+                                    <input type="range" id="rx-growth-amt" min="0" max="100" value="55" step="5">
+                                    <span class="param-value" id="val-rx-growth-amt">55%</span>
+                                </div>
                             </div>
                             <div class="control-row rx-effect-row">
                                 <label class="checkbox-label" style="margin:0;">
@@ -338,8 +342,10 @@
                                     <option value="mid" selected>Mids</option>
                                     <option value="high">Highs</option>
                                 </select>
-                                <input type="range" id="rx-distort-amt" min="0" max="100" value="75" step="5">
-                                <span class="param-value" id="val-rx-distort-amt">75%</span>
+                                <div class="rx-effect-slider">
+                                    <input type="range" id="rx-distort-amt" min="0" max="100" value="75" step="5">
+                                    <span class="param-value" id="val-rx-distort-amt">75%</span>
+                                </div>
                             </div>
                             <div class="control-row rx-effect-row">
                                 <label class="checkbox-label" style="margin:0;">
@@ -352,8 +358,10 @@
                                     <option value="mid" selected>Mids</option>
                                     <option value="high">Highs</option>
                                 </select>
-                                <input type="range" id="rx-rotate-amt" min="0" max="100" value="40" step="5">
-                                <span class="param-value" id="val-rx-rotate-amt">40%</span>
+                                <div class="rx-effect-slider">
+                                    <input type="range" id="rx-rotate-amt" min="0" max="100" value="40" step="5">
+                                    <span class="param-value" id="val-rx-rotate-amt">40%</span>
+                                </div>
                             </div>
                             <div class="control-row rx-effect-row">
                                 <label class="checkbox-label" style="margin:0;">
@@ -366,8 +374,10 @@
                                     <option value="mid">Mids</option>
                                     <option value="high" selected>Highs</option>
                                 </select>
-                                <input type="range" id="rx-thick-amt" min="0" max="100" value="70" step="5">
-                                <span class="param-value" id="val-rx-thick-amt">70%</span>
+                                <div class="rx-effect-slider">
+                                    <input type="range" id="rx-thick-amt" min="0" max="100" value="70" step="5">
+                                    <span class="param-value" id="val-rx-thick-amt">70%</span>
+                                </div>
                             </div>
                             <div class="control-row rx-effect-row">
                                 <label class="checkbox-label" style="margin:0;">
@@ -380,8 +390,10 @@
                                     <option value="mid">Mids</option>
                                     <option value="high" selected>Highs</option>
                                 </select>
-                                <input type="range" id="rx-detail-amt" min="0" max="100" value="55" step="5">
-                                <span class="param-value" id="val-rx-detail-amt">55%</span>
+                                <div class="rx-effect-slider">
+                                    <input type="range" id="rx-detail-amt" min="0" max="100" value="55" step="5">
+                                    <span class="param-value" id="val-rx-detail-amt">55%</span>
+                                </div>
                             </div>
                         </section>
                     </details>
@@ -431,18 +443,21 @@
         }
 
         #sketch-container {
-            /* Fill the available viewport height without changing stacking order. */
-            flex: 1;
+            /* Fill leftover space; do not steal width from the control panel. */
+            flex: 1 1 auto;
             height: 100%;
-            width: 100%;
+            width: auto;
             min-width: 0;
+            flex-shrink: 1;
             pointer-events: auto;
             background: transparent;
         }
 
-        /* Wider sliders: widen the control panel + shrink the label column. */
+        /* Wider sliders: keep the panel a real column so thumbs stay hittable. */
         .app[aria-label="Sigil Pulse"] .control-panel {
-            width: 280px;
+            width: 340px;
+            min-width: 340px;
+            flex-shrink: 0;
         }
 
         .app[aria-label="Sigil Pulse"] .panel-header {
@@ -452,11 +467,46 @@
 
         .app[aria-label="Sigil Pulse"] .control-row {
             gap: 12px;
-            margin-bottom: 2px;
+            margin-bottom: 6px;
         }
 
         .app[aria-label="Sigil Pulse"] .control-row label {
             flex: 0 0 90px;
+        }
+
+        .app[aria-label="Sigil Pulse"] .control-row input[type="range"] {
+            height: 28px;
+            background: transparent;
+        }
+        .app[aria-label="Sigil Pulse"] .control-row input[type="range"]::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 3px;
+        }
+        .app[aria-label="Sigil Pulse"] .control-row input[type="range"]::-webkit-slider-thumb {
+            width: 22px;
+            height: 22px;
+            margin-top: -8px;
+        }
+        .app[aria-label="Sigil Pulse"] .control-row input[type="range"]::-moz-range-track {
+            height: 6px;
+            border-radius: 3px;
+        }
+        .app[aria-label="Sigil Pulse"] .control-row input[type="range"]::-moz-range-thumb {
+            width: 22px;
+            height: 22px;
+        }
+
+        .app[aria-label="Sigil Pulse"] .checkbox-label {
+            min-height: 28px;
+            gap: 10px;
+        }
+        .app[aria-label="Sigil Pulse"] .checkbox-label .toggle-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 5px;
+        }
+        .app[aria-label="Sigil Pulse"] .checkbox-label .cb-label {
+            font-size: 11px;
         }
 
         /* Taller canvas: the panel fills the app height and scrolls its own body, so added
@@ -519,15 +569,51 @@
         }
         .rx-meter-labels span { flex: 1; }
         .rx-effect-row {
-            align-items: center;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
             gap: 8px;
+            margin-bottom: 12px;
+            padding: 8px 0 12px;
+            border-bottom: 1px solid #eee;
         }
         .app[aria-label="Sigil Pulse"] .rx-effect-row label {
-            flex: 0 0 78px;
+            flex: none;
+            width: 100%;
+            min-height: 36px;
+            margin: 0;
+            flex-direction: row;
+            justify-content: flex-start;
+        }
+        .app[aria-label="Sigil Pulse"] .rx-effect-row .toggle-box {
+            width: 24px;
+            height: 24px;
+        }
+        .app[aria-label="Sigil Pulse"] .rx-effect-row .cb-label {
+            font-size: 12px;
         }
         .rx-effect-row .select-input {
-            flex: 0 0 70px;
+            flex: none;
+            width: 100%;
             min-width: 0;
+            min-height: 36px;
+            padding: 8px 10px;
+            font-size: 13px;
+        }
+        .rx-effect-slider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+        }
+        .rx-effect-slider input[type="range"] {
+            flex: 1 1 auto;
+            min-width: 0;
+            height: 32px;
+        }
+        .rx-effect-row .param-value {
+            flex: 0 0 44px;
+            font-size: 12px;
         }
         .rx-source-row { gap: 6px; margin-bottom: 8px; }
 
@@ -1616,12 +1702,15 @@
             };
 
             const originalMarker = state.marker;
+            const originalBrush = state.brushSize;
             if (pt && pt.marker != null) state.marker = pt.marker;
+            if (pt && pt.brushSize != null) state.brushSize = pt.brushSize;
 
             fn();
 
             Math.random = originalRandom;
             state.marker = originalMarker;
+            state.brushSize = originalBrush;
         }
 
         function addPoint(x, y, markerVal, seedVal, origP) {
@@ -1656,7 +1745,8 @@
                 cumDist: state.strokeCumDist, 
                 speed: state.lastDrawSpeed,
                 marker: (origP && origP.marker != null) ? origP.marker : (markerVal || state.marker),
-                seed: origP ? origP.seed : (seedVal != null ? seedVal : ((Math.random() * 0xFFFFFFFF) >>> 0))
+                seed: origP ? origP.seed : (seedVal != null ? seedVal : ((Math.random() * 0xFFFFFFFF) >>> 0)),
+                brushSize: (origP && origP.brushSize != null) ? origP.brushSize : state.brushSize
             };
             state.points.push(p);
             const idx = state.points.length - 1;
@@ -2160,10 +2250,14 @@
             animData.sparkStyle = `rgb(${spark[0]},${spark[1]},${spark[2]})`;
         }
 
+        function storedBrush(p) {
+            return (p && p.brushSize != null) ? p.brushSize : state.brushSize;
+        }
+
         /** Only the precomputed path geometry needs rebuilding; look is read live each frame. */
         function animSignature() {
             return [
-                state.points.length, state.brushSize, state.stickyDistance,
+                state.points.length, state.stickyDistance,
                 state.taperEnabled, state.generateSeed, canvas.width, canvas.height
             ].join('|');
         }
@@ -2186,9 +2280,7 @@
             const byIndex = new Map();
             for (const p of pts) byIndex.set(p.srcIdx, p);
 
-            const strokeR = state.brushSize * 3.5;
-            const maxGap = state.brushSize * (2 + (state.stickyDistance / 10) * 22);
-            const maxCenterDist = maxGap + strokeR * 2;
+            const distT = state.stickyDistance / 10;
             const sites = [];
 
             for (let idx = 0; idx < snap.length; idx++) {
@@ -2197,16 +2289,23 @@
                 const endSearch = idx - 20;
                 if (endSearch <= 0) continue;
                 const searchStart = Math.max(0, endSearch - 800);
+                const brushB = storedBrush(p);
+                const strokeRB = brushB * 3.5;
                 for (let i = searchStart; i < endSearch; i++) {
                     const prev = snap[i];
                     if (!prev) continue;
+                    const brushA = storedBrush(prev);
+                    const strokeRA = brushA * 3.5;
+                    const brushMid = (brushA + brushB) * 0.5;
+                    const maxGap = brushMid * (2 + distT * 22);
+                    const maxCenterDist = maxGap + strokeRA + strokeRB;
                     const dx = p.x - prev.x;
                     const dy = p.y - prev.y;
                     const centerDist = Math.hypot(dx, dy);
                     if (centerDist <= 0 || centerDist >= maxCenterDist) continue;
-                    const edgeGap = centerDist - strokeR * 2;
+                    const edgeGap = centerDist - strokeRA - strokeRB;
                     if (edgeGap >= maxGap) continue;
-                    if (edgeGap < -strokeR * 1.5) continue;
+                    if (edgeGap < -Math.max(strokeRA, strokeRB) * 1.5) continue;
                     const closeness = clamp(1 - Math.max(0, edgeGap) / maxGap, 0, 1);
                     if (closeness < 0.02) continue;
 
@@ -2217,10 +2316,10 @@
                     const nx = dx / centerDist;
                     const ny = dy / centerDist;
                     sites.push({
-                        ax: prev.x + nx * strokeR,
-                        ay: prev.y + ny * strokeR,
-                        bx: p.x - nx * strokeR,
-                        by: p.y - ny * strokeR,
+                        ax: prev.x + nx * strokeRA,
+                        ay: prev.y + ny * strokeRA,
+                        bx: p.x - nx * strokeRB,
+                        by: p.y - ny * strokeRB,
                         px: -ny,
                         py: nx,
                         // Kept so growth follows its two points when the path warps.
@@ -2230,7 +2329,8 @@
                         s: (a.s + b.s) / 2,
                         phase: animHash01(Math.imul(idx, 2654435761) + i),
                         marker: (p.marker != null ? p.marker : prev.marker) || 'none',
-                        seed: p.seed != null ? p.seed : prev.seed
+                        seed: p.seed != null ? p.seed : prev.seed,
+                        brushSize: brushMid
                     });
                 }
             }
@@ -2277,7 +2377,8 @@
                     phase: animHash01(Math.imul(n + 1, 1103515245)),
                     id: n, srcIdx: i,
                     marker: p.marker != null ? p.marker : 'none',
-                    seed: p.seed
+                    seed: p.seed,
+                    brushSize: storedBrush(p)
                 };
                 const prev = i > 0 ? snap[i - 1] : null;
                 if (prev && pts.length && !strokeBreak) {
@@ -2290,6 +2391,7 @@
                             a: prevRec, b: rec, dist, src: p,
                             marker: rec.marker,
                             seed: rec.seed,
+                            brushSize: rec.brushSize,
                             cum1: prev.cumDist || 0,
                             cum2: p.cumDist || 0,
                             total: strokeDists ? (strokeDists[i] || 1e9) : 1e9,
@@ -2558,8 +2660,7 @@
                 p.a = animActivation(p.s, p.phase, p.id, cfg);
             }
 
-            const amp = cfg.warp * state.brushSize * 4.5;
-            if (amp <= 0.001) {
+            if (cfg.warp <= 0.0002) {
                 for (let i = 0; i < pts.length; i++) {
                     const p = pts[i];
                     p.dx = 0; p.dy = 0; p.ox = 0; p.oy = 0; p.vx = 0; p.vy = 0;
@@ -2574,11 +2675,11 @@
 
             const motion = cfg.motion;
             if (motion === 'stomp' || motion === 'jolt' || motion === 'tendril') {
-                animWarpSprung(cfg, amp, motion);
+                animWarpSprung(cfg, motion);
             } else if (motion === 'whip') {
-                animWarpWhip(cfg, amp);
+                animWarpWhip(cfg);
             } else {
-                animWarpShaped(cfg, amp, motion);
+                animWarpShaped(cfg, motion);
             }
 
             for (let i = 0; i < pts.length; i++) {
@@ -2594,19 +2695,20 @@
          * rather than fluid: the form gets slammed somewhere and springs back past its resting
          * place, wobbling as it settles, instead of easing smoothly there and back.
          */
-        function animWarpSprung(cfg, amp, motion) {
+        function animWarpSprung(cfg, motion) {
             const pts = animData.pts;
             const ev = animData.events;
             const t = animData.time;
             // Clamped so a big frame gap or a high speed setting cannot make the spring blow up.
             const dt = Math.min(0.05, animData.dt || 0.016);
-            const cap = amp * 7;
             const wander = motion === 'tendril';
             // Light damping relative to the stiffness, so everything overshoots and rings.
             const damp = wander ? 3.5 : 8;
 
             for (let i = 0; i < pts.length; i++) {
                 const p = pts[i];
+                const amp = cfg.warp * storedBrush(p) * 4.5;
+                const cap = amp * 7;
                 let tx = 0, ty = 0;
 
                 if (wander) {
@@ -2666,14 +2768,14 @@
          * the instant it arrives, then drags out in a long tail behind. The hard leading edge is
          * the whole point — a smooth front would just be a wave again.
          */
-        function animWarpWhip(cfg, amp) {
+        function animWarpWhip(cfg) {
             const pts = animData.pts;
             const ev = animData.events;
             const t = animData.time;
-            const gain = amp * 2.4;
 
             for (let i = 0; i < pts.length; i++) {
                 const p = pts[i];
+                const gain = cfg.warp * storedBrush(p) * 4.5 * 2.4;
                 let side = 0, along = 0;
                 for (let k = 0; k < ev.length; k++) {
                     const e = ev[k];
@@ -2694,7 +2796,7 @@
         }
 
         /** Wave-shaped and hard-stepped motions: no physics state, just a pose per frame. */
-        function animWarpShaped(cfg, amp, motion) {
+        function animWarpShaped(cfg, motion) {
             const pts = animData.pts;
             const ev = animData.events;
             const t = animData.time;
@@ -2708,11 +2810,12 @@
             const stutterSlot = animHoldSlot(t, 2.2 + cfg.crackle * 7);
             const cx = cssWidth * 0.5;
             const cy = cssHeight * 0.5;
-            const swirlCap = amp * 5;
 
             for (let i = 0; i < pts.length; i++) {
                 const p = pts[i];
                 const a = p.a;
+                const amp = cfg.warp * storedBrush(p) * 4.5;
+                const swirlCap = amp * 5;
                 let dx = 0, dy = 0;
 
                 if (motion === 'glitch') {
@@ -2821,7 +2924,6 @@
             const segs = animData.segs;
             if (!segs.length) return;
 
-            const baseBrush = state.brushSize;
             const prevInk = state.inkColor;
             const prevFill = state.fillColor;
             const prevTaper = state.currentTaper;
@@ -2838,19 +2940,18 @@
                     ? 1 - (1 - animPresence(a, sg.b.id + 2000, cfg)) * 0.45
                     : 1;
                 const pump = 1 + cfg.swell * (a - 0.3) * 1.7;
-                state.brushSize = Math.max(0.2, baseBrush * pump * shimmer);
+                const baseBrush = storedBrush(sg);
 
                 state.currentTaper = { cumDist1: sg.cum1, cumDist2: sg.cum2, totalDist: sg.total };
                 state.currentSpeed = sg.speed;
                 state.strokeTotalDist = sg.total;
 
                 const sgRef = sg;
-                withPointOverrides({ marker: sg.marker, seed: sg.seed }, () => {
+                withPointOverrides({ marker: sg.marker, seed: sg.seed, brushSize: sg.brushSize }, () => {
+                    state.brushSize = Math.max(0.2, baseBrush * pump * shimmer);
                     scratchLine(sgRef.a.wx, sgRef.a.wy, sgRef.b.wx, sgRef.b.wy, sgRef.dist, 0, 0);
                 });
             }
-
-            state.brushSize = baseBrush;
             state.inkColor = prevInk;
             state.fillColor = prevFill;
             state.currentTaper = prevTaper;
@@ -2864,8 +2965,6 @@
             if (!sites.length || cfg.bleed <= 0.005) return;
 
             const reachAmt = cfg.bleed;
-            const strokeR = state.brushSize * 3.5;
-            const jitterAmt = state.brushSize * (0.6 + cfg.jitter * 3.4);
             ctx.globalCompositeOperation = 'source-over';
             ctx.shadowBlur = 0;
             ctx.fillStyle = currentInkColor();
@@ -2886,9 +2985,12 @@
                 const growReach = Math.pow(site.closeness, 0.8) * (0.2 + reachAmt * 0.8) * (0.2 + a);
                 if (growReach < 0.02) continue;
                 const count = Math.max(1, Math.floor(site.closeness * (1 + a * (2 + reachAmt * 7))));
+                const siteBrush = storedBrush(site);
+                const strokeR = siteBrush * 3.5;
+                const jitterAmt = siteBrush * (0.6 + cfg.jitter * 3.4);
                 const rBase = strokeR * (0.18 + reachAmt * 0.4) * Math.pow(site.closeness, 0.5) * level;
 
-                withPointOverrides({ marker: site.marker, seed: site.seed }, () => {
+                withPointOverrides({ marker: site.marker, seed: site.seed, brushSize: site.brushSize }, () => {
                     for (let j = 0; j < count; j++) {
                         const frac = (j + 0.2 + Math.random() * 0.6) / count;
 
@@ -2946,7 +3048,7 @@
                 const y = sg.a.wy + (sg.b.wy - sg.a.wy) * f;
 
                 const twinkle = animNoise(i + 4242, animData.time * (2 + cfg.crackle * 10));
-                const r = Math.max(0.4, state.brushSize * (0.16 + cfg.sparks * 0.34) * (0.45 + twinkle));
+                const r = Math.max(0.4, storedBrush(sg) * (0.16 + cfg.sparks * 0.34) * (0.45 + twinkle));
                 if (cfg.glow > 0) {
                     ctx.shadowBlur = r * 3.2 * cfg.glow;
                     ctx.shadowColor = currentInkColor();
