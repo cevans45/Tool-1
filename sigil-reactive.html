@@ -44,11 +44,7 @@
                         </div>
                     </div>
                     <div class="typebar-item">
-                        <span class="typebar-kicker">Render</span>
-                        <div class="mode-switch">
-                            <button type="button" class="panel-button is-active" id="el-type-fill-btn">FILL</button>
-                            <button type="button" class="panel-button" id="el-type-stroke-btn">STROKE</button>
-                        </div>
+                        <button type="button" class="panel-button is-active" id="el-type-fill-btn">FILL</button>
                     </div>
                 </div>
                 <div class="typebar-row">
@@ -56,28 +52,19 @@
                         <label for="el-type-fill-color">Fill</label>
                         <input type="color" id="el-type-fill-color" value="#000000" aria-label="Type fill color">
                     </div>
-                    <div class="typebar-item typebar-color">
-                        <label for="el-type-stroke-color">Stroke</label>
-                        <input type="color" id="el-type-stroke-color" value="#000000" aria-label="Type stroke color">
-                    </div>
                     <div class="typebar-item">
-                        <label for="el-type-outline">Outline</label>
-                        <input type="range" id="el-type-outline" min="0.5" max="24" value="1.5" step="0.1">
-                        <span class="param-value" id="val-el-type-outline">1.5</span>
-                    </div>
-                    <div class="typebar-item typebar-color">
-                        <label for="el-type-offset-color">Offset</label>
-                        <input type="color" id="el-type-offset-color" value="#000000" aria-label="Type offset color">
-                    </div>
-                    <div class="typebar-item">
-                        <label for="el-type-offset">Path</label>
+                        <label for="el-type-offset">Offset</label>
                         <input type="range" id="el-type-offset" min="0" max="80" value="0" step="1">
                         <span class="param-value" id="val-el-type-offset">0</span>
                     </div>
                     <div class="typebar-item">
-                        <label for="el-type-offstroke">Weight</label>
-                        <input type="range" id="el-type-offstroke" min="0.5" max="24" value="2" step="0.1">
+                        <label for="el-type-offstroke">Outline</label>
+                        <input type="range" id="el-type-offstroke" min="0" max="24" value="2" step="0.1">
                         <span class="param-value" id="val-el-type-offstroke">2.0</span>
+                    </div>
+                    <div class="typebar-item typebar-color">
+                        <label for="el-type-offset-color">Outline</label>
+                        <input type="color" id="el-type-offset-color" value="#000000" aria-label="Offset outline color">
                     </div>
                     <div class="typebar-item">
                         <span class="typebar-kicker">Layer</span>
@@ -121,7 +108,7 @@
                             <dt>DRAW / ERASE / TYPE</dt>
                             <dd>DRAW and ERASE live on the right. TYPE is in the top bar — click empty canvas to add a block, drag to reposition. Sketching is locked while TYPE is on.</dd>
                             <dt>Text</dt>
-                            <dd>Type lives in the top bar, independent of the sketch. Fill / Stroke / Offset each have their own color. Outline is letter stroke weight. Offset path is a separate contour. Layer puts type in front of or behind the sketch. Drop a <strong>.ttf / .otf / .woff</strong> on the canvas for a custom face. Delete removes the selected block.</dd>
+                            <dd>Type lives in the top bar. Fill is the letter. Offset pushes a path off the letter; Outline is the stroke of that path, with its own color. Layer puts type in front of or behind the sketch. Drop a <strong>.ttf / .otf / .woff</strong> on the canvas for a custom face. Delete removes the selected block.</dd>
                             <dt>Mirror</dt>
                             <dd>Duplicates strokes across the vertical and/or horizontal axis from the canvas center. The same two toggles sit in the Animation panel, so you can flip them while a composition is moving — the reflections pick up the motion too.</dd>
                             <dt>Stroke size</dt>
@@ -572,6 +559,43 @@
         }
         .pulse-typebar .typebar-item input[type="range"] {
             width: 84px;
+            height: 3px;
+            cursor: pointer;
+            background: #ccc;
+            border: none;
+            border-radius: 2px;
+            -webkit-appearance: none;
+            appearance: none;
+            accent-color: #000;
+        }
+        .pulse-typebar .typebar-item input[type="range"]::-webkit-slider-runnable-track {
+            height: 3px;
+            background: #ccc;
+            border-radius: 2px;
+        }
+        .pulse-typebar .typebar-item input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            background: #000;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            margin-top: -6px;
+        }
+        .pulse-typebar .typebar-item input[type="range"]::-moz-range-track {
+            height: 3px;
+            background: #ccc;
+            border-radius: 2px;
+        }
+        .pulse-typebar .typebar-item input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            background: #000;
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
         }
         .pulse-typebar .param-value {
             min-width: 28px;
@@ -2132,9 +2156,9 @@
                 c.lineJoin = 'round';
                 c.lineCap = 'round';
                 c.miterLimit = 2;
-                if (t.offset > 0) {
-                    const dist = Math.max(0, t.offset);
-                    const w = Math.max(0.5, t.offsetStroke || 0.5);
+                const dist = Math.max(0, t.offset || 0);
+                const w = Math.max(0, t.offsetStroke || 0);
+                if (w > 0) {
                     c.save();
                     c.strokeStyle = t.offsetColor || state.typeOffsetColor || '#000000';
                     c.lineWidth = dist * 2 + w;
@@ -2153,16 +2177,11 @@
                     c.fillStyle = t.fillColor || state.typeFillColor || '#000000';
                     typeDrawString(c, t, 'fill');
                 }
-                if (t.strokeOn) {
-                    c.strokeStyle = t.strokeColor || state.typeStrokeColor || '#000000';
-                    c.lineWidth = Math.max(0.5, t.outline);
-                    typeDrawString(c, t, 'stroke');
-                }
             }
             const sel = !exportDraw && state.sketchMode === 'type' && state.uiTab === 'sketch' ? typeActive() : null;
             if (sel) {
                 const L = typeLayout(sel, c);
-                const pad = 8 + (sel.offset || 0) + (sel.strokeOn ? sel.outline : 0);
+                const pad = 8 + (sel.offset || 0) + (sel.offsetStroke || 0);
                 c.save();
                 c.strokeStyle = '#111';
                 c.lineWidth = 1;
@@ -2237,11 +2256,6 @@
                 b.classList.toggle('is-active', b.getAttribute('data-align') === t.align);
             });
             el('el-type-fill-btn')?.classList.toggle('is-active', t.fillOn !== false);
-            el('el-type-stroke-btn')?.classList.toggle('is-active', !!t.strokeOn);
-            const olEl = el('el-type-outline');
-            if (olEl) olEl.value = String(t.outline);
-            const olVal = el('val-el-type-outline');
-            if (olVal) olVal.textContent = Number(t.outline).toFixed(1);
             const offEl = el('el-type-offset');
             if (offEl) offEl.value = String(t.offset);
             const offVal = el('val-el-type-offset');
@@ -2252,8 +2266,6 @@
             if (osVal) osVal.textContent = Number(t.offsetStroke).toFixed(1);
             const fillCol = el('el-type-fill-color');
             if (fillCol) fillCol.value = t.fillColor || state.typeFillColor || '#000000';
-            const strokeCol = el('el-type-stroke-color');
-            if (strokeCol) strokeCol.value = t.strokeColor || state.typeStrokeColor || '#000000';
             const offCol = el('el-type-offset-color');
             if (offCol) offCol.value = t.offsetColor || state.typeOffsetColor || '#000000';
         }
@@ -3864,16 +3876,7 @@
         });
         el('el-type-fill-btn')?.addEventListener('click', () => {
             state.typeFillOn = !state.typeFillOn;
-            if (!state.typeFillOn && !state.typeStrokeOn) state.typeStrokeOn = true;
             el('el-type-fill-btn').classList.toggle('is-active', state.typeFillOn);
-            el('el-type-stroke-btn')?.classList.toggle('is-active', state.typeStrokeOn);
-            typeCommitPanel();
-        });
-        el('el-type-stroke-btn')?.addEventListener('click', () => {
-            state.typeStrokeOn = !state.typeStrokeOn;
-            if (!state.typeFillOn && !state.typeStrokeOn) state.typeFillOn = true;
-            el('el-type-fill-btn')?.classList.toggle('is-active', state.typeFillOn);
-            el('el-type-stroke-btn').classList.toggle('is-active', state.typeStrokeOn);
             typeCommitPanel();
         });
         document.querySelectorAll('#el-type-layer [data-layer]').forEach((btn) => {
@@ -3881,12 +3884,6 @@
                 state.typeLayer = btn.getAttribute('data-layer') === 'back' ? 'back' : 'front';
                 applyTypeLayer();
             });
-        });
-        el('el-type-outline')?.addEventListener('input', (e) => {
-            state.typeOutline = parseFloat(e.target.value);
-            const out = el('val-el-type-outline');
-            if (out) out.textContent = state.typeOutline.toFixed(1);
-            typeCommitPanel();
         });
         el('el-type-offset')?.addEventListener('input', (e) => {
             state.typeOffset = parseFloat(e.target.value);
@@ -3902,10 +3899,6 @@
         });
         el('el-type-fill-color')?.addEventListener('input', (e) => {
             state.typeFillColor = e.target.value;
-            typeCommitPanel();
-        });
-        el('el-type-stroke-color')?.addEventListener('input', (e) => {
-            state.typeStrokeColor = e.target.value;
             typeCommitPanel();
         });
         el('el-type-offset-color')?.addEventListener('input', (e) => {
