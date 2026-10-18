@@ -1,0 +1,3617 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sigil Pulse — OVRT</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="site-shell">
+        <header class="tool-header">
+            <a href="index.html" class="back-link">← Back to OVRT</a>
+            <span class="tool-title">Sigil Pulse</span>
+        </header>
+
+        <div class="app" aria-label="Sigil Pulse">
+            <div id="sketch-container">
+                <canvas id="canvas"></canvas>
+            </div>
+
+            <aside class="control-panel">
+                <header class="panel-header">
+                    <h2>Controls</h2>
+                    <button type="button" class="info-btn" id="info-btn" aria-label="What each control does">i</button>
+                </header>
+
+                <div class="info-overlay" id="info-overlay" role="dialog" aria-label="What each control does" hidden>
+                    <div class="info-content">
+                        <h3>What each control does</h3>
+                        <p style="font-size:12px;line-height:1.5;color:#444;margin:0 0 14px;">Trace images sit behind your drawing for reference only—they are not included in PNG or SVG export.</p>
+                        <dl>
+                            <dt>Sketch / Generate / Live</dt>
+                            <dd><strong>Sketch</strong> — draw by hand. <strong>Generate</strong> — procedural random paths. <strong>Live</strong> — the same drawing, driven by the music.</dd>
+                            <dt>Upload image</dt>
+                            <dd>Loads a reference behind the canvas for tracing.</dd>
+                            <dt>Image opacity</dt>
+                            <dd>How visible the trace image is; 0 is invisible.</dd>
+                            <dt>Image scale</dt>
+                            <dd>100% fits the image within the canvas; lower zooms out, higher zooms in.</dd>
+                            <dt>Generate</dt>
+                            <dd>Runs a new random path in Generate mode.</dd>
+                            <dt>Draw time</dt>
+                            <dd>Higher values produce longer, denser generated paths.</dd>
+                            <dt>DRAW / ERASE</dt>
+                            <dd>DRAW adds ink. ERASE removes with a soft cut (destination-out). Sketch tab only.</dd>
+                            <dt>Mirror</dt>
+                            <dd>Duplicates strokes across the vertical and/or horizontal axis from the canvas center. The same two toggles sit in the Animation panel, so you can flip them while a composition is moving — the reflections pick up the motion too.</dd>
+                            <dt>Stroke size</dt>
+                            <dd>Brush thickness for segments and marker textures.</dd>
+                            <dt>Sticky / Sticky dist</dt>
+                            <dd>Organic growth along the stroke; strength 0 is off. Distance controls how far branches reach from the path.</dd>
+                            <dt>Taper ends</dt>
+                            <dd>Fades stroke width at the start and end of each pen-down segment.</dd>
+                            <dt>Marker</dt>
+                            <dd>Texture along each stroke: none, jagged line, sprinkle, grid, grain, or inkblot.</dd>
+                            <dt>Marker preview</dt>
+                            <dd>Live preview of the current marker at your stroke size.</dd>
+                            <dt>Fill</dt>
+                            <dd>On — solid interior uses Fill color. Off — jagged outline look using Ink and Outline colors.</dd>
+                            <dt>Ink / Outline / Fill color</dt>
+                            <dd>Ink — stroke when Fill is off. Outline — outer edge of the jagged filter. Fill — interior when Fill is on.</dd>
+                            <dt>Background</dt>
+                            <dd>Color behind the sketch and default export background.</dd>
+                            <dt>Outline thickness</dt>
+                            <dd>Thickness of the jagged outline ring (SVG morphology radius).</dd>
+                            <dt>Export (bottom of panel)</dt>
+                            <dd><strong>Export SVG / PNG / IMG</strong> — PNG uses the same composite as before (trace image excluded). IMG is JPEG.</dd>
+                            <dt>Keyboard</dt>
+                            <dd><strong>Space</strong> — clear canvas. <strong>⌘Z / Ctrl+Z</strong> — undo last stroke. <strong>Shift</strong> while drawing — constrain each step to horizontal or vertical from the previous point.</dd>
+                        </dl>
+                        <h3>Live tab</h3>
+                        <p style="font-size:12px;line-height:1.5;color:#444;margin:0 0 14px;">The same drawing, driven by the music. Lows expand and grow, mids distort and rotate, highs thicken the stroke and shake the outline. Each band moves on its own envelope — stronger hits move further, then ease back. Your saved drawing is untouched; leaving the tab restores the still.</p>
+                        <dl>
+                            <dt>Source</dt>
+                            <dd><strong>Mic</strong> — microphone or line-in. <strong>System</strong> — capture a tab or window (turn Share audio on). <strong>File</strong> — loop a track. With nothing plugged in, Live free-runs on a pulse so you can still set a look.</dd>
+                            <dt>Sensitivity / Smooth</dt>
+                            <dd>How hard the analysis hits the drawing, and how much the envelopes are filtered. Smooth is attack time plus FFT smoothing — low for snappy transients, high for a slower breathe.</dd>
+                            <dt>Speed / Intensity / Decay</dt>
+                            <dd>Charge travel rate, overall motion amount, and how long each hit takes to fall back to rest.</dd>
+                            <dt>Effects</dt>
+                            <dd>Each row is one motion. Toggle it, pick which band drives it, and set how far that band can push it. Amount is proportional: a quiet kick expands less than a loud one.</dd>
+                            <dt>Motion</dt>
+                            <dd>How the form displaces when a hit lands. Whip is the default — a crack through the drawing. Hits come from detected onsets, not a random clock.</dd>
+                        </dl>
+                        <p style="font-size:12px;line-height:1.5;color:#444;margin:0 0 14px;">Export MP4 records about ten seconds of the canvas, so a run can be saved as video. Pause first if you want a still instead.</p>
+                        <button type="button" class="info-close" id="info-close">Close</button>
+                    </div>
+                </div>
+
+                <div class="panel-body">
+                    <section class="control-section" id="el-tab-row">
+                        <div class="control-row" style="margin:0;">
+                            <div class="mode-switch" style="width:100%; margin:0;">
+                                <button type="button" id="el-tab-sketch" class="panel-button is-active">Sketch</button>
+                                <button type="button" id="el-tab-generate" class="panel-button">Generate</button>
+                                <button type="button" id="el-tab-animate" class="panel-button">Live</button>
+                            </div>
+                        </div>
+                    </section>
+
+                    <details class="control-window" id="el-sketch-window" open>
+                        <summary>Sketch pad</summary>
+                        <section class="control-section">
+                            <div class="control-row" style="gap:6px; margin-bottom:12px;">
+                                <button type="button" id="el-upload-image" class="panel-button" style="flex:1;">Upload image</button>
+                                <input type="file" id="el-image-input" accept="image/*" style="display:none;">
+                            </div>
+
+                            <div class="control-row" id="el-image-opacity-row" style="gap:10px; display:none;">
+                                <label for="el-image-opacity">Image opacity</label>
+                                <input type="range" id="el-image-opacity" min="0" max="100" value="30" step="1">
+                                <span class="param-value" id="val-el-image-opacity">30%</span>
+                            </div>
+
+                            <div class="control-row" id="el-image-scale-row" style="gap:10px; display:none;">
+                                <label for="el-image-scale">Image scale</label>
+                                <input type="range" id="el-image-scale" min="10" max="200" value="100" step="5">
+                                <span class="param-value" id="val-el-image-scale">100%</span>
+                            </div>
+
+                            <div class="control-row" id="el-generate-row" style="gap:6px; margin-top:0; display:none;">
+                                <button type="button" id="el-generate" class="panel-button" style="flex:1;">Generate</button>
+                            </div>
+
+                            <div class="control-row" id="el-generate-time-row" style="gap:10px; margin-top:0; display:none;">
+                                <label for="el-generate-time">Draw time</label>
+                                <input type="range" id="el-generate-time" min="0" max="100" value="55" step="1">
+                                <span class="param-value" id="val-el-generate-time">55</span>
+                            </div>
+
+                            <div class="control-row" id="el-mode-row" style="margin-bottom:12px;">
+                                <div class="mode-switch" style="width:100%; margin:0;">
+                                    <button type="button" id="el-mode-ink" class="panel-button is-active">DRAW</button>
+                                    <button type="button" id="el-mode-cut" class="panel-button">ERASE</button>
+                                </div>
+                            </div>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-mirror" checked>
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Mirror left-right</span>
+                            </label>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-mirror-y">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Mirror top-bottom</span>
+                            </label>
+
+                            <div class="control-row">
+                                <label for="el-stroke">Stroke size</label>
+                                <input type="range" id="el-stroke" min="0.0" max="10.0" value="6" step="0.1">
+                                <span class="param-value" id="val-el-stroke">6</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-sticky-strength">Sticky</label>
+                                <input type="range" id="el-sticky-strength" min="0" max="10" value="0" step="0.5">
+                                <span class="param-value" id="val-el-sticky-strength">0</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-sticky-distance">Sticky dist</label>
+                                <input type="range" id="el-sticky-distance" min="0" max="10" value="5" step="0.5">
+                                <span class="param-value" id="val-el-sticky-distance">5</span>
+                            </div>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-taper">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Taper ends</span>
+                            </label>
+
+
+                            <div class="control-row">
+                                <label for="el-marker">Marker</label>
+                                <select id="el-marker" class="select-input">
+                                    <option value="none" selected>None</option>
+                                    <option value="line">Line</option>
+                                    <option value="sprinkle">Sprinkle</option>
+                                    <option value="grid">Grid</option>
+                                    <option value="grain">Grain</option>
+                                    <option value="inkblot">Inkblot</option>
+                                </select>
+                            </div>
+
+                            <div class="control-row" style="margin-top:2px;">
+                                <canvas id="el-marker-preview" width="440" height="56"></canvas>
+                            </div>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-fill-enabled">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Fill</span>
+                            </label>
+
+                            <div class="control-row color-row">
+                                <label for="el-ink-color">Ink color</label>
+                                <input type="color" id="el-ink-color" value="#000000">
+                            </div>
+                            <div class="control-row color-row">
+                                <label for="el-outline-color">Outline color</label>
+                                <input type="color" id="el-outline-color" value="#000000">
+                            </div>
+                            <div class="control-row color-row">
+                                <label for="el-fill-color">Fill color</label>
+                                <input type="color" id="el-fill-color" value="#000000">
+                            </div>
+                            <div class="control-row color-row">
+                                <label for="el-bg-color">Background</label>
+                                <input type="color" id="el-bg-color" value="#ffffff">
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-outline">Outline thickness</label>
+                                <input type="range" id="el-outline" min="0.2" max="10.0" value="1.0" step="0.05">
+                                <span class="param-value" id="val-el-outline">1.00</span>
+                            </div>
+
+                            <div class="shortcuts-block" style="margin-top:12px;">
+                                <span>[Space]</span> Clear canvas<br>
+                                <span>[⌘Z / Ctrl+Z]</span> Undo last stroke<br>
+                                <span>[Shift]</span> Horizontal / vertical only while drawing
+                            </div>
+                        </section>
+                    </details>
+
+                    <details class="control-window" id="el-anim-window" style="display:none;" open>
+                        <summary>Live</summary>
+                        <section class="control-section">
+                            <div class="control-row" style="gap:6px; margin-bottom:10px;">
+                                <button type="button" id="el-anim-toggle" class="panel-button is-active" style="flex:1;">Pause</button>
+                                <button type="button" id="el-anim-new" class="panel-button" style="flex:1;">New path</button>
+                            </div>
+
+                            <div class="control-row rx-source-row">
+                                <button type="button" id="rx-mic" class="panel-button" style="flex:1;">Mic</button>
+                                <button type="button" id="rx-system" class="panel-button" style="flex:1;">System</button>
+                                <button type="button" id="rx-file" class="panel-button" style="flex:1;">File</button>
+                            </div>
+                            <input type="file" id="rx-file-input" accept="audio/*" style="display:none;">
+                            <div class="rx-status" id="rx-status">No input — free-running</div>
+                            <div class="rx-meters" aria-hidden="true">
+                                <div class="rx-meter"><span id="rx-meter-low"></span></div>
+                                <div class="rx-meter"><span id="rx-meter-mid"></span></div>
+                                <div class="rx-meter"><span id="rx-meter-high"></span></div>
+                            </div>
+                            <div class="rx-meter-labels" aria-hidden="true">
+                                <span>Lows</span><span>Mids</span><span>Highs</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="rx-sens">Sensitivity</label>
+                                <input type="range" id="rx-sens" min="20" max="250" value="120" step="5">
+                                <span class="param-value" id="val-rx-sens">1.2×</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="rx-smooth">Smooth</label>
+                                <input type="range" id="rx-smooth" min="0" max="100" value="35" step="5">
+                                <span class="param-value" id="val-rx-smooth">35%</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="el-anim-speed">Speed</label>
+                                <input type="range" id="el-anim-speed" min="5" max="300" value="70" step="5">
+                                <span class="param-value" id="val-el-anim-speed">0.7×</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="rx-intensity">Intensity</label>
+                                <input type="range" id="rx-intensity" min="0" max="150" value="75" step="5">
+                                <span class="param-value" id="val-rx-intensity">75%</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="rx-decay">Decay</label>
+                                <input type="range" id="rx-decay" min="5" max="80" value="22" step="1">
+                                <span class="param-value" id="val-rx-decay">0.22s</span>
+                            </div>
+
+                            <div class="control-row">
+                                <label for="el-anim-motion">Motion</label>
+                                <select id="el-anim-motion" class="select-input">
+                                    <optgroup label="Hit">
+                                        <option value="whip" selected>Whip — cracks through it</option>
+                                        <option value="stomp">Stomp — chunks slam, spring back</option>
+                                        <option value="jolt">Jolt — whole form gets hit</option>
+                                    </optgroup>
+                                    <optgroup label="Broken">
+                                        <option value="glitch">Glitch — tears and snaps</option>
+                                        <option value="stutter">Stutter — freeze, teleport, freeze</option>
+                                        <option value="shatter">Shatter — blasts apart</option>
+                                    </optgroup>
+                                    <optgroup label="Loose">
+                                        <option value="tendril">Tendril — wanders, no wave</option>
+                                        <option value="ratchet">Ratchet — mechanical lurch</option>
+                                    </optgroup>
+                                    <optgroup label="Waves">
+                                        <option value="flow">Flow — liquid bend</option>
+                                        <option value="slither">Slither — crawls along itself</option>
+                                        <option value="coil">Coil — corkscrew</option>
+                                        <option value="burst">Burst — rings from centre</option>
+                                        <option value="swirl">Swirl — twists around centre</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-anim-mirror" checked>
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Mirror left-right</span>
+                            </label>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-anim-mirror-y">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Mirror top-bottom</span>
+                            </label>
+
+                            <div class="control-row rx-effect-row">
+                                <label class="checkbox-label" style="margin:0;">
+                                    <input type="checkbox" id="rx-expand-on" checked>
+                                    <span class="toggle-box"></span>
+                                    <span class="cb-label">Expand</span>
+                                </label>
+                                <select id="rx-expand-band" class="select-input">
+                                    <option value="low" selected>Lows</option>
+                                    <option value="mid">Mids</option>
+                                    <option value="high">Highs</option>
+                                </select>
+                                <input type="range" id="rx-expand-amt" min="0" max="100" value="85" step="5">
+                                <span class="param-value" id="val-rx-expand-amt">85%</span>
+                            </div>
+                            <div class="control-row rx-effect-row">
+                                <label class="checkbox-label" style="margin:0;">
+                                    <input type="checkbox" id="rx-growth-on" checked>
+                                    <span class="toggle-box"></span>
+                                    <span class="cb-label">Growth</span>
+                                </label>
+                                <select id="rx-growth-band" class="select-input">
+                                    <option value="low" selected>Lows</option>
+                                    <option value="mid">Mids</option>
+                                    <option value="high">Highs</option>
+                                </select>
+                                <input type="range" id="rx-growth-amt" min="0" max="100" value="55" step="5">
+                                <span class="param-value" id="val-rx-growth-amt">55%</span>
+                            </div>
+                            <div class="control-row rx-effect-row">
+                                <label class="checkbox-label" style="margin:0;">
+                                    <input type="checkbox" id="rx-distort-on" checked>
+                                    <span class="toggle-box"></span>
+                                    <span class="cb-label">Distort</span>
+                                </label>
+                                <select id="rx-distort-band" class="select-input">
+                                    <option value="low">Lows</option>
+                                    <option value="mid" selected>Mids</option>
+                                    <option value="high">Highs</option>
+                                </select>
+                                <input type="range" id="rx-distort-amt" min="0" max="100" value="75" step="5">
+                                <span class="param-value" id="val-rx-distort-amt">75%</span>
+                            </div>
+                            <div class="control-row rx-effect-row">
+                                <label class="checkbox-label" style="margin:0;">
+                                    <input type="checkbox" id="rx-rotate-on" checked>
+                                    <span class="toggle-box"></span>
+                                    <span class="cb-label">Rotate</span>
+                                </label>
+                                <select id="rx-rotate-band" class="select-input">
+                                    <option value="low">Lows</option>
+                                    <option value="mid" selected>Mids</option>
+                                    <option value="high">Highs</option>
+                                </select>
+                                <input type="range" id="rx-rotate-amt" min="0" max="100" value="40" step="5">
+                                <span class="param-value" id="val-rx-rotate-amt">40%</span>
+                            </div>
+                            <div class="control-row rx-effect-row">
+                                <label class="checkbox-label" style="margin:0;">
+                                    <input type="checkbox" id="rx-thick-on" checked>
+                                    <span class="toggle-box"></span>
+                                    <span class="cb-label">Thickness</span>
+                                </label>
+                                <select id="rx-thick-band" class="select-input">
+                                    <option value="low">Lows</option>
+                                    <option value="mid">Mids</option>
+                                    <option value="high" selected>Highs</option>
+                                </select>
+                                <input type="range" id="rx-thick-amt" min="0" max="100" value="70" step="5">
+                                <span class="param-value" id="val-rx-thick-amt">70%</span>
+                            </div>
+                            <div class="control-row rx-effect-row">
+                                <label class="checkbox-label" style="margin:0;">
+                                    <input type="checkbox" id="rx-detail-on" checked>
+                                    <span class="toggle-box"></span>
+                                    <span class="cb-label">Detail</span>
+                                </label>
+                                <select id="rx-detail-band" class="select-input">
+                                    <option value="low">Lows</option>
+                                    <option value="mid">Mids</option>
+                                    <option value="high" selected>Highs</option>
+                                </select>
+                                <input type="range" id="rx-detail-amt" min="0" max="100" value="55" step="5">
+                                <span class="param-value" id="val-rx-detail-amt">55%</span>
+                            </div>
+                        </section>
+                    </details>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <!-- SVG filter used for the outline look -->
+    <svg width="0" height="0" style="position:absolute">
+        <defs>
+            <filter id="jagged-edge" color-interpolation-filters="sRGB">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
+                <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40"
+                    result="solidBlob" />
+                <feMorphology id="jagged-dilate" operator="dilate" radius="1.0" in="solidBlob" result="fatBlob" />
+                <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
+                <feFlood id="jagged-flood" flood-color="#000000" result="color" />
+                <feComposite in="color" in2="outline" operator="in" result="coloredOutline" />
+                <feMerge>
+                    <feMergeNode in="coloredOutline" />
+                    <feMergeNode in="solidBlob" />
+                </feMerge>
+            </filter>
+        </defs>
+    </svg>
+
+    <style>
+        /* Scope layout fixes to Sigil only. */
+        .app[aria-label="Sigil Pulse"] {
+            /* Fill the remaining viewport height while leaving header space. */
+            height: calc(100vh - 56px);
+            min-height: calc(100vh - 56px);
+            padding: 0;
+            gap: 0;
+            align-items: stretch;
+            /* Make the canvas fill the space the panel isn't covering (no centering). */
+            justify-content: flex-start;
+        }
+
+        #sketch-container canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            touch-action: none;
+            background: transparent;
+        }
+
+        #sketch-container {
+            /* Fill the available viewport height without changing stacking order. */
+            flex: 1;
+            height: 100%;
+            width: 100%;
+            min-width: 0;
+            pointer-events: auto;
+            background: transparent;
+        }
+
+        /* Wider sliders: widen the control panel + shrink the label column. */
+        .app[aria-label="Sigil Pulse"] .control-panel {
+            width: 280px;
+        }
+
+        .app[aria-label="Sigil Pulse"] .panel-header {
+            padding: 16px 22px;
+            gap: 20px;
+        }
+
+        .app[aria-label="Sigil Pulse"] .control-row {
+            gap: 12px;
+            margin-bottom: 2px;
+        }
+
+        .app[aria-label="Sigil Pulse"] .control-row label {
+            flex: 0 0 90px;
+        }
+
+        /* Taller canvas: the panel fills the app height and scrolls its own body, so added
+           sections stay reachable instead of being clipped. */
+        .app[aria-label="Sigil Pulse"] .control-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .app[aria-label="Sigil Pulse"] .panel-body {
+            max-height: none;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .app[aria-label="Sigil Pulse"] #el-tab-row {
+            margin: 0;
+            padding: 10px 16px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        /* Only apply the jagged outline filter when we are NOT in Fill mode. */
+        #sketch-container[data-outline="true"] {
+            -webkit-filter: url(#jagged-edge);
+            filter: url(#jagged-edge);
+        }
+
+
+        .rx-status {
+            font-size: 11px;
+            color: #666;
+            margin: 0 0 8px;
+            min-height: 1.3em;
+        }
+        .rx-meters {
+            display: flex;
+            gap: 6px;
+            height: 8px;
+            margin: 4px 0 2px;
+        }
+        .rx-meter {
+            flex: 1;
+            background: #ddd;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .rx-meter > span {
+            display: block;
+            height: 100%;
+            width: 0%;
+            background: #111;
+        }
+        .rx-meter-labels {
+            display: flex;
+            gap: 6px;
+            font-size: 10px;
+            color: #888;
+            margin: 0 0 10px;
+        }
+        .rx-meter-labels span { flex: 1; }
+        .rx-effect-row {
+            align-items: center;
+            gap: 8px;
+        }
+        .app[aria-label="Sigil Pulse"] .rx-effect-row label {
+            flex: 0 0 78px;
+        }
+        .rx-effect-row .select-input {
+            flex: 0 0 70px;
+            min-width: 0;
+        }
+        .rx-source-row { gap: 6px; margin-bottom: 8px; }
+
+        body.is-preview #sketch-container,
+        body.is-preview #canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        #el-marker-preview {
+            width: 100%;
+            height: 28px;
+            border-radius: 4px;
+            background: #1a1a1a;
+            display: block;
+        }
+    </style>
+
+    <script src="page-transition.js"></script>
+    <script src="rite-audio.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas2svg@1.0.16/canvas2svg.js"></script>
+    <script>
+        if (new URLSearchParams(window.location.search).get('preview') === '1') {
+            document.body.classList.add('is-preview');
+        }
+
+        const canvas = document.getElementById('canvas');
+        let ctx = canvas.getContext('2d');
+        let cssWidth = 1;
+        let cssHeight = 1;
+        let dpr = 1;
+
+        const el = (id) => document.getElementById(id);
+
+        const infoBtn = el('info-btn');
+        const infoOverlay = el('info-overlay');
+        const infoClose = el('info-close');
+
+        const btnInk = el('el-mode-ink');
+        const btnCut = el('el-mode-cut');
+        const mirrorEl = el('el-mirror');
+        const mirrorYEl = el('el-mirror-y');
+        // The same two mirror toggles also live in the Animate panel.
+        const animMirrorEl = el('el-anim-mirror');
+        const animMirrorYEl = el('el-anim-mirror-y');
+        const tabSketchBtn = el('el-tab-sketch');
+        const tabGenerateBtn = el('el-tab-generate');
+        const tabAnimateBtn = el('el-tab-animate');
+        const animWindow = el('el-anim-window');
+        const sketchWindow = el('el-sketch-window');
+        const generateRow = el('el-generate-row');
+        const generateBtn = el('el-generate');
+        const genTimeRow = el('el-generate-time-row');
+        const genTimeEl = el('el-generate-time');
+        const genTimeVal = el('val-el-generate-time');
+        const modeRowEl = el('el-mode-row');
+        const strokeEl = el('el-stroke');
+        const strokeVal = el('val-el-stroke');
+        const markerEl = el('el-marker');
+        const fillEnabledEl = el('el-fill-enabled');
+        const inkColorEl = el('el-ink-color');
+        const outlineColorEl = el('el-outline-color');
+        const fillColorEl = el('el-fill-color');
+        const bgColorEl = el('el-bg-color');
+        const outlineEl = el('el-outline');
+        const outlineVal = el('val-el-outline');
+        const taperEl = el('el-taper');
+        const stickyStrengthEl = el('el-sticky-strength');
+        const stickyStrengthVal = el('val-el-sticky-strength');
+        const stickyDistanceEl = el('el-sticky-distance');
+        const stickyDistanceVal = el('val-el-sticky-distance');
+        const markerPreviewCanvas = el('el-marker-preview');
+
+        const state = {
+            // Modes match reference: positive = ink, negative = cut
+            mode: 'ink', // 'ink' | 'cut'
+            sketchMode: 'ink', // what Sketch tab uses (draw/erase)
+            mirrorEnabled: true,   // left-right
+            mirrorYEnabled: false, // top-bottom
+            brushSize: 6,
+            marker: 'none', // none|line|sprinkle|grid|grain|inkblot
+
+            uiTab: 'sketch', // 'sketch' | 'generate'
+            generateTime: 55,
+            generateSeed: (Math.random() * 0x7fffffff) | 0,
+            taperEnabled: false,
+            // Sticky strength: 0 = off, 10 = max growth.
+            stickyStrength: 0,
+            stickyDistance: 5,
+
+            // Per-stroke tracking for taper + speed
+            strokeCumDist: 0,
+            strokeStartIdx: 0,
+            strokeTotalDist: 1e9,
+            lastDrawTime: 0,
+            lastDrawSpeed: 0,
+            currentSpeed: 0,
+            currentTaper: { cumDist1: 0, cumDist2: 0, totalDist: 1e9 },
+
+            fillEnabled: false,
+            inkColor: '#000000',
+            outlineColor: '#000000',
+            fillColor: '#000000',
+            bgColor: '#ffffff',
+            // Image trace feature
+            traceImage: null,
+            traceImageOpacity: 0.3,
+            traceImageScale: 1.0,
+
+            outlineRadius: 1.0,
+
+            isDrawing: false,
+            points: [],
+            edges: [],
+            selectionRng: Math.random,
+
+            undoStack: [], // { snapCanvas, pointsLen }
+        };
+
+        /** Sticky stroke look (passes / jitter / holes / thickness falloff) */
+        const MYCELIUM_STROKE = { passMul: 1.38, jitterMul: 1.55, holeMul: 0.68, distPlus: 0.26 };
+
+        const CONFIG = {
+            connectDistance: 70,
+            baseJitter: 4,
+            jitterMultiplier: 0.8,
+            passes: 6,
+            holeChance: 0.15
+        };
+
+        function clamp(v, min, max) {
+            return Math.max(min, Math.min(max, v));
+        }
+
+        function makeRng(seed) {
+            let s = (seed >>> 0) || 1;
+            return () => {
+                s = (1664525 * s + 1013904223) >>> 0;
+                return s / 4294967296;
+            };
+        }
+
+        // ─── Particle Growth Sticky System ─────────────────────────────
+        // Strokes grow from their OUTER EDGES toward nearby strokes.
+        // Growth is based on edge-to-edge distance, not center-to-center.
+
+        function drawStickyParticle(cx, cy, r) {
+            if (state.marker === 'grid') {
+                const gridSize = Math.max(4, Math.floor(state.brushSize * 1.2));
+                const jx = (Math.random() - 0.5) * r;
+                const jy = (Math.random() - 0.5) * r;
+                const gx = Math.round((cx + jx) / gridSize) * gridSize;
+                const gy = Math.round((cy + jy) / gridSize) * gridSize;
+                const s = Math.max(0.9, r * 1.5);
+                const pts = mirroredPoints(gx, gy);
+                for (let pi = 0; pi < pts.length; pi++) {
+                    ctx.fillRect(pts[pi].x - s / 2, pts[pi].y - s / 2, s, s);
+                }
+
+            } else if (state.marker === 'sprinkle') {
+                const cnt = 2;
+                for (let j = 0; j < cnt; j++) {
+                    const px = cx + (Math.random() - 0.5) * r * 2;
+                    const py = cy + (Math.random() - 0.5) * r * 2;
+                    const sr = Math.max(0.3, r * (0.3 + Math.random() * 0.4));
+                    const pts = mirroredPoints(px, py);
+                    for (let pi = 0; pi < pts.length; pi++) {
+                        ctx.beginPath();
+                        ctx.arc(pts[pi].x, pts[pi].y, sr, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            } else if (state.marker === 'grain') {
+                const cnt = 3;
+                for (let j = 0; j < cnt; j++) {
+                    const px = cx + (Math.random() - 0.5) * r * 1.5;
+                    const py = cy + (Math.random() - 0.5) * r * 1.5;
+                    const gr = Math.max(0.2, r * (0.15 + Math.random() * 0.25));
+                    const pts = mirroredPoints(px, py);
+                    for (let pi = 0; pi < pts.length; pi++) {
+                        ctx.beginPath();
+                        ctx.arc(pts[pi].x, pts[pi].y, gr, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            } else if (state.marker === 'inkblot') {
+                const pts = mirroredPoints(cx, cy);
+                for (let pi = 0; pi < pts.length; pi++) {
+                    const mp = pts[pi];
+                    ctx.beginPath();
+                    ctx.arc(mp.x, mp.y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                    if (Math.random() < 0.4) {
+                        const ang = Math.random() * Math.PI * 2;
+                        const off = r * 0.9;
+                        ctx.beginPath();
+                        ctx.arc(mp.x + Math.cos(ang) * off, mp.y + Math.sin(ang) * off, r * 0.3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            } else {
+                const pts = mirroredPoints(cx, cy);
+                for (let pi = 0; pi < pts.length; pi++) {
+                    ctx.beginPath();
+                    ctx.arc(pts[pi].x, pts[pi].y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function particleGrowth(p, idx) {
+            const t = state.stickyStrength / 10; // 0-1 normalized strength
+            if (t <= 0) return;
+
+            const strokeR = state.brushSize * 3.5;
+            const distT = state.stickyDistance / 10;
+            const maxGap = state.brushSize * (2 + distT * 22);
+            const maxCenterDist = maxGap + strokeR * 2;
+
+            // Skip recent points so we don't grow the stroke into itself as we
+            // draw — but still allow growth between older parts of the same
+            // stroke as well as between fully separate strokes (pen-up/down).
+            const skipRecent = 20;
+            const endSearch = idx - skipRecent;
+            if (endSearch <= 0) return;
+            const searchStart = Math.max(0, endSearch - 800);
+
+            const isInk = state.mode === 'ink';
+            ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
+            ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+            ctx.strokeStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+
+            const candidates = stickyCandidates(p, searchStart, endSearch, maxCenterDist);
+            for (let ci = 0; ci < candidates.length; ci++) {
+                const i = candidates[ci];
+                const prev = state.points[i];
+                if (!prev) continue;
+
+                const dx = p.x - prev.x;
+                const dy = p.y - prev.y;
+                const centerDist = Math.hypot(dx, dy);
+                if (centerDist <= 0 || centerDist >= maxCenterDist) continue;
+
+                // Edge-to-edge gap (gap between outer surfaces of the two strokes).
+                const edgeGap = centerDist - strokeR * 2;
+                if (edgeGap >= maxGap) continue;   // too far apart
+                if (edgeGap < -strokeR * 1.5) continue; // deeply overlapping
+
+                // Closeness: 1 = edges touching, 0 = edges at max range.
+                const closeness = clamp(1 - Math.max(0, edgeGap) / maxGap, 0, 1);
+                if (closeness < 0.02) continue;
+
+                // Unit direction from prev toward p.
+                const nx = dx / centerDist;
+                const ny = dy / centerDist;
+
+                // Perpendicular (for organic jitter).
+                const perpX = -ny;
+                const perpY = nx;
+
+                // Outer edge of the "prev" stroke, facing toward p.
+                const edgeAx = prev.x + nx * strokeR;
+                const edgeAy = prev.y + ny * strokeR;
+                // Outer edge of the current stroke p, facing toward prev.
+                const edgeBx = p.x - nx * strokeR;
+                const edgeBy = p.y - ny * strokeR;
+
+                // How far particles reach across the gap (0–1).
+                const growReach = Math.pow(closeness, 0.8) * (0.5 + t * 0.5);
+                // How many particles to emit (more when close and stronger).
+                const count = Math.max(1, Math.floor(closeness * (3 + t * 8)));
+
+                for (let j = 0; j < count; j++) {
+                    const frac = (j + 0.2 + Math.random() * 0.6) / count;
+
+                    // ── Growth from edge A toward edge B ──
+                    const tA = frac * growReach;
+                    const jitterA = (Math.random() - 0.5) * state.brushSize * 0.8;
+                    const axg = edgeAx + (edgeBx - edgeAx) * tA + perpX * jitterA;
+                    const ayg = edgeAy + (edgeBy - edgeAy) * tA + perpY * jitterA;
+                    // Taper: large near the stroke edge, small at the tip.
+                    const taperA = Math.pow(1 - tA / Math.max(0.01, growReach), 0.6);
+                    const rA = Math.max(0.5, strokeR * (0.2 + t * 0.4) * taperA * Math.pow(closeness, 0.5));
+
+                    drawStickyParticle(axg, ayg, rA);
+
+                    // ── Growth from edge B toward edge A (symmetrical) ──
+                    const tB = (1 - frac) * growReach;
+                    const jitterB = (Math.random() - 0.5) * state.brushSize * 0.8;
+                    const bxg = edgeBx + (edgeAx - edgeBx) * tB + perpX * jitterB;
+                    const byg = edgeBy + (edgeAy - edgeBy) * tB + perpY * jitterB;
+                    const taperB = Math.pow(1 - tB / Math.max(0.01, growReach), 0.6);
+                    const rB = Math.max(0.5, strokeR * (0.2 + t * 0.4) * taperB * Math.pow(closeness, 0.5));
+
+                    drawStickyParticle(bxg, byg, rB);
+
+                    // ── Occasional side-branch for organic look ──
+                    if (Math.random() < closeness * 0.4) {
+                        const branchT = tA * (0.2 + Math.random() * 0.6);
+                        const branchOff = (Math.random() - 0.5) * state.brushSize * 1.2;
+                        const brx = edgeAx + (edgeBx - edgeAx) * branchT + perpX * branchOff;
+                        const bry = edgeAy + (edgeBy - edgeAy) * branchT + perpY * branchOff;
+                        const brR = Math.max(0.4, rA * 0.6);
+                        
+                        drawStickyParticle(brx, bry, brR);
+                    }
+                }
+            }
+
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        // Spatial index for Sticky. The old path checked up to 800 prior points
+        // for every pointer event, even when almost all were nowhere nearby.
+        // Candidate indexes are sorted so the drawing and seeded random sequence
+        // remain identical to the old linear scan.
+        const stickyIndex = {
+            cells: new Map(),
+            cellSize: 1,
+            geometryKey: '',
+            indexedThrough: 0
+        };
+
+        function stickyCellKey(x, y, cellSize) {
+            return Math.floor(x / cellSize) + ',' + Math.floor(y / cellSize);
+        }
+
+        function stickyIndexPoint(point, idx) {
+            if (!point) return;
+            const key = stickyCellKey(point.x, point.y, stickyIndex.cellSize);
+            let bucket = stickyIndex.cells.get(key);
+            if (!bucket) {
+                bucket = [];
+                stickyIndex.cells.set(key, bucket);
+            }
+            bucket.push(idx);
+        }
+
+        function stickyEnsureIndex(endIdx, cellSize) {
+            const size = Math.max(1, cellSize);
+            const geometryKey = size.toFixed(3);
+            if (stickyIndex.geometryKey !== geometryKey || stickyIndex.indexedThrough > endIdx) {
+                stickyIndex.cells.clear();
+                stickyIndex.cellSize = size;
+                stickyIndex.geometryKey = geometryKey;
+                stickyIndex.indexedThrough = 0;
+            }
+            while (stickyIndex.indexedThrough < endIdx) {
+                const idx = stickyIndex.indexedThrough++;
+                stickyIndexPoint(state.points[idx], idx);
+            }
+        }
+
+        function stickyCandidates(point, startIdx, endIdx, radius) {
+            stickyEnsureIndex(endIdx, radius);
+            const size = stickyIndex.cellSize;
+            const minX = Math.floor((point.x - radius) / size);
+            const maxX = Math.floor((point.x + radius) / size);
+            const minY = Math.floor((point.y - radius) / size);
+            const maxY = Math.floor((point.y + radius) / size);
+            const out = [];
+
+            for (let cy = minY; cy <= maxY; cy++) {
+                for (let cx = minX; cx <= maxX; cx++) {
+                    const bucket = stickyIndex.cells.get(cx + ',' + cy);
+                    if (!bucket) continue;
+                    for (let i = 0; i < bucket.length; i++) {
+                        const idx = bucket[i];
+                        if (idx >= startIdx && idx < endIdx) out.push(idx);
+                    }
+                }
+            }
+            out.sort((a, b) => a - b);
+            return out;
+        }
+
+        /** Dispatch to the active sticky mode and index every point. */
+        function applyStickyMode(p, idx) {
+            if (state.stickyStrength > 0) particleGrowth(p, idx);
+            stickyEnsureIndex(idx, state.brushSize * (
+                2 + (state.stickyDistance / 10) * 22 + 7
+            ));
+            stickyIndexPoint(p, idx);
+            stickyIndex.indexedThrough = idx + 1;
+        }
+
+        function resetStickyData() {
+            stickyIndex.cells.clear();
+            stickyIndex.geometryKey = '';
+            stickyIndex.indexedThrough = 0;
+        }
+
+        function mirroredPoints(x, y) {
+            const out = [{ x, y }];
+            if (state.mirrorEnabled) out.push({ x: cssWidth - x, y });
+            if (state.mirrorYEnabled) out.push({ x, y: cssHeight - y });
+            if (state.mirrorEnabled && state.mirrorYEnabled) {
+                out.push({ x: cssWidth - x, y: cssHeight - y });
+            }
+            return out;
+        }
+
+        function mirroredLines(x1, y1, x2, y2) {
+            const out = [{ x1, y1, x2, y2 }];
+            if (state.mirrorEnabled) out.push({ x1: cssWidth - x1, y1, x2: cssWidth - x2, y2 });
+            if (state.mirrorYEnabled) out.push({ x1, y1: cssHeight - y1, x2, y2: cssHeight - y2 });
+            if (state.mirrorEnabled && state.mirrorYEnabled) {
+                out.push({
+                    x1: cssWidth - x1,
+                    y1: cssHeight - y1,
+                    x2: cssWidth - x2,
+                    y2: cssHeight - y2
+                });
+            }
+            return out;
+        }
+
+        function setUiTab(tab) {
+            if (state.isDrawing) stopDrawing();
+            state.uiTab = tab;
+            if (tab !== 'sketch') state.isDrawing = false;
+            tabSketchBtn?.classList.toggle('is-active', tab === 'sketch');
+            tabGenerateBtn?.classList.toggle('is-active', tab === 'generate');
+            tabAnimateBtn?.classList.toggle('is-active', tab === 'animate');
+
+            if (generateRow) generateRow.style.display = tab === 'generate' ? 'flex' : 'none';
+            if (genTimeRow) genTimeRow.style.display = tab === 'generate' ? 'flex' : 'none';
+            if (animWindow) animWindow.style.display = tab === 'animate' ? '' : 'none';
+            // Fold the sketch controls away on Animate so the animation panel is right there.
+            if (sketchWindow) sketchWindow.open = tab !== 'animate';
+
+            // Mode controls are only for Sketch. Generate always draws.
+            if (modeRowEl) modeRowEl.style.display = tab === 'sketch' ? '' : 'none';
+            if (tab === 'sketch') setMode(state.sketchMode);
+            else setMode('ink');
+
+            animSetActive(tab === 'animate');
+        }
+
+        function drawTraceImage() {
+            if (!state.traceImage) return;
+            const img = state.traceImage;
+            // Use canvas physical dimensions (not CSS), since we're in setTransform(1,0,0,1,0,0)
+            const w = canvas.width;
+            const h = canvas.height;
+            const maxScale = Math.min(w / img.width, h / img.height);
+            const scale = maxScale * (state.traceImageScale / 100);
+            const drawW = img.width * scale;
+            const drawH = img.height * scale;
+            const x = (w - drawW) / 2;
+            const y = (h - drawH) / 2;
+            ctx.globalAlpha = state.traceImageOpacity;
+            ctx.drawImage(img, x, y, drawW, drawH);
+            ctx.globalAlpha = 1;
+        }
+
+        function renderMarkerPreview() {
+            const pc = markerPreviewCanvas;
+            if (!pc) return;
+            const pctx = pc.getContext('2d');
+            const w = pc.width;
+            const h = pc.height;
+            pctx.clearRect(0, 0, w, h);
+            pctx.fillStyle = '#1a1a1a';
+            pctx.fillRect(0, 0, w, h);
+
+            pctx.fillStyle = '#ffffff';
+            pctx.strokeStyle = '#ffffff';
+            const amp = h * 0.22;
+            const midY = h / 2;
+            const padX = 16;
+            const steps = 60;
+            const marker = state.marker;
+            const bz = Math.max(1, state.brushSize * 0.35);
+
+            let prevX = 0, prevY = 0;
+            for (let i = 0; i <= steps; i++) {
+                const t = i / steps;
+                const x = padX + (w - padX * 2) * t;
+                const y = midY + Math.sin(t * Math.PI * 2.2) * amp;
+
+                if (marker === 'none') {
+                    pctx.beginPath();
+                    pctx.arc(x, y, Math.max(0.5, bz), 0, Math.PI * 2);
+                    pctx.fill();
+                } else if (marker === 'line') {
+                    if (i > 0) {
+                        for (let p = 0; p < 3; p++) {
+                            const jx = (Math.random() - 0.5) * bz * 1.5;
+                            const jy = (Math.random() - 0.5) * bz * 1.5;
+                            pctx.lineWidth = Math.max(0.3, bz * 0.5);
+                            pctx.beginPath();
+                            pctx.moveTo(prevX + jx, prevY + jy);
+                            pctx.lineTo(x + jx, y + jy);
+                            pctx.stroke();
+                        }
+                    }
+                } else if (marker === 'sprinkle') {
+                    const cnt = 2 + Math.floor(Math.random() * 3);
+                    for (let j = 0; j < cnt; j++) {
+                        const sx = x + (Math.random() - 0.5) * bz * 5;
+                        const sy = y + (Math.random() - 0.5) * bz * 5;
+                        const sr = Math.max(0.3, bz * (0.15 + Math.random() * 0.4));
+                        pctx.beginPath();
+                        pctx.arc(sx, sy, sr, 0, Math.PI * 2);
+                        pctx.fill();
+                    }
+                } else if (marker === 'grid') {
+                    const gs = Math.max(3, Math.floor(bz * 1.6));
+                    const gx = Math.round(x / gs) * gs;
+                    const gy = Math.round(y / gs) * gs;
+                    const s = Math.max(0.8, bz * 0.7);
+                    pctx.fillRect(gx - s / 2, gy - s / 2, s, s);
+                } else if (marker === 'grain') {
+                    const cnt = 4 + Math.floor(Math.random() * 5);
+                    for (let j = 0; j < cnt; j++) {
+                        const gx = x + (Math.random() - 0.5) * bz * 4;
+                        const gy = y + (Math.random() - 0.5) * bz * 4;
+                        const gr = Math.max(0.2, bz * (0.08 + Math.random() * 0.18));
+                        pctx.beginPath();
+                        pctx.arc(gx, gy, gr, 0, Math.PI * 2);
+                        pctx.fill();
+                    }
+                } else if (marker === 'inkblot') {
+                    const br = Math.max(0.5, bz * (0.5 + Math.random() * 0.9));
+                    pctx.beginPath();
+                    pctx.arc(x, y, br, 0, Math.PI * 2);
+                    pctx.fill();
+                    if (Math.random() < 0.4) {
+                        const ang = Math.random() * Math.PI * 2;
+                        const off = br * 0.9;
+                        pctx.beginPath();
+                        pctx.arc(x + Math.cos(ang) * off, y + Math.sin(ang) * off, br * 0.3, 0, Math.PI * 2);
+                        pctx.fill();
+                    }
+                }
+                prevX = x;
+                prevY = y;
+            }
+        }
+
+        function setMarker(marker) {
+            state.marker = marker;
+            if (markerEl) markerEl.value = marker;
+            renderMarkerPreview();
+        }
+
+        function currentInkColor() {
+            // In outline mode (Fill OFF) we use inkColor as the stroke color.
+            // In fill mode (Fill ON) we use fillColor as the stroke color.
+            return state.fillEnabled ? state.fillColor : state.inkColor;
+        }
+
+        function applyBackgroundColor() {
+            const app = document.querySelector('.app[aria-label="Sigil Pulse"]');
+            if (app) app.style.backgroundColor = state.bgColor;
+        }
+
+        function updateFilterEnabled() {
+            // Fill ON = solid strokes, no SVG filter.
+            // Fill OFF = jagged-edge outline filter active.
+            const container = document.getElementById('sketch-container');
+            if (state.fillEnabled) {
+                container.removeAttribute('data-outline');
+                container.style.filter = 'none';
+                container.style.webkitFilter = 'none';
+            } else {
+                container.setAttribute('data-outline', 'true');
+                container.style.filter = '';
+                container.style.webkitFilter = '';
+            }
+        }
+
+        function updateFilter() {
+            const dilate = document.getElementById('jagged-dilate');
+            dilate?.setAttribute('radius', String(state.outlineRadius));
+
+            const flood = document.getElementById('jagged-flood');
+            flood?.setAttribute('flood-color', state.outlineColor);
+
+            updateFilterEnabled();
+        }
+
+        function drawGuideline() {
+            // Guideline disabled to match the current design request.
+            // (Mirroring still works; it just won't draw the dashed center line.)
+        }
+
+        function resize() {
+            const container = document.getElementById('sketch-container');
+            const rect = container.getBoundingClientRect();
+            let wCss = rect.width;
+            let hCss = rect.height;
+
+            // If layout hasn't settled yet, fall back so the canvas is still drawable.
+            if (!Number.isFinite(wCss) || wCss < 10) wCss = window.innerWidth;
+            if (!Number.isFinite(hCss) || hCss < 10) hCss = window.innerHeight;
+
+            cssWidth = wCss;
+            cssHeight = hCss;
+
+            dpr = Math.max(1, window.devicePixelRatio || 1);
+
+            canvas.style.width = `${wCss}px`;
+            canvas.style.height = `${hCss}px`;
+            canvas.width = Math.floor(wCss * dpr);
+            canvas.height = Math.floor(hCss * dpr);
+
+            // Clear in device pixel space.
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw in CSS pixel space.
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            // Background is the browser white; the filter is on the container.
+            // We clear the canvas so CUT/UNDO behaves predictably.
+            updateFilter();
+            updateFilterEnabled();
+        }
+
+        window.addEventListener('resize', () => requestAnimationFrame(resize));
+
+        function setMode(mode) {
+            state.mode = mode;
+            btnInk.classList.toggle('is-active', mode === 'ink');
+            btnCut.classList.toggle('is-active', mode === 'cut');
+        }
+
+        /** Mirror is offered in both the Sketch and Animate panels, so both copies show the truth. */
+        function syncMirrorInputs() {
+            if (mirrorEl) mirrorEl.checked = state.mirrorEnabled;
+            if (animMirrorEl) animMirrorEl.checked = state.mirrorEnabled;
+            if (mirrorYEl) mirrorYEl.checked = state.mirrorYEnabled;
+            if (animMirrorYEl) animMirrorYEl.checked = state.mirrorYEnabled;
+        }
+
+        function applyMirrorChange() {
+            syncMirrorInputs();
+            if (state.uiTab === 'animate') {
+                // The animation redraws the whole frame anyway; just make sure one runs even
+                // while paused. Clearing here would leave a blank canvas until play resumes.
+                animTouch();
+                return;
+            }
+            if (state.uiTab === 'generate') {
+                rerenderGenerateCurrent();
+                return;
+            }
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        function setMirror(enabled) {
+            state.mirrorEnabled = enabled;
+            applyMirrorChange();
+        }
+
+        function setMirrorY(enabled) {
+            state.mirrorYEnabled = enabled;
+            applyMirrorChange();
+        }
+
+        function pushUndoSnapshot() {
+            // snapshot exact pixels for reliable undo
+            const snap = document.createElement('canvas');
+            snap.width = canvas.width;
+            snap.height = canvas.height;
+            const sctx = snap.getContext('2d');
+            sctx.drawImage(canvas, 0, 0);
+            state.undoStack.push({ snapCanvas: snap, pointsLen: state.points.length });
+            if (state.undoStack.length > 30) state.undoStack.shift();
+        }
+
+        function undo() {
+            if (state.undoStack.length === 0) return;
+            const rec = state.undoStack.pop();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(rec.snapCanvas, 0, 0);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            state.points.length = rec.pointsLen;
+            state.edges = [];
+        }
+
+        function getEventClientXY(e) {
+            if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            return { x: e.clientX, y: e.clientY };
+        }
+
+        function canvasCoordsFromEvent(e) {
+            const rect = canvas.getBoundingClientRect();
+            const c = getEventClientXY(e);
+            return {
+                x: (c.x - rect.left),
+                y: (c.y - rect.top),
+            };
+        }
+
+        let shiftKeyPhysicallyDown = false;
+        function updateShiftFromKeyEvent(e, down) {
+            if (e.key === 'Shift' || e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+                shiftKeyPhysicallyDown = down;
+            }
+        }
+        window.addEventListener('keydown', (e) => updateShiftFromKeyEvent(e, true));
+        window.addEventListener('keyup', (e) => updateShiftFromKeyEvent(e, false));
+        window.addEventListener('blur', () => {
+            shiftKeyPhysicallyDown = false;
+        });
+
+        function shiftConstrainActive(e) {
+            return (!!e && !!e.shiftKey) || shiftKeyPhysicallyDown;
+        }
+
+        /** Shift-draw: straight segment along horizontal or vertical only (no diagonals). Keeps pointer distance. */
+        function snapToAxisHV(ax, ay, bx, by) {
+            const dx = bx - ax;
+            const dy = by - ay;
+            const dist = Math.hypot(dx, dy);
+            if (dist < 1e-6) return { x: bx, y: by };
+            if (Math.abs(dx) >= Math.abs(dy)) {
+                return { x: ax + (dx >= 0 ? dist : -dist), y: ay };
+            }
+            return { x: ax, y: ay + (dy >= 0 ? dist : -dist) };
+        }
+
+        /** Taper based on cumulative distance within the full stroke (start + end only) */
+        function taperWidthAt(t) {
+            if (!state.taperEnabled) return 1;
+            const info = state.currentTaper;
+            if (!info || info.totalDist <= 0) return 1;
+            const cumDist = info.cumDist1 + (info.cumDist2 - info.cumDist1) * clamp(t, 0, 1);
+            const totalDist = info.totalDist;
+            const taperLen = Math.max(15, state.brushSize * 12);
+            if (totalDist <= taperLen * 2.5) {
+                const u = totalDist > 0 ? cumDist / totalDist : 0.5;
+                return 0.06 + 0.94 * Math.pow(Math.sin(Math.PI * clamp(u, 0, 1)), 0.75);
+            }
+            if (cumDist < taperLen) {
+                return 0.06 + 0.94 * Math.pow(cumDist / taperLen, 0.6);
+            }
+            if (cumDist > totalDist - taperLen) {
+                return 0.06 + 0.94 * Math.pow((totalDist - cumDist) / taperLen, 0.6);
+            }
+            return 1;
+        }
+
+        function scratchLine(x1, y1, x2, y2, dist, stickyMv = 0, stickyT = 0) {
+            const sty = MYCELIUM_STROKE;
+            const mv = clamp(stickyMv, 0, 1);
+            const t = clamp(stickyT, 0, 1);
+            const distFactor = Math.max(0.12, (CONFIG.connectDistance - dist) / 10 + sty.distPlus);
+            const rawThickness = state.brushSize * distFactor;
+            const speedNorm = clamp((state.currentSpeed || 0) / 1.8, 0, 1);
+            const speedMul = 1.0 - speedNorm * 0.55;
+            const finalThickness = rawThickness * speedMul;
+            const baseJitter = CONFIG.baseJitter + (finalThickness * CONFIG.jitterMultiplier);
+
+            const isInk = state.mode === 'ink';
+            ctx.globalCompositeOperation = isInk ? 'source-over' : 'destination-out';
+            ctx.strokeStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+            ctx.fillStyle = isInk ? currentInkColor() : 'rgba(0,0,0,1)';
+
+            ctx.lineCap = state.taperEnabled ? 'round' : 'square';
+            ctx.lineJoin = 'bevel';
+
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const segLen = Math.hypot(dx, dy) || 1;
+            const dir = Math.atan2(dy, dx);
+            const myceliumBias = 0.85 + Math.abs(Math.sin(dir * 1.7)) * 0.55;
+            const passesLocal = Math.max(2, Math.round(CONFIG.passes * myceliumBias * sty.passMul * (1 + t * 0.75 * mv)));
+            const jitter = baseJitter * (0.9 + (myceliumBias - 0.85) * 0.35) * sty.jitterMul * (1 - t * 0.08 * mv);
+            // When sticky is strong in a region, reduce "holes" so edges merge into thicker joints.
+            const holeProb = clamp(CONFIG.holeChance * sty.holeMul * (1 - t * 0.95 * mv), 0, 0.5);
+
+            // Marker behaviours
+            if (state.marker === 'none') {
+                // Plain round circles — no texture, no jitter.
+                const samples = Math.max(2, Math.floor(segLen / 3));
+                const isInkLocal = state.mode === 'ink';
+                ctx.globalCompositeOperation = isInkLocal ? 'source-over' : 'destination-out';
+                ctx.fillStyle = isInkLocal ? currentInkColor() : 'rgba(0,0,0,1)';
+                for (let s = 0; s <= samples; s++) {
+                    const t = samples <= 1 ? 0.5 : s / samples;
+                    const cx = x1 + dx * t;
+                    const cy = y1 + dy * t;
+                    const r = Math.max(0.5, finalThickness * 0.5 * taperWidthAt(t));
+                    const pts = mirroredPoints(cx, cy);
+                    for (let pi = 0; pi < pts.length; pi++) {
+                        const mp = pts[pi];
+                        ctx.beginPath();
+                        ctx.arc(mp.x, mp.y, r, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            if (state.marker === 'sprinkle') {
+                // Bead-drops along the segment
+                const dotCount = Math.max(2, Math.floor(segLen / 14));
+                for (let i = 0; i < passesLocal; i++) {
+                    for (let d = 0; d < dotCount; d++) {
+                        if (Math.random() < holeProb) continue;
+                        const t = Math.random();
+                        const cx = x1 + dx * t;
+                        const cy = y1 + dy * t;
+                        const noiseScale = jitter * 0.7;
+                        const px = cx + (Math.random() - 0.5) * noiseScale;
+                        const py = cy + (Math.random() - 0.5) * noiseScale;
+
+                        const r = Math.max(0.8, finalThickness * (0.18 + Math.random() * 0.45)) * 0.5 * taperWidthAt(t);
+                        const pts = mirroredPoints(px, py);
+                        for (let pi = 0; pi < pts.length; pi++) {
+                            const mp = pts[pi];
+                            ctx.beginPath();
+                            ctx.arc(mp.x, mp.y, r, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            if (state.marker === 'grain') {
+                // Dense micro-scratches / dust clustered around the path.
+                const nx = -dy / segLen;
+                const ny = dx / segLen;
+                const dotCount = Math.max(12, Math.floor(segLen / 6));
+
+                for (let pass = 0; pass < passesLocal; pass++) {
+                    for (let d = 0; d < dotCount; d++) {
+                        if (Math.random() < holeProb * 0.55) continue;
+
+                        const t = Math.random();
+                        const cx = x1 + dx * t;
+                        const cy = y1 + dy * t;
+
+                        // Jitter mostly in the normal direction for "scrape along the stroke".
+                        const alongJit = (Math.random() - 0.5) * jitter * 0.55;
+                        const normJit = (Math.random() - 0.5) * jitter * 1.1;
+                        const px = cx + alongJit + nx * normJit;
+                        const py = cy + alongJit + ny * normJit;
+
+                        const r = Math.max(0.6, finalThickness * (0.08 + Math.random() * 0.18)) * 0.5 * taperWidthAt(t);
+                        const pts = mirroredPoints(px, py);
+                        for (let pi = 0; pi < pts.length; pi++) {
+                            const mp = pts[pi];
+                            ctx.beginPath();
+                            ctx.arc(mp.x, mp.y, r, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            if (state.marker === 'inkblot') {
+                // Inky pooled blobs along the stroke.
+                const nx = -dy / segLen;
+                const ny = dx / segLen;
+                const samples = Math.max(6, Math.floor(segLen / 5));
+                const blotBase = Math.max(0.7, finalThickness * 0.32);
+                const blotPasses = Math.max(2, Math.floor(passesLocal * 0.65));
+
+                for (let pass = 0; pass < blotPasses; pass++) {
+                    for (let s = 0; s < samples; s++) {
+                        if (Math.random() < holeProb * 0.45) continue;
+                        const t = samples <= 1 ? 0.5 : s / (samples - 1);
+                        const cx = x1 + dx * t;
+                        const cy = y1 + dy * t;
+
+                        const alongJ = (Math.random() - 0.5) * jitter * 0.45;
+                        const normJ = (Math.random() - 0.5) * jitter * 1.05;
+                        const px = cx + alongJ + nx * normJ;
+                        const py = cy + alongJ + ny * normJ;
+
+                        const r = blotBase * (0.55 + Math.random() * 1.1) * taperWidthAt(t);
+                        const pts = mirroredPoints(px, py);
+                        for (let pi = 0; pi < pts.length; pi++) {
+                            const mp = pts[pi];
+                            ctx.beginPath();
+                            ctx.arc(mp.x, mp.y, r, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+
+                        // Satellite droplets for bleed/ink spread feel.
+                        const satellites = 1 + Math.floor(Math.random() * 2);
+                        for (let k = 0; k < satellites; k++) {
+                            if (Math.random() < 0.35) continue;
+                            const off = r * (0.6 + Math.random() * 1.1);
+                            const ang = Math.random() * Math.PI * 2;
+                            const sx = px + Math.cos(ang) * off;
+                            const sy = py + Math.sin(ang) * off;
+                            const sr = Math.max(0.35, r * (0.16 + Math.random() * 0.22)) * taperWidthAt(t);
+                            const spts = mirroredPoints(sx, sy);
+                            for (let spi = 0; spi < spts.length; spi++) {
+                                const smp = spts[spi];
+                                ctx.beginPath();
+                                ctx.arc(smp.x, smp.y, sr, 0, Math.PI * 2);
+                                ctx.fill();
+                            }
+                        }
+                    }
+                }
+
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            if (state.marker === 'grid') {
+                // Grid/lattice texture "around" the stroke path.
+                // We quantize points to a grid and draw small squares.
+                const gridSize = Math.max(4, Math.floor(state.brushSize * 1.2));
+                const step = Math.max(2, Math.floor(gridSize * 0.5));
+                const length = segLen;
+                const samples = Math.max(2, Math.floor(length / step));
+
+                for (let pass = 0; pass < passesLocal; pass++) {
+                    for (let i = 0; i < samples; i++) {
+                        if (Math.random() < holeProb * 0.8) continue;
+                        const t = samples <= 1 ? 0.5 : i / (samples - 1);
+                        const cx = x1 + dx * t;
+                        const cy = y1 + dy * t;
+
+                        const jx = (Math.random() - 0.5) * jitter * 0.9;
+                        const jy = (Math.random() - 0.5) * jitter * 0.9;
+                        const px = cx + jx;
+                        const py = cy + jy;
+
+                        // Snap to grid.
+                        const gx = Math.round(px / gridSize) * gridSize;
+                        const gy = Math.round(py / gridSize) * gridSize;
+
+                        const s = Math.max(0.9, finalThickness * (0.35 + Math.random() * 0.35)) * taperWidthAt(t);
+                        const pts = mirroredPoints(gx, gy);
+                        for (let pi = 0; pi < pts.length; pi++) {
+                            const mp = pts[pi];
+                            ctx.fillRect(mp.x - s / 2, mp.y - s / 2, s, s);
+                        }
+                    }
+                }
+
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            if (state.marker === 'spray') {
+                const dotCount = Math.max(8, Math.floor(segLen / 6));
+                for (let i = 0; i < passesLocal; i++) {
+                    for (let d = 0; d < dotCount; d++) {
+                        if (Math.random() < 0.7) continue;
+                        const t = Math.random();
+                        const cx = x1 + dx * t;
+                        const cy = y1 + dy * t;
+                        const noiseScale = jitter * 1.1;
+                        const px = cx + (Math.random() - 0.5) * noiseScale;
+                        const py = cy + (Math.random() - 0.5) * noiseScale;
+                        const r = Math.max(0.6, finalThickness * (0.12 + Math.random() * 0.32)) * 0.55 * taperWidthAt(t);
+                        ctx.beginPath();
+                        ctx.arc(px, py, r, 0, Math.PI * 2);
+                        ctx.fill();
+                        if (state.mirrorEnabled) {
+                            const mx = cssWidth - px;
+                            ctx.beginPath();
+                            ctx.arc(mx, py, r, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                }
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            if (state.marker === 'dash') {
+                const dashCount = Math.max(3, Math.floor(segLen / 10));
+                for (let pass = 0; pass < passesLocal; pass++) {
+                    for (let k = 0; k < dashCount; k++) {
+                        const tA = k / dashCount;
+                        const tB = (k + 1) / dashCount;
+                        if (Math.random() < 0.25) continue;
+
+                        const jxA = (Math.random() - 0.5) * jitter;
+                        const jyA = (Math.random() - 0.5) * jitter;
+                        const jxB = (Math.random() - 0.5) * jitter;
+                        const jyB = (Math.random() - 0.5) * jitter;
+
+                        const ax = x1 + dx * tA + jxA;
+                        const ay = y1 + dy * tA + jyA;
+                        const bx = x1 + dx * tB + jxB;
+                        const by = y1 + dy * tB + jyB;
+
+                        const tm = (tA + tB) * 0.5;
+                        const lines = mirroredLines(ax, ay, bx, by);
+                        for (let li = 0; li < lines.length; li++) {
+                            const ml = lines[li];
+                            ctx.lineWidth = Math.max(0.15, finalThickness * taperWidthAt(tm));
+                            ctx.beginPath();
+                            ctx.moveTo(ml.x1, ml.y1);
+                            ctx.lineTo(ml.x2, ml.y2);
+                            ctx.stroke();
+                        }
+                    }
+                }
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            if (state.marker === 'hatch') {
+                const nx = -dy / segLen;
+                const ny = dx / segLen;
+                const sampleCount = Math.max(3, Math.floor(segLen / 18));
+                const hatchLen = finalThickness * 2.2;
+                for (let pass = 0; pass < passesLocal; pass++) {
+                    for (let s = 0; s < sampleCount; s++) {
+                        if (Math.random() < 0.1) continue;
+                        const t = s / Math.max(1, sampleCount - 1);
+                        const cx = x1 + dx * t;
+                        const cy = y1 + dy * t;
+                        const jx = (Math.random() - 0.5) * jitter;
+                        const jy = (Math.random() - 0.5) * jitter;
+                        const px = cx + jx;
+                        const py = cy + jy;
+
+                        const len = hatchLen * (0.7 + Math.random() * 0.8);
+                        const ax = px - nx * len * 0.5;
+                        const ay = py - ny * len * 0.5;
+                        const bx = px + nx * len * 0.5;
+                        const by = py + ny * len * 0.5;
+
+                        const lines = mirroredLines(ax, ay, bx, by);
+                        for (let li = 0; li < lines.length; li++) {
+                            const ml = lines[li];
+                            ctx.lineWidth = Math.max(0.12, finalThickness * 0.9 * taperWidthAt(t));
+                            ctx.beginPath();
+                            ctx.moveTo(ml.x1, ml.y1);
+                            ctx.lineTo(ml.x2, ml.y2);
+                            ctx.stroke();
+                        }
+                    }
+                }
+                ctx.globalCompositeOperation = 'source-over';
+                return;
+            }
+
+            // Default: line marker (exactly like reference)
+            for (let i = 0; i < passesLocal; i++) {
+                let jx1 = (Math.random() - 0.5) * jitter;
+                let jy1 = (Math.random() - 0.5) * jitter;
+                let jx2 = (Math.random() - 0.5) * jitter;
+                let jy2 = (Math.random() - 0.5) * jitter;
+
+                if (Math.random() <= holeProb) continue;
+
+                const px1 = x1 + jx1, py1 = y1 + jy1;
+                const px2 = x2 + jx2, py2 = y2 + jy2;
+
+                const taperSegs = state.taperEnabled ? Math.max(8, Math.min(24, Math.floor(segLen / 5))) : 1;
+                for (let seg = 0; seg < taperSegs; seg++) {
+                    const t0 = seg / taperSegs;
+                    const t1 = (seg + 1) / taperSegs;
+                    const tm = (t0 + t1) * 0.5;
+                    const ax = px1 + (px2 - px1) * t0;
+                    const ay = py1 + (py2 - py1) * t0;
+                    const bx = px1 + (px2 - px1) * t1;
+                    const by = py1 + (py2 - py1) * t1;
+                    const tw = taperWidthAt(tm);
+                    const lines = mirroredLines(ax, ay, bx, by);
+                    ctx.lineWidth = Math.max(0.15, finalThickness * tw);
+                    ctx.beginPath();
+                    for (let li = 0; li < lines.length; li++) {
+                        const ml = lines[li];
+                        ctx.moveTo(ml.x1, ml.y1);
+                        ctx.lineTo(ml.x2, ml.y2);
+                    }
+                    ctx.stroke();
+                }
+            }
+
+            ctx.globalCompositeOperation = 'source-over';
+        }
+
+        function withPointOverrides(pt, fn) {
+            const originalRandom = Math.random;
+            let rngState = pt.seed;
+            Math.random = () => {
+                rngState = (1664525 * rngState + 1013904223) >>> 0;
+                return rngState / 4294967296;
+            };
+
+            const originalMarker = state.marker;
+            state.marker = pt.marker || state.marker;
+
+            fn();
+
+            Math.random = originalRandom;
+            state.marker = originalMarker;
+        }
+
+        function addPoint(x, y, markerVal, seedVal, origP) {
+            const prevIdx = state.points.length - 1;
+            const prevPt = prevIdx >= 0 ? state.points[prevIdx] : null;
+
+            let segDist = 0;
+            if (prevPt) {
+                segDist = Math.hypot(x - prevPt.x, y - prevPt.y);
+            } else {
+                state.strokeCumDist = 0;
+                state.lastDrawSpeed = 0;
+            }
+
+            if (origP) {
+                state.strokeCumDist = origP.cumDist;
+                state.lastDrawSpeed = origP.speed;
+            } else {
+                state.strokeCumDist += segDist;
+                const now = performance.now();
+                if (prevPt && state.lastDrawTime > 0) {
+                    const dt = Math.max(1, now - state.lastDrawTime);
+                    const speed = segDist / dt;
+                    state.lastDrawSpeed = state.lastDrawSpeed * 0.65 + speed * 0.35;
+                }
+                state.lastDrawTime = now;
+            }
+
+            const p = { 
+                x, 
+                y, 
+                cumDist: state.strokeCumDist, 
+                speed: state.lastDrawSpeed,
+                marker: origP ? origP.marker : (markerVal || state.marker),
+                seed: origP ? origP.seed : (seedVal != null ? seedVal : ((Math.random() * 0xFFFFFFFF) >>> 0))
+            };
+            state.points.push(p);
+            const idx = state.points.length - 1;
+
+            if (prevPt) {
+                state.currentTaper = {
+                    cumDist1: prevPt.cumDist || 0,
+                    cumDist2: p.cumDist,
+                    totalDist: state.strokeTotalDist
+                };
+                state.currentSpeed = ((prevPt.speed || 0) + p.speed) * 0.5;
+            } else {
+                state.currentTaper = { cumDist1: 0, cumDist2: 0, totalDist: 1e9 };
+                state.currentSpeed = 0;
+            }
+
+            withPointOverrides(p, () => {
+                const lastIdx = idx - 1;
+                if (lastIdx >= 0) {
+                    const prev = state.points[lastIdx];
+                    if (prev) {
+                        const distPrev = Math.hypot(p.x - prev.x, p.y - prev.y);
+                        if (distPrev) {
+                            state.edges.push({ a: lastIdx, b: idx });
+                            scratchLine(prev.x, prev.y, p.x, p.y, distPrev, 0, 0);
+                        }
+                    }
+                }
+
+                applyStickyMode(p, idx);
+            });
+        }
+
+        // scratchLine already fills the space between samples. Ignoring sub-pixel
+        // pointer chatter avoids redundant work without delaying visible movement.
+        const DRAW_MIN_DIST = 1.25;
+
+        function startDrawing(e) {
+            if (state.uiTab !== 'sketch') return;
+            if (e && e.button != null && e.button !== 0) return;
+            if (state.isDrawing) return;
+            if (e && e.preventDefault) e.preventDefault();
+            state.isDrawing = true;
+            state.selectionRng = Math.random;
+            pushUndoSnapshot();
+
+            state.strokeCumDist = 0;
+            state.strokeStartIdx = state.points.length;
+            state.lastDrawTime = performance.now();
+            state.lastDrawSpeed = 0;
+            state.currentSpeed = 0;
+            state.strokeTotalDist = 1e9;
+            state.currentTaper = { cumDist1: 0, cumDist2: 0, totalDist: 1e9 };
+
+            const p = canvasCoordsFromEvent(e);
+            addPoint(p.x, p.y);
+        }
+
+        function stopDrawing() {
+            if (!state.isDrawing) return;
+            state.isDrawing = false;
+            if (state.uiTab === 'sketch') {
+                if (state.taperEnabled && state.undoStack.length > 0) {
+                    finalizeStrokeTaper();
+                }
+                state.points.push(null);
+            }
+        }
+
+        function commitDrawMove(x, y, shift) {
+            const prevIdx = state.points.length - 1;
+            const prevPt = prevIdx >= 0 ? state.points[prevIdx] : null;
+
+            let nx = x;
+            let ny = y;
+            if (prevPt && shift) {
+                const s = snapToAxisHV(prevPt.x, prevPt.y, x, y);
+                nx = s.x;
+                ny = s.y;
+            } else {
+                const noiseScale = state.brushSize * 0.8;
+                nx = x + (Math.random() - 0.5) * noiseScale;
+                ny = y + (Math.random() - 0.5) * noiseScale;
+            }
+
+            if (prevPt && Math.hypot(nx - prevPt.x, ny - prevPt.y) < DRAW_MIN_DIST) return;
+            addPoint(nx, ny);
+        }
+
+        function finalizeStrokeTaper() {
+            const startIdx = state.strokeStartIdx;
+            const endIdx = state.points.length;
+            if (endIdx - startIdx < 2) return;
+
+            let totalDist = 0;
+            for (let i = startIdx + 1; i < endIdx; i++) {
+                const pt = state.points[i];
+                const prev = state.points[i - 1];
+                if (!pt || !prev) break;
+                totalDist += Math.hypot(pt.x - prev.x, pt.y - prev.y);
+            }
+            if (totalDist <= 0) return;
+
+            const snapshot = state.undoStack[state.undoStack.length - 1];
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.drawImage(snapshot.snapCanvas, 0, 0);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            state.strokeTotalDist = totalDist;
+            state.strokeCumDist = 0;
+
+            for (let i = startIdx; i < endIdx; i++) {
+                const pt = state.points[i];
+                if (!pt) break;
+
+                withPointOverrides(pt, () => {
+                    if (i > startIdx) {
+                        const prev = state.points[i - 1];
+                        if (prev) {
+                            const segDist = Math.hypot(pt.x - prev.x, pt.y - prev.y);
+                            state.strokeCumDist += segDist;
+                            state.currentTaper = {
+                                cumDist1: state.strokeCumDist - segDist,
+                                cumDist2: state.strokeCumDist,
+                                totalDist: totalDist
+                            };
+                            state.currentSpeed = pt.speed || 0;
+                            if (segDist) {
+                                scratchLine(prev.x, prev.y, pt.x, pt.y, segDist, 0, 0);
+                            }
+                        }
+                    }
+
+                    applyStickyMode(pt, i);
+                });
+            }
+
+            state.strokeTotalDist = 1e9;
+        }
+
+        function drawMove(e) {
+            if (state.uiTab !== 'sketch') return;
+            if (!state.isDrawing) return;
+            if (e && e.preventDefault) e.preventDefault();
+            const p = canvasCoordsFromEvent(e);
+            commitDrawMove(p.x, p.y, shiftConstrainActive(e));
+        }
+
+        function clearAll() {
+            state.isDrawing = false;
+            state.points = [];
+            state.edges = [];
+            state.undoStack = [];
+            resetStickyData();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        function computeStrokeTotalDists(pts) {
+            const dists = new Float64Array(pts.length);
+            let strokeStartI = -1;
+            let cumDist = 0;
+            for (let i = 0; i < pts.length; i++) {
+                if (!pts[i]) {
+                    if (strokeStartI >= 0) {
+                        for (let j = strokeStartI; j < i; j++) dists[j] = cumDist;
+                    }
+                    strokeStartI = -1;
+                    cumDist = 0;
+                    continue;
+                }
+                if (strokeStartI < 0) strokeStartI = i;
+                if (i > strokeStartI && pts[i - 1]) {
+                    cumDist += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y);
+                }
+            }
+            if (strokeStartI >= 0) {
+                for (let j = strokeStartI; j < pts.length; j++) {
+                    if (pts[j]) dists[j] = cumDist;
+                }
+            }
+            return dists;
+        }
+
+        function renderFromPoints(pointsSource, opts) {
+            const src = pointsSource.slice();
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            if (opts && opts.exportBg) {
+                ctx.fillStyle = opts.exportBg;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            } else {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+            
+            // Draw trace image if loaded (but not during export)
+            if (state.traceImage && !opts?.exportBg) {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                drawTraceImage();
+            }
+            
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            state.points = [];
+            state.edges = [];
+            state.selectionRng = state.uiTab === 'generate'
+                ? makeRng((state.generateSeed ^ 0x9e3779b9) >>> 0)
+                : Math.random;
+
+            resetStickyData();
+
+            const strokeDists = state.taperEnabled ? computeStrokeTotalDists(src) : null;
+
+            for (let i = 0; i < src.length; i++) {
+                const p = src[i];
+                if (!p) {
+                    state.points.push(null);
+                    state.strokeCumDist = 0;
+                    continue;
+                }
+                if (strokeDists) state.strokeTotalDist = strokeDists[i] || 1e9;
+                addPoint(p.x, p.y, p.marker, p.seed, p);
+            }
+        }
+
+        function rerenderGenerateCurrent() {
+            if (!state.points.length) return;
+            renderFromPoints(state.points);
+        }
+
+        function buildGeneratedPoints(seed) {
+            const rng = makeRng(seed);
+            const points = [];
+            const w = cssWidth;
+            const h = cssHeight;
+            const margin = Math.max(18, state.brushSize * 2.2);
+
+            const tN = clamp(state.generateTime / 100, 0, 1); // 0 = fast, 1 = slow
+            const dynamicConnect = CONFIG.connectDistance + state.brushSize;
+            const baseSteps = (w * h) / 9000;
+            const steps = clamp(Math.floor(baseSteps * (0.55 + tN * 1.25)), 240, 2200);
+            const stepLenScale = 1.9 - tN * 1.25;
+            const penUpChance = 0.08 - tN * 0.06;
+
+            let x = margin + rng() * (w - margin * 2);
+            let y = margin + rng() * (h - margin * 2);
+            let angle = rng() * Math.PI * 2;
+            points.push({ x, y });
+
+            for (let i = 0; i < steps; i++) {
+                if (rng() < penUpChance) {
+                    points.push(null);
+                    x = margin + rng() * (w - margin * 2);
+                    y = margin + rng() * (h - margin * 2);
+                    angle = rng() * Math.PI * 2;
+                    points.push({ x, y });
+                    continue;
+                }
+
+                angle += (rng() - 0.5) * 1.1;
+                let stepLen = (10 + rng() * 28) * (0.6 + state.brushSize / 14) * stepLenScale;
+                const maxStepLen = dynamicConnect * 0.85;
+                const minStepLen = Math.min(8, maxStepLen * 0.35);
+                stepLen = clamp(stepLen, minStepLen, maxStepLen);
+
+                const nx = clamp(x + Math.cos(angle) * stepLen, margin, w - margin);
+                const ny = clamp(y + Math.sin(angle) * stepLen, margin, h - margin);
+                points.push({ x: nx, y: ny });
+
+                if (rng() < 0.2) {
+                    const jx = (rng() - 0.5) * state.brushSize * 0.6;
+                    const jy = (rng() - 0.5) * state.brushSize * 0.6;
+                    const mx = clamp(nx + jx, margin, w - margin);
+                    const my = clamp(ny + jy, margin, h - margin);
+                    points.push({ x: mx, y: my });
+                }
+
+                x = nx;
+                y = ny;
+            }
+            return points;
+        }
+
+        function generateRandomDrawing(opts = {}) {
+            const newSeed = opts.newSeed !== false;
+            const pushUndo = opts.pushUndo !== false;
+            // Generate a single random "hand-like" drawing.
+            // Generate always draws (no erase mode on this tab).
+            setMode('ink');
+            state.sketchMode = 'ink';
+
+            updateFilter();
+
+            // Snapshot what the user currently has so UNDO can restore it.
+            if (pushUndo) pushUndoSnapshot();
+            state.isDrawing = false;
+            if (newSeed) state.generateSeed = (Math.random() * 0x7fffffff) | 0;
+            const generated = buildGeneratedPoints(state.generateSeed);
+            renderFromPoints(generated);
+        }
+
+        /** Same pixels as on screen (fill = raw canvas; no-fill = jagged outline filter). */
+        function getCompositeExportDataUrl() {
+            const outCanvas = document.createElement('canvas');
+            outCanvas.width = canvas.width;
+            outCanvas.height = canvas.height;
+            const outCtx = outCanvas.getContext('2d');
+            outCtx.fillStyle = state.bgColor;
+            outCtx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (state.fillEnabled) {
+                outCtx.drawImage(canvas, 0, 0);
+            } else {
+                const strokeCanvas = document.createElement('canvas');
+                strokeCanvas.width = canvas.width;
+                strokeCanvas.height = canvas.height;
+                const sctx = strokeCanvas.getContext('2d');
+                sctx.drawImage(canvas, 0, 0);
+
+                const filterCanvas = document.createElement('canvas');
+                filterCanvas.width = canvas.width;
+                filterCanvas.height = canvas.height;
+                const fctx = filterCanvas.getContext('2d');
+                fctx.filter = 'url(#jagged-edge)';
+                fctx.drawImage(strokeCanvas, 0, 0);
+
+                outCtx.drawImage(filterCanvas, 0, 0);
+            }
+            return outCanvas.toDataURL('image/png');
+        }
+
+        function exportWithFilter() {
+            const link = document.createElement('a');
+            link.download = 'sigil_export.png';
+            link.href = getCompositeExportDataUrl();
+            link.click();
+        }
+        window.exportPagePNG = exportWithFilter;
+
+        // ─── Animation ─────────────────────────────────────────────────
+        // The drawn path is the composition, and it is redrawn every frame rather than cached, so
+        // a charge travelling along it can bend the path and swell its thickness — the silhouette
+        // itself moves. The particles and bleed ride the same charge, so movement runs through
+        // the lines that were made instead of pulsing everywhere at once.
+
+        const anim = {
+            active: false,
+            playing: true,
+            style: 'current',
+            motion: 'whip',  // how the form itself is displaced; see ANIM_MOTIONS
+            speed: 0.7,
+            spread: 2.4,   // charge cycles along the whole drawing
+            desync: 0.35,  // per-site phase scatter, so nothing moves in unison
+            reverse: false,
+            warp: 0.12,    // rest displacement; audio distort stacks on top
+            swell: 0.22,
+            charge: 0.42,
+            bleed: 0.38,
+            jitter: 0.12,
+            flicker: 0.16,
+            sparks: 0.28,
+            crackle: 0.16,
+            trails: 0.18,
+            glow: 0.42,
+            sparkColor: '#ffffff'
+        };
+
+        // Each style sets the personality; the sliders scale it.
+        const ANIM_STYLES = {
+            current: { wave: 0.85, staticW: 0.18, shape: 'cos', tight: 5, staticFreq: 0.9, jitterMul: 0.5, dropout: 0.05, warpMul: 1, swellMul: 1 },
+            static: { wave: 0.28, staticW: 0.78, shape: 'cos', tight: 2, staticFreq: 3.4, jitterMul: 1.7, dropout: 0.25, warpMul: 0.55, swellMul: 0.7 },
+            storm: { wave: 0.62, staticW: 0.42, shape: 'comet', tight: 8, staticFreq: 2.2, jitterMul: 1.2, dropout: 0.4, warpMul: 1.5, swellMul: 1.3 },
+            comet: { wave: 1.0, staticW: 0.04, shape: 'comet', tight: 14, staticFreq: 0.6, jitterMul: 0.3, dropout: 0, warpMul: 0.8, swellMul: 1.45 },
+            breathe: { wave: 1.0, staticW: 0.1, shape: 'cos', tight: 1.2, staticFreq: 0.35, jitterMul: 0.15, dropout: 0, warpMul: 1.25, swellMul: 1.6 }
+        };
+
+        // Style decides how the charge behaves; Motion decides what the charge does to the form.
+        // They are independent, so any charge can drive any kind of displacement.
+        const ANIM_MOTIONS = [
+            'whip', 'stomp', 'jolt',              // impulse-driven, hard attack and long decay
+            'glitch', 'stutter', 'shatter',       // discrete poses, nothing eases
+            'tendril', 'ratchet',                 // incoherent wander, mechanical lurch
+            'flow', 'slither', 'coil', 'burst', 'swirl'  // travelling waves
+        ];
+
+        const ANIM_MAX_SITES = 5000;
+        const ANIM_BLINK_OUT = 0.24;
+        const ANIM_TAU = Math.PI * 2;
+
+        const animData = {
+            trail: null, trailCtx: null,
+            pts: [], segs: [], sites: [],
+            hotColors: [], sparkStyle: '', rampKey: '',
+            signature: '', raf: 0, time: 0, dt: 0, lastTs: 0, dirty: true,
+            // Impulses in flight, plus the schedule that spawns them.
+            events: [], eventDue: 0, eventSeq: 0,
+            // Redrawing the form and emitting growth are the costly passes, so growth density
+            // self-tunes to whatever frame budget the machine and drawing size allow.
+            quality: 1, frameCost: 8
+        };
+
+        function animHash01(n) {
+            n = (n ^ 61) ^ (n >>> 16);
+            n = (n + (n << 3)) | 0;
+            n = n ^ (n >>> 4);
+            n = Math.imul(n, 0x27d4eb2d);
+            n = n ^ (n >>> 15);
+            return (n >>> 0) / 4294967296;
+        }
+
+        /** Smooth value noise over time for a given site id. */
+        function animNoise(id, t) {
+            const i = Math.floor(t);
+            const f = t - i;
+            const a = animHash01(Math.imul(id, 374761393) + Math.imul(i, 668265263));
+            const b = animHash01(Math.imul(id, 374761393) + Math.imul(i + 1, 668265263));
+            const u = f * f * (3 - 2 * f);
+            return a + (b - a) * u;
+        }
+
+        function animConfig() {
+            const s = ANIM_STYLES[anim.style] || ANIM_STYLES.current;
+            const distort = rxDrive('distort');
+            const thick = rxDrive('thick');
+            const detail = rxDrive('detail');
+            const growth = rxDrive('growth');
+            return {
+                wave: s.wave,
+                staticW: s.staticW,
+                shape: s.shape,
+                tight: s.tight * (1 + anim.crackle * 0.8),
+                staticFreq: s.staticFreq,
+                dropout: s.dropout * (0.4 + anim.crackle * 1.6),
+                jitter: anim.jitter * s.jitterMul + detail,
+                spread: anim.spread,
+                desync: anim.desync,
+                reverse: anim.reverse,
+                motion: anim.motion,
+                warp: (anim.warp + distort) * s.warpMul,
+                swell: (anim.swell + thick) * s.swellMul,
+                charge: anim.charge + distort * 0.25 + thick * 0.15,
+                bleed: clamp(anim.bleed + growth * 0.9, 0, 1.6),
+                flicker: anim.flicker + detail * 0.45,
+                sparks: anim.sparks,
+                crackle: anim.crackle,
+                glow: anim.glow
+            };
+        }
+
+        /** How charged a spot on the path is right now, 0..1. `s` is its position along the drawing. */
+        function animActivation(s, phase, id, cfg) {
+            const dir = cfg.reverse ? -1 : 1;
+            const ph = s * cfg.spread * dir - animData.time + phase * cfg.desync;
+            const w = ph - Math.floor(ph);
+            const wave = cfg.shape === 'comet'
+                ? Math.exp(-w * cfg.tight)
+                : Math.pow(0.5 + 0.5 * Math.cos(Math.PI * 2 * w), cfg.tight);
+
+            let a = cfg.wave * wave + cfg.staticW * animNoise(id, animData.time * cfg.staticFreq * 1.6);
+            if (cfg.crackle > 0) {
+                a += cfg.crackle * (animNoise(id + 7777, animData.time * (3 + cfg.crackle * 12)) - 0.38) * 0.95;
+            }
+            return clamp(a, 0, 1);
+        }
+
+        /** Flicker and hard dropouts, so parts blink out between pulses. */
+        function animPresence(a, id, cfg) {
+            let level = 1;
+            if (cfg.flicker > 0) {
+                const n = animNoise(id + 313, animData.time * (1.5 + cfg.crackle * 6));
+                level = 1 - cfg.flicker * (1 - clamp(a * 1.15, 0, 1)) * (0.3 + n * 0.95);
+            }
+            if (cfg.dropout > 0) {
+                const n = animNoise(id + 991, animData.time * (2.5 + cfg.crackle * 8));
+                if (n < cfg.dropout * (1 - a) * 0.85) level = 0;
+            }
+            return clamp(level, 0, 1);
+        }
+
+        function animParseHex(hex) {
+            const h = String(hex || '#000000').replace('#', '');
+            const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h;
+            const v = parseInt(full, 16) || 0;
+            return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
+        }
+
+        /** Ink → spark ramp, quantised so fillStyle only changes a handful of times per frame. */
+        function animBuildColorRamp() {
+            const ink = animParseHex(currentInkColor());
+            const spark = animParseHex(anim.sparkColor);
+            const steps = 8;
+            const ramp = [];
+            for (let i = 0; i <= steps; i++) {
+                const m = i / steps;
+                const r = Math.round(ink[0] + (spark[0] - ink[0]) * m);
+                const g = Math.round(ink[1] + (spark[1] - ink[1]) * m);
+                const b = Math.round(ink[2] + (spark[2] - ink[2]) * m);
+                ramp.push(`rgb(${r},${g},${b})`);
+            }
+            animData.hotColors = ramp;
+            animData.sparkStyle = `rgb(${spark[0]},${spark[1]},${spark[2]})`;
+        }
+
+        /** Only the precomputed path geometry needs rebuilding; look is read live each frame. */
+        function animSignature() {
+            return [
+                state.points.length, state.brushSize, state.stickyDistance,
+                state.taperEnabled, state.generateSeed, canvas.width, canvas.height
+            ].join('|');
+        }
+
+        function animEnsureBuffers() {
+            const w = canvas.width;
+            const h = canvas.height;
+            if (animData.trail && animData.trail.width === w && animData.trail.height === h) return;
+            animData.trail = document.createElement('canvas');
+            animData.trail.width = w;
+            animData.trail.height = h;
+            animData.trailCtx = animData.trail.getContext('2d');
+        }
+
+        /**
+         * Growth sites: pairs of nearby path points whose outer edges can grow toward each other.
+         * Same geometry as particleGrowth, resolved once so each frame only has to emit particles.
+         */
+        function animBuildSites(snap, pts) {
+            const byIndex = new Map();
+            for (const p of pts) byIndex.set(p.srcIdx, p);
+
+            const strokeR = state.brushSize * 3.5;
+            const maxGap = state.brushSize * (2 + (state.stickyDistance / 10) * 22);
+            const maxCenterDist = maxGap + strokeR * 2;
+            const sites = [];
+
+            for (let idx = 0; idx < snap.length; idx++) {
+                const p = snap[idx];
+                if (!p) continue;
+                const endSearch = idx - 20;
+                if (endSearch <= 0) continue;
+                const searchStart = Math.max(0, endSearch - 800);
+                for (let i = searchStart; i < endSearch; i++) {
+                    const prev = snap[i];
+                    if (!prev) continue;
+                    const dx = p.x - prev.x;
+                    const dy = p.y - prev.y;
+                    const centerDist = Math.hypot(dx, dy);
+                    if (centerDist <= 0 || centerDist >= maxCenterDist) continue;
+                    const edgeGap = centerDist - strokeR * 2;
+                    if (edgeGap >= maxGap) continue;
+                    if (edgeGap < -strokeR * 1.5) continue;
+                    const closeness = clamp(1 - Math.max(0, edgeGap) / maxGap, 0, 1);
+                    if (closeness < 0.02) continue;
+
+                    const a = byIndex.get(i);
+                    const b = byIndex.get(idx);
+                    if (!a || !b) continue;
+
+                    const nx = dx / centerDist;
+                    const ny = dy / centerDist;
+                    sites.push({
+                        ax: prev.x + nx * strokeR,
+                        ay: prev.y + ny * strokeR,
+                        bx: p.x - nx * strokeR,
+                        by: p.y - ny * strokeR,
+                        px: -ny,
+                        py: nx,
+                        // Kept so growth follows its two points when the path warps.
+                        pa: a,
+                        pb: b,
+                        closeness,
+                        s: (a.s + b.s) / 2,
+                        phase: animHash01(Math.imul(idx, 2654435761) + i)
+                    });
+                }
+            }
+
+            // Thin evenly rather than truncating, so a dense drawing still animates end to end.
+            let kept = sites;
+            if (sites.length > ANIM_MAX_SITES) {
+                const stride = sites.length / ANIM_MAX_SITES;
+                kept = [];
+                for (let i = 0; i < ANIM_MAX_SITES; i++) kept.push(sites[Math.floor(i * stride)]);
+            }
+            for (let i = 0; i < kept.length; i++) kept[i].id = i;
+            return kept;
+        }
+
+        function animRebuild() {
+            animEnsureBuffers();
+            const snap = state.points.slice();
+            animData.trailCtx.setTransform(1, 0, 0, 1, 0, 0);
+            animData.trailCtx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Walk the path once: position along the drawing drives the travelling charge.
+            let live = 0;
+            for (let i = 0; i < snap.length; i++) if (snap[i]) live++;
+
+            const strokeDists = state.taperEnabled ? computeStrokeTotalDists(snap) : null;
+            const pts = [];
+            const segs = [];
+            let n = 0;
+            for (let i = 0; i < snap.length; i++) {
+                const p = snap[i];
+                if (!p) continue;
+                const rec = {
+                    x: p.x, y: p.y,
+                    wx: p.x, wy: p.y, dx: 0, dy: 0,
+                    tx: 0, ty: 0, nx: 0, ny: 0, ux: 0, uy: 0,
+                    ox: 0, oy: 0, vx: 0, vy: 0, chunk: 0,
+                    a: 0,
+                    s: live > 1 ? n / (live - 1) : 0,
+                    phase: animHash01(Math.imul(n + 1, 1103515245)),
+                    id: n, srcIdx: i
+                };
+                const prev = i > 0 ? snap[i - 1] : null;
+                if (prev && pts.length) {
+                    const prevRec = pts[pts.length - 1];
+                    const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
+                    if (dist) {
+                        // Everything scratchLine needs to reproduce this segment's original look.
+                        segs.push({
+                            a: prevRec, b: rec, dist, src: p,
+                            cum1: prev.cumDist || 0,
+                            cum2: p.cumDist || 0,
+                            total: strokeDists ? (strokeDists[i] || 1e9) : 1e9,
+                            speed: ((prev.speed || 0) + (p.speed || 0)) * 0.5
+                        });
+                    }
+                }
+                pts.push(rec);
+                n++;
+            }
+
+            // Local normals and tangents, so a motion can push each point sideways off the path it
+            // was drawn on, or slide it along that path.
+            for (let i = 0; i < segs.length; i++) {
+                const sg = segs[i];
+                const tx = (sg.b.x - sg.a.x) / sg.dist;
+                const ty = (sg.b.y - sg.a.y) / sg.dist;
+                sg.a.tx += tx; sg.a.ty += ty;
+                sg.b.tx += tx; sg.b.ty += ty;
+            }
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                const len = Math.hypot(p.tx, p.ty);
+                if (len > 1e-6) {
+                    p.nx = -p.ty / len;
+                    p.ny = p.tx / len;
+                    p.ux = p.tx / len;
+                    p.uy = p.ty / len;
+                }
+            }
+
+            // Chunks group points that move together. Their lengths are deliberately uneven, so
+            // motions built on them tear the drawing into lopsided pieces instead of even bands.
+            let chunk = 0;
+            let bound = 0.03 + animHash01(1319) * 0.22;
+            for (let i = 0; i < pts.length; i++) {
+                while (pts[i].s > bound) {
+                    chunk++;
+                    bound += 0.02 + animHash01(Math.imul(chunk + 1, 7919)) * 0.2;
+                }
+                pts[i].chunk = chunk;
+            }
+
+            animData.pts = pts;
+            animData.segs = segs;
+            animData.events.length = 0;
+            animData.eventDue = 0;
+            animData.sites = animBuildSites(snap, pts);
+            animData.signature = animSignature();
+            animData.dirty = true;
+            // Let a new composition earn back full density instead of inheriting an old verdict.
+            animData.quality = 1;
+            animData.frameCost = 8;
+        }
+
+        /**
+         * Asymmetric periodic wave, -1..1. It climbs over `rise` of the cycle and drains back over
+         * the rest, so a small `rise` lunges and then sags instead of rocking evenly like a sine.
+         * Symmetry is what makes motion read as water, so most motions lean on this.
+         */
+        function animSkewWave(ph, rise) {
+            const w = ph - Math.floor(ph);
+            const u = w < rise ? w / rise : 1 - (w - rise) / (1 - rise);
+            return (u * u * (3 - 2 * u)) * 2 - 1;
+        }
+
+        /**
+         * Poses that last an uneven number of ticks. Each tick may decline to re-roll, so the form
+         * holds for one beat or five and never settles into a rhythm you can predict.
+         */
+        function animHoldSlot(t, rate) {
+            let k = Math.floor(t * rate);
+            for (let i = 0; i < 6; i++) {
+                if (animHash01(Math.imul(k + 1, 1274126177)) < 0.55) break;
+                k--;
+            }
+            return k;
+        }
+
+        const ANIM_MAX_EVENTS = 14;
+
+        const rx = {
+            audio: (typeof RiteAudio !== 'undefined') ? new RiteAudio.AudioEngine() : null,
+            sensitivity: 1.2,
+            smooth: 0.35,
+            intensity: 0.75,
+            attack: 0.022,
+            release: 0.22,
+            env: { low: 0, mid: 0, high: 0 },
+            gate: { low: 0, mid: 0, high: 0 },
+            fx: {
+                expand:  { on: true, band: 'low',  amt: 0.85 },
+                growth:  { on: true, band: 'low',  amt: 0.55 },
+                distort: { on: true, band: 'mid',  amt: 0.75 },
+                rotate:  { on: true, band: 'mid',  amt: 0.40 },
+                thick:   { on: true, band: 'high', amt: 0.70 },
+                detail:  { on: true, band: 'high', amt: 0.55 }
+            }
+        };
+
+        function rxFollow(cur, target, dt) {
+            const tau = target > cur ? rx.attack : rx.release;
+            return cur + (target - cur) * (1 - Math.exp(-dt / Math.max(0.008, tau)));
+        }
+
+        function rxBandEnv(band) {
+            if (band === 'low') return rx.env.low;
+            if (band === 'high') return rx.env.high;
+            return rx.env.mid;
+        }
+
+        function rxDrive(name) {
+            const fx = rx.fx[name];
+            if (!fx || !fx.on) return 0;
+            return rxBandEnv(fx.band) * fx.amt * rx.intensity;
+        }
+
+        function rxApplySmooth() {
+            rx.attack = 0.012 + rx.smooth * 0.055;
+            if (rx.audio && rx.audio.setSmoothing) rx.audio.setSmoothing(0.16 + rx.smooth * 0.55);
+        }
+
+        function rxUpdateAudio(realDt) {
+            const a = rx.audio;
+            if (!a) return;
+            a.update(realDt);
+            const s = rx.sensitivity;
+            let lowT, midT, highT;
+            if (!a.ready) {
+                // Idle clock is one pulse. Offset the three bands so the preview
+                // still layers expand / distort / thickness instead of pumping as one.
+                const wrap = (x) => x - Math.floor(x);
+                const pulse = (p, exp) => Math.pow(1 - wrap(p), exp);
+                const ph = a.beatPhase;
+                lowT = clamp((0.08 + pulse(ph, 3) * 0.95) * s, 0, 1.45);
+                midT = clamp((0.07 + pulse(ph + 0.37, 2.2) * 0.65) * s, 0, 1.45);
+                highT = clamp((0.06 + pulse(ph * 2, 1.6) * 0.5 + pulse(ph * 4 + 0.12, 4) * 0.35) * s, 0, 1.45);
+            } else {
+                lowT = clamp((a.bands.bass * 1.15 + a.bands.lowMid * 0.28 + a.onsets.bass * 0.65) * s, 0, 1.45);
+                midT = clamp((a.bands.mid * 1.05 + a.bands.lowMid * 0.4 + a.onsets.mid * 0.5) * s, 0, 1.45);
+                highT = clamp((a.bands.high * 1.25 + a.onsets.high * 0.45) * s, 0, 1.45);
+            }
+            rx.env.low = rxFollow(rx.env.low, lowT, realDt);
+            rx.env.mid = rxFollow(rx.env.mid, midT, realDt);
+            rx.env.high = rxFollow(rx.env.high, highT, realDt);
+            if (a.events.beat) rx.env.low = Math.max(rx.env.low, 0.22 + a.onsets.bass * 0.7);
+            if (a.events.drop) {
+                rx.env.low = Math.max(rx.env.low, 0.95);
+                rx.env.mid = Math.max(rx.env.mid, 0.7);
+            }
+            rx.gate.low = Math.max(0, rx.gate.low - realDt);
+            rx.gate.mid = Math.max(0, rx.gate.mid - realDt);
+            rx.gate.high = Math.max(0, rx.gate.high - realDt);
+
+            const lowEl = el('rx-meter-low');
+            const midEl = el('rx-meter-mid');
+            const highEl = el('rx-meter-high');
+            if (lowEl) lowEl.style.width = (clamp(rx.env.low, 0, 1) * 100).toFixed(0) + '%';
+            if (midEl) midEl.style.width = (clamp(rx.env.mid, 0, 1) * 100).toFixed(0) + '%';
+            if (highEl) highEl.style.width = (clamp(rx.env.high, 0, 1) * 100).toFixed(0) + '%';
+        }
+
+        function rxSpawnImpulse(onset, scale) {
+            const ev = animData.events;
+            if (ev.length >= ANIM_MAX_EVENTS) return;
+            const q = animData.eventSeq++;
+            const r = (n) => animHash01(Math.imul(q + 1, 374761393) ^ Math.imul(n, 668265263));
+            const ang = r(4) * ANIM_TAU;
+            const decay = 1.6 + (1 - clamp(onset, 0, 1)) * 2.4;
+            ev.push({
+                t0: animData.time,
+                s0: r(6),
+                span: 0.04 + onset * 0.28,
+                travel: (0.4 + r(7) * 1.2) * (r(8) < 0.5 ? -1 : 1),
+                ax: Math.cos(ang), ay: Math.sin(ang),
+                side: r(9) < 0.5 ? -1 : 1,
+                spin: r(11) * 2 - 1,
+                mag: (0.22 + onset * onset * 2.4) * scale * rx.intensity,
+                decay,
+                life: 4.2 / decay
+            });
+        }
+
+        /**
+         * Impulses land on detected onsets, not a random clock. Magnitude follows the
+         * onset itself, so a louder kick throws the form further than a quieter one.
+         */
+        function animStepEvents(cfg, dt) {
+            const ev = animData.events;
+            const t = animData.time;
+            for (let i = ev.length - 1; i >= 0; i--) {
+                if (t - ev[i].t0 > ev[i].life) ev.splice(i, 1);
+            }
+            if (dt <= 0) return;
+
+            const a = rx.audio;
+            if (!a) return;
+
+            const tryHit = (band, onset, scale, wait) => {
+                if (onset < 0.38) return;
+                if (rx.gate[band] > 0) return;
+                rx.gate[band] = wait;
+                rxSpawnImpulse(onset, scale);
+            };
+            tryHit('low', a.onsets.bass, 1.05, 0.10);
+            tryHit('mid', a.onsets.mid, 0.72, 0.07);
+            tryHit('high', a.onsets.high, 0.32, 0.045);
+            if (a.events.drop) rxSpawnImpulse(1, 1.35);
+        }
+
+        function animApplyAudioForm() {
+            const pts = animData.pts;
+            if (!pts.length) return;
+            const expand = rxDrive('expand');
+            const rot = rxDrive('rotate') * 0.55;
+            if (expand < 0.002 && Math.abs(rot) < 0.0008) return;
+            const scale = 1 + expand * 0.62;
+            const cs = Math.cos(rot);
+            const sn = Math.sin(rot);
+            const cx = cssWidth * 0.5;
+            const cy = cssHeight * 0.5;
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                const vx = p.wx - cx;
+                const vy = p.wy - cy;
+                p.wx = cx + (vx * cs - vy * sn) * scale;
+                p.wy = cy + (vx * sn + vy * cs) * scale;
+                p.dx = p.wx - p.x;
+                p.dy = p.wy - p.y;
+            }
+        }
+
+        /**
+         * Move every point off the course it was drawn on, and record how charged it is. The charge
+         * always travels along the drawing, but each motion turns it into a different kind of
+         * displacement, so the silhouette moves in a different way. Warp at 0 leaves the form
+         * exactly where it was drawn, whichever motion is picked.
+         */
+        function animWarpPath(cfg) {
+            const pts = animData.pts;
+            if (!pts.length) return;
+
+            // Every pass reads activation — form heat, bleed and sparks all ride it.
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                p.a = animActivation(p.s, p.phase, p.id, cfg);
+            }
+
+            const amp = cfg.warp * state.brushSize * 4.5;
+            if (amp <= 0.001) {
+                for (let i = 0; i < pts.length; i++) {
+                    const p = pts[i];
+                    p.dx = 0; p.dy = 0; p.ox = 0; p.oy = 0; p.vx = 0; p.vy = 0;
+                    p.wx = p.x; p.wy = p.y;
+                }
+                animData.events.length = 0;
+                animApplyAudioForm();
+                return;
+            }
+
+            animStepEvents(cfg, animData.dt);
+
+            const motion = cfg.motion;
+            if (motion === 'stomp' || motion === 'jolt' || motion === 'tendril') {
+                animWarpSprung(cfg, amp, motion);
+            } else if (motion === 'whip') {
+                animWarpWhip(cfg, amp);
+            } else {
+                animWarpShaped(cfg, amp, motion);
+            }
+
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                p.wx = p.x + p.dx;
+                p.wy = p.y + p.dy;
+            }
+            animApplyAudioForm();
+        }
+
+        /**
+         * Chase an impulse-driven target with a damped spring. The spring is what makes these fun
+         * rather than fluid: the form gets slammed somewhere and springs back past its resting
+         * place, wobbling as it settles, instead of easing smoothly there and back.
+         */
+        function animWarpSprung(cfg, amp, motion) {
+            const pts = animData.pts;
+            const ev = animData.events;
+            const t = animData.time;
+            // Clamped so a big frame gap or a high speed setting cannot make the spring blow up.
+            const dt = Math.min(0.05, animData.dt || 0.016);
+            const cap = amp * 7;
+            const wander = motion === 'tendril';
+            // Light damping relative to the stiffness, so everything overshoots and rings.
+            const damp = wander ? 3.5 : 8;
+
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                let tx = 0, ty = 0;
+
+                if (wander) {
+                    // Each chunk picks its own destinations on its own clock at its own rate, so
+                    // neighbours disagree and nothing sweeps through as a single wave. The target
+                    // is a staircase rather than a smooth drift, so the spring gets yanked to each
+                    // new spot and rings on arrival instead of gliding.
+                    const b = p.chunk;
+                    const rate = 1.2 + animHash01(Math.imul(b + 1, 971)) * 4.5;
+                    const off = animHash01(Math.imul(b + 1, 33391)) * 40;
+                    const step = Math.floor(t * rate + off);
+                    const key = Math.imul(b + 1, 2654435761) ^ Math.imul(step + 1, 40503);
+                    tx = (animHash01(key) * 2 - 1) * amp * 1.7;
+                    ty = (animHash01(key ^ 0x7b1) * 2 - 1) * amp * 1.7;
+                } else {
+                    for (let k = 0; k < ev.length; k++) {
+                        const e = ev[k];
+                        const age = t - e.t0;
+                        if (age < 0) continue;
+                        let w;
+                        if (motion === 'jolt') {
+                            // The whole form takes the hit at once, but the far end of the drawing
+                            // gets the news late, so it whips rather than sliding as one block.
+                            const lag = p.s * 0.14;
+                            w = age >= lag ? Math.exp(-(age - lag) * e.decay) : 0;
+                        } else {
+                            // A hard-edged region of random length moves; the rest holds still.
+                            w = Math.abs(p.s - e.s0) <= e.span ? Math.exp(-age * e.decay) : 0;
+                        }
+                        if (w < 0.01) continue;
+                        tx += e.ax * e.mag * w * amp * 1.7;
+                        ty += e.ay * e.mag * w * amp * 1.7;
+                    }
+                }
+
+                const stiff = wander
+                    ? 90 + animHash01(Math.imul(p.chunk + 1, 6151)) * 130
+                    : 240 + animHash01(Math.imul(p.chunk + 1, 313)) * 260;
+                p.vx += (tx - p.ox) * stiff * dt - p.vx * damp * dt;
+                p.vy += (ty - p.oy) * stiff * dt - p.vy * damp * dt;
+                p.ox += p.vx * dt;
+                p.oy += p.vy * dt;
+
+                const m = Math.hypot(p.ox, p.oy);
+                if (m > cap) {
+                    const f = cap / m;
+                    p.ox *= f; p.oy *= f;
+                    p.vx *= f; p.vy *= f;
+                }
+                p.dx = p.ox;
+                p.dy = p.oy;
+            }
+        }
+
+        /**
+         * A crack travelling along the drawing: nothing moves ahead of the front, everything snaps
+         * the instant it arrives, then drags out in a long tail behind. The hard leading edge is
+         * the whole point — a smooth front would just be a wave again.
+         */
+        function animWarpWhip(cfg, amp) {
+            const pts = animData.pts;
+            const ev = animData.events;
+            const t = animData.time;
+            const gain = amp * 2.4;
+
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                let side = 0, along = 0;
+                for (let k = 0; k < ev.length; k++) {
+                    const e = ev[k];
+                    const age = t - e.t0;
+                    if (age < 0) continue;
+                    const env = Math.exp(-age * e.decay * 0.55);
+                    if (env < 0.01) continue;
+                    const head = e.s0 + e.travel * age;
+                    const behind = e.travel < 0 ? p.s - head : head - p.s;
+                    if (behind < 0 || behind > e.span * 6) continue;
+                    const w = Math.exp(-behind / Math.max(0.02, e.span)) * env * e.mag;
+                    side += e.side * w;
+                    along += e.spin * w * 0.55;
+                }
+                p.dx = (p.nx * side + p.ux * along) * gain;
+                p.dy = (p.ny * side + p.uy * along) * gain;
+            }
+        }
+
+        /** Wave-shaped and hard-stepped motions: no physics state, just a pose per frame. */
+        function animWarpShaped(cfg, amp, motion) {
+            const pts = animData.pts;
+            const ev = animData.events;
+            const t = animData.time;
+            const dir = cfg.reverse ? -1 : 1;
+
+            // Per-motion constants, hoisted out of the loop.
+            const slow = cfg.spread * 0.55 + 0.7;
+            const fast = cfg.spread * 1.7 + 2.3;
+            const lurch = 3 + Math.round(cfg.crackle * 8);
+            const glitchSlot = animHoldSlot(t, 3 + cfg.crackle * 10);
+            const stutterSlot = animHoldSlot(t, 2.2 + cfg.crackle * 7);
+            const cx = cssWidth * 0.5;
+            const cy = cssHeight * 0.5;
+            const swirlCap = amp * 5;
+
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                const a = p.a;
+                let dx = 0, dy = 0;
+
+                if (motion === 'glitch') {
+                    // Lopsided chunks dislocate, hold for an uneven stretch, then snap somewhere
+                    // else. Offsets point anywhere rather than along the path, so the drawing tears
+                    // instead of bending.
+                    const key = Math.imul(p.chunk + 1, 9176) ^ Math.imul(glitchSlot + 1, 131071);
+                    if (animHash01(key ^ 0x5f3a) < 0.25 + a * 0.5) {
+                        const ang = animHash01(key) * ANIM_TAU;
+                        const kick = amp * (0.4 + Math.pow(animHash01(key ^ 0x2ab3), 2.5) * 3.4);
+                        dx = Math.cos(ang) * kick;
+                        dy = Math.sin(ang) * kick;
+                    }
+                } else if (motion === 'stutter') {
+                    // Dead still, then a chunk teleports to a spot on a coarse grid, then dead
+                    // still again. Never any travel between poses.
+                    const key = Math.imul(p.chunk + 1, 2246822519) ^ Math.imul(stutterSlot + 1, 40503);
+                    if (animHash01(key) < 0.45) {
+                        const step = amp * 0.85;
+                        dx = Math.round((animHash01(key ^ 0x1f7) * 2 - 1) * 2.4) * step;
+                        dy = Math.round((animHash01(key ^ 0x9c3) * 2 - 1) * 2.4) * step;
+                    }
+                } else if (motion === 'shatter') {
+                    // Each point owns one fixed escape direction. Impulses blast the pieces out on
+                    // arrival and they drift back, so the form breaks and reassembles in place.
+                    const ang = animHash01(Math.imul(p.id + 1, 40503)) * ANIM_TAU;
+                    let blast = 0;
+                    for (let k = 0; k < ev.length; k++) {
+                        const e = ev[k];
+                        const age = t - e.t0;
+                        if (age < 0 || Math.abs(p.s - e.s0) > e.span) continue;
+                        blast += Math.exp(-age * e.decay) * e.mag;
+                    }
+                    if (blast > 0.001) {
+                        // Overlapping impulses would otherwise stack into an explosion that throws
+                        // the pieces clean off the canvas.
+                        if (blast > 1.8) blast = 1.8;
+                        const grit = 0.6 + animNoise(p.id + 1201, t * (2 + cfg.crackle * 9)) * 0.9;
+                        const mag = amp * 2 * blast * grit;
+                        dx = Math.cos(ang) * mag;
+                        dy = Math.sin(ang) * mag;
+                    }
+                } else if (motion === 'ratchet') {
+                    // Quantised in both time and distance, so the form lurches between held poses.
+                    const tq = Math.floor(t * 2.2 * lurch) / lurch;
+                    const bend = animSkewWave(p.s * slow - tq * 0.85 * dir, 0.3);
+                    const push = (Math.round(bend * 4) / 4) * amp * (0.45 + a);
+                    dx = p.nx * push;
+                    dy = p.ny * push;
+                } else if (motion === 'coil') {
+                    // Sideways and lengthways a quarter turn apart, winding the line into a
+                    // corkscrew that screws along its own course.
+                    const ph = p.s * (cfg.spread * 1.1 + 1.5) - t * 1.25 * dir;
+                    const gain = amp * (0.35 + a * 0.95);
+                    const side = animSkewWave(ph, 0.22) * gain;
+                    const along = animSkewWave(ph + 0.25, 0.22) * gain * 0.75;
+                    dx = p.nx * side + p.ux * along;
+                    dy = p.ny * side + p.uy * along;
+                } else if (motion === 'slither') {
+                    // Lengthways only, and lopsided: the ink lunges forward along its own course
+                    // then creeps back, so it crawls in a direction instead of sloshing.
+                    const slide = animSkewWave(p.s * (cfg.spread * 1.3 + 1) - t * 1.4 * dir, 0.18)
+                        * amp * 1.7 * (0.35 + a * 0.9);
+                    dx = p.ux * slide;
+                    dy = p.uy * slide;
+                } else if (motion === 'burst') {
+                    // Rings punching out from the middle of the canvas and sagging back in.
+                    const vx = p.x - cx, vy = p.y - cy;
+                    const len = Math.hypot(vx, vy) || 1;
+                    const ring = animSkewWave(p.s * cfg.spread * 0.8 - t * 1.1 * dir, 0.15);
+                    const push = ring * amp * 1.6 * (0.35 + a);
+                    dx = (vx / len) * push;
+                    dy = (vy / len) * push;
+                } else if (motion === 'swirl') {
+                    // Rotation about the canvas centre: winds up fast, unwinds slowly. Displacement
+                    // grows with distance from the centre, so it is capped to stay on canvas.
+                    const vx = p.x - cx, vy = p.y - cy;
+                    const wind = animSkewWave(p.s * cfg.spread * 0.5 - t * 0.8 * dir, 0.2);
+                    const ang = cfg.warp * 0.14 * wind * (0.35 + a);
+                    const cs = Math.cos(ang), sn = Math.sin(ang);
+                    dx = vx * cs - vy * sn - vx;
+                    dy = vx * sn + vy * cs - vy;
+                    const m = Math.hypot(dx, dy);
+                    if (m > swirlCap) { dx = dx / m * swirlCap; dy = dy / m * swirlCap; }
+                } else {
+                    // flow — two smooth travelling waves, the one motion that is meant to read as
+                    // liquid. The line bends as a whole rather than fraying.
+                    const bend = Math.sin((p.s * slow - t * 0.7) * ANIM_TAU) * 0.68
+                        + Math.sin((p.s * fast + t * 1.13) * ANIM_TAU) * 0.32;
+                    const push = bend * amp * (0.4 + a * 1.1);
+                    dx = p.nx * push;
+                    dy = p.ny * push;
+                }
+
+                p.dx = dx;
+                p.dy = dy;
+            }
+        }
+
+        /**
+         * Redraw the composition along its warped course, pumping thickness and running the ink
+         * hot where the charge sits. Reuses scratchLine so every marker keeps its own texture,
+         * and feeds it the original per-segment taper and speed so the look is unchanged at rest.
+         */
+        function animDrawForm(cfg) {
+            const segs = animData.segs;
+            if (!segs.length) return;
+
+            const baseBrush = state.brushSize;
+            const prevInk = state.inkColor;
+            const prevFill = state.fillColor;
+            const prevTaper = state.currentTaper;
+            const prevSpeed = state.currentSpeed;
+            const prevTotal = state.strokeTotalDist;
+            const tintFill = state.fillEnabled;
+            const hot = cfg.charge > 0.005;
+            let lastBucket = -1;
+
+            for (let i = 0; i < segs.length; i++) {
+                const sg = segs[i];
+                const a = (sg.a.a + sg.b.a) * 0.5;
+
+                // Flicker only thins the form — it never punches holes in the drawing, and at zero
+                // it leaves the drawn thickness exactly alone.
+                const shimmer = cfg.flicker > 0.005
+                    ? 1 - (1 - animPresence(a, sg.b.id + 2000, cfg)) * 0.45
+                    : 1;
+                const pump = 1 + cfg.swell * (a - 0.3) * 1.7;
+                state.brushSize = Math.max(0.2, baseBrush * pump * shimmer);
+
+                if (hot) {
+                    const bucket = Math.max(0, Math.min(8, Math.round(a * 8 * cfg.charge)));
+                    if (bucket !== lastBucket) {
+                        const c = animData.hotColors[bucket];
+                        if (tintFill) state.fillColor = c;
+                        else state.inkColor = c;
+                        lastBucket = bucket;
+                    }
+                }
+
+                state.currentTaper = { cumDist1: sg.cum1, cumDist2: sg.cum2, totalDist: sg.total };
+                state.currentSpeed = sg.speed;
+                state.strokeTotalDist = sg.total;
+
+                const sgRef = sg;
+                withPointOverrides(sg.src, () => {
+                    scratchLine(sgRef.a.wx, sgRef.a.wy, sgRef.b.wx, sgRef.b.wy, sgRef.dist, 0, 0);
+                });
+            }
+
+            state.brushSize = baseBrush;
+            state.inkColor = prevInk;
+            state.fillColor = prevFill;
+            state.currentTaper = prevTaper;
+            state.currentSpeed = prevSpeed;
+            state.strokeTotalDist = prevTotal;
+        }
+
+        /** Bleed: growth reaches across each gap as the charge arrives, then retracts behind it. */
+        function animDrawBleed(cfg) {
+            const sites = animData.sites;
+            if (!sites.length || cfg.bleed <= 0.005) return;
+
+            const reachAmt = cfg.bleed;
+            const strokeR = state.brushSize * 3.5;
+            const jitterAmt = state.brushSize * (0.6 + cfg.jitter * 3.4);
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.shadowBlur = 0;
+            let lastBucket = -1;
+
+            const step = animData.quality >= 0.999 ? 1 : Math.max(1, Math.round(1 / animData.quality));
+            for (let k = 0; k < sites.length; k += step) {
+                const site = sites[k];
+                const a = animActivation(site.s, site.phase, site.id, cfg);
+                const level = animPresence(a, site.id + 5000, cfg);
+                if (level < ANIM_BLINK_OUT) continue;
+
+                // Ride along with the warp so growth stays attached to the strokes.
+                const ax = site.ax + site.pa.dx;
+                const ay = site.ay + site.pa.dy;
+                const bx = site.bx + site.pb.dx;
+                const by = site.by + site.pb.dy;
+
+                const bucket = Math.min(8, Math.round(a * 8 * Math.max(0.1, cfg.glow)));
+                if (bucket !== lastBucket) {
+                    ctx.fillStyle = animData.hotColors[bucket];
+                    lastBucket = bucket;
+                }
+
+                const growReach = Math.pow(site.closeness, 0.8) * (0.2 + reachAmt * 0.8) * (0.2 + a);
+                if (growReach < 0.02) continue;
+                const count = Math.max(1, Math.floor(site.closeness * (1 + a * (2 + reachAmt * 7))));
+                const rBase = strokeR * (0.18 + reachAmt * 0.4) * Math.pow(site.closeness, 0.5) * level;
+
+                for (let j = 0; j < count; j++) {
+                    const frac = (j + 0.2 + Math.random() * 0.6) / count;
+
+                    const tA = frac * growReach;
+                    const jitA = (Math.random() - 0.5) * jitterAmt;
+                    const taperA = Math.pow(1 - tA / growReach, 0.6);
+                    drawStickyParticle(
+                        ax + (bx - ax) * tA + site.px * jitA,
+                        ay + (by - ay) * tA + site.py * jitA,
+                        Math.max(0.5, rBase * taperA)
+                    );
+
+                    const tB = (1 - frac) * growReach;
+                    const jitB = (Math.random() - 0.5) * jitterAmt;
+                    const taperB = Math.pow(1 - tB / growReach, 0.6);
+                    drawStickyParticle(
+                        bx + (ax - bx) * tB + site.px * jitB,
+                        by + (ay - by) * tB + site.py * jitB,
+                        Math.max(0.5, rBase * taperB)
+                    );
+
+                    if (Math.random() < site.closeness * 0.4 * a) {
+                        const branchT = tA * (0.2 + Math.random() * 0.6);
+                        const branchOff = (Math.random() - 0.5) * jitterAmt * 1.5;
+                        drawStickyParticle(
+                            ax + (bx - ax) * branchT + site.px * branchOff,
+                            ay + (by - ay) * branchT + site.py * branchOff,
+                            Math.max(0.4, rBase * taperA * 0.6)
+                        );
+                    }
+                }
+            }
+        }
+
+        /** Sparks running downstream through the lines. */
+        function animDrawSparks(cfg) {
+            if (cfg.sparks <= 0.01) return;
+            const segs = animData.segs;
+            if (!segs.length) return;
+
+            const count = Math.max(1, Math.round(cfg.sparks * 42));
+            const dir = cfg.reverse ? -1 : 1;
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = animData.sparkStyle;
+
+            for (let i = 0; i < count; i++) {
+                const phase = animHash01(Math.imul(i + 1, 2246822519));
+                let u = animData.time * (0.25 + cfg.sparks * 0.55) * dir + phase;
+                u -= Math.floor(u);
+                const pos = u * segs.length;
+                const sg = segs[Math.min(segs.length - 1, Math.floor(pos))];
+                const f = pos - Math.floor(pos);
+                const x = sg.a.wx + (sg.b.wx - sg.a.wx) * f;
+                const y = sg.a.wy + (sg.b.wy - sg.a.wy) * f;
+
+                const twinkle = animNoise(i + 4242, animData.time * (2 + cfg.crackle * 10));
+                const r = Math.max(0.4, state.brushSize * (0.16 + cfg.sparks * 0.34) * (0.45 + twinkle));
+                if (cfg.glow > 0) {
+                    ctx.shadowBlur = r * 3.2 * cfg.glow;
+                    ctx.shadowColor = animData.sparkStyle;
+                }
+                const pts = mirroredPoints(x, y);
+                for (let pi = 0; pi < pts.length; pi++) {
+                    ctx.beginPath();
+                    ctx.arc(pts[pi].x, pts[pi].y, r, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        function animFrame(ts) {
+            if (!anim.active || state.uiTab !== 'animate') {
+                animData.raf = 0;
+                return;
+            }
+
+            const dt = animData.lastTs ? Math.min(80, ts - animData.lastTs) : 16;
+            animData.lastTs = ts;
+            const realDt = Math.min(0.08, dt / 1000);
+            if (anim.playing) rxUpdateAudio(realDt);
+            animData.dt = anim.playing ? realDt * anim.speed : 0;
+            if (anim.playing) animData.time += animData.dt;
+            else if (!animData.dirty) {
+                animData.raf = requestAnimationFrame(animFrame);
+                return;
+            }
+            animData.dirty = false;
+
+            if (animSignature() !== animData.signature) animRebuild();
+
+            const cfg = animConfig();
+            const rampKey = currentInkColor() + '|' + anim.sparkColor;
+            if (rampKey !== animData.rampKey) {
+                animBuildColorRamp();
+                animData.rampKey = rampKey;
+            }
+
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (state.traceImage) drawTraceImage();
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            // The composition itself, redrawn along its warped course. Kept on the main canvas so
+            // the form stays crisp while only the particles smear into the trail buffer.
+            const formStart = performance.now();
+            animWarpPath(cfg);
+            animDrawForm(cfg);
+
+            const useTrail = anim.trails > 0.01;
+            if (useTrail) {
+                const tctx = animData.trailCtx;
+                tctx.setTransform(1, 0, 0, 1, 0, 0);
+                if (anim.playing) {
+                    // Partial erase leaves the last frames behind as a decaying trail.
+                    tctx.globalCompositeOperation = 'destination-out';
+                    tctx.fillStyle = 'rgba(0,0,0,' + Math.max(0.03, 0.6 - anim.trails * 0.55).toFixed(3) + ')';
+                    tctx.fillRect(0, 0, canvas.width, canvas.height);
+                    tctx.globalCompositeOperation = 'source-over';
+                } else {
+                    tctx.clearRect(0, 0, canvas.width, canvas.height);
+                }
+                tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+
+            // Reuse the existing particle/mirror drawing helpers by pointing them at the target.
+            const mainCtx = ctx;
+            ctx = useTrail ? animData.trailCtx : ctx;
+            try {
+                animDrawBleed(cfg);
+                animDrawSparks(cfg);
+            } finally {
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.shadowBlur = 0;
+                ctx.shadowColor = 'rgba(0,0,0,0)';
+                ctx = mainCtx;
+            }
+
+            animData.frameCost = animData.frameCost * 0.85 + (performance.now() - formStart) * 0.15;
+            if (animData.frameCost > 11) animData.quality = Math.max(0.2, animData.quality - 0.05);
+            else if (animData.frameCost < 7) animData.quality = Math.min(1, animData.quality + 0.02);
+
+            if (useTrail) {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.drawImage(animData.trail, 0, 0);
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+
+            if (anim.active && state.uiTab === 'animate') {
+                animData.raf = requestAnimationFrame(animFrame);
+            } else {
+                animData.raf = 0;
+            }
+        }
+
+        function animResetCtx() {
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.shadowBlur = 0;
+            ctx.shadowColor = 'rgba(0,0,0,0)';
+            ctx.globalAlpha = 1;
+            ctx.filter = 'none';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        function animSetActive(on) {
+            if (anim.active === on) return;
+            anim.active = on;
+            if (on) {
+                animRebuild();
+                animData.lastTs = 0;
+                animData.dirty = true;
+                if (!animData.raf) animData.raf = requestAnimationFrame(animFrame);
+                return;
+            }
+            if (animData.raf) {
+                cancelAnimationFrame(animData.raf);
+                animData.raf = 0;
+            }
+            animResetCtx();
+            animData.trail = null;
+            animData.trailCtx = null;
+            animData.pts = [];
+            animData.segs = [];
+            animData.sites = [];
+            animData.signature = '';
+            animData.events.length = 0;
+            animData.eventDue = 0;
+            // Back to the untouched still composition.
+            if (state.points.length) {
+                renderFromPoints(state.points);
+            } else {
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (state.traceImage) drawTraceImage();
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+        }
+
+        function animTouch() {
+            animData.dirty = true;
+        }
+
+        /** Drop impulses in flight and any spring momentum, so a switch starts from rest. */
+        function animResetMotionState() {
+            animData.events.length = 0;
+            animData.eventDue = 0;
+            const pts = animData.pts;
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                p.ox = 0; p.oy = 0; p.vx = 0; p.vy = 0;
+            }
+        }
+
+        // Mouse + touch
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', drawMove);
+        window.addEventListener('mouseup', stopDrawing);
+        window.addEventListener('blur', stopDrawing);
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches && e.touches[0];
+            if (!touch) return;
+            startDrawing(e);
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            drawMove(e);
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchcancel', stopDrawing);
+
+        // UI wiring
+        infoBtn?.addEventListener('click', () => infoOverlay.hidden = false);
+        infoClose?.addEventListener('click', () => infoOverlay.hidden = true);
+        infoOverlay?.addEventListener('click', (e) => {
+            if (e.target === infoOverlay) infoOverlay.hidden = true;
+        });
+
+        btnInk?.addEventListener('click', () => {
+            state.sketchMode = 'ink';
+            setMode('ink');
+        });
+        btnCut?.addEventListener('click', () => {
+            state.sketchMode = 'cut';
+            setMode('cut');
+        });
+        mirrorEl?.addEventListener('change', () => setMirror(mirrorEl.checked));
+        mirrorYEl?.addEventListener('change', () => setMirrorY(mirrorYEl.checked));
+        animMirrorEl?.addEventListener('change', () => setMirror(animMirrorEl.checked));
+        animMirrorYEl?.addEventListener('change', () => setMirrorY(animMirrorYEl.checked));
+
+        tabSketchBtn?.addEventListener('click', () => setUiTab('sketch'));
+        tabGenerateBtn?.addEventListener('click', () => setUiTab('generate'));
+        tabAnimateBtn?.addEventListener('click', () => setUiTab('animate'));
+        generateBtn?.addEventListener('click', generateRandomDrawing);
+
+        // Animation controls
+        const animToggleBtn = el('el-anim-toggle');
+        animToggleBtn?.addEventListener('click', () => {
+            anim.playing = !anim.playing;
+            animToggleBtn.textContent = anim.playing ? 'Pause' : 'Play';
+            animToggleBtn.classList.toggle('is-active', anim.playing);
+            animTouch();
+        });
+
+        el('el-anim-new')?.addEventListener('click', () => {
+            generateRandomDrawing();
+            animTouch();
+        });
+
+        el('el-anim-motion')?.addEventListener('change', (e) => {
+            anim.motion = ANIM_MOTIONS.includes(e.target.value) ? e.target.value : 'whip';
+            animResetMotionState();
+            animTouch();
+        });
+
+        const speedInput = el('el-anim-speed');
+        const speedOut = el('val-el-anim-speed');
+        if (speedInput) {
+            speedInput.value = String(Math.round(anim.speed * 100));
+            if (speedOut) speedOut.textContent = (anim.speed).toFixed(1) + '\u00d7';
+            speedInput.addEventListener('input', () => {
+                const raw = parseInt(speedInput.value, 10);
+                anim.speed = raw / 100;
+                if (speedOut) speedOut.textContent = (raw / 100).toFixed(1) + '\u00d7';
+                animTouch();
+            });
+        }
+
+        function rxSetStatus(msg) {
+            const n = el('rx-status');
+            if (n) n.textContent = msg;
+        }
+
+        function rxMarkSource(kind) {
+            el('rx-mic')?.classList.toggle('is-active', kind === 'input');
+            el('rx-system')?.classList.toggle('is-active', kind === 'display');
+            el('rx-file')?.classList.toggle('is-active', kind === 'file');
+        }
+
+        function rxWatchStreamEnd() {
+            const stream = rx.audio && rx.audio._stream;
+            const track = stream && stream.getAudioTracks()[0];
+            if (!track) return;
+            track.addEventListener('ended', () => {
+                rx.audio.stop();
+                rxMarkSource('none');
+                rxSetStatus('No input — free-running');
+            });
+        }
+
+        el('rx-mic')?.addEventListener('click', async () => {
+            if (!rx.audio) return;
+            if (rx.audio.sourceKind === 'input') {
+                rx.audio.stop();
+                rxMarkSource('none');
+                rxSetStatus('No input — free-running');
+                return;
+            }
+            try {
+                await rx.audio.useMicrophone();
+                rxApplySmooth();
+                rxMarkSource('input');
+                rxSetStatus('Mic / line-in');
+                rxWatchStreamEnd();
+            } catch (err) {
+                rxSetStatus(err.message || 'Mic failed');
+            }
+        });
+
+        el('rx-system')?.addEventListener('click', async () => {
+            if (!rx.audio) return;
+            if (rx.audio.sourceKind === 'display') {
+                rx.audio.stop();
+                rxMarkSource('none');
+                rxSetStatus('No input — free-running');
+                return;
+            }
+            try {
+                await rx.audio.useDisplayAudio();
+                rxApplySmooth();
+                rxMarkSource('display');
+                rxSetStatus('System audio');
+                rxWatchStreamEnd();
+            } catch (err) {
+                rxSetStatus(err.message || 'System audio failed');
+            }
+        });
+
+        el('rx-file')?.addEventListener('click', () => {
+            if (rx.audio && rx.audio.sourceKind === 'file') {
+                rx.audio.stop();
+                rxMarkSource('none');
+                rxSetStatus('No input — free-running');
+                return;
+            }
+            el('rx-file-input')?.click();
+        });
+        el('rx-file-input')?.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file || !rx.audio) return;
+            Promise.resolve(rx.audio.useFile(file)).then(() => {
+                rxApplySmooth();
+                rxMarkSource('file');
+                rxSetStatus(file.name);
+            }).catch((err) => {
+                rxSetStatus(err.message || 'File failed');
+            });
+        });
+
+        const bindRange = (id, apply, fmt) => {
+            const input = el(id);
+            const out = el('val-' + id);
+            if (!input) return;
+            const run = () => {
+                const raw = parseInt(input.value, 10);
+                apply(raw);
+                if (out) out.textContent = fmt(raw);
+                animTouch();
+            };
+            input.addEventListener('input', run);
+            run();
+        };
+
+        bindRange('rx-sens', (raw) => { rx.sensitivity = raw / 100; }, (v) => (v / 100).toFixed(1) + '\u00d7');
+        bindRange('rx-smooth', (raw) => { rx.smooth = raw / 100; rxApplySmooth(); }, (v) => v + '%');
+        bindRange('rx-intensity', (raw) => { rx.intensity = raw / 100; }, (v) => v + '%');
+        bindRange('rx-decay', (raw) => { rx.release = Math.max(0.05, raw / 100); }, (v) => (v / 100).toFixed(2) + 's');
+
+        ['expand', 'growth', 'distort', 'rotate', 'thick', 'detail'].forEach((name) => {
+            const onEl = el('rx-' + name + '-on');
+            const bandEl = el('rx-' + name + '-band');
+            const amtEl = el('rx-' + name + '-amt');
+            const amtOut = el('val-rx-' + name + '-amt');
+            onEl?.addEventListener('change', () => {
+                rx.fx[name].on = !!onEl.checked;
+                animTouch();
+            });
+            bandEl?.addEventListener('change', () => {
+                rx.fx[name].band = bandEl.value;
+                animTouch();
+            });
+            amtEl?.addEventListener('input', () => {
+                const raw = parseInt(amtEl.value, 10);
+                rx.fx[name].amt = raw / 100;
+                if (amtOut) amtOut.textContent = raw + '%';
+                animTouch();
+            });
+        });
+
+        const uploadImageBtn = el('el-upload-image');
+        const imageInput = el('el-image-input');
+        const imageOpacityEl = el('el-image-opacity');
+        const imageOpacityVal = el('val-el-image-opacity');
+        const imageOpacityRow = el('el-image-opacity-row');
+
+        uploadImageBtn?.addEventListener('click', () => imageInput?.click());
+        
+        imageInput?.addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const img = new Image();
+                img.onload = () => {
+                    state.traceImage = img;
+                    imageOpacityRow.style.display = '';
+                    el('el-image-scale-row').style.display = '';
+                    // Always render, even if no points yet - just show the image
+                    if (state.uiTab === 'generate') {
+                        rerenderGenerateCurrent();
+                    } else {
+                        // Clear and show image, even with no points
+                        ctx.setTransform(1, 0, 0, 1, 0, 0);
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        drawTraceImage();
+                        
+                        // Draw existing points if any
+                        if (state.points.length) renderFromPoints(state.points);
+                    }
+                };
+                img.src = evt.target?.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        imageOpacityEl?.addEventListener('input', (e) => {
+            state.traceImageOpacity = parseFloat(e.target.value) / 100;
+            if (imageOpacityVal) imageOpacityVal.textContent = Math.round(parseFloat(e.target.value)) + '%';
+            if (state.uiTab === 'generate') {
+                rerenderGenerateCurrent();
+            } else if (state.points.length || state.traceImage) {
+                // If there's a trace image but no points, just redraw the image
+                if (state.traceImage && !state.points.length) {
+                    ctx.setTransform(1, 0, 0, 1, 0, 0);
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    drawTraceImage();
+                } else {
+                    renderFromPoints(state.points);
+                }
+            }
+        });
+
+        const imageScaleEl = el('el-image-scale');
+        const imageScaleVal = el('val-el-image-scale');
+
+        imageScaleEl?.addEventListener('input', (e) => {
+            state.traceImageScale = parseFloat(e.target.value);
+            if (imageScaleVal) imageScaleVal.textContent = Math.round(state.traceImageScale) + '%';
+            if (state.uiTab === 'generate') {
+                rerenderGenerateCurrent();
+            } else if (state.points.length || state.traceImage) {
+                // If there's a trace image but no points, just redraw the image
+                if (state.traceImage && !state.points.length) {
+                    ctx.setTransform(1, 0, 0, 1, 0, 0);
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    drawTraceImage();
+                } else {
+                    renderFromPoints(state.points);
+                }
+            }
+        });
+
+        strokeEl?.addEventListener('input', (e) => {
+            state.brushSize = clamp(parseFloat(e.target.value), 0, 10);
+            strokeVal.textContent = state.brushSize < 1 ? state.brushSize.toFixed(1) : String(Math.round(state.brushSize * 10) / 10);
+            renderMarkerPreview();
+            if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
+        });
+
+        stickyStrengthEl?.addEventListener('input', (e) => {
+            state.stickyStrength = parseFloat(e.target.value);
+            if (stickyStrengthVal) stickyStrengthVal.textContent = state.stickyStrength % 1 === 0 ? String(state.stickyStrength) : state.stickyStrength.toFixed(1);
+            resetStickyData();
+            if (state.uiTab === 'generate') rerenderGenerateCurrent();
+            else if (state.points.length) renderFromPoints(state.points);
+        });
+
+        stickyDistanceEl?.addEventListener('input', (e) => {
+            state.stickyDistance = parseFloat(e.target.value);
+            if (stickyDistanceVal) stickyDistanceVal.textContent = state.stickyDistance % 1 === 0 ? String(state.stickyDistance) : state.stickyDistance.toFixed(1);
+            resetStickyData();
+            if (state.uiTab === 'generate') rerenderGenerateCurrent();
+            else if (state.points.length) renderFromPoints(state.points);
+        });
+
+        taperEl?.addEventListener('change', (e) => {
+            state.taperEnabled = e.target.checked;
+            if (state.uiTab === 'generate') rerenderGenerateCurrent();
+            else if (state.points.length) renderFromPoints(state.points);
+        });
+
+        markerEl?.addEventListener('change', (e) => {
+            setMarker(e.target.value);
+            if (state.uiTab === 'generate') {
+                rerenderGenerateCurrent();
+            } else if (state.points.length) {
+                renderFromPoints(state.points);
+            }
+        });
+
+        fillEnabledEl?.addEventListener('change', (e) => {
+            state.fillEnabled = e.target.checked;
+            updateFilterEnabled();
+            updateFilter();
+            rerenderGenerateCurrent();
+        });
+
+        inkColorEl?.addEventListener('input', (e) => {
+            state.inkColor = e.target.value;
+            if (!state.fillEnabled) updateFilter();
+            rerenderGenerateCurrent();
+        });
+
+        outlineColorEl?.addEventListener('input', (e) => {
+            state.outlineColor = e.target.value;
+            if (!state.fillEnabled) updateFilter();
+            rerenderGenerateCurrent();
+        });
+
+        fillColorEl?.addEventListener('input', (e) => {
+            state.fillColor = e.target.value;
+            if (state.fillEnabled) updateFilter();
+            rerenderGenerateCurrent();
+        });
+
+        bgColorEl?.addEventListener('input', (e) => {
+            state.bgColor = e.target.value;
+            applyBackgroundColor();
+        });
+
+        outlineEl?.addEventListener('input', (e) => {
+            state.outlineRadius = parseFloat(e.target.value);
+            outlineVal.textContent = state.outlineRadius.toFixed(2);
+            updateFilter();
+            rerenderGenerateCurrent();
+        });
+
+        genTimeEl?.addEventListener('input', (e) => {
+            state.generateTime = parseInt(e.target.value, 10);
+            genTimeVal.textContent = String(state.generateTime);
+            if (state.uiTab === 'generate') generateRandomDrawing({ newSeed: false, pushUndo: false });
+        });
+
+        function escapeXmlAttr(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function exportBitmapSnapshotSvg() {
+            const dataUrl = getCompositeExportDataUrl();
+            const w = canvas.width;
+            const h = canvas.height;
+            const mode = state.fillEnabled ? 'fill' : 'no-fill';
+            const href = escapeXmlAttr(dataUrl);
+            return (
+                '<?xml version="1.0" encoding="UTF-8"?>\n' +
+                `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" ` +
+                `width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" data-ovrt-render="${mode}" data-ovrt-export="bitmap-fallback">` +
+                `<desc>Sigil — bitmap snapshot (vector export unavailable)</desc>` +
+                `<image href="${href}" xlink:href="${href}" width="${w}" height="${h}" />` +
+                `</svg>`
+            );
+        }
+
+        function wrapVectorSvgWithOutlineFilter(svgContent) {
+            const dilateR = Math.max(0.25, state.outlineRadius);
+            const oc = state.outlineColor;
+            const defsStr = `<defs>
+<filter id="jagged-edge-export" color-interpolation-filters="sRGB">
+    <feGaussianBlur in="SourceGraphic" stdDeviation="0.5" result="blur" />
+    <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 80 -40" result="solidBlob" />
+    <feMorphology operator="dilate" radius="${dilateR}" in="solidBlob" result="fatBlob" />
+    <feComposite in="fatBlob" in2="solidBlob" operator="out" result="outline" />
+    <feFlood flood-color="${oc}" result="color" />
+    <feComposite in="color" in2="outline" operator="in" result="coloredOutline" />
+    <feMerge>
+        <feMergeNode in="coloredOutline" />
+        <feMergeNode in="solidBlob" />
+    </feMerge>
+</filter>
+</defs>`;
+            const mode = 'no-fill';
+            const meta = ` data-ovrt-render="${mode}" data-ovrt-outline-width="${state.outlineRadius}" data-ovrt-export="vector"`;
+            let out = svgContent.replace(/<svg([^>]*)>/i, `<svg$1${meta}>\n${defsStr}\n<g filter="url(#jagged-edge-export)">`);
+            const lc = out.lastIndexOf('</svg>');
+            if (lc !== -1) out = out.slice(0, lc) + '</g>' + out.slice(lc);
+            return out;
+        }
+
+        function injectVectorSvgMeta(svgContent, mode) {
+            const extra = ` data-ovrt-render="${mode}" data-ovrt-export="vector"`;
+            return svgContent.replace(/<svg([^>]*)>/i, `<svg$1${extra}>`);
+        }
+
+        /**
+         * Vector SVG via canvas2svg (same draw path as the canvas). Falls back to a bitmap snapshot if C2S fails.
+         */
+        window.exportTrueSVG = function () {
+            if (!window.C2S) {
+                return exportBitmapSnapshotSvg();
+            }
+            const backup = state.points.slice();
+            if (backup.length === 0) {
+                try {
+                    const sctx = new C2S(canvas.width, canvas.height);
+                    const oldCtx = ctx;
+                    ctx = sctx;
+                    ctx.setTransform(1, 0, 0, 1, 0, 0);
+                    ctx.fillStyle = state.bgColor;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx = oldCtx;
+                    let svg = sctx.getSerializedSvg(true);
+                    if (!state.fillEnabled) {
+                        svg = wrapVectorSvgWithOutlineFilter(svg);
+                    } else {
+                        svg = injectVectorSvgMeta(svg, 'fill');
+                    }
+                    return svg;
+                } catch (e) {
+                    console.error('Elemenyt vector SVG (empty):', e);
+                    return exportBitmapSnapshotSvg();
+                }
+            }
+            try {
+                const sctx = new C2S(canvas.width, canvas.height);
+                const oldCtx = ctx;
+                ctx = sctx;
+                renderFromPoints(backup, { exportBg: state.bgColor });
+                let svg = sctx.getSerializedSvg(true);
+                ctx = oldCtx;
+                if (!state.fillEnabled) {
+                    svg = wrapVectorSvgWithOutlineFilter(svg);
+                } else {
+                    svg = injectVectorSvgMeta(svg, 'fill');
+                }
+                return svg;
+            } catch (e) {
+                console.error('Elemenyt vector SVG:', e);
+                return exportBitmapSnapshotSvg();
+            }
+        };
+
+        window.addEventListener('keydown', (e) => {
+            const key = (e.key || '').toLowerCase();
+            if ((e.metaKey || e.ctrlKey) && key === 'z') {
+                e.preventDefault();
+                undo();
+                return;
+            }
+
+            // DRAW/ERASE controls only exist on the Sketch tab.
+            else if (e.code === 'Space') {
+                e.preventDefault();
+                clearAll();
+            }
+        });
+
+        // init
+        setMode('ink');
+        setMarker(state.marker);
+        if (stickyStrengthEl) stickyStrengthEl.value = String(state.stickyStrength);
+        if (stickyStrengthVal) stickyStrengthVal.textContent = state.stickyStrength % 1 === 0 ? String(state.stickyStrength) : state.stickyStrength.toFixed(1);
+        if (stickyDistanceEl) stickyDistanceEl.value = String(state.stickyDistance);
+        if (stickyDistanceVal) stickyDistanceVal.textContent = state.stickyDistance % 1 === 0 ? String(state.stickyDistance) : state.stickyDistance.toFixed(1);
+        if (taperEl) taperEl.checked = state.taperEnabled;
+        syncMirrorInputs();
+        updateFilter();
+        updateFilterEnabled();
+        applyBackgroundColor();
+        const bootParams = new URLSearchParams(window.location.search);
+        const urlTab = bootParams.get('tab');
+        const isPreview = bootParams.get('preview') === '1';
+        setUiTab(urlTab === 'generate' ? 'generate' : 'sketch');
+        renderMarkerPreview();
+        resize();
+        if (urlTab === 'generate') {
+            generateRandomDrawing({ newSeed: true, pushUndo: false });
+        } else if (urlTab === 'animate' || isPreview) {
+            generateRandomDrawing({ newSeed: true, pushUndo: false });
+            setUiTab('animate');
+        }
+        rxApplySmooth();
+        requestAnimationFrame(resize);
+    </script>
+</body>
+
+</html>
+

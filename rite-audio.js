@@ -48,6 +48,8 @@
             this.ready = false;
             this.sourceKind = 'none';
             this.mediaEl = null;
+            this._stream = null;
+            this._smoothPref = 0.45;
 
             this.bands = { bass: 0, lowMid: 0, mid: 0, high: 0 };
             this.raw = { bass: 0, lowMid: 0, mid: 0, high: 0 };
@@ -89,7 +91,7 @@
                 this.ctx = new AC();
                 this.analyser = this.ctx.createAnalyser();
                 this.analyser.fftSize = FFT;
-                this.analyser.smoothingTimeConstant = 0.45;
+                this.analyser.smoothingTimeConstant = this._smoothPref;
                 this.spectrum = new Float32Array(this.analyser.frequencyBinCount);
                 this.prevSpectrum = new Float32Array(this.analyser.frequencyBinCount);
                 this.binHz = this.ctx.sampleRate / FFT;
@@ -121,11 +123,47 @@
                 audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
             });
             this._ensureContext();
+            this._stopStream();
+            this._stream = stream;
             this._connect(this.ctx.createMediaStreamSource(stream), 'input');
+        }
+
+        async useDisplayAudio() {
+            // Tab / window / screen capture. Chrome requires a video track; we drop it
+            // immediately and keep only the audio. The picker must have "Share audio" on.
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                throw new Error('System audio capture is not supported in this browser.');
+            }
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+                audio: true,
+            });
+            if (!stream.getAudioTracks().length) {
+                stream.getTracks().forEach((t) => t.stop());
+                throw new Error('No audio track — share a tab or window with sound, and turn Share audio on.');
+            }
+            stream.getVideoTracks().forEach((t) => t.stop());
+            this._ensureContext();
+            this._stopStream();
+            this._stream = stream;
+            this._connect(this.ctx.createMediaStreamSource(stream), 'display');
+        }
+
+        setSmoothing(v) {
+            this._smoothPref = clamp(v, 0.05, 0.9);
+            if (this.analyser) this.analyser.smoothingTimeConstant = this._smoothPref;
+        }
+
+        _stopStream() {
+            if (this._stream) {
+                this._stream.getTracks().forEach((t) => { try { t.stop(); } catch (e) { /* already gone */ } });
+                this._stream = null;
+            }
         }
 
         useFile(file) {
             this._ensureContext();
+            this._stopStream();
             if (this.mediaEl) { this.mediaEl.pause(); this.mediaEl.src = ''; }
             const el = new Audio();
             el.src = URL.createObjectURL(file);
@@ -140,6 +178,7 @@
 
         stop() {
             if (this.mediaEl) { this.mediaEl.pause(); }
+            this._stopStream();
             if (this.source) { try { this.source.disconnect(); } catch (e) { /* already gone */ } }
             this.source = null;
             this.ready = false;
