@@ -57,6 +57,10 @@
                         <input type="range" id="el-type-offset" min="0" max="80" value="0" step="1">
                         <span class="param-value" id="val-el-type-offset">0</span>
                     </div>
+                    <div class="typebar-item typebar-color">
+                        <label for="el-type-offset-fill">Back</label>
+                        <input type="color" id="el-type-offset-fill" value="#ffffff" aria-label="Offset fill color">
+                    </div>
                     <div class="typebar-item">
                         <label for="el-type-offstroke">Outline</label>
                         <input type="range" id="el-type-offstroke" min="0" max="24" value="2" step="0.1">
@@ -108,7 +112,7 @@
                             <dt>DRAW / ERASE / TYPE</dt>
                             <dd>DRAW and ERASE live on the right. TYPE is in the top bar — click empty canvas to add a block, drag to reposition. Sketching is locked while TYPE is on.</dd>
                             <dt>Text</dt>
-                            <dd>Type lives in the top bar. Fill is the letter. Offset pushes a path off the letter; Outline is the stroke of that path, with its own color. Layer puts type in front of or behind the sketch. Drop a <strong>.ttf / .otf / .woff</strong> on the canvas for a custom face. Delete removes the selected block.</dd>
+                            <dd>Type lives in the top bar. Fill is the letter. Offset pushes a path off the letter. Back fills inside that path so you cannot see through it. Outline strokes the offset path. Layer puts type in front of or behind the sketch. Drop a <strong>.ttf / .otf / .woff</strong> on the canvas for a custom face. Delete removes the selected block.</dd>
                             <dt>Mirror</dt>
                             <dd>Duplicates strokes across the vertical and/or horizontal axis from the canvas center. The same two toggles sit in the Animation panel, so you can flip them while a composition is moving — the reflections pick up the motion too.</dd>
                             <dt>Stroke size</dt>
@@ -917,6 +921,7 @@
             typeFillColor: '#000000',
             typeStrokeColor: '#000000',
             typeOffsetColor: '#000000',
+            typeOffsetFill: '#ffffff',
             typeFontFamily: 'Helvetica, Arial, sans-serif',
             typeFontFile: null,
             typeLayer: 'front',
@@ -2094,7 +2099,8 @@
                 offsetStroke: state.typeOffsetStroke,
                 fillColor: state.typeFillColor,
                 strokeColor: state.typeStrokeColor,
-                offsetColor: state.typeOffsetColor
+                offsetColor: state.typeOffsetColor,
+                offsetFill: state.typeOffsetFill
             };
         }
 
@@ -2158,20 +2164,20 @@
                 c.miterLimit = 2;
                 const dist = Math.max(0, t.offset || 0);
                 const w = Math.max(0, t.offsetStroke || 0);
-                if (w > 0) {
-                    c.save();
-                    c.strokeStyle = t.offsetColor || state.typeOffsetColor || '#000000';
-                    c.lineWidth = dist * 2 + w;
-                    typeDrawString(c, t, 'stroke');
-                    c.globalCompositeOperation = 'destination-out';
-                    const punch = dist * 2 - w;
-                    if (punch > 0.5) {
-                        c.lineWidth = punch;
+                const backCol = t.offsetFill || state.typeOffsetFill || '#ffffff';
+                if (dist > 0 || w > 0) {
+                    if (w > 0) {
+                        c.strokeStyle = t.offsetColor || state.typeOffsetColor || '#000000';
+                        c.lineWidth = dist * 2 + w * 2;
                         typeDrawString(c, t, 'stroke');
                     }
-                    c.fillStyle = '#000';
+                    c.fillStyle = backCol;
+                    c.strokeStyle = backCol;
                     typeDrawString(c, t, 'fill');
-                    c.restore();
+                    if (dist > 0) {
+                        c.lineWidth = dist * 2;
+                        typeDrawString(c, t, 'stroke');
+                    }
                 }
                 if (t.fillOn !== false) {
                     c.fillStyle = t.fillColor || state.typeFillColor || '#000000';
@@ -2220,6 +2226,7 @@
             t.fillColor = state.typeFillColor;
             t.strokeColor = state.typeStrokeColor;
             t.offsetColor = state.typeOffsetColor;
+            t.offsetFill = state.typeOffsetFill;
         }
 
         function typeSyncPanel() {
@@ -2238,6 +2245,7 @@
             state.typeFillColor = t.fillColor || state.typeFillColor || '#000000';
             state.typeStrokeColor = t.strokeColor || state.typeStrokeColor || '#000000';
             state.typeOffsetColor = t.offsetColor || state.typeOffsetColor || '#000000';
+            state.typeOffsetFill = t.offsetFill || state.typeOffsetFill || '#ffffff';
             const textEl = el('el-type-text');
             if (textEl && textEl !== document.activeElement) textEl.value = t.text || '';
             const sizeEl = el('el-type-size');
@@ -2268,6 +2276,8 @@
             if (fillCol) fillCol.value = t.fillColor || state.typeFillColor || '#000000';
             const offCol = el('el-type-offset-color');
             if (offCol) offCol.value = t.offsetColor || state.typeOffsetColor || '#000000';
+            const backCol = el('el-type-offset-fill');
+            if (backCol) backCol.value = t.offsetFill || state.typeOffsetFill || '#ffffff';
         }
 
         function typeCommitPanel() {
@@ -3903,6 +3913,10 @@
         });
         el('el-type-offset-color')?.addEventListener('input', (e) => {
             state.typeOffsetColor = e.target.value;
+            typeCommitPanel();
+        });
+        el('el-type-offset-fill')?.addEventListener('input', (e) => {
+            state.typeOffsetFill = e.target.value;
             typeCommitPanel();
         });
         typeFontReset?.addEventListener('click', () => {
