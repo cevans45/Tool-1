@@ -3393,12 +3393,9 @@
         });
 
         markerEl?.addEventListener('change', (e) => {
+            // Marker is per-stroke. Changing it only affects what you draw next;
+            // already-drawn marks keep the texture they were made with.
             setMarker(e.target.value);
-            if (state.uiTab === 'generate') {
-                rerenderGenerateCurrent();
-            } else if (state.points.length) {
-                renderFromPoints(state.points);
-            }
         });
 
         fillEnabledEl?.addEventListener('change', (e) => {
