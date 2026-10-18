@@ -1120,7 +1120,10 @@
             cssWidth = wCss;
             cssHeight = hCss;
 
-            dpr = Math.max(1, window.devicePixelRatio || 1);
+            const rawDpr = Math.max(1, window.devicePixelRatio || 1);
+            // Live redraws the whole form every frame — cap backing-store size so a
+            // dense drawing doesn't fill a 3× retina buffer 60 times a second.
+            dpr = anim.active ? Math.min(1.5, rawDpr) : rawDpr;
 
             canvas.style.width = `${wCss}px`;
             canvas.style.height = `${hCss}px`;
@@ -1608,15 +1611,21 @@
         }
 
         function withPointOverrides(pt, fn) {
+            const originalMarker = state.marker;
+            if (pt && pt.marker != null) state.marker = pt.marker;
+            // Plain round strokes don't read Math.random — skip the override.
+            if (!pt || state.marker === 'none') {
+                fn();
+                state.marker = originalMarker;
+                return;
+            }
+
             const originalRandom = Math.random;
-            let rngState = pt.seed;
+            let rngState = (pt.seed != null) ? (pt.seed >>> 0) : 1;
             Math.random = () => {
                 rngState = (1664525 * rngState + 1013904223) >>> 0;
                 return rngState / 4294967296;
             };
-
-            const originalMarker = state.marker;
-            state.marker = pt.marker || state.marker;
 
             fn();
 
@@ -1655,7 +1664,7 @@
                 y, 
                 cumDist: state.strokeCumDist, 
                 speed: state.lastDrawSpeed,
-                marker: origP ? origP.marker : (markerVal || state.marker),
+                marker: (origP && origP.marker != null) ? origP.marker : (markerVal || state.marker),
                 seed: origP ? origP.seed : (seedVal != null ? seedVal : ((Math.random() * 0xFFFFFFFF) >>> 0))
             };
             state.points.push(p);
@@ -2014,12 +2023,12 @@
             warp: 0.12,    // rest displacement; audio distort stacks on top
             swell: 0.22,
             charge: 0,     // keep sketch fill / ink; no travelling heat tint
-            bleed: 0.38,
+            bleed: 0.16,
             jitter: 0.12,
             flicker: 0.08,
-            sparks: 0.12,
+            sparks: 0.08,
             crackle: 0.16,
-            trails: 0.18,
+            trails: 0,
             glow: 0,
             sparkColor: '#ffffff'
         };
@@ -2042,7 +2051,8 @@
             'flow', 'slither', 'coil', 'burst', 'swirl'  // travelling waves
         ];
 
-        const ANIM_MAX_SITES = 5000;
+        const ANIM_MAX_SITES = 360;
+        const ANIM_MAX_PTS = 1400;
         const ANIM_BLINK_OUT = 0.24;
         const ANIM_TAU = Math.PI * 2;
 
@@ -2169,6 +2179,11 @@
         }
 
         function animEnsureBuffers() {
+            if (anim.trails <= 0.01) {
+                animData.trail = null;
+                animData.trailCtx = null;
+                return;
+            }
             const w = canvas.width;
             const h = canvas.height;
             if (animData.trail && animData.trail.width === w && animData.trail.height === h) return;
@@ -2176,6 +2191,33 @@
             animData.trail.width = w;
             animData.trail.height = h;
             animData.trailCtx = animData.trail.getContext('2d');
+        }
+
+        /** Keep stroke endpoints, drop interior samples so Live isn't redrawing thousands of segs. */
+        function animThinSnap(snap, maxLive) {
+            let live = 0;
+            for (let i = 0; i < snap.length; i++) if (snap[i]) live++;
+            if (live <= maxLive) return snap;
+            const keepEvery = Math.ceil(live / maxLive);
+            const out = [];
+            let since = keepEvery;
+            for (let i = 0; i < snap.length; i++) {
+                const p = snap[i];
+                if (!p) {
+                    out.push(null);
+                    since = keepEvery;
+                    continue;
+                }
+                const first = !out.length || out[out.length - 1] == null;
+                const last = (i + 1 >= snap.length) || !snap[i + 1];
+                if (first || last || since >= keepEvery) {
+                    out.push(p);
+                    since = 1;
+                } else {
+                    since++;
+                }
+            }
+            return out;
         }
 
         /**
@@ -2228,7 +2270,9 @@
                         pb: b,
                         closeness,
                         s: (a.s + b.s) / 2,
-                        phase: animHash01(Math.imul(idx, 2654435761) + i)
+                        phase: animHash01(Math.imul(idx, 2654435761) + i),
+                        marker: (p.marker != null ? p.marker : prev.marker) || 'none',
+                        seed: p.seed != null ? p.seed : prev.seed
                     });
                 }
             }
@@ -2246,9 +2290,11 @@
 
         function animRebuild() {
             animEnsureBuffers();
-            const snap = state.points.slice();
-            animData.trailCtx.setTransform(1, 0, 0, 1, 0, 0);
-            animData.trailCtx.clearRect(0, 0, canvas.width, canvas.height);
+            const snap = animThinSnap(state.points.slice(), ANIM_MAX_PTS);
+            if (animData.trailCtx) {
+                animData.trailCtx.setTransform(1, 0, 0, 1, 0, 0);
+                animData.trailCtx.clearRect(0, 0, canvas.width, canvas.height);
+            }
 
             // Walk the path once: position along the drawing drives the travelling charge.
             let live = 0;
@@ -2258,9 +2304,13 @@
             const pts = [];
             const segs = [];
             let n = 0;
+            let strokeBreak = true;
             for (let i = 0; i < snap.length; i++) {
                 const p = snap[i];
-                if (!p) continue;
+                if (!p) {
+                    strokeBreak = true;
+                    continue;
+                }
                 const rec = {
                     x: p.x, y: p.y,
                     wx: p.x, wy: p.y, dx: 0, dy: 0,
@@ -2269,16 +2319,21 @@
                     a: 0,
                     s: live > 1 ? n / (live - 1) : 0,
                     phase: animHash01(Math.imul(n + 1, 1103515245)),
-                    id: n, srcIdx: i
+                    id: n, srcIdx: i,
+                    marker: p.marker != null ? p.marker : 'none',
+                    seed: p.seed
                 };
                 const prev = i > 0 ? snap[i - 1] : null;
-                if (prev && pts.length) {
+                if (prev && pts.length && !strokeBreak) {
                     const prevRec = pts[pts.length - 1];
                     const dist = Math.hypot(p.x - prev.x, p.y - prev.y);
                     if (dist) {
-                        // Everything scratchLine needs to reproduce this segment's original look.
+                        // Marker/seed frozen here so Live keeps the stroke as it was drawn,
+                        // even if the Marker dropdown has moved on.
                         segs.push({
                             a: prevRec, b: rec, dist, src: p,
+                            marker: rec.marker,
+                            seed: rec.seed,
                             cum1: prev.cumDist || 0,
                             cum2: p.cumDist || 0,
                             total: strokeDists ? (strokeDists[i] || 1e9) : 1e9,
@@ -2288,6 +2343,7 @@
                 }
                 pts.push(rec);
                 n++;
+                strokeBreak = false;
             }
 
             // Local normals and tangents, so a motion can push each point sideways off the path it
@@ -2800,56 +2856,134 @@
             }
         }
 
+        function animEachMirror(x, y, fn) {
+            fn(x, y);
+            if (state.mirrorEnabled) fn(cssWidth - x, y);
+            if (state.mirrorYEnabled) fn(x, cssHeight - y);
+            if (state.mirrorEnabled && state.mirrorYEnabled) fn(cssWidth - x, cssHeight - y);
+        }
+
+        function animStrokePoly(segs, i0, i1, width, stride, jittered) {
+            ctx.lineWidth = width;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            const flip = [];
+            flip.push(0);
+            if (state.mirrorEnabled) flip.push(1);
+            if (state.mirrorYEnabled) flip.push(2);
+            if (state.mirrorEnabled && state.mirrorYEnabled) flip.push(3);
+            for (let f = 0; f < flip.length; f++) {
+                const mode = flip[f];
+                const mx = (x) => (mode & 1) ? cssWidth - x : x;
+                const my = (y) => (mode & 2) ? cssHeight - y : y;
+                ctx.beginPath();
+                const p0 = segs[i0].a;
+                ctx.moveTo(mx(p0.wx), my(p0.wy));
+                let last = i0;
+                for (let k = i0; k < i1; k += stride) {
+                    const p = segs[k].b;
+                    let x = p.wx, y = p.wy;
+                    if (jittered) {
+                        x += (animHash01(p.id * 3 + 11) - 0.5) * width * 0.3;
+                        y += (animHash01(p.id * 7 + 29) - 0.5) * width * 0.3;
+                    }
+                    ctx.lineTo(mx(x), my(y));
+                    last = k;
+                }
+                if (last !== i1 - 1) {
+                    const p = segs[i1 - 1].b;
+                    ctx.lineTo(mx(p.wx), my(p.wy));
+                }
+                ctx.stroke();
+            }
+        }
+
+        function animStampTextured(segs, i0, i1, width, stride, marker, q) {
+            const dens = 0.4 + q * 0.6;
+            const step = marker === 'grain' ? 9 : (marker === 'sprinkle' ? 12 : 8);
+            const rBase = Math.max(0.55, width * (marker === 'grain' ? 0.2 : marker === 'grid' ? 0.38 : 0.42));
+            const grid = marker === 'grid' ? Math.max(4, Math.floor(width * 1.2)) : 0;
+            ctx.beginPath();
+            for (let k = i0; k < i1; k += stride) {
+                const sg = segs[k];
+                const x1 = sg.a.wx, y1 = sg.a.wy, x2 = sg.b.wx, y2 = sg.b.wy;
+                const len = sg.dist || Math.hypot(x2 - x1, y2 - y1) || 1;
+                const n = Math.max(1, Math.floor(len / step * dens));
+                for (let s = 0; s <= n; s++) {
+                    const t = n <= 0 ? 0.5 : s / n;
+                    let x = x1 + (x2 - x1) * t;
+                    let y = y1 + (y2 - y1) * t;
+                    if (marker === 'sprinkle' || marker === 'grain' || marker === 'inkblot') {
+                        x += (Math.random() - 0.5) * width * (marker === 'inkblot' ? 0.35 : 0.9);
+                        y += (Math.random() - 0.5) * width * (marker === 'inkblot' ? 0.35 : 0.9);
+                    }
+                    if (grid) {
+                        x = Math.round(x / grid) * grid;
+                        y = Math.round(y / grid) * grid;
+                    }
+                    const r = rBase * (0.75 + (marker === 'inkblot' ? 0.5 : 0.25) * Math.random());
+                    animEachMirror(x, y, (mx, my) => {
+                        if (grid) ctx.rect(mx - r, my - r, r * 2, r * 2);
+                        else {
+                            ctx.moveTo(mx + r, my);
+                            ctx.arc(mx, my, r, 0, ANIM_TAU);
+                        }
+                    });
+                }
+            }
+            ctx.fill();
+        }
+
         /**
-         * Redraw the composition along its warped course, pumping thickness and running the ink
-         * hot where the charge sits. Reuses scratchLine so every marker keeps its own texture,
-         * and feeds it the original per-segment taper and speed so the look is unchanged at rest.
+         * Live redraw: same markers as Sketch, but as polylines / batched stamps
+         * instead of the full multi-pass scratchLine (that path is for authoring).
          */
         function animDrawForm(cfg) {
             const segs = animData.segs;
             if (!segs.length) return;
 
             const baseBrush = state.brushSize;
-            const prevInk = state.inkColor;
-            const prevFill = state.fillColor;
-            const prevTaper = state.currentTaper;
-            const prevSpeed = state.currentSpeed;
-            const prevTotal = state.strokeTotalDist;
+            const ink = currentInkColor();
+            const q = animData.quality;
+            const stride = q >= 0.9 ? 1 : Math.max(1, Math.round(1.2 / q));
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.strokeStyle = ink;
+            ctx.fillStyle = ink;
+            ctx.shadowBlur = 0;
 
-            for (let i = 0; i < segs.length; i++) {
-                const sg = segs[i];
-                const a = (sg.a.a + sg.b.a) * 0.5;
+            let i = 0;
+            while (i < segs.length) {
+                const marker = segs[i].marker || 'none';
+                let j = i + 1;
+                while (j < segs.length && (segs[j].marker || 'none') === marker && segs[j].a === segs[j - 1].b) j++;
 
-                // Flicker only thins the form — it never punches holes in the drawing, and at zero
-                // it leaves the drawn thickness exactly alone.
+                let aSum = 0;
+                for (let k = i; k < j; k++) aSum += (segs[k].a.a + segs[k].b.a) * 0.5;
+                const a = aSum / (j - i);
                 const shimmer = cfg.flicker > 0.005
-                    ? 1 - (1 - animPresence(a, sg.b.id + 2000, cfg)) * 0.45
+                    ? 1 - (1 - animPresence(a, segs[i].b.id + 2000, cfg)) * 0.45
                     : 1;
                 const pump = 1 + cfg.swell * (a - 0.3) * 1.7;
-                state.brushSize = Math.max(0.2, baseBrush * pump * shimmer);
+                const width = Math.max(0.8, baseBrush * pump * shimmer);
 
-                state.currentTaper = { cumDist1: sg.cum1, cumDist2: sg.cum2, totalDist: sg.total };
-                state.currentSpeed = sg.speed;
-                state.strokeTotalDist = sg.total;
-
-                const sgRef = sg;
-                withPointOverrides(sg.src, () => {
-                    scratchLine(sgRef.a.wx, sgRef.a.wy, sgRef.b.wx, sgRef.b.wy, sgRef.dist, 0, 0);
-                });
+                if (marker === 'none' || marker === 'line') {
+                    animStrokePoly(segs, i, j, width, stride, marker === 'line');
+                } else {
+                    withPointOverrides({ marker: marker, seed: segs[i].seed }, () => {
+                        animStampTextured(segs, i, j, width, stride, marker, q);
+                    });
+                }
+                i = j;
             }
 
             state.brushSize = baseBrush;
-            state.inkColor = prevInk;
-            state.fillColor = prevFill;
-            state.currentTaper = prevTaper;
-            state.currentSpeed = prevSpeed;
-            state.strokeTotalDist = prevTotal;
         }
 
         /** Bleed: growth reaches across each gap as the charge arrives, then retracts behind it. */
         function animDrawBleed(cfg) {
             const sites = animData.sites;
-            if (!sites.length || cfg.bleed <= 0.005) return;
+            const q = animData.quality;
+            if (!sites.length || cfg.bleed <= 0.005 || q < 0.42) return;
 
             const reachAmt = cfg.bleed;
             const strokeR = state.brushSize * 3.5;
@@ -2858,7 +2992,7 @@
             ctx.shadowBlur = 0;
             ctx.fillStyle = currentInkColor();
 
-            const step = animData.quality >= 0.999 ? 1 : Math.max(1, Math.round(1 / animData.quality));
+            const step = q >= 0.9 ? 1 : Math.max(1, Math.round(1.4 / q));
             for (let k = 0; k < sites.length; k += step) {
                 const site = sites[k];
                 const a = animActivation(site.s, site.phase, site.id, cfg);
@@ -2873,46 +3007,48 @@
 
                 const growReach = Math.pow(site.closeness, 0.8) * (0.2 + reachAmt * 0.8) * (0.2 + a);
                 if (growReach < 0.02) continue;
-                const count = Math.max(1, Math.floor(site.closeness * (1 + a * (2 + reachAmt * 7))));
+                const count = Math.min(2, Math.max(1, Math.floor(site.closeness * (1 + a * 1.15))));
                 const rBase = strokeR * (0.18 + reachAmt * 0.4) * Math.pow(site.closeness, 0.5) * level;
 
-                for (let j = 0; j < count; j++) {
-                    const frac = (j + 0.2 + Math.random() * 0.6) / count;
+                withPointOverrides({ marker: site.marker, seed: site.seed }, () => {
+                    for (let j = 0; j < count; j++) {
+                        const frac = (j + 0.2 + Math.random() * 0.6) / count;
 
-                    const tA = frac * growReach;
-                    const jitA = (Math.random() - 0.5) * jitterAmt;
-                    const taperA = Math.pow(1 - tA / growReach, 0.6);
-                    drawStickyParticle(
-                        ax + (bx - ax) * tA + site.px * jitA,
-                        ay + (by - ay) * tA + site.py * jitA,
-                        Math.max(0.5, rBase * taperA)
-                    );
-
-                    const tB = (1 - frac) * growReach;
-                    const jitB = (Math.random() - 0.5) * jitterAmt;
-                    const taperB = Math.pow(1 - tB / growReach, 0.6);
-                    drawStickyParticle(
-                        bx + (ax - bx) * tB + site.px * jitB,
-                        by + (ay - by) * tB + site.py * jitB,
-                        Math.max(0.5, rBase * taperB)
-                    );
-
-                    if (Math.random() < site.closeness * 0.4 * a) {
-                        const branchT = tA * (0.2 + Math.random() * 0.6);
-                        const branchOff = (Math.random() - 0.5) * jitterAmt * 1.5;
+                        const tA = frac * growReach;
+                        const jitA = (Math.random() - 0.5) * jitterAmt;
+                        const taperA = Math.pow(1 - tA / growReach, 0.6);
                         drawStickyParticle(
-                            ax + (bx - ax) * branchT + site.px * branchOff,
-                            ay + (by - ay) * branchT + site.py * branchOff,
-                            Math.max(0.4, rBase * taperA * 0.6)
+                            ax + (bx - ax) * tA + site.px * jitA,
+                            ay + (by - ay) * tA + site.py * jitA,
+                            Math.max(0.5, rBase * taperA)
                         );
+
+                        const tB = (1 - frac) * growReach;
+                        const jitB = (Math.random() - 0.5) * jitterAmt;
+                        const taperB = Math.pow(1 - tB / growReach, 0.6);
+                        drawStickyParticle(
+                            bx + (ax - bx) * tB + site.px * jitB,
+                            by + (ay - by) * tB + site.py * jitB,
+                            Math.max(0.5, rBase * taperB)
+                        );
+
+                        if (q > 0.72 && Math.random() < site.closeness * 0.25 * a) {
+                            const branchT = tA * (0.2 + Math.random() * 0.6);
+                            const branchOff = (Math.random() - 0.5) * jitterAmt * 1.5;
+                            drawStickyParticle(
+                                ax + (bx - ax) * branchT + site.px * branchOff,
+                                ay + (by - ay) * branchT + site.py * branchOff,
+                                Math.max(0.4, rBase * taperA * 0.6)
+                            );
+                        }
                     }
-                }
+                });
             }
         }
 
         /** Sparks running downstream through the lines. */
         function animDrawSparks(cfg) {
-            if (cfg.sparks <= 0.01) return;
+            if (cfg.sparks <= 0.01 || animData.quality < 0.38) return;
             const segs = animData.segs;
             if (!segs.length) return;
 
@@ -3014,9 +3150,10 @@
                 ctx = mainCtx;
             }
 
-            animData.frameCost = animData.frameCost * 0.85 + (performance.now() - formStart) * 0.15;
-            if (animData.frameCost > 11) animData.quality = Math.max(0.2, animData.quality - 0.05);
-            else if (animData.frameCost < 7) animData.quality = Math.min(1, animData.quality + 0.02);
+            animData.frameCost = animData.frameCost * 0.8 + (performance.now() - formStart) * 0.2;
+            if (animData.frameCost > 12) animData.quality = Math.max(0.18, animData.quality - 0.1);
+            else if (animData.frameCost > 8) animData.quality = Math.max(0.22, animData.quality - 0.04);
+            else if (animData.frameCost < 5) animData.quality = Math.min(1, animData.quality + 0.03);
 
             if (useTrail) {
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -3048,6 +3185,7 @@
                 rx.form.scaleV = 0;
                 rx.form.rot = 0;
                 rx.form.rotV = 0;
+                resize();
                 animRebuild();
                 animData.lastTs = 0;
                 animData.dirty = true;
@@ -3067,6 +3205,7 @@
             animData.signature = '';
             animData.events.length = 0;
             animData.eventDue = 0;
+            resize();
             // Back to the untouched still composition.
             if (state.points.length) {
                 renderFromPoints(state.points);
