@@ -18,6 +18,7 @@
         <div class="app" aria-label="Sigil Pulse">
             <div id="sketch-container">
                 <canvas id="canvas"></canvas>
+                <div id="drop-overlay" hidden>Drop .ttf / .otf / .woff here</div>
             </div>
 
             <aside class="control-panel">
@@ -39,8 +40,10 @@
                             <dd>How visible the trace image is; 0 is invisible.</dd>
                             <dt>Image scale</dt>
                             <dd>100% fits the image within the canvas; lower zooms out, higher zooms in.</dd>
-                            <dt>DRAW / ERASE</dt>
-                            <dd>DRAW adds ink. ERASE removes with a soft cut (destination-out). Sketch tab only.</dd>
+                            <dt>DRAW / ERASE / TYPE</dt>
+                            <dd>DRAW adds ink. ERASE removes with a soft cut. TYPE — click the canvas to stamp the text as Sigil strokes (same marker, sticky, and mirrors as a drawn line). <strong>Stamp</strong> places it in the middle.</dd>
+                            <dt>Text</dt>
+                            <dd>What gets stamped. Size, spacing, and line height follow Typo. Align is relative to the click (or the canvas centre when you Stamp). Fill letters hatches the inside of each glyph. Drop a <strong>.ttf / .otf / .woff</strong> on the canvas to use a custom face.</dd>
                             <dt>Mirror</dt>
                             <dd>Duplicates strokes across the vertical and/or horizontal axis from the canvas center. The same two toggles sit in the Animation panel, so you can flip them while a composition is moving — the reflections pick up the motion too.</dd>
                             <dt>Stroke size</dt>
@@ -119,8 +122,46 @@
                                 <div class="mode-switch" style="width:100%; margin:0;">
                                     <button type="button" id="el-mode-ink" class="panel-button is-active">DRAW</button>
                                     <button type="button" id="el-mode-cut" class="panel-button">ERASE</button>
+                                    <button type="button" id="el-mode-type" class="panel-button">TYPE</button>
                                 </div>
                             </div>
+
+                            <div class="control-row control-row--stack" style="margin-bottom:8px;">
+                                <textarea id="el-type-text" rows="2" spellcheck="false" class="sg-textarea" aria-label="Text">SIGIL</textarea>
+                            </div>
+                            <div class="control-row">
+                                <label for="el-type-size">Type size</label>
+                                <input type="range" id="el-type-size" min="24" max="420" value="140" step="2">
+                                <span class="param-value" id="val-el-type-size">140</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="el-type-spacing">Spacing</label>
+                                <input type="range" id="el-type-spacing" min="-20" max="80" value="6" step="1">
+                                <span class="param-value" id="val-el-type-spacing">6</span>
+                            </div>
+                            <div class="control-row">
+                                <label for="el-type-line">Line height</label>
+                                <input type="range" id="el-type-line" min="0.7" max="2.4" value="1.1" step="0.05">
+                                <span class="param-value" id="val-el-type-line">1.10</span>
+                            </div>
+                            <div class="control-row">
+                                <label>Align</label>
+                                <div class="mode-switch mode-switch--full" id="el-type-align">
+                                    <button type="button" class="panel-button" data-align="left">L</button>
+                                    <button type="button" class="panel-button is-active" data-align="center">C</button>
+                                    <button type="button" class="panel-button" data-align="right">R</button>
+                                </div>
+                            </div>
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="el-type-fill">
+                                <span class="toggle-box"></span>
+                                <span class="cb-label">Fill letters</span>
+                            </label>
+                            <div class="control-row" style="gap:6px; margin-bottom:12px;">
+                                <button type="button" id="el-type-stamp" class="panel-button" style="flex:1;">Stamp</button>
+                            </div>
+                            <div id="el-type-font-hint" class="sg-font-hint">Drop a font on the canvas</div>
+                            <button type="button" id="el-type-font-reset" class="panel-button" hidden style="margin-bottom:10px;">Reset font</button>
 
                             <label class="checkbox-label">
                                 <input type="checkbox" id="el-mirror" checked>
@@ -207,7 +248,8 @@
                             <div class="shortcuts-block" style="margin-top:12px;">
                                 <span>[Space]</span> Clear canvas<br>
                                 <span>[⌘Z / Ctrl+Z]</span> Undo last stroke<br>
-                                <span>[Shift]</span> Horizontal / vertical only while drawing
+                                <span>[Shift]</span> Horizontal / vertical only while drawing<br>
+                                <span>[TYPE]</span> Click canvas to stamp text as strokes
                             </div>
                         </section>
                     </details>
@@ -451,6 +493,53 @@
             flex-shrink: 1;
             pointer-events: auto;
             background: transparent;
+            position: relative;
+        }
+
+        .app[aria-label="Sigil Pulse"] .control-row--stack {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 4px;
+        }
+        .app[aria-label="Sigil Pulse"] .sg-textarea {
+            width: 100%;
+            box-sizing: border-box;
+            resize: vertical;
+            min-height: 48px;
+            font-family: inherit;
+            font-size: 11px;
+            padding: 6px 8px;
+            border: 1px solid #000;
+            border-radius: 8px;
+            background: #fff;
+            color: #111;
+        }
+        .app[aria-label="Sigil Pulse"] .mode-switch--full {
+            width: 100%;
+            margin: 0;
+        }
+        .app[aria-label="Sigil Pulse"] .sg-font-hint {
+            font-size: 10px;
+            color: #666;
+            line-height: 1.35;
+            margin: 0 0 8px;
+        }
+        #drop-overlay {
+            position: absolute;
+            inset: 0;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+            background: rgba(0, 0, 0, 0.55);
+            border: 3px dashed rgba(255, 255, 255, 0.5);
+            pointer-events: none;
+            z-index: 10;
+            display: none;
+        }
+        #drop-overlay:not([hidden]) {
+            display: flex;
         }
 
         /* Wider sliders: widen the control panel + shrink the label column. */
@@ -601,6 +690,7 @@
 
         const btnInk = el('el-mode-ink');
         const btnCut = el('el-mode-cut');
+        const btnType = el('el-mode-type');
         const mirrorEl = el('el-mirror');
         const mirrorYEl = el('el-mirror-y');
         // The same two mirror toggles also live in the Animate panel.
@@ -631,7 +721,15 @@
         const state = {
             // Modes match reference: positive = ink, negative = cut
             mode: 'ink', // 'ink' | 'cut'
-            sketchMode: 'ink', // what Sketch tab uses (draw/erase)
+            sketchMode: 'ink', // 'ink' | 'cut' | 'type'
+            typeText: 'SIGIL',
+            typeSize: 140,
+            typeSpacing: 6,
+            typeLine: 1.1,
+            typeAlign: 'center',
+            typeFill: false,
+            typeFontFamily: 'Arial Black, Impact, sans-serif',
+            typeFontFile: null,
             mirrorEnabled: true,   // left-right
             mirrorYEnabled: false, // top-bottom
             brushSize: 6,
@@ -985,7 +1083,7 @@
             if (sketchWindow) sketchWindow.open = tab !== 'animate';
 
             if (modeRowEl) modeRowEl.style.display = tab === 'sketch' ? '' : 'none';
-            if (tab === 'sketch') setMode(state.sketchMode);
+            if (tab === 'sketch') setSketchTool(state.sketchMode);
             else setMode('ink');
 
             animSetActive(tab === 'animate');
@@ -1175,9 +1273,17 @@
         window.addEventListener('resize', () => requestAnimationFrame(resize));
 
         function setMode(mode) {
-            state.mode = mode;
-            btnInk.classList.toggle('is-active', mode === 'ink');
-            btnCut.classList.toggle('is-active', mode === 'cut');
+            state.mode = mode === 'cut' ? 'cut' : 'ink';
+            btnInk?.classList.toggle('is-active', state.sketchMode === 'ink');
+            btnCut?.classList.toggle('is-active', state.sketchMode === 'cut');
+            btnType?.classList.toggle('is-active', state.sketchMode === 'type');
+        }
+
+        function setSketchTool(tool) {
+            if (tool !== 'ink' && tool !== 'cut' && tool !== 'type') tool = 'ink';
+            state.sketchMode = tool;
+            setMode(tool === 'cut' ? 'cut' : 'ink');
+            canvas.style.cursor = tool === 'type' ? 'text' : 'crosshair';
         }
 
         /** Mirror is offered in both the Sketch and Animate panels, so both copies show the truth. */
@@ -1727,6 +1833,196 @@
             });
         }
 
+        function typeFontStr() {
+            return state.typeSize + 'px ' + state.typeFontFamily;
+        }
+
+        function typeMeasureLine(ctx2, line) {
+            let w = 0;
+            for (let i = 0; i < line.length; i++) {
+                w += ctx2.measureText(line[i]).width;
+                if (i < line.length - 1) w += state.typeSpacing;
+            }
+            return w;
+        }
+
+        const TYPE_MOORE = [[-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1]];
+
+        function typeTraceContours(bin, w, h) {
+            const seen = new Uint8Array(w * h);
+            const contours = [];
+            const on = (x, y) => x >= 0 && y >= 0 && x < w && y < h && !!bin[y * w + x];
+            const edge = (x, y) => on(x, y) && (!on(x - 1, y) || !on(x + 1, y) || !on(x, y - 1) || !on(x, y + 1));
+            for (let y = 0; y < h; y++) {
+                for (let x = 0; x < w; x++) {
+                    if (!edge(x, y) || seen[y * w + x]) continue;
+                    const path = [];
+                    let cx = x, cy = y, dir = 0, guard = w * h;
+                    do {
+                        path.push({ x: cx, y: cy });
+                        seen[cy * w + cx] = 1;
+                        let found = false;
+                        for (let k = 0; k < 8; k++) {
+                            const i = (dir + 6 + k) % 8;
+                            const nx = cx + TYPE_MOORE[i][0];
+                            const ny = cy + TYPE_MOORE[i][1];
+                            if (edge(nx, ny) && !seen[ny * w + nx]) {
+                                dir = i;
+                                cx = nx;
+                                cy = ny;
+                                found = true;
+                                break;
+                            }
+                            if (nx === x && ny === y && path.length > 8) {
+                                dir = i;
+                                cx = nx;
+                                cy = ny;
+                                found = true;
+                                break;
+                            }
+                        }
+                        if (!found) break;
+                    } while ((cx !== x || cy !== y) && --guard > 0);
+                    if (path.length >= 12) contours.push(path);
+                }
+            }
+            return contours;
+        }
+
+        function typeResample(path, step) {
+            if (path.length < 2) return path.slice();
+            const out = [{ x: path[0].x, y: path[0].y }];
+            let acc = 0;
+            for (let i = 1; i < path.length; i++) {
+                let x0 = path[i - 1].x, y0 = path[i - 1].y;
+                const x1 = path[i].x, y1 = path[i].y;
+                let dx = x1 - x0, dy = y1 - y0;
+                let dist = Math.hypot(dx, dy);
+                if (!dist) continue;
+                while (acc + dist >= step) {
+                    const t = (step - acc) / dist;
+                    x0 += dx * t;
+                    y0 += dy * t;
+                    out.push({ x: x0, y: y0 });
+                    dx = x1 - x0;
+                    dy = y1 - y0;
+                    dist = Math.hypot(dx, dy);
+                    acc = 0;
+                }
+                acc += dist;
+            }
+            const last = path[path.length - 1];
+            const tail = out[out.length - 1];
+            if (Math.hypot(last.x - tail.x, last.y - tail.y) > 0.6) out.push({ x: last.x, y: last.y });
+            return out;
+        }
+
+        function typeStrokePoints(pts) {
+            if (!pts || pts.length < 2) return;
+            state.strokeCumDist = 0;
+            state.strokeStartIdx = state.points.length;
+            state.lastDrawTime = performance.now();
+            state.lastDrawSpeed = 0.35;
+            state.currentSpeed = 0.35;
+            state.strokeTotalDist = 1e9;
+            state.currentTaper = { cumDist1: 0, cumDist2: 0, totalDist: 1e9 };
+            for (let i = 0; i < pts.length; i++) addPoint(pts[i].x, pts[i].y);
+            if (state.taperEnabled) finalizeStrokeTaper();
+            state.points.push(null);
+        }
+
+        function typeRasterGlyph(ch) {
+            const fs = state.typeSize;
+            const pad = Math.ceil(fs * 0.22);
+            const mc = document.createElement('canvas');
+            const mg = mc.getContext('2d');
+            mg.font = typeFontStr();
+            const gw = Math.max(4, Math.ceil(mg.measureText(ch).width));
+            const w = gw + pad * 2;
+            const h = Math.ceil(fs * 1.45);
+            mc.width = w;
+            mc.height = h;
+            mg.font = typeFontStr();
+            mg.fillStyle = '#000';
+            mg.textBaseline = 'alphabetic';
+            mg.textAlign = 'left';
+            mg.fillText(ch, pad, fs);
+            const img = mg.getImageData(0, 0, w, h);
+            const bin = new Uint8Array(w * h);
+            for (let i = 0; i < w * h; i++) bin[i] = img.data[i * 4 + 3] > 80 ? 1 : 0;
+            return { bin, w, h, pad, fs };
+        }
+
+        function typeStampGlyph(ch, originX, originY) {
+            if (!ch || ch === ' ') return;
+            const g = typeRasterGlyph(ch);
+            const step = Math.max(2.4, state.brushSize * 0.7);
+            const toWorld = (p) => ({
+                x: originX - g.pad + p.x,
+                y: originY - g.fs + p.y
+            });
+
+            const contours = typeTraceContours(g.bin, g.w, g.h);
+            for (let c = 0; c < contours.length; c++) {
+                const pts = typeResample(contours[c], step).map(toWorld);
+                typeStrokePoints(pts);
+            }
+
+            if (!state.typeFill) return;
+            const hatch = Math.max(2, Math.round(state.brushSize * 0.85));
+            for (let y = 2; y < g.h - 2; y += hatch) {
+                let x = 0;
+                while (x < g.w) {
+                    while (x < g.w && !g.bin[y * g.w + x]) x++;
+                    const x0 = x;
+                    while (x < g.w && g.bin[y * g.w + x]) x++;
+                    if (x - x0 < 4) continue;
+                    const run = [];
+                    for (let sx = x0; sx < x; sx += step) {
+                        run.push(toWorld({ x: sx, y: y + (Math.random() - 0.5) * 0.6 }));
+                    }
+                    run.push(toWorld({ x: x - 1, y: y }));
+                    typeStrokePoints(run);
+                }
+            }
+        }
+
+        function stampTypeAt(anchorX, anchorY) {
+            const raw = (state.typeText || '').replace(/\r/g, '');
+            const lines = raw.split('\n');
+            if (!lines.some((ln) => ln.length)) return;
+
+            pushUndoSnapshot();
+            state.selectionRng = Math.random;
+            const mc = document.createElement('canvas').getContext('2d');
+            mc.font = typeFontStr();
+            const fs = state.typeSize;
+            const lineH = fs * state.typeLine;
+            const lineWs = lines.map((ln) => typeMeasureLine(mc, ln));
+            const maxW = Math.max(0, ...lineWs);
+            const totalH = Math.max(fs, (lines.length - 1) * lineH + fs);
+            let left = anchorX;
+            if (state.typeAlign === 'center') left = anchorX - maxW / 2;
+            else if (state.typeAlign === 'right') left = anchorX - maxW;
+            const top = anchorY - totalH / 2;
+            const baseline0 = top + fs * 0.82;
+
+            for (let li = 0; li < lines.length; li++) {
+                const line = lines[li];
+                const lw = lineWs[li];
+                let x = left;
+                if (state.typeAlign === 'center') x = left + (maxW - lw) / 2;
+                else if (state.typeAlign === 'right') x = left + (maxW - lw);
+                const baseline = baseline0 + li * lineH;
+                for (let i = 0; i < line.length; i++) {
+                    const ch = line[i];
+                    const cw = mc.measureText(ch).width;
+                    if (ch !== ' ') typeStampGlyph(ch, x, baseline);
+                    x += cw + state.typeSpacing;
+                }
+            }
+        }
+
         // scratchLine already fills the space between samples. Ignoring sub-pixel
         // pointer chatter avoids redundant work without delaying visible movement.
         const DRAW_MIN_DIST = 1.25;
@@ -1734,6 +2030,12 @@
         function startDrawing(e) {
             if (state.uiTab !== 'sketch') return;
             if (e && e.button != null && e.button !== 0) return;
+            if (state.sketchMode === 'type') {
+                if (e && e.preventDefault) e.preventDefault();
+                const p = canvasCoordsFromEvent(e);
+                stampTypeAt(p.x, p.y);
+                return;
+            }
             if (state.isDrawing) return;
             if (e && e.preventDefault) e.preventDefault();
             state.isDrawing = true;
@@ -1982,8 +2284,7 @@
             const pushUndo = opts.pushUndo !== false;
             // Generate a single random "hand-like" drawing.
             // Generate always draws (no erase mode on this tab).
-            setMode('ink');
-            state.sketchMode = 'ink';
+            setSketchTool('ink');
 
             updateFilter();
 
@@ -3201,13 +3502,92 @@
             if (e.target === infoOverlay) infoOverlay.hidden = true;
         });
 
-        btnInk?.addEventListener('click', () => {
-            state.sketchMode = 'ink';
-            setMode('ink');
+        btnInk?.addEventListener('click', () => setSketchTool('ink'));
+        btnCut?.addEventListener('click', () => setSketchTool('cut'));
+        btnType?.addEventListener('click', () => setSketchTool('type'));
+
+        const typeTextEl = el('el-type-text');
+        const typeSizeEl = el('el-type-size');
+        const typeSizeVal = el('val-el-type-size');
+        const typeSpacingEl = el('el-type-spacing');
+        const typeSpacingVal = el('val-el-type-spacing');
+        const typeLineEl = el('el-type-line');
+        const typeLineVal = el('val-el-type-line');
+        const typeFillEl = el('el-type-fill');
+        const typeStampBtn = el('el-type-stamp');
+        const typeFontHint = el('el-type-font-hint');
+        const typeFontReset = el('el-type-font-reset');
+
+        typeTextEl?.addEventListener('input', () => { state.typeText = typeTextEl.value; });
+        typeSizeEl?.addEventListener('input', () => {
+            state.typeSize = clamp(parseFloat(typeSizeEl.value), 24, 420);
+            if (typeSizeVal) typeSizeVal.textContent = String(Math.round(state.typeSize));
         });
-        btnCut?.addEventListener('click', () => {
-            state.sketchMode = 'cut';
-            setMode('cut');
+        typeSpacingEl?.addEventListener('input', () => {
+            state.typeSpacing = parseFloat(typeSpacingEl.value);
+            if (typeSpacingVal) typeSpacingVal.textContent = String(Math.round(state.typeSpacing));
+        });
+        typeLineEl?.addEventListener('input', () => {
+            state.typeLine = parseFloat(typeLineEl.value);
+            if (typeLineVal) typeLineVal.textContent = state.typeLine.toFixed(2);
+        });
+        typeFillEl?.addEventListener('change', () => { state.typeFill = !!typeFillEl.checked; });
+        document.querySelectorAll('#el-type-align [data-align]').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('#el-type-align [data-align]').forEach((b) => b.classList.remove('is-active'));
+                btn.classList.add('is-active');
+                state.typeAlign = btn.getAttribute('data-align') || 'center';
+            });
+        });
+        typeStampBtn?.addEventListener('click', () => {
+            if (state.uiTab !== 'sketch') return;
+            stampTypeAt(cssWidth * 0.5, cssHeight * 0.5);
+        });
+        typeFontReset?.addEventListener('click', () => {
+            state.typeFontFamily = 'Arial Black, Impact, sans-serif';
+            state.typeFontFile = null;
+            if (typeFontHint) typeFontHint.textContent = 'Drop a font on the canvas';
+            if (typeFontReset) typeFontReset.hidden = true;
+        });
+
+        const sketchContainer = document.getElementById('sketch-container');
+        const dropOv = el('drop-overlay');
+        let typeDragN = 0;
+        sketchContainer?.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            typeDragN++;
+            if (dropOv) dropOv.hidden = false;
+        });
+        sketchContainer?.addEventListener('dragleave', () => {
+            typeDragN--;
+            if (typeDragN <= 0) {
+                typeDragN = 0;
+                if (dropOv) dropOv.hidden = true;
+            }
+        });
+        sketchContainer?.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        });
+        sketchContainer?.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            typeDragN = 0;
+            if (dropOv) dropOv.hidden = true;
+            const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+            if (!file || !/\.(ttf|otf|woff2?)$/i.test(file.name)) return;
+            try {
+                const buf = await file.arrayBuffer();
+                const name = 'SigilFont_' + Date.now();
+                const face = new FontFace(name, buf);
+                await face.load();
+                document.fonts.add(face);
+                state.typeFontFamily = name;
+                state.typeFontFile = file.name;
+                if (typeFontHint) typeFontHint.textContent = file.name;
+                if (typeFontReset) typeFontReset.hidden = false;
+            } catch (err) {
+                console.error('Font load failed:', err);
+            }
         });
         mirrorEl?.addEventListener('change', () => setMirror(mirrorEl.checked));
         mirrorYEl?.addEventListener('change', () => setMirrorY(mirrorYEl.checked));
@@ -3613,6 +3993,9 @@
         };
 
         window.addEventListener('keydown', (e) => {
+            const tag = (e.target && e.target.tagName) ? e.target.tagName.toLowerCase() : '';
+            if (tag === 'textarea' || tag === 'input' || tag === 'select') return;
+
             const key = (e.key || '').toLowerCase();
             if ((e.metaKey || e.ctrlKey) && key === 'z') {
                 e.preventDefault();
@@ -3628,7 +4011,7 @@
         });
 
         // init
-        setMode('ink');
+        setSketchTool('ink');
         setMarker(state.marker);
         if (stickyStrengthEl) stickyStrengthEl.value = String(state.stickyStrength);
         if (stickyStrengthVal) stickyStrengthVal.textContent = state.stickyStrength % 1 === 0 ? String(state.stickyStrength) : state.stickyStrength.toFixed(1);
