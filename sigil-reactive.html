@@ -77,6 +77,14 @@
                             <button type="button" class="panel-button" data-layer="back">BEHIND</button>
                         </div>
                     </div>
+                    <div class="typebar-item">
+                        <button type="button" class="panel-button is-active" id="el-type-wrap" title="On Live, the sigil closes in around the type and swallows its offset">WRAP</button>
+                    </div>
+                    <div class="typebar-item">
+                        <label for="el-type-sink">Sink</label>
+                        <input type="range" id="el-type-sink" min="0" max="100" value="65" step="1">
+                        <span class="param-value" id="val-el-type-sink">65</span>
+                    </div>
                     <div class="typebar-item typebar-font">
                         <div id="el-type-font-hint" class="sg-font-hint">Drop a font on the canvas</div>
                         <button type="button" id="el-type-font-reset" class="panel-button" hidden>Reset font</button>
@@ -85,6 +93,7 @@
             </div>
             <div class="pulse-main">
             <div id="sketch-container">
+                <canvas id="outline-canvas"></canvas>
                 <canvas id="canvas"></canvas>
                 <canvas id="type-canvas"></canvas>
                 <div id="drop-overlay" hidden>Drop .ttf / .otf / .woff here</div>
@@ -112,7 +121,7 @@
                             <dt>DRAW / ERASE / TYPE</dt>
                             <dd>DRAW and ERASE live on the right. TYPE is in the top bar — click empty canvas to add a block, drag to reposition. Sketching is locked while TYPE is on.</dd>
                             <dt>Text</dt>
-                            <dd>Type lives in the top bar. Fill is the letter. Offset pushes a path off the letter. Back fills inside that path so you cannot see through it. Outline strokes the offset path. Layer puts type in front of or behind the sketch. Drop a <strong>.ttf / .otf / .woff</strong> on the canvas for a custom face. Delete removes the selected block.</dd>
+                            <dd>Type lives in the top bar. Fill is the letter. Offset pushes a path off the letter. Back fills inside that path so you cannot see through it. Outline strokes the offset path. In Live, the letters and offset join the sigil: they ride the same motion, and the offset is a barrier the sketch wraps around. Layer puts type in front of or behind the sketch. <strong>WRAP</strong> — on Live the type sinks into the sigil: it moves with the form, and the sketch's own strokes get pulled in, bend around the letters and thicken until they close over the offset. The letters always stay clear. <strong>Sink</strong> sets how far the strokes reach in and how thick they pack; low-band growth surges it on each hit. With nothing selected, these settings restyle every block. Drop a <strong>.ttf / .otf / .woff</strong> on the canvas for a custom face. Delete removes the selected block.</dd>
                             <dt>Mirror</dt>
                             <dd>Duplicates strokes across the vertical and/or horizontal axis from the canvas center. The same two toggles sit in the Animation panel, so you can flip them while a composition is moving — the reflections pick up the motion too.</dd>
                             <dt>Stroke size</dt>
@@ -643,6 +652,12 @@
             position: relative;
             z-index: 1;
         }
+        #outline-canvas {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1;
+        }
         #type-canvas {
             position: absolute;
             inset: 0;
@@ -651,7 +666,8 @@
             pointer-events: none;
             z-index: 2;
         }
-        #sketch-container.is-type-behind #canvas {
+        #sketch-container.is-type-behind #canvas,
+        #sketch-container.is-type-behind #outline-canvas {
             z-index: 2;
         }
         #sketch-container.is-type-behind #type-canvas {
@@ -666,6 +682,9 @@
         }
         #sketch-container.is-type-tool #type-canvas.is-dragging {
             cursor: grabbing;
+        }
+        #sketch-container.is-live #type-canvas {
+            pointer-events: none;
         }
 
         #sketch-container {
@@ -767,11 +786,6 @@
             border-bottom: 1px solid #ddd;
         }
 
-        /* Jagged outline on the sketch only, so type stays crisp. */
-        #sketch-container[data-outline="true"] #canvas {
-            -webkit-filter: url(#jagged-edge);
-            filter: url(#jagged-edge);
-        }
 
 
         .rx-status {
@@ -862,11 +876,15 @@
 
         const canvas = document.getElementById('canvas');
         const typeCanvas = document.getElementById('type-canvas');
+        const outlineCanvas = document.getElementById('outline-canvas');
         let ctx = canvas.getContext('2d');
-        let typeCtx = typeCanvas ? typeCanvas.getContext('2d') : null;
+        const typeCtx = typeCanvas ? typeCanvas.getContext('2d') : null;
+        const olCtx = outlineCanvas ? outlineCanvas.getContext('2d') : null;
         let cssWidth = 1;
         let cssHeight = 1;
         let dpr = 1;
+        // Read by drawTypeLayer before the type section runs, so it must not be a TDZ binding.
+        var typeLiveXf = null;
 
         const el = (id) => document.getElementById(id);
 
@@ -925,6 +943,8 @@
             typeFontFamily: 'Helvetica, Arial, sans-serif',
             typeFontFile: null,
             typeLayer: 'front',
+            typeWrap: true,
+            typeSink: 0.65,
             texts: [],
             activeTextId: null,
             mirrorEnabled: true,   // left-right
@@ -997,6 +1017,7 @@
         // Growth is based on edge-to-edge distance, not center-to-center.
 
         function drawStickyParticle(cx, cy, r) {
+            markOutlineDirty();
             if (state.marker === 'grid') {
                 const gridSize = Math.max(4, Math.floor(state.brushSize * 1.2));
                 const jx = (Math.random() - 0.5) * r;
@@ -1280,6 +1301,7 @@
             if (sketchWindow) sketchWindow.open = tab !== 'animate';
 
             if (modeRowEl) modeRowEl.style.display = tab === 'sketch' ? '' : 'none';
+            document.getElementById('sketch-container')?.classList.toggle('is-live', tab === 'animate');
             if (tab === 'sketch') setSketchTool(state.sketchMode);
             else {
                 setMode('ink');
@@ -1289,6 +1311,8 @@
             }
 
             animSetActive(tab === 'animate');
+            applyTypeLayer();
+            updateFilterEnabled();
         }
 
         function drawTraceImage() {
@@ -1410,12 +1434,46 @@
             if (app) app.style.backgroundColor = state.bgColor;
         }
 
+        // Fill OFF draws the Outline ring on its own canvas under the sketch. A CSS SVG filter
+        // did the same job, but WebKit renders it at 1x and re-runs it every frame, and it had
+        // to be switched off on Live, so Outline colour silently stopped working there.
+        let outlineQueued = false;
+        // Live repaints the outline itself at the end of each frame, so it never lags the form.
+        var outlineDrivenByLive = false;
+
+        function paintOutline() {
+            if (!olCtx) return;
+            olCtx.setTransform(1, 0, 0, 1, 0, 0);
+            olCtx.globalCompositeOperation = 'source-over';
+            olCtx.clearRect(0, 0, outlineCanvas.width, outlineCanvas.height);
+            if (state.fillEnabled || state.outlineRadius <= 0) return;
+            const r = Math.max(0.5, state.outlineRadius * dpr);
+            const n = clamp(Math.round((Math.PI * 2 * r) / 2), 8, 24);
+            for (let i = 0; i < n; i++) {
+                const a = (i / n) * Math.PI * 2;
+                olCtx.drawImage(canvas, Math.cos(a) * r, Math.sin(a) * r);
+            }
+            olCtx.globalCompositeOperation = 'source-in';
+            olCtx.fillStyle = state.outlineColor;
+            olCtx.fillRect(0, 0, outlineCanvas.width, outlineCanvas.height);
+            // Ring only, so textured strokes do not show outline colour through their gaps.
+            olCtx.globalCompositeOperation = 'destination-out';
+            olCtx.drawImage(canvas, 0, 0);
+            olCtx.globalCompositeOperation = 'source-over';
+        }
+
+        function markOutlineDirty() {
+            if (outlineQueued || outlineDrivenByLive) return;
+            outlineQueued = true;
+            requestAnimationFrame(() => {
+                outlineQueued = false;
+                paintOutline();
+            });
+        }
+
         function updateFilterEnabled() {
-            // Fill ON = solid strokes, no SVG filter.
-            // Fill OFF = jagged-edge outline filter on the sketch canvas only.
-            const container = document.getElementById('sketch-container');
-            if (state.fillEnabled) container.removeAttribute('data-outline');
-            else container.setAttribute('data-outline', 'true');
+            if (outlineCanvas) outlineCanvas.style.display = state.fillEnabled ? 'none' : '';
+            markOutlineDirty();
         }
 
         function updateFilter() {
@@ -1446,7 +1504,7 @@
             cssWidth = wCss;
             cssHeight = hCss;
 
-            dpr = Math.max(1, window.devicePixelRatio || 1);
+            dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
 
             canvas.style.width = `${wCss}px`;
             canvas.style.height = `${hCss}px`;
@@ -1465,6 +1523,12 @@
                 typeCanvas.width = Math.floor(wCss * dpr);
                 typeCanvas.height = Math.floor(hCss * dpr);
                 if (typeCtx) typeCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            }
+            if (outlineCanvas) {
+                outlineCanvas.style.width = `${wCss}px`;
+                outlineCanvas.style.height = `${hCss}px`;
+                outlineCanvas.width = canvas.width;
+                outlineCanvas.height = canvas.height;
             }
             // Background is the browser white; the filter is on the sketch canvas.
             // We clear the canvas so CUT/UNDO behaves predictably.
@@ -1498,7 +1562,9 @@
 
         function applyTypeLayer() {
             const container = document.getElementById('sketch-container');
-            container?.classList.toggle('is-type-behind', state.typeLayer === 'back');
+            // Sinking only reads if the ink sits over the offset; the letters are kept clear anyway.
+            const sunk = state.uiTab === 'animate' && state.typeWrap;
+            container?.classList.toggle('is-type-behind', state.typeLayer === 'back' || sunk);
             document.querySelectorAll('#el-type-layer [data-layer]').forEach((b) => {
                 b.classList.toggle('is-active', b.getAttribute('data-layer') === state.typeLayer);
             });
@@ -1568,6 +1634,7 @@
             state.activeTextId = rec.activeTextId != null ? rec.activeTextId : null;
             typeSyncPanel();
             drawTypeLayer();
+            markOutlineDirty();
         }
 
         function getEventClientXY(e) {
@@ -1634,6 +1701,7 @@
         }
 
         function scratchLine(x1, y1, x2, y2, dist, stickyMv = 0, stickyT = 0) {
+            markOutlineDirty();
             const sty = MYCELIUM_STROKE;
             const mv = clamp(stickyMv, 0, 1);
             const t = clamp(stickyT, 0, 1);
@@ -2062,6 +2130,8 @@
 
         let typeIdSeq = 1;
         const typeDrag = { on: false, id: null, dx: 0, dy: 0, moved: false };
+        // Panel values at the last commit or sync, to tell which setting just changed.
+        let typePanelPrev = null;
 
         function typeFontStrFor(t) {
             return (t.size || 140) + 'px ' + (t.fontFamily || state.typeFontFamily);
@@ -2155,6 +2225,14 @@
             c.setTransform(1, 0, 0, 1, 0, 0);
             c.clearRect(0, 0, (exportDraw ? typeCanvas.width : typeCanvas.width), (exportDraw ? typeCanvas.height : typeCanvas.height));
             c.setTransform(dpr, 0, 0, dpr, 0, 0);
+            const xf = !exportDraw ? typeLiveXf : null;
+            if (xf) {
+                // Same pose as the sigil on Live, so the type rides the form instead of floating over it.
+                c.translate(xf.cx, xf.cy);
+                c.rotate(xf.rot);
+                c.scale(xf.scale, xf.scale);
+                c.translate(-xf.cx + xf.tx, -xf.cy + xf.ty);
+            }
             c.globalCompositeOperation = 'source-over';
             for (let i = 0; i < state.texts.length; i++) {
                 const t = state.texts[i];
@@ -2278,12 +2356,29 @@
             if (offCol) offCol.value = t.offsetColor || state.typeOffsetColor || '#000000';
             const backCol = el('el-type-offset-fill');
             if (backCol) backCol.value = t.offsetFill || state.typeOffsetFill || '#ffffff';
+            typePanelPrev = typeDefaults();
         }
 
         function typeCommitPanel() {
             const t = typeActive();
-            if (t) typeApplyPanelTo(t);
+            const now = typeDefaults();
+            if (t) {
+                typeApplyPanelTo(t);
+            } else {
+                // Nothing selected (TYPE off, or on Live): push only the settings that just
+                // changed to every block, so recolouring one thing does not also reset sizes.
+                // The words only follow when there is one block.
+                const prev = typePanelPrev || now;
+                const single = state.texts.length === 1;
+                for (const key in now) {
+                    if (now[key] === prev[key]) continue;
+                    if (key === 'text' && !single) continue;
+                    for (let i = 0; i < state.texts.length; i++) state.texts[i][key] = now[key];
+                }
+            }
+            typePanelPrev = now;
             drawTypeLayer();
+            if (state.uiTab === 'animate') animTouch();
         }
 
         function typeCreateAt(x, y) {
@@ -2312,6 +2407,7 @@
                 typeDrag.dy = p.y - hit.y;
                 typeDrag.moved = false;
                 typeCanvas?.classList.add('is-dragging');
+                updateFilterEnabled();
                 drawTypeLayer();
                 return;
             }
@@ -2324,6 +2420,7 @@
                 typeDrag.dy = 0;
                 typeDrag.moved = false;
                 typeCanvas?.classList.add('is-dragging');
+                updateFilterEnabled();
             }
         }
 
@@ -2346,6 +2443,7 @@
             typeDrag.on = false;
             typeDrag.id = null;
             typeCanvas?.classList.remove('is-dragging');
+            updateFilterEnabled();
         }
 
         // scratchLine already fills the space between samples. Ignoring sub-pixel
@@ -2371,6 +2469,7 @@
             state.currentTaper = { cumDist1: 0, cumDist2: 0, totalDist: 1e9 };
 
             const p = canvasCoordsFromEvent(e);
+            updateFilterEnabled();
             addPoint(p.x, p.y);
         }
 
@@ -2383,6 +2482,7 @@
                 }
                 state.points.push(null);
             }
+            updateFilterEnabled();
         }
 
         function commitDrawMove(x, y, shift) {
@@ -2629,24 +2729,11 @@
             outCtx.fillRect(0, 0, canvas.width, canvas.height);
 
             const paintSketch = () => {
-                if (state.fillEnabled) {
-                    outCtx.drawImage(canvas, 0, 0);
-                    return;
+                if (!state.fillEnabled && outlineCanvas) {
+                    paintOutline();
+                    outCtx.drawImage(outlineCanvas, 0, 0);
                 }
-                const strokeCanvas = document.createElement('canvas');
-                strokeCanvas.width = canvas.width;
-                strokeCanvas.height = canvas.height;
-                const sctx = strokeCanvas.getContext('2d');
-                sctx.drawImage(canvas, 0, 0);
-
-                const filterCanvas = document.createElement('canvas');
-                filterCanvas.width = canvas.width;
-                filterCanvas.height = canvas.height;
-                const fctx = filterCanvas.getContext('2d');
-                fctx.filter = 'url(#jagged-edge)';
-                fctx.drawImage(strokeCanvas, 0, 0);
-
-                outCtx.drawImage(filterCanvas, 0, 0);
+                outCtx.drawImage(canvas, 0, 0);
             };
             const paintType = () => {
                 if (!typeCanvas) return;
@@ -2657,7 +2744,7 @@
                 state.activeTextId = keep;
                 drawTypeLayer();
             };
-            if (state.typeLayer === 'back') {
+            if (state.typeLayer === 'back' || (state.uiTab === 'animate' && state.typeWrap)) {
                 paintType();
                 paintSketch();
             } else {
@@ -3033,6 +3120,7 @@
             animData.sites = animBuildSites(snap, pts);
             animData.signature = animSignature();
             animData.dirty = true;
+            typeBarrier.snap = true;
             // Let a new composition earn back full density instead of inheriting an old verdict.
             animData.quality = 1;
             animData.frameCost = 8;
@@ -3193,9 +3281,405 @@
             if (a.events.drop) rxSpawnImpulse(1, 1.35);
         }
 
+        // ─── Type in the sigil ─────────────────────────────────────────
+        // On Live the type is sunk into the composition by the sketch's own strokes: everything
+        // within reach of the letters is squeezed into a band hugging them, bent around each
+        // letter and fattened as it packs in, so the drawing itself closes over the type. The
+        // letters plus a thin margin are cut back out of the ink every frame so they stay
+        // readable whatever lands on them. Sink sets how far the drawing reaches in and how
+        // thick it packs; low-band growth surges it on each hit. The type takes the form's
+        // scale and rotation plus its own knock from each hit, and everything follows it.
+        const TYPE_BARRIER_CELL = 4;
+        const TYPE_LETTER_GAP = 3;
+        // Offset 0 still gets a band to sink into.
+        const TYPE_MIN_BAND = 16;
+        const typeBarrier = {
+            sig: '', gw: 0, gh: 0, sdfL: null, band: 0,
+            outer: 0, margin: 0, reach: 0, fat: 0, swirl: 0, phase: 0, snap: true
+        };
+        const typeMotion = { ox: 0, oy: 0, vx: 0, vy: 0 };
+
+        function typeBarrierSig() {
+            if (!state.typeWrap || !state.texts.length) return '';
+            let s = cssWidth + 'x' + cssHeight;
+            for (let i = 0; i < state.texts.length; i++) {
+                const t = state.texts[i];
+                s += '|' + [t.x, t.y, t.text, t.size, t.spacing, t.lineHeight, t.align,
+                    t.fontFamily, t.offset, t.offsetStroke].join(',');
+            }
+            return s;
+        }
+
+        function typeBarrierChamfer(d, gw, gh) {
+            const D = Math.SQRT2;
+            for (let y = 0; y < gh; y++) {
+                for (let x = 0; x < gw; x++) {
+                    const i = y * gw + x;
+                    let v = d[i];
+                    if (v === 0) continue;
+                    if (x > 0 && d[i - 1] + 1 < v) v = d[i - 1] + 1;
+                    if (y > 0) {
+                        const u = i - gw;
+                        if (d[u] + 1 < v) v = d[u] + 1;
+                        if (x > 0 && d[u - 1] + D < v) v = d[u - 1] + D;
+                        if (x < gw - 1 && d[u + 1] + D < v) v = d[u + 1] + D;
+                    }
+                    d[i] = v;
+                }
+            }
+            for (let y = gh - 1; y >= 0; y--) {
+                for (let x = gw - 1; x >= 0; x--) {
+                    const i = y * gw + x;
+                    let v = d[i];
+                    if (v === 0) continue;
+                    if (x < gw - 1 && d[i + 1] + 1 < v) v = d[i + 1] + 1;
+                    if (y < gh - 1) {
+                        const b = i + gw;
+                        if (d[b] + 1 < v) v = d[b] + 1;
+                        if (x < gw - 1 && d[b + 1] + D < v) v = d[b + 1] + D;
+                        if (x > 0 && d[b - 1] + D < v) v = d[b - 1] + D;
+                    }
+                    d[i] = v;
+                }
+            }
+        }
+
+        function typeBand(t) {
+            return Math.max(TYPE_MIN_BAND, Math.max(0, t.offset || 0) + Math.max(0, t.offsetStroke || 0));
+        }
+
+        /** Rasterise a shape on a coarse grid and turn it into a signed distance field in CSS px. */
+        function typeBarrierField(gw, gh, paint) {
+            const cell = TYPE_BARRIER_CELL;
+            const m = document.createElement('canvas');
+            m.width = gw;
+            m.height = gh;
+            const mc = m.getContext('2d', { willReadFrequently: true });
+            mc.scale(1 / cell, 1 / cell);
+            mc.fillStyle = '#000';
+            mc.strokeStyle = '#000';
+            mc.lineJoin = 'round';
+            mc.lineCap = 'round';
+            paint(mc);
+
+            const data = mc.getImageData(0, 0, gw, gh).data;
+            const n = gw * gh;
+            const BIG = 1e9;
+            const toIn = new Float32Array(n);
+            const toOut = new Float32Array(n);
+            for (let i = 0; i < n; i++) {
+                const inside = data[i * 4 + 3] > 127;
+                toIn[i] = inside ? 0 : BIG;
+                toOut[i] = inside ? BIG : 0;
+            }
+            typeBarrierChamfer(toIn, gw, gh);
+            typeBarrierChamfer(toOut, gw, gh);
+            const sdf = new Float32Array(n);
+            for (let i = 0; i < n; i++) {
+                sdf[i] = toIn[i] === 0 ? -(toOut[i] - 0.5) * cell : (toIn[i] - 0.5) * cell;
+            }
+            return sdf;
+        }
+
+        function buildTypeBarrier() {
+            const sig = typeBarrierSig();
+            if (sig === typeBarrier.sig) return;
+            typeBarrier.sig = sig;
+            typeBarrier.sdfL = null;
+            typeBarrier.snap = true;
+            if (!sig) return;
+
+            const cell = TYPE_BARRIER_CELL;
+            const gw = Math.ceil(cssWidth / cell) + 2;
+            const gh = Math.ceil(cssHeight / cell) + 2;
+            let band = 0;
+            for (let i = 0; i < state.texts.length; i++) band = Math.max(band, typeBand(state.texts[i]));
+            typeBarrier.sdfL = typeBarrierField(gw, gh, (mc) => {
+                for (let i = 0; i < state.texts.length; i++) typeDrawString(mc, state.texts[i], 'fill');
+            });
+            typeBarrier.gw = gw;
+            typeBarrier.gh = gh;
+            typeBarrier.band = band;
+        }
+
+        /** Signed distance in CSS px to the edge of `sdf`'s shape: negative inside. */
+        function typeBarrierSample(sdf, x, y) {
+            const cell = TYPE_BARRIER_CELL;
+            const gw = typeBarrier.gw;
+            const gh = typeBarrier.gh;
+            const gx = x / cell - 0.5;
+            const gy = y / cell - 0.5;
+            if (gx < 0 || gy < 0 || gx >= gw - 1 || gy >= gh - 1) return 1e9;
+            const x0 = gx | 0;
+            const y0 = gy | 0;
+            const fx = gx - x0;
+            const fy = gy - y0;
+            const i = y0 * gw + x0;
+            const a = sdf[i] + (sdf[i + 1] - sdf[i]) * fx;
+            const b = sdf[i + gw] + (sdf[i + gw + 1] - sdf[i + gw]) * fx;
+            return a + (b - a) * fy;
+        }
+
+        /** Unit gradient of `sdf` (points away from the shape), or the fallback when it is flat. */
+        function typeBarrierGrad(sdf, x, y, fbx, fby) {
+            const h = TYPE_BARRIER_CELL;
+            let gx = typeBarrierSample(sdf, x + h, y) - typeBarrierSample(sdf, x - h, y);
+            let gy = typeBarrierSample(sdf, x, y + h) - typeBarrierSample(sdf, x, y - h);
+            let len = Math.hypot(gx, gy);
+            if (!(len > 0.5) || len > 1e6) {
+                gx = fbx || 1;
+                gy = fby || 0;
+                len = Math.hypot(gx, gy) || 1;
+            }
+            return [gx / len, gy / len];
+        }
+
+        /**
+         * Walk a point until it sits at distance `level` from the shape, in short re-sampled
+         * steps: one straight step often stops short where the field's direction is ambiguous.
+         */
+        function typeBarrierWalk(sdf, x, y, level, fbx, fby) {
+            for (let it = 0; it < 16; it++) {
+                const diff = level - typeBarrierSample(sdf, x, y);
+                if (Math.abs(diff) < 0.25) break;
+                const g = typeBarrierGrad(sdf, x, y, fbx, fby);
+                const step = clamp(diff, -TYPE_BARRIER_CELL * 3, TYPE_BARRIER_CELL * 3);
+                x += g[0] * step;
+                y += g[1] * step;
+            }
+            return [x, y];
+        }
+
+        function animStepTypeMotion(cfg) {
+            const dt = Math.min(0.05, animData.dt || 0);
+            if (dt <= 0) return;
+            const ev = animData.events;
+            const t = animData.time;
+            const amp = 6 + cfg.warp * 16;
+            let tx = 0, ty = 0;
+            for (let k = 0; k < ev.length; k++) {
+                const e = ev[k];
+                const age = t - e.t0;
+                if (age < 0) continue;
+                const w = Math.exp(-age * e.decay);
+                tx += e.ax * e.mag * w * amp;
+                ty += e.ay * e.mag * w * amp;
+            }
+            const m = typeMotion;
+            m.vx += (tx - m.ox) * 140 * dt - m.vx * 7 * dt;
+            m.vy += (ty - m.oy) * 140 * dt - m.vy * 7 * dt;
+            m.ox += m.vx * dt;
+            m.oy += m.vy * dt;
+            const len = Math.hypot(m.ox, m.oy);
+            if (len > 45) {
+                const f = 45 / len;
+                m.ox *= f; m.oy *= f;
+                m.vx *= f; m.vy *= f;
+            }
+        }
+
+        /**
+         * Size the wrap for this frame. Everything within `reach` of the letters gets squeezed
+         * into the band between `margin` and `outer`, so the sigil's own strokes pile up around
+         * the type. Reach is eased so the drawing visibly gets sucked in and lets go with the beat.
+         */
+        function animApplyTypeBarrier(cfg) {
+            const sink = clamp(state.typeSink, 0, 1);
+            const growth = cfg.growth || 0;
+            const swell = cfg.swell || 0;
+            const band = typeBarrier.band;
+            const gap = TYPE_LETTER_GAP;
+            const margin = Math.max(gap, (band * 0.35 * (1 - sink) + gap) / (1 + growth * 0.6));
+            const outer = margin + band * (0.3 + sink * 1.5) * (1 + growth * 0.5 + swell * 0.15);
+            const reachTo = outer + (30 + sink * 210) * (1 + growth * 0.6 + swell * 0.2);
+
+            const snap = typeBarrier.snap || !anim.playing;
+            typeBarrier.snap = false;
+            const dt = Math.min(0.05, Math.max(0.001, rx.realDt || 0.016));
+            const k = snap ? 1 : 1 - Math.exp(-dt * 6);
+            typeBarrier.margin = margin;
+            typeBarrier.outer += (outer - typeBarrier.outer) * k;
+            typeBarrier.reach += (reachTo - typeBarrier.reach) * k;
+            typeBarrier.fat = sink * 4 * (1 + swell * 0.3 + growth * 0.4);
+            typeBarrier.swirl = (6 + band * 0.5) * (0.4 + sink * 0.6) * (1 + growth * 1.2);
+            typeBarrier.phase = animData.time * (0.7 + growth * 2);
+        }
+
+        const typeWrapOut = [0, 0, 0];
+
+        /**
+         * Where a point in type space lands once the wrap has it: [x, y, distance to letters].
+         * Stateless, so the in-between points of a segment can be mapped too and the stroke
+         * bends around each letter instead of cutting a chord across it.
+         */
+        function typeWrapMap(x, y) {
+            const W = typeBarrier;
+            const sdf = W.sdfL;
+            let sL = typeBarrierSample(sdf, x, y);
+            if (sL >= W.reach) {
+                typeWrapOut[0] = x; typeWrapOut[1] = y; typeWrapOut[2] = sL;
+                return typeWrapOut;
+            }
+            const margin = W.margin;
+            const u = clamp((sL - margin) / Math.max(1, W.reach - margin), 0, 1);
+            const e = clamp((u - 0.55) / 0.45, 0, 1);
+            const w = 1 - e * e * (3 - 2 * e);
+            if (W.swirl > 0.01 && w > 0.001) {
+                // Slide along the contour on a travelling wave, so the packed strokes crawl
+                // around the letters.
+                const g = typeBarrierGrad(sdf, x, y, 1, 0);
+                const d = W.swirl * w * Math.sin(x * 0.013 + y * 0.011 - W.phase);
+                x -= g[1] * d;
+                y += g[0] * d;
+                sL = typeBarrierSample(sdf, x, y);
+            }
+            const target = margin + (W.outer - margin) * u;
+            const level = sL < margin ? margin : sL + (target - sL) * w;
+            const q = typeBarrierWalk(sdf, x, y, level, 0, 0);
+            typeWrapOut[0] = q[0];
+            typeWrapOut[1] = q[1];
+            typeWrapOut[2] = level;
+            return typeWrapOut;
+        }
+
+        function typeApplyLiveXf(c, xf) {
+            c.setTransform(dpr, 0, 0, dpr, 0, 0);
+            c.translate(xf.cx, xf.cy);
+            c.rotate(xf.rot);
+            c.scale(xf.scale, xf.scale);
+            c.translate(-xf.cx + xf.tx, -xf.cy + xf.ty);
+        }
+
+        function typeWrapActive() {
+            return !!(typeBarrier.sdfL && typeLiveXf && typeBarrier.reach > 0);
+        }
+
+        const typeXfOut = [0, 0];
+
+        /** Screen position to the type's own frame, undoing the Live pose the type is drawn with. */
+        function typeToLocal(xf, X, Y) {
+            if (xf.cos === undefined) { xf.cos = Math.cos(xf.rot); xf.sin = Math.sin(xf.rot); }
+            const dx = (X - xf.cx) / xf.scale;
+            const dy = (Y - xf.cy) / xf.scale;
+            typeXfOut[0] = xf.cx + dx * xf.cos + dy * xf.sin - xf.tx;
+            typeXfOut[1] = xf.cy - dx * xf.sin + dy * xf.cos - xf.ty;
+            return typeXfOut;
+        }
+
+        function typeToScreen(xf, x, y) {
+            if (xf.cos === undefined) { xf.cos = Math.cos(xf.rot); xf.sin = Math.sin(xf.rot); }
+            const dx = (x + xf.tx - xf.cx) * xf.scale;
+            const dy = (y + xf.ty - xf.cy) * xf.scale;
+            typeXfOut[0] = xf.cx + dx * xf.cos - dy * xf.sin;
+            typeXfOut[1] = xf.cy + dx * xf.sin + dy * xf.cos;
+            return typeXfOut;
+        }
+
+        /** Mirror copies as flip bits (1 = left-right, 2 = top-bottom), the original first. */
+        function typeMirrorList() {
+            const out = [0];
+            if (state.mirrorEnabled) out.push(1);
+            if (state.mirrorYEnabled) out.push(2);
+            if (state.mirrorEnabled && state.mirrorYEnabled) out.push(3);
+            return out;
+        }
+
+        /**
+         * Draw one segment of the sigil through the wrap, for one mirror copy. Near the type it is
+         * split into short steps so it bends around the letters, and each step gets fatter the
+         * deeper it is packed in, so the strokes merge into the mass the type sinks into.
+         */
+        function typeDrawWrappedSeg(sg, flip, brush) {
+            const xf = typeLiveXf;
+            const W = typeBarrier;
+            const tp = state.currentTaper;
+            const c1 = sg.cum1;
+            const c2 = sg.cum2;
+            if (tp) { tp.cumDist1 = c1; tp.cumDist2 = c2; }
+            let ax = sg.a.wx, ay = sg.a.wy, bx = sg.b.wx, by = sg.b.wy;
+            if (flip & 1) { ax = cssWidth - ax; bx = cssWidth - bx; }
+            if (flip & 2) { ay = cssHeight - ay; by = cssHeight - by; }
+            let q = typeToLocal(xf, ax, ay);
+            const lax = q[0], lay = q[1];
+            q = typeToLocal(xf, bx, by);
+            const lbx = q[0], lby = q[1];
+            const len = Math.hypot(lbx - lax, lby - lay);
+            const sA = typeBarrierSample(W.sdfL, lax, lay);
+            const sB = typeBarrierSample(W.sdfL, lbx, lby);
+            if (Math.min(sA, sB) > W.reach + len * 0.5) {
+                state.brushSize = brush;
+                scratchLine(ax, ay, bx, by, sg.dist, 0, 0);
+                return;
+            }
+
+            const n = Math.min(48, Math.max(1, Math.ceil(len / 5)));
+            const maxStep = (len / n) * 4 + W.outer;
+            const cap = Math.max(brush, W.band * 0.8);
+            const span = Math.max(1, W.outer - W.margin);
+            let m = typeWrapMap(lax, lay);
+            let px = m[0], py = m[1], pl = m[2];
+            for (let j = 1; j <= n; j++) {
+                const u = j / n;
+                m = typeWrapMap(lax + (lbx - lax) * u, lay + (lby - lay) * u);
+                const cx = m[0], cy = m[1], cl = m[2];
+                // Ends that landed on opposite sides of a letter would cross it.
+                const crosses = typeBarrierSample(W.sdfL, (px + cx) * 0.5, (py + cy) * 0.5) < 0 ||
+                    Math.hypot(cx - px, cy - py) > maxStep;
+                if (!crosses) {
+                    const v = clamp(((pl + cl) * 0.5 - W.margin) / span, 0, 1);
+                    state.brushSize = Math.min(cap, brush * (1 + W.fat * Math.pow(1 - v, 1.5)));
+                    if (tp) {
+                        tp.cumDist1 = c1 + (c2 - c1) * (j - 1) / n;
+                        tp.cumDist2 = c1 + (c2 - c1) * u;
+                    }
+                    const s0 = typeToScreen(xf, px, py);
+                    const x0 = s0[0], y0 = s0[1];
+                    const s1 = typeToScreen(xf, cx, cy);
+                    scratchLine(x0, y0, s1[0], s1[1], sg.dist, 0, 0);
+                }
+                px = cx; py = cy; pl = cl;
+            }
+        }
+
+        /** Points follow their wrapped course too, so bleed and sparks stay on the strokes. */
+        function typeWrapPoints() {
+            if (!typeWrapActive()) return;
+            const xf = typeLiveXf;
+            const pts = animData.pts;
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                let q = typeToLocal(xf, p.wx, p.wy);
+                const m = typeWrapMap(q[0], q[1]);
+                if (m[2] >= typeBarrier.reach) continue;
+                q = typeToScreen(xf, m[0], m[1]);
+                p.wx = q[0];
+                p.wy = q[1];
+                p.dx = p.wx - p.x;
+                p.dy = p.wy - p.y;
+            }
+        }
+
+        /** Letters and their margin cut back out of the ink, so the type reads through the strokes. */
+        function animCutTypeLetters() {
+            const xf = typeLiveXf;
+            if (!typeBarrier.sdfL || !xf) return;
+            ctx.save();
+            typeApplyLiveXf(ctx, xf);
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.fillStyle = '#000';
+            ctx.strokeStyle = '#000';
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.lineWidth = typeBarrier.margin * 2;
+            for (let i = 0; i < state.texts.length; i++) {
+                typeDrawString(ctx, state.texts[i], 'fill');
+                typeDrawString(ctx, state.texts[i], 'stroke');
+            }
+            ctx.restore();
+        }
+
         function animApplyAudioForm() {
             const pts = animData.pts;
-            if (!pts.length) return;
             const dt = Math.min(0.05, Math.max(0.001, rx.realDt || 0.016));
             const targetScale = 1 + rxDrive('expand') * 0.5;
             const targetRot = rxDrive('rotate') * 0.42;
@@ -3242,7 +3726,14 @@
          */
         function animWarpPath(cfg) {
             const pts = animData.pts;
-            if (!pts.length) return;
+            if (!pts.length) {
+                // Type alone still rides the beat.
+                if (cfg.warp > 0.0002) animStepEvents(cfg, animData.dt);
+                else animData.events.length = 0;
+                animStepTypeMotion(cfg);
+                animApplyAudioForm();
+                return;
+            }
 
             // Every pass reads activation — form heat, bleed and sparks all ride it.
             for (let i = 0; i < pts.length; i++) {
@@ -3257,6 +3748,8 @@
                     p.wx = p.x; p.wy = p.y;
                 }
                 animData.events.length = 0;
+                animStepTypeMotion(cfg);
+                animApplyTypeBarrier(cfg);
                 animApplyAudioForm();
                 return;
             }
@@ -3277,6 +3770,8 @@
                 p.wx = p.x + p.dx;
                 p.wy = p.y + p.dy;
             }
+            animStepTypeMotion(cfg);
+            animApplyTypeBarrier(cfg);
             animApplyAudioForm();
         }
 
@@ -3519,6 +4014,15 @@
             const prevTaper = state.currentTaper;
             const prevSpeed = state.currentSpeed;
             const prevTotal = state.strokeTotalDist;
+            // With the wrap on, each mirror copy is drawn separately so every copy bends around
+            // the real type instead of mirroring the original's wrap onto empty canvas.
+            const flips = typeWrapActive() ? typeMirrorList() : null;
+            const prevMirX = state.mirrorEnabled;
+            const prevMirY = state.mirrorYEnabled;
+            if (flips) {
+                state.mirrorEnabled = false;
+                state.mirrorYEnabled = false;
+            }
 
             for (let i = 0; i < segs.length; i++) {
                 const sg = segs[i];
@@ -3541,9 +4045,16 @@
                     if (pump !== 1 || shimmer !== 1) {
                         state.brushSize = Math.max(0.2, baseBrush * pump * shimmer);
                     }
-                    scratchLine(sgRef.a.wx, sgRef.a.wy, sgRef.b.wx, sgRef.b.wy, sgRef.dist, 0, 0);
+                    if (!flips) {
+                        scratchLine(sgRef.a.wx, sgRef.a.wy, sgRef.b.wx, sgRef.b.wy, sgRef.dist, 0, 0);
+                        return;
+                    }
+                    const brush = state.brushSize;
+                    for (let f = 0; f < flips.length; f++) typeDrawWrappedSeg(sgRef, flips[f], brush);
                 });
             }
+            state.mirrorEnabled = prevMirX;
+            state.mirrorYEnabled = prevMirY;
             state.inkColor = prevInk;
             state.fillColor = prevFill;
             state.currentTaper = prevTaper;
@@ -3700,8 +4211,18 @@
             // The composition itself, redrawn along its warped course. Kept on the main canvas so
             // the form stays crisp while only the particles smear into the trail buffer.
             const formStart = performance.now();
+            buildTypeBarrier();
             animWarpPath(cfg);
+            if (state.texts.length) {
+                typeLiveXf = {
+                    cx: cssWidth * 0.5, cy: cssHeight * 0.5,
+                    rot: rx.form.rot, scale: rx.form.scale,
+                    tx: typeMotion.ox, ty: typeMotion.oy
+                };
+                drawTypeLayer();
+            }
             animDrawForm(cfg);
+            typeWrapPoints();
 
             const useTrail = anim.trails > 0.01;
             if (useTrail) {
@@ -3741,6 +4262,9 @@
                 ctx.drawImage(animData.trail, 0, 0);
                 ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             }
+            animCutTypeLetters();
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            paintOutline();
 
             if (anim.active && state.uiTab === 'animate') {
                 animData.raf = requestAnimationFrame(animFrame);
@@ -3761,6 +4285,10 @@
         function animSetActive(on) {
             if (anim.active === on) return;
             anim.active = on;
+            outlineDrivenByLive = on;
+            typeMotion.ox = 0; typeMotion.oy = 0;
+            typeMotion.vx = 0; typeMotion.vy = 0;
+            typeBarrier.sig = '';
             if (on) {
                 rx.form.scale = 1;
                 rx.form.scaleV = 0;
@@ -3785,6 +4313,8 @@
             animData.signature = '';
             animData.events.length = 0;
             animData.eventDue = 0;
+            typeLiveXf = null;
+            drawTypeLayer();
             // Back to the untouched still composition.
             if (state.points.length) {
                 renderFromPoints(state.points);
@@ -3907,6 +4437,18 @@
             if (out) out.textContent = state.typeOffsetStroke.toFixed(1);
             typeCommitPanel();
         });
+        el('el-type-wrap')?.addEventListener('click', () => {
+            state.typeWrap = !state.typeWrap;
+            el('el-type-wrap').classList.toggle('is-active', state.typeWrap);
+            applyTypeLayer();
+            animTouch();
+        });
+        el('el-type-sink')?.addEventListener('input', (e) => {
+            state.typeSink = parseFloat(e.target.value) / 100;
+            const out = el('val-el-type-sink');
+            if (out) out.textContent = String(Math.round(state.typeSink * 100));
+            animTouch();
+        });
         el('el-type-fill-color')?.addEventListener('input', (e) => {
             state.typeFillColor = e.target.value;
             typeCommitPanel();
@@ -3926,6 +4468,10 @@
             if (typeFontReset) typeFontReset.hidden = true;
             typeCommitPanel();
         });
+
+        // Clears and undo come from keys and clicks outside the stroke code.
+        window.addEventListener('keyup', markOutlineDirty);
+        window.addEventListener('pointerup', markOutlineDirty);
 
         typeCanvas?.addEventListener('mousedown', typePointerDown);
         window.addEventListener('mousemove', typePointerMove);
